@@ -128,7 +128,7 @@ export const DancerAppShell = () => {
         <Outlet />
       </div>
       {!focus && (
-        <nav className="da-tabs" aria-label="Dancer app" data-testid="dancer-app-tabs">
+        <nav className={ticketsOn ? 'da-tabs dt-tabs-5' : 'da-tabs'} aria-label="Dancer app" data-testid="dancer-app-tabs">
           {shellTabs(ticketsOn).map((tab) => (
             <ShellTab key={tab.id} tab={tab} isActive={active === tab.id} locked={tabsLocked && tab.id !== 'tickets'} guardRef={guardRef} />
           ))}

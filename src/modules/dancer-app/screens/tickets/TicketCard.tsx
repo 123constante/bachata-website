@@ -20,9 +20,10 @@ export default function TicketCard({ view, retry }: { view: CardView; retry: () 
 function CardState({ view, retry }: { view: Exclude<CardView, { kind: 'tickets' }>; retry: () => void }) {
   const line =
     view.kind === 'loading' ? CARD_COPY.loading
-      : view.kind === 'pending' ? CARD_COPY.pending
+      : view.kind === 'pending' ? (view.free ? CARD_COPY.pendingFree : CARD_COPY.pending)
+        : view.kind === 'paid_email' ? CARD_COPY.paidEmail
         : view.kind === 'processing' ? CARD_COPY.processing
-          : view.kind === 'failed' ? CARD_COPY.failed
+          : view.kind === 'failed' ? (view.free ? CARD_COPY.failedFree : CARD_COPY.failed)
             : view.kind === 'qr_error' ? CARD_COPY.qrError
               : CARD_COPY.none;
   return (
@@ -42,7 +43,8 @@ function TicketCarousel({ tickets }: { tickets: CardTicket[] }) {
   const [index, setIndex] = useState(0);
   const [door, setDoor] = useState(false);
   const n = tickets.length;
-  const t = tickets[Math.min(index, n - 1)];
+  const at = Math.min(index, n - 1);
+  const t = tickets[at];
   const code = doorCodeText(t.shortCode, ticketDoorCode);
   return (
     <section className="dt-card" data-testid="tickets-card" data-state="tickets">
@@ -59,7 +61,7 @@ function TicketCarousel({ tickets }: { tickets: CardTicket[] }) {
           <button type="button" className="dt-icon-btn" onClick={() => setIndex((i) => stepTicket(i, -1, n))} aria-label="Previous ticket" data-testid="tickets-card-prev">
             <ChevronLeft aria-hidden="true" style={{ width: 20, height: 20 }} />
           </button>
-          <span className="dt-count" aria-live="polite" data-testid="tickets-card-count">{ticketCountLine(index, n)}</span>
+          <span className="dt-count" aria-live="polite" data-testid="tickets-card-count">{ticketCountLine(at, n)}</span>
           <button type="button" className="dt-icon-btn" onClick={() => setIndex((i) => stepTicket(i, 1, n))} aria-label="Next ticket" data-testid="tickets-card-next">
             <ChevronRight aria-hidden="true" style={{ width: 20, height: 20 }} />
           </button>

@@ -44,3 +44,5 @@
 [data-profile="dancer"] .dt-chip { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; border: 1px solid var(--da-border); background: var(--da-surface-2); color: var(--da-text); font-size: 14px; font-weight: 600; text-decoration: none; }
 [data-profile="dancer"] .dt-chip[aria-pressed="true"] { border-color: var(--da-accent); }
 [data-profile="dancer"] .dt-sheet-soon { font-size: 13px; margin: 10px 0 0; color: var(--da-text-muted); }
+/* Five tabs while ticketing is on (Tickets first): one row, never a wrap. */
+[data-profile="dancer"] .da-tabs.dt-tabs-5 { grid-template-columns: repeat(5, 1fr); }

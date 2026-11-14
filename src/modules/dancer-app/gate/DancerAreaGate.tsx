@@ -25,7 +25,9 @@ export const DancerAreaGate = ({ children }: { children: ReactNode }) => {
   }
   if (area.status === 'error' || !area.allowed) {
     if (admitsViewOnly(pathname, flags.publicTicketing)) {
-      return <ViewOnlyContext.Provider value>{children}</ViewOnlyContext.Provider>;
+      // A failed gate read is not a 'no': the person is admitted to the tickets route only, but not
+      // marked view-only, so a finished dancer is never shown as locked out by a network blip.
+      return <ViewOnlyContext.Provider value={area.status !== 'error'}>{children}</ViewOnlyContext.Provider>;
     }
     return <Navigate to={ACCOUNT_HOME_PATH} replace />;
   }

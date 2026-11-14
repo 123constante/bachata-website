@@ -43,7 +43,10 @@ export function thanksRedirectTarget(search: string): string {
 
 export default function TicketThanksPage() {
   const [params] = useSearchParams();
-  const { user } = useAuth();
+  const { user, authStatus } = useAuth();
+  // Wait for the session to restore before deciding: a signed-in buyer back from Stripe must not
+  // mount the guest page first (it would clear the stored order id).
+  if (flags.publicTicketing && authStatus === 'resolving') return null;
   if (flags.publicTicketing && user && !user.is_anonymous) return <Navigate to={thanksRedirectTarget(params.toString())} replace />;
   return <ThanksPageBody />;
 }

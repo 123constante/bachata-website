@@ -47,10 +47,12 @@ export function useTicketCard(): { view: CardView; retry: () => void } {
       ? 'paid'
       : reading?.status === 'failed'
         ? 'failed'
-        : gaveUp
+        : gaveUp || (reading?.status === 'unknown' && !reading.retryLater)
           ? 'processing'
           : 'checking';
-  const step: CardView | 'read_qr' = orderId && !reading ? { kind: 'loading' } : orderCardView(state, reading?.eventId ?? null);
+  // free=1 is only believed alongside a real order id in the URL (as on the thank-you page).
+  const free = urlOk && params.get('free') === '1';
+  const step: CardView | 'read_qr' = orderId && !reading ? { kind: 'loading' } : orderCardView(state, reading?.eventId ?? null, free);
   const needsRead = step === 'read_qr' || step.kind === 'none';
 
   const [attempt, setAttempt] = useState(0);
@@ -64,8 +66,9 @@ export function useTicketCard(): { view: CardView; retry: () => void } {
     if (orderId) {
       void fetchOrderQr(orderId).then((r) => {
         if (!live) return;
-        if (r.kind === 'ok') setLoaded(r.tickets.length ? { kind: 'tickets', tickets: r.tickets.map((t) => ({ ...t, eventTitle: title, eventDate: date })) } : { kind: 'none' });
-        else setLoaded(r.kind === 'signed_out' ? { kind: 'none' } : { kind: 'qr_error' });
+        // Paid but no QR rows for this account (a guest order, or tickets not issued yet): the email is certain.
+        if (r.kind === 'ok') setLoaded(r.tickets.length ? { kind: 'tickets', tickets: r.tickets.map((t) => ({ ...t, eventTitle: title, eventDate: date })) } : { kind: 'paid_email' });
+        else setLoaded(r.kind === 'signed_out' ? { kind: 'paid_email' } : { kind: 'qr_error' });
       });
     } else {
       void fetchMyTickets().then((r) => {

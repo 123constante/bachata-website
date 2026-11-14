@@ -4,16 +4,17 @@
  * these directly.
  */
 import type { OrderQrTicket } from '@/modules/tickets/myTicketsModel';
-import type { ThanksOrderState } from '@/modules/tickets/ticketCheckoutModel';
+import { thanksCopy, type ThanksOrderState } from '@/modules/tickets/ticketCheckoutModel';
 
 /** One ticket in the card: the order QR row, plus what only the full-screen door view shows. */
 export type CardTicket = OrderQrTicket & { eventTitle: string | null; eventDate: string | null };
 
 export type CardView =
   | { kind: 'loading' }
-  | { kind: 'pending' }
+  | { kind: 'pending'; free: boolean }
   | { kind: 'processing' }
-  | { kind: 'failed'; eventId: string | null }
+  | { kind: 'paid_email' }
+  | { kind: 'failed'; eventId: string | null; free: boolean }
   | { kind: 'qr_error' }
   | { kind: 'none' }
   | { kind: 'tickets'; tickets: CardTicket[] };
@@ -22,8 +23,12 @@ export type CardView =
 export const CARD_COPY = {
   loading: 'Getting your tickets\u2026',
   pending: 'Confirming your payment\u2026 This takes a few seconds.',
-  processing: 'Your order is still processing. Your tickets will arrive by email in a few minutes.',
+  pendingFree: 'Getting your free tickets ready\u2026 This takes a few seconds.',
+  // The thank-you page's own words (thanksCopy): one copy of what processing and paid-by-email say.
+  processing: thanksCopy(false, 'processing').body,
+  paidEmail: thanksCopy(false, 'paid').title,
   failed: 'Your payment didn\u2019t go through, so no tickets were issued.',
+  failedFree: 'This order didn\u2019t go through, so no tickets were issued.',
   failedLink: 'Back to the event to try again',
   qrError: 'We couldn\u2019t load your door codes just now. Your tickets are in your email.',
   retry: 'Try again',
@@ -31,12 +36,12 @@ export const CARD_COPY = {
 } as const;
 
 /** The order states the thank-you page already reads (ThanksOrderState), mapped onto the card; paid goes on to the QR read. */
-export function orderCardView(state: ThanksOrderState, eventId: string | null): CardView | 'read_qr' {
+export function orderCardView(state: ThanksOrderState, eventId: string | null, free = false): CardView | 'read_qr' {
   if (state === 'paid') return 'read_qr';
-  if (state === 'failed') return { kind: 'failed', eventId };
+  if (state === 'failed') return { kind: 'failed', eventId, free };
   if (state === 'processing') return { kind: 'processing' };
   if (state === 'none') return { kind: 'none' };
-  return { kind: 'pending' };
+  return { kind: 'pending', free };
 }
 
 /** "Ticket k of N" for ALL N (no cap). */

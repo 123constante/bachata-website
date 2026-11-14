@@ -12,6 +12,8 @@ export function useOrderStatus(orderId: string | null): { reading: OrderStatusRe
   const [reading, setReading] = useState<OrderStatusReading | null>(null);
   const [gaveUp, setGaveUp] = useState(false);
   useEffect(() => {
+    setReading(null);
+    setGaveUp(false);
     if (!orderId) return;
     let live = true;
     let timer: ReturnType<typeof setTimeout> | undefined;

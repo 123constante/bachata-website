@@ -19,9 +19,14 @@ export const FINISH_BAR = 'Finish your profile to unlock the rest';
  * tapping it opens the same "What are you?" sheet. Fits 390x844 with no scroll.
  */
 export default function TicketsScreen() {
+  // Flag first: with ticketing off nothing below runs (no order read, the stored id kept).
+  if (!flags.publicTicketing) return <Navigate to={DANCER_HOME} replace />;
+  return <TicketsBody />;
+}
+
+function TicketsBody() {
   const sheet = useProfileSheet();
   const { view, retry } = useTicketCard();
-  if (!flags.publicTicketing) return <Navigate to={DANCER_HOME} replace />;
   return (
     <div className="dt-screen" data-testid="tickets-screen">
       <h1 className="sr-only">Tickets</h1>

@@ -187,6 +187,21 @@ describe('card states', () => {
     await waitFor(() => expect(screen.getByTestId('tickets-card').getAttribute('data-state')).toBe('processing'));
     expect(api.status).toHaveBeenCalledTimes(9);
   });
+  it.each([
+    ['a free pending order', `?o=${ORDER}&free=1`, reading('pending'), 'pending', 'free tickets'],
+    ['a non-retryable unknown reading', `?o=${ORDER}`, reading('unknown'), 'processing', 'still processing'],
+  ])('%s', async (_l, q, r, state, words) => {
+    api.status.mockResolvedValue(r);
+    renderInShell({ path: `/app/tickets${q}` });
+    await waitFor(() => expect(screen.getByTestId('tickets-card').getAttribute('data-state')).toBe(state));
+    expect(screen.getByTestId('tickets-card').textContent).toContain(words);
+  });
+  it('paid, but no QR rows for this account -> confirmed, in your email (never "no order")', async () => {
+    api.order.mockResolvedValue({ kind: 'ok', tickets: [] });
+    renderInShell({ path: `/app/tickets?o=${ORDER}` });
+    await waitFor(() => expect(screen.getByTestId('tickets-card').getAttribute('data-state')).toBe('paid_email'));
+    expect(screen.getByTestId('tickets-card').textContent).toBe('Confirmed. Your tickets are in your email.');
+  });
   it('no order on this device', async () => {
     renderInShell({ path: '/app/tickets' });
     await waitFor(() => expect(screen.getByTestId('tickets-card').getAttribute('data-state')).toBe('none'));
