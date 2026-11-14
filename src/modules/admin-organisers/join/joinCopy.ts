@@ -86,6 +86,25 @@ export const JOIN_COPY = {
     photoHint: 'Head and shoulders. People see it next to your events.',
   },
 
+  // Claim-first (flags.claimFirstInvite): the organisation is shown FIRST, before anything about the person.
+  claim: {
+    tag: 'Your organisation',
+    heading: 'You are taking over this organisation',
+    invitedBy: (inviter: string | null) => (inviter ? `${inviter} from Bachata Calendar sent you this link.` : 'Bachata Calendar sent you this link.'),
+    body: `Next we${APOS}ll ask a little about you, the person who runs it. Your own name, not the organisation${APOS}s.`,
+    button: `Yes, that${APOS}s mine. Continue`,
+    notYours: `Not yours? Message us on WhatsApp`,
+  },
+  // Claim-first About: a separate step about the PERSON (the real case: an invitee typed the organisation as their name).
+  aboutYou: {
+    heading: 'Now about you',
+    lead: (org: string) => `This is about you, the person. ${org} stays the organisation${APOS}s name.`,
+    firstName: 'Your own first name',
+    firstNameHelp: (org: string) => `Like Maria or Carlos. Not ${org}.`,
+    // Typed exactly the organisation's name: Continue stays off and this says why.
+    sameAsOrg: (org: string) => `${org} is the organisation${APOS}s name. Please type your own first name.`,
+  },
+
   join: {
     heading: (org: string) => `Join ${org}?`,
     card: (org: string) => `Join ${possessive(org)} team. You${APOS}ll finish a few details about you and the page, then you can add and edit events.`,
