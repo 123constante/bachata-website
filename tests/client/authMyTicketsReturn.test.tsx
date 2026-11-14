@@ -11,7 +11,7 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
-import { installJsdomPolyfills } from '../../../tests/client/jsdomPolyfills';
+import { installJsdomPolyfills } from './jsdomPolyfills';
 
 const signInWithOtp = vi.hoisted(() => vi.fn());
 const getSession = vi.hoisted(() => vi.fn());
@@ -55,8 +55,8 @@ vi.mock('@/hooks/use-toast', () => ({ toast: vi.fn(), useToast: () => ({ toast: 
 vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { children: ReactNode }) => <>{children}</> }));
 vi.mock('@/components/ui/city-picker', () => ({ CityPicker: () => <div /> }));
 
-import Auth from '../Auth';
-import AuthCallback from '../AuthCallback';
+import Auth from '@/pages/Auth';
+import AuthCallback from '@/pages/AuthCallback';
 import { MY_TICKETS_PATH } from '@/modules/tickets/myTicketsModel';
 import { isTaskReturnTo } from '@/lib/auth-otp-routing';
 import { sanitizeReturnTo } from '@/lib/authRouting';
