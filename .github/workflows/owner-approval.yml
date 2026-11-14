@@ -60,12 +60,16 @@ jobs:
             const kind = process.env.CODE === '1'
               ? 'Risky change on main without owner approval'
               : 'Owner-approval audit could not run';
-            await github.rest.issues.create({
-              ...context.repo,
-              title: `${kind} (${process.env.SHA.slice(0, 8)})`,
-              body: fs.readFileSync('audit.txt', 'utf8') +
-                `\n\nCommit: ${process.env.SHA}. Review it, or approve/revert. Raised by .github/workflows/owner-approval.yml.`,
-            });
+            // One rolling issue per kind, not one per commit: the alarm stays, the noise goes.
+            const title = `${kind} (rolling)`;
+            const line = `- ${process.env.SHA.slice(0, 8)}: ${fs.readFileSync('audit.txt', 'utf8').split(String.fromCharCode(10)).filter(Boolean).join(' | ').slice(0, 600)}`;
+            const open = await github.rest.issues.listForRepo({ ...context.repo, state: 'open', per_page: 100 });
+            const found = open.data.find((i) => i.title === title && !i.pull_request);
+            if (found) {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: found.number, body: line });
+            } else {
+              await github.rest.issues.create({ ...context.repo, title, body: line + `${String.fromCharCode(10)}${String.fromCharCode(10)}Raised by .github/workflows/owner-approval.yml. Further commits are added as comments; close when reviewed.` });
+            }
       - name: Fail the run on RED or infra
         if: steps.audit.outputs.code != '0'
         run: exit 1
