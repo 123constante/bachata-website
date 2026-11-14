@@ -5,19 +5,23 @@ import DoorCodeLine from '@/modules/tickets/DoorCodeLine';
 import QrCode from '@/modules/tickets/TicketQrCode';
 import { doorCodeText } from '@/modules/tickets/myTicketsModel';
 import { ticketDoorCode } from '@/modules/organiser/p3/door/doorFlags';
-import { CARD_COPY, doorDate, stepTicket, ticketCountLine, type CardTicket, type CardView } from './model';
+import { doorDate, stepTicket, ticketCountLine } from './cardKit';
+import type { CARD_COPY as CardCopy, CardTicket, CardView } from './model';
+
+// The copy arrives as a prop (type-only import above): importing the value would pull ./model into this lazy chunk.
+type Copy = typeof CardCopy;
 
 /**
  * The QR card at the top of the Tickets tab (its own lazy chunk: the QR generator never lands
  * on a first load). One QR at a time, arrows and "Ticket k of N" for ALL N. Tap the QR for the
  * full-screen door view, the only place the event name and date show. No buyer name or email.
  */
-export default function TicketCard({ view, retry }: { view: CardView; retry: () => void }) {
-  if (view.kind !== 'tickets') return <CardState view={view} retry={retry} />;
+export default function TicketCard({ view, retry, copy }: { view: CardView; retry: () => void; copy: Copy }) {
+  if (view.kind !== 'tickets') return <CardState view={view} retry={retry} copy={copy} />;
   return <TicketCarousel tickets={view.tickets} />;
 }
 
-function CardState({ view, retry }: { view: Exclude<CardView, { kind: 'tickets' }>; retry: () => void }) {
+function CardState({ view, retry, copy: CARD_COPY }: { view: Exclude<CardView, { kind: 'tickets' }>; retry: () => void; copy: Copy }) {
   const line =
     view.kind === 'loading' ? CARD_COPY.loading
       : view.kind === 'pending' ? (view.free ? CARD_COPY.pendingFree : CARD_COPY.pending)

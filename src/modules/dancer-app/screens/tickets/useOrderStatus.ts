@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { MAX_ORDER_POLLS, pollDelayMs, type OrderStatusReading } from './ticketCheckoutModel';
-import { readOrderStatus } from './ticketCheckoutApi';
+import { MAX_ORDER_POLLS, pollDelayMs, type OrderStatusReading } from '@/modules/tickets/ticketCheckoutModel';
+import { readOrderStatus } from '@/modules/tickets/ticketCheckoutApi';
 
 /**
  * The order read the thank-you page and the dancer app's Tickets tab share: first read now,

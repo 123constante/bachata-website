@@ -1,11 +1,10 @@
 import { Suspense, useEffect, useState } from 'react';
-import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { flags } from '@/lib/featureFlags';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo } from '@/lib/seo';
-import { isOrderId, thanksCopy, type ThanksOrderState } from './ticketCheckoutModel';
-import { useOrderStatus } from './useOrderStatus';
+import { MAX_ORDER_POLLS, isOrderId, pollDelayMs, thanksCopy, type OrderStatusReading, type ThanksOrderState } from './ticketCheckoutModel';
+import { readOrderStatus } from './ticketCheckoutApi';
 import { clearOrderId, readOrderId } from './orderStorage';
 import { MY_TICKETS_PATH } from './myTicketsModel';
 import { useAuth } from '@/hooks/useAuth';
@@ -20,38 +19,7 @@ const OrderQrBlock = lazyWithRetry(() => import('./OrderQrBlock'));
  * page only ever says they are being emailed.
  */
 
-/**
- * Option A: with ticketing on, a signed-in buyer's thank-you page is the dancer app's Tickets
- * tab (/app/tickets?o=<order>), which shows the same order states and the door QRs. This
- * route stays as the redirect, so links in emails already sent still land. A guest (or
- * ticketing off) keeps the page below: /app is signed-in only. A stored id (no ?o) is read
- * by the Tickets tab itself.
- */
-export const APP_TICKETS_PATH = '/app/tickets';
-
-export function thanksRedirectTarget(search: string): string {
-  const q = new URLSearchParams(search);
-  const o = q.get('o');
-  const out = new URLSearchParams();
-  if (isOrderId(o)) {
-    out.set('o', o);
-    if (q.get('free') === '1') out.set('free', '1');
-  }
-  const s = out.toString();
-  return s ? `${APP_TICKETS_PATH}?${s}` : APP_TICKETS_PATH;
-}
-
 export default function TicketThanksPage() {
-  const [params] = useSearchParams();
-  const { user, authStatus } = useAuth();
-  // Wait for the session to restore before deciding: a signed-in buyer back from Stripe must not
-  // mount the guest page first (it would clear the stored order id).
-  if (flags.publicTicketing && authStatus === 'resolving') return null;
-  if (flags.publicTicketing && user && !user.is_anonymous) return <Navigate to={thanksRedirectTarget(params.toString())} replace />;
-  return <ThanksPageBody />;
-}
-
-function ThanksPageBody() {
   const [params] = useSearchParams();
   const { user } = useAuth();
   useSeo({ title: 'Your tickets', description: 'Your Bachata Calendar ticket order.', noindex: true });
@@ -77,8 +45,32 @@ function ThanksPageBody() {
   }, [params, urlOk, stored, navigate]);
   // free=1 is only believed alongside a real order id (the block sends both together).
   const free = params.get('free') === '1' && urlOk;
-  // The shared poll (useOrderStatus): only while the server says pending, at most MAX_ORDER_POLLS repeats.
-  const { reading, gaveUp } = useOrderStatus(orderId);
+  // Read the order from the server: first read now, then 2, 4, 8 s and every 15 s, at most
+  // MAX_ORDER_POLLS repeats, and only while the server says pending. Stopped on unmount.
+  const [reading, setReading] = useState<OrderStatusReading | null>(null);
+  const [gaveUp, setGaveUp] = useState(false);
+  useEffect(() => {
+    if (!orderId) return;
+    let live = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const read = async (poll: number) => {
+      const r = await readOrderStatus(orderId);
+      if (!live) return;
+      setReading(r);
+      // retry_later is the server asking us to wait: the same as pending.
+      if (r.status !== 'pending' && !(r.retryLater && r.status === 'unknown')) return;
+      if (poll >= MAX_ORDER_POLLS) {
+        setGaveUp(true);
+        return;
+      }
+      timer = setTimeout(() => void read(poll + 1), pollDelayMs(poll));
+    };
+    void read(0);
+    return () => {
+      live = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, [orderId]);
   // Only the server's `paid` may say Confirmed; no reading, an error or `unknown` keep the
   // neutral 'checking' copy. A held order id is never 'confirmed' on its own.
   const state: ThanksOrderState = !orderId

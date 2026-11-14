@@ -5,7 +5,7 @@ import { fetchMyTickets, fetchOrderQr } from '@/modules/tickets/myTicketsApi';
 import { groupTickets, type MyTicket } from '@/modules/tickets/myTicketsModel';
 import { clearOrderId, readOrderId } from '@/modules/tickets/orderStorage';
 import { isOrderId, type ThanksOrderState } from '@/modules/tickets/ticketCheckoutModel';
-import { useOrderStatus } from '@/modules/tickets/useOrderStatus';
+import { useOrderStatus } from './useOrderStatus';
 import { orderCardView, type CardTicket, type CardView } from './model';
 
 /** My tickets rows the card can show: upcoming (London today), with a QR. */

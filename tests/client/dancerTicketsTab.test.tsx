@@ -22,8 +22,8 @@ import { DANCER_ROUTES, DANCER_TABS, activeTabFor, shellTabs } from '@/modules/d
 import { DANCER_SCREENS } from '@/modules/dancer-app/shell/DancerAppRoutes';
 import { admitsViewOnly } from '@/modules/dancer-app/gate/viewOnly';
 import { CATCHALL_CLIENT_PATHS } from '@/components/catchallClientPaths';
-import { thanksRedirectTarget } from '@/modules/tickets/TicketThanksPage';
-import { doorDate, profileIncomplete, roleTarget, stepTicket, ticketCountLine } from '@/modules/dancer-app/screens/tickets/model';
+import { profileIncomplete, roleTarget } from '@/modules/dancer-app/screens/tickets/model';
+import { doorDate, stepTicket, ticketCountLine } from '@/modules/dancer-app/screens/tickets/cardKit';
 
 const ORDER = '11111111-2222-4333-8444-555555555555';
 const TOKEN = (i: number) => i.toString(16).padStart(64, '0');
@@ -63,12 +63,6 @@ describe('route table and paths', () => {
     ['/app/welcome', true, false],
     ['/app', true, false],
   ])('gate view-only %s (ticketing %s) -> %s', (p, on, out) => expect(admitsViewOnly(p, on)).toBe(out));
-  it.each([
-    [`?o=${ORDER}`, `/app/tickets?o=${ORDER}`],
-    [`?o=${ORDER}&free=1`, `/app/tickets?o=${ORDER}&free=1`],
-    ['?o=garbled&free=1', '/app/tickets'],
-    ['', '/app/tickets'],
-  ])('/tickets/thanks%s -> %s', (q, to) => expect(thanksRedirectTarget(q)).toBe(to));
 });
 
 describe('model', () => {

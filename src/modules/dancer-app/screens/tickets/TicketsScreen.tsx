@@ -31,7 +31,7 @@ function TicketsBody() {
     <div className="dt-screen" data-testid="tickets-screen">
       <h1 className="sr-only">Tickets</h1>
       <Suspense fallback={<section className="dt-card dt-card-state" data-testid="tickets-card" data-state="loading"><p className="dt-state-line">{CARD_COPY.loading}</p></section>}>
-        <TicketCard view={view} retry={retry} />
+        <TicketCard view={view} retry={retry} copy={CARD_COPY} />
       </Suspense>
       {sheet.incomplete && (
         <div className="dt-bar" data-testid="tickets-finish-bar">
