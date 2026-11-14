@@ -151,7 +151,7 @@ describe('/auth/callback lands on /account/my-tickets', () => {
 
   it.each([
     ['sign-in, profile complete', 'signin', COMPLETE],
-    ['sign-in, incomplete stub (a guest buyer’s thin account)', 'signin', STUB],
+    ['sign-in, incomplete stub (a guest buyer\u2019s thin account)', 'signin', STUB],
   ] as const)('%s', async (_name, mode, r) => {
     row.v = r;
     land(cb(mode));

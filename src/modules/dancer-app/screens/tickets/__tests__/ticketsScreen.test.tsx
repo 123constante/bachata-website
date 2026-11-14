@@ -71,7 +71,7 @@ describe('the flag', () => {
   });
 });
 
-describe('no order id: the person’s own tickets', () => {
+describe('no order id: the person\u2019s own tickets', () => {
   it('shows the loading line until the read lands', async () => {
     fetchMyTickets.mockReturnValue(new Promise(() => {}));
     mount();
@@ -127,7 +127,7 @@ describe('no order id: the person’s own tickets', () => {
 });
 
 describe('with ?o=<order id>', () => {
-  it('paid: shows that order’s QR, the token is never text, and a single ticket has no arrows', async () => {
+  it('paid: shows that order\u2019s QR, the token is never text, and a single ticket has no arrows', async () => {
     const { container } = mount({ path: `/app/tickets?o=${ORDER}` });
     expect((await screen.findByTestId('tickets-card-type')).textContent).toBe('Full pass');
     expect(fetchOrderQr).toHaveBeenCalledWith(ORDER);
