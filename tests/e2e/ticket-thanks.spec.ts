@@ -3,13 +3,14 @@ import { test, expect } from '@playwright/test';
 // Not in the test:e2e gate list: the flag is off there, so the route is a 404 by design.
 import { PHONE, OrganiserFake, expectNoHorizontalScroll, json } from './helpers/organiserFake';
 
+// Signed out on purpose: a signed-in buyer is forwarded to /app/tickets (see thanksForward.test.tsx).
 // /tickets/thanks at 390x844: the order read (ticket_order_public_status_v1) is mocked at the
 // network layer. Card, text and the back link must sit inside the viewport.
 
 const ORDER = '3f2b8c1e-5a47-4d1b-9c2e-7a6b5c4d3e2f';
 
 async function open(page: import('@playwright/test').Page, reply: unknown) {
-  await new OrganiserFake({ noOrganiser: true }).install(page);
+  await new OrganiserFake({ noOrganiser: true, signedOut: true }).install(page);
   await page.route('**/rest/v1/rpc/ticket_order_public_status_v1', (r) => json(r, reply));
   await page.goto(`/tickets/thanks?o=${ORDER}`);
 }

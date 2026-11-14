@@ -11,7 +11,8 @@ const auth = vi.hoisted(() => ({ user: null as { id: string } | null }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: auth.user, authStatus: 'ready', retryAuth: () => {} }) }));
 vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
 
-import TicketThanksPage from '../TicketThanksPage';
+// The signed-in page body now sits behind the forward to the Tickets tab: test it directly.
+import { ThanksFallback as TicketThanksPage } from '../TicketThanksPage';
 import { readOrderStatus } from '../ticketCheckoutApi';
 import { MAX_ORDER_POLLS, UNKNOWN_READING, parseOrderStatus, pollDelayMs, thanksCopy, type ThanksOrderState } from '../ticketCheckoutModel';
 
