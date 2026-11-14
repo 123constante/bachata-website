@@ -74,6 +74,21 @@ export type Database = {
         }
         Relationships: []
       }
+      _ticket_prices_owner_only_undo_v1: {
+        Row: {
+          def: string
+          fn: string
+        }
+        Insert: {
+          def: string
+          fn: string
+        }
+        Update: {
+          def?: string
+          fn?: string
+        }
+        Relationships: []
+      }
       account_erase_requests: {
         Row: {
           admin_hold_at: string | null
