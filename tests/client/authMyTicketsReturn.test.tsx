@@ -164,9 +164,9 @@ describe('/auth/callback lands on /account/my-tickets', () => {
     expect((await screen.findByTestId('landed')).textContent).toBe(MY_TICKETS_PATH);
   });
 
-  it('FOUND (pins today): a sign-up with organiserSelfServe OFF drops the returnTo and does NOT land on my-tickets', async () => {
+  it('a sign-up with organiserSelfServe OFF now keeps the my-tickets returnTo (the gap is closed)', async () => {
     land(cb('signup'));
-    expect((await screen.findByTestId('landed')).textContent).toBe('/');
+    expect((await screen.findByTestId('landed')).textContent).toBe(MY_TICKETS_PATH);
   });
 
   it('without a returnTo it does NOT land on my-tickets (the gap)', async () => {
