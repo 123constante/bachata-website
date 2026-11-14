@@ -133,11 +133,10 @@ test.describe('P3-GATE overlays on the real app (390x844)', () => {
   test('Tickets: a refused Add keeps the ticket sheet, opens the gate sheet in view, no generic error, no page scroll', async ({ page }) => {
     test.skip(!TIX_ON, 'needs VITE_ENABLE_ORGANISER_TICKETING=true in the dev server');
     const { tix } = await openReal(page);
-    const row = page.getByTestId('tix-row');
-    await row.scrollIntoViewIfNeeded();
-    const before = await scrolls(page);
-    await row.click();
+    // Option A: Tickets is inline, so there is no row to open; bring Add into view first, then measure.
+    await page.getByTestId('tix-add').scrollIntoViewIfNeeded();
     await expect(page.getByTestId('tix-add')).toBeVisible();
+    const before = await scrolls(page);
     expect(await scrolls(page), 'opening Tickets did not scroll the page').toEqual(before);
     await page.getByTestId('tix-add').click();
     await page.getByTestId('tix-form-name').fill('Standard');
