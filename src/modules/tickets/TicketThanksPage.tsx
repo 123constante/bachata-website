@@ -3,11 +3,13 @@ import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo } from '@/lib/seo';
-import { DANCER_TICKETS } from '@/modules/dancer-app/shell/routes';
 import { MAX_ORDER_POLLS, isOrderId, pollDelayMs, thanksCopy, type OrderStatusReading, type ThanksOrderState } from './ticketCheckoutModel';
 import { readOrderStatus } from './ticketCheckoutApi';
 import { clearOrderId, readOrderId } from './orderStorage';
 import { MY_TICKETS_PATH } from './myTicketsModel';
+
+// Local copy: the tickets module may not import from dancer-app (check-dancer-area-isolation rule c).
+const DANCER_TICKETS = '/app/tickets';
 import { useAuth } from '@/hooks/useAuth';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 
