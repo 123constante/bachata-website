@@ -44,6 +44,7 @@ describe('route table', () => {
       '/app/me/photo',
       '/app/page',
       '/app/options',
+      '/app/tickets',
     ]);
     for (const r of DANCER_ROUTES) expect(DANCER_SCREENS[r.id], r.id).toBeTypeOf('function');
   });
@@ -63,7 +64,8 @@ describe('route table', () => {
 });
 
 describe('reachability: an allowed, complete person reaches every route inside the shell', () => {
-  it.each(DANCER_ROUTES.map((r) => [r.path, r.id] as const))('%s', async (path, id) => {
+  // /app/tickets is flag-gated (publicTicketing, OFF here): tests/client/dancerTicketsTab.test.tsx walks it.
+  it.each(DANCER_ROUTES.filter((r) => r.id !== 'tickets').map((r) => [r.path, r.id] as const))('%s', async (path, id) => {
     const { location } = renderInShell({ path });
     expect(await screen.findByTestId(`dancer-screen-${id}`)).toBeTruthy();
     expect(screen.getByTestId('dancer-app-shell').getAttribute('data-profile')).toBe('dancer');

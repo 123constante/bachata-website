@@ -15,6 +15,7 @@ import EditScreen from '../screens/edit/EditScreen';
 import PhotoScreen from '../screens/photo/PhotoScreen';
 import PageScreen from '../screens/page/PageScreen';
 import OptionsScreen from '../screens/options/OptionsScreen';
+import TicketsScreen from '../screens/tickets/TicketsScreen';
 
 /** Route id -> screen. One entry per DANCER_ROUTES row (TypeScript refuses a missing one). */
 export const DANCER_SCREENS: Record<DancerRouteId, ComponentType> = {
@@ -26,6 +27,7 @@ export const DANCER_SCREENS: Record<DancerRouteId, ComponentType> = {
   photo: PhotoScreen,
   page: PageScreen,
   options: OptionsScreen,
+  tickets: TicketsScreen,
 };
 
 /** Signed in by now (AuthGuard): publish the person for the funnel events. */
