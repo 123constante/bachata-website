@@ -383,3 +383,9 @@
 .p3-theme .p3-photo:has(> .p3-image-broken) { aspect-ratio: auto; }
 .p3-theme .p3-photo .p3-image-broken { width: 100%; height: auto; min-height: 96px; padding: 40px 8px 8px; }
 .p3-theme .p3-cover.p3-image-broken { aspect-ratio: auto; min-height: 64px; }
+
+/* Tickets Option A: inline stats row (slice 8). */
+.p3-stats { display: flex; gap: 12px; padding: 12px; }
+.p3-stat { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
+.p3-stat-n { font-size: 22px; font-weight: 700; line-height: 1.2; }
+.p3-stat-of { font-size: 13px; font-weight: 400; opacity: 0.7; }
