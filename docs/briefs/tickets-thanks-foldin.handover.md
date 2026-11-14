@@ -14,3 +14,9 @@ page signed-in (orderQr, orderStatus) now render `ThanksFallback` directly; othe
 signed-out `useAuth` (default context is `resolving`).
 
 Left / next: nothing required. Ticketing flag stays OFF; owner flips it separately.
+
+Checks: `npx vitest run src/modules/tickets` 844/844; `check:mojibake` clean; `check-e2e-spec-coverage` OK;
+e2e (flag on) `ticket-thanks.spec.ts` 3/3 and new `ticket-thanks-forward.spec.ts` 2/2 at 390x844.
+Full `tests/` run has unrelated failures (eventViewCompat DB contract needs network, integrityCouldNotRun, plan hygiene --norender): not touched by this branch, not compared against main.
+tsc run on the pre-final commit: 0 errors in branch files.
+Not verified: `npm run pre-ship`, `npm run test:e2e` gate, real Stripe return, prod-shaped data (route is behind the OFF flag).
