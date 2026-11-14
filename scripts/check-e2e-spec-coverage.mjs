@@ -93,6 +93,7 @@ export const MANUAL = {
   'tests/e2e/walk-p3-organiser-events.spec.ts': { reason: WALK, run: PW('tests/e2e/walk-p3-organiser-events.spec.ts', 'VITE_ENABLE_ORGANISER_SELF_SERVE=true VITE_ENABLE_ORGANISER_P3=true VITE_ENABLE_ORGANISER_DASH=true') },
   'tests/e2e/ticket-door-code.spec.ts': { reason: 'mounts only with P3 + ticketing + door-code flags on; skips otherwise', run: PW('tests/e2e/ticket-door-code.spec.ts', `${P3T} VITE_ENABLE_TICKET_DOOR_CODE=true`) },
   'tests/e2e/ticket-thanks.spec.ts': { reason: 'needs VITE_ENABLE_PUBLIC_TICKETING at dev-server start; 404 by design in the gate', run: PW('tests/e2e/ticket-thanks.spec.ts', 'VITE_ENABLE_PUBLIC_TICKETING=true') },
+  'tests/e2e/ticket-thanks-forward.spec.ts': { reason: 'needs VITE_ENABLE_PUBLIC_TICKETING at dev-server start; 404 by design in the gate', run: PW('tests/e2e/ticket-thanks-forward.spec.ts', 'VITE_ENABLE_PUBLIC_TICKETING=true') },
   'tests/e2e/vendor-city-real-supabase.spec.ts': { reason: 'real Supabase; skips without its env vars', run: 'npm run test:e2e:vendor:real' },
   'tests/e2e/walk-event-tickets-page.spec.ts': { reason: `${WALK}; needs the local mock Supabase and a flag`, run: `(MOCK_PORT=54321 npx tsx tests/e2e/helpers/mockSupabaseServer.ts &) && ${PW('tests/e2e/walk-event-tickets-page.spec.ts', 'VITE_ENABLE_PUBLIC_TICKETING=true')}` },
   'tests/e2e/walk-fix-gate-lost-edit.spec.ts': { reason: WALK, run: PW('tests/e2e/walk-fix-gate-lost-edit.spec.ts', P3) },
