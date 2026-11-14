@@ -56,11 +56,14 @@ export default function PromoSection({ organiserId, seriesId, onSay, onAlert }: 
   const [flying] = useState(() => new Set<string>());
   const now = new Date();
   // The layer the promo sheet is portalled into: read from the DOM once the section is attached (an
-  // effect-time read held in state, never a ref read during render).
+  // effect-time read held in state, never a ref read during render). Inside a sheet: that sheet's layer.
+  // Inline on the event page (Tickets Option A): the nearest p3-theme, so the sheet keeps the P3 styles
+  // (a bare document.body has none: the scrim drew static, below the fold). document.body only as a last resort.
   const [host, setHost] = useState<HTMLElement | null>(null);
   const anchor = useCallback((el: HTMLElement | null) => {
     if (!el) return;
-    setHost((el.closest('.p3-scrim')?.parentElement as HTMLElement | null | undefined) ?? (typeof document === 'undefined' ? null : document.body));
+    const layer = (el.closest('.p3-scrim')?.parentElement ?? el.closest('.p3-theme')) as HTMLElement | null;
+    setHost(layer ?? (typeof document === 'undefined' ? null : document.body));
   }, []);
   // Codes the server told us are locked although the list could not see why (INVENTORY G3).
   const [lockedIds, setLockedIds] = useState<ReadonlySet<string>>(new Set());
