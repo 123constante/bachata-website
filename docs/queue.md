@@ -57,3 +57,7 @@ which still need the owner's Approve under `owner-approval.yml`. Those PRs get `
 Set `QUEUE_ENABLED` to anything else (or delete it): every job is skipped on its next trigger. Stuck `in-progress` issues can be relabelled by hand.
 
 An existing issue branch gets `origin/main` merged in before the worker runs (a conflict fails the step), so it has scripts added to main since it was cut.
+
+## First run
+
+The queue completed its first end-to-end run on 2026-11-13: issue to PR to auto-merge.
