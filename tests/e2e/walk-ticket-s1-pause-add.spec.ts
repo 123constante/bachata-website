@@ -37,7 +37,6 @@ async function open(page: Page, fx: Fixture, role?: string) {
   await page.route('**/rest/v1/ticket_orders*', (r) => json(r, state.current.orders));
   await page.goto(`/account/p3/events/${FRIDAY}?o=${ORG}`);
   await expect(page.getByTestId('tix-row')).toBeVisible({ timeout: 45_000 });
-  await page.getByTestId('tix-row').click();
   return state;
 }
 

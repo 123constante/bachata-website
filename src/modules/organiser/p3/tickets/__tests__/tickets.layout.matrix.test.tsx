@@ -108,3 +108,22 @@ describe.each(ROLES)('inline Tickets states, %s', (role) => {
     } else expect(add.disabled).toBe(false);
   });
 });
+
+describe.each(Object.keys(shapes))('owner with moneyVisible false, shape %s', (key) => {
+  beforeEach(() => {
+    load(shapes[key]('owner'));
+    q.summary = { ...(q.summary as object), data: { ok: true, reason: null, moneyVisible: false, types: [] } } as never;
+    show(<TicketsEntry seriesId="ser-1" />);
+  });
+  it('shows no amount, no buyer name and no Refund button', () => {
+    expect(screen.queryAllByTestId('tix-refund')).toHaveLength(0);
+    expect(screen.queryByTestId('tix-stat-takings')).toBeNull();
+    const all = screen.getByTestId('tix-list-view').textContent ?? '';
+    expect(all).not.toMatch(/£[0-9]+[.,]?[0-9]*\s*(taken|refund)/);
+    for (const b of screen.queryAllByTestId('tix-order-buyer')) expect(b.textContent).toMatch(/^Order /);
+    for (const l of screen.queryAllByTestId('tix-order-line')) expect(l.textContent).not.toMatch(POUND);
+  });
+  it('still offers an action', () => {
+    expect(screen.getByTestId('tix-add')).toBeTruthy();
+  });
+});

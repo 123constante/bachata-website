@@ -73,7 +73,6 @@ for (const size of [{ width: 390, height: 844 }, { width: 320, height: 568 }]) {
         await expect(row).toBeVisible({ timeout: 20_000 });
         await row.scrollIntoViewIfNeeded();
         const before = await scrolls(page);
-        await row.click();
         const section = page.getByTestId('promo-section');
         await expect(section).toBeVisible();
         await expect(page.getByTestId(/^promo-row-/)).toHaveCount(4);
@@ -110,7 +109,6 @@ for (const size of [{ width: 390, height: 844 }, { width: 320, height: 568 }]) {
 
       test('a locked code: the edit sheet says why the discount cannot change, inside the viewport', async ({ page }) => {
         await open(page);
-        await page.getByTestId('tix-row').click();
         await page.getByTestId('promo-row-p1').getByTestId('promo-edit').click();
         const locked = page.getByTestId('promo-locked');
         await expect(locked).toBeVisible();

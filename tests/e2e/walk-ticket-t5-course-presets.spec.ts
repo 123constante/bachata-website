@@ -60,7 +60,6 @@ async function open(page: Page, steps: Step[], opts: { refuse?: string; price?: 
   });
   await page.goto(`/account/p3/events/${FRIDAY}?o=${ORG}`);
   await expect(page.getByTestId('tix-row')).toBeVisible({ timeout: 45_000 });
-  await page.getByTestId('tix-row').click();
   if (opts.create) { await page.getByTestId('tix-add').click(); return state; }
   await page.getByTestId(`tix-type-${T_ID}`).getByTestId('tix-edit').click();
   await expect(page.getByTestId('tix-steps')).toBeVisible();
