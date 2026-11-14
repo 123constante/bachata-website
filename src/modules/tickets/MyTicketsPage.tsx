@@ -9,6 +9,7 @@ import { londonTodayKey } from '@/lib/londonDate';
 import { ticketDoorCode } from '@/modules/organiser/p3/door/doorFlags';
 import { fetchMyTickets, type MyTicketsResult } from './myTicketsApi';
 import DoorCodeLine from './DoorCodeLine';
+import { MY_TICKETS_PATH } from './myTicketsModel';
 import {
   QR_MISSING,
   checkedInLine,
@@ -160,7 +161,7 @@ export function MyTicketsView({ result, authReady, onRetry, today }: {
           <Section title="Past" tickets={groups.past} positions={positions} today={today} past openSet={openSet} />
         </>
       ) : (
-        <StateBox state={state as Exclude<PageState, 'ready'>} signIn={buildSignInHref(location.pathname)} onRetry={onRetry} />
+        <StateBox state={state as Exclude<PageState, 'ready'>} signIn={buildSignInHref(MY_TICKETS_PATH)} onRetry={onRetry} />
       )}
     </div>
   );
