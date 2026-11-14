@@ -44,6 +44,21 @@ export type Database = {
         }
         Relationships: []
       }
+      _ticket_money_owner_only_undo_v1: {
+        Row: {
+          def: string
+          fn: string
+        }
+        Insert: {
+          def: string
+          fn: string
+        }
+        Update: {
+          def?: string
+          fn?: string
+        }
+        Relationships: []
+      }
       _ticket_price_steps_undo_v1: {
         Row: {
           def: string
@@ -1607,6 +1622,7 @@ export type Database = {
       dancing_role_details: {
         Row: {
           achievements: string[] | null
+          achievements_dated: Json
           created_at: string | null
           dance_started_year: number | null
           favorite_songs: string[] | null
@@ -1622,6 +1638,7 @@ export type Database = {
         }
         Insert: {
           achievements?: string[] | null
+          achievements_dated?: Json
           created_at?: string | null
           dance_started_year?: number | null
           favorite_songs?: string[] | null
@@ -1637,6 +1654,7 @@ export type Database = {
         }
         Update: {
           achievements?: string[] | null
+          achievements_dated?: Json
           created_at?: string | null
           dance_started_year?: number | null
           favorite_songs?: string[] | null
@@ -2299,6 +2317,8 @@ export type Database = {
       }
       event_guest_list_entries: {
         Row: {
+          added_by: string | null
+          added_via: string | null
           created_at: string
           deleted_at: string | null
           deleted_reason: string | null
@@ -2310,8 +2330,11 @@ export type Database = {
           occurrence_p5_id: string | null
           qr_token: string | null
           status: string
+          user_id: string | null
         }
         Insert: {
+          added_by?: string | null
+          added_via?: string | null
           created_at?: string
           deleted_at?: string | null
           deleted_reason?: string | null
@@ -2323,8 +2346,11 @@ export type Database = {
           occurrence_p5_id?: string | null
           qr_token?: string | null
           status?: string
+          user_id?: string | null
         }
         Update: {
+          added_by?: string | null
+          added_via?: string | null
           created_at?: string
           deleted_at?: string | null
           deleted_reason?: string | null
@@ -2336,6 +2362,7 @@ export type Database = {
           occurrence_p5_id?: string | null
           qr_token?: string | null
           status?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -4532,6 +4559,45 @@ export type Database = {
         }
         Relationships: []
       }
+      guest_list_check_ins_p5: {
+        Row: {
+          checked_in_at: string
+          checked_in_by: string | null
+          entry_id: string
+          occurrence_p5_id: string
+          via: string
+        }
+        Insert: {
+          checked_in_at?: string
+          checked_in_by?: string | null
+          entry_id: string
+          occurrence_p5_id: string
+          via?: string
+        }
+        Update: {
+          checked_in_at?: string
+          checked_in_by?: string | null
+          entry_id?: string
+          occurrence_p5_id?: string
+          via?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_list_check_ins_p5_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "event_guest_list_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_list_check_ins_p5_occurrence_p5_id_fkey"
+            columns: ["occurrence_p5_id"]
+            isOneToOne: false
+            referencedRelation: "event_occurrence_p5"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guest_list_close_notified_v1: {
         Row: {
           cutoff_dt: string
@@ -4557,6 +4623,41 @@ export type Database = {
             columns: ["event_id_p5"]
             isOneToOne: false
             referencedRelation: "event_series_p5"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guest_list_night_settings_p5: {
+        Row: {
+          capacity_max: number | null
+          cutoff_time: string | null
+          enabled: boolean | null
+          occurrence_p5_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          capacity_max?: number | null
+          cutoff_time?: string | null
+          enabled?: boolean | null
+          occurrence_p5_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          capacity_max?: number | null
+          cutoff_time?: string | null
+          enabled?: boolean | null
+          occurrence_p5_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_list_night_settings_p5_occurrence_p5_id_fkey"
+            columns: ["occurrence_p5_id"]
+            isOneToOne: true
+            referencedRelation: "event_occurrence_p5"
             referencedColumns: ["id"]
           },
         ]
@@ -8236,6 +8337,7 @@ export type Database = {
         Row: {
           contacted_at: string
           drawn_by: string | null
+          entries_at_draw: number | null
           id: string
           link_expires_at: string
           link_token: string
@@ -8256,6 +8358,7 @@ export type Database = {
         Insert: {
           contacted_at?: string
           drawn_by?: string | null
+          entries_at_draw?: number | null
           id?: string
           link_expires_at: string
           link_token?: string
@@ -8276,6 +8379,7 @@ export type Database = {
         Update: {
           contacted_at?: string
           drawn_by?: string | null
+          entries_at_draw?: number | null
           id?: string
           link_expires_at?: string
           link_token?: string
@@ -8753,6 +8857,7 @@ export type Database = {
       teacher_role_details: {
         Row: {
           availability: Json | null
+          available_for_workshops: boolean
           created_at: string | null
           faq: Json | null
           id: string
@@ -8766,10 +8871,12 @@ export type Database = {
           private_travel_distance: string | null
           teaching_styles: string[] | null
           updated_at: string | null
+          workshop_cities: string[]
           years_teaching: number | null
         }
         Insert: {
           availability?: Json | null
+          available_for_workshops?: boolean
           created_at?: string | null
           faq?: Json | null
           id?: string
@@ -8783,10 +8890,12 @@ export type Database = {
           private_travel_distance?: string | null
           teaching_styles?: string[] | null
           updated_at?: string | null
+          workshop_cities?: string[]
           years_teaching?: number | null
         }
         Update: {
           availability?: Json | null
+          available_for_workshops?: boolean
           created_at?: string | null
           faq?: Json | null
           id?: string
@@ -8800,6 +8909,7 @@ export type Database = {
           private_travel_distance?: string | null
           teaching_styles?: string[] | null
           updated_at?: string | null
+          workshop_cities?: string[]
           years_teaching?: number | null
         }
         Relationships: [
@@ -10338,6 +10448,21 @@ export type Database = {
           },
         ]
       }
+      walk_readonly_users: {
+        Row: {
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       admin_contract_checks_registry_v1: {
@@ -11123,6 +11248,47 @@ export type Database = {
         Args: { p_bucket?: string; p_event_id: string }
         Returns: number
       }
+      _guest_list_entry_gate_v1: {
+        Args: {
+          p_entry_id: string
+          p_need_edit: boolean
+          p_occurrence_id: string
+        }
+        Returns: Json
+      }
+      _guest_list_night_counts_v1: {
+        Args: { p_occurrence_id: string; p_series_id: string }
+        Returns: Json
+      }
+      _guest_list_night_v1: {
+        Args: { p_occurrence_id: string }
+        Returns: {
+          capacity_max: number
+          closes_at: string
+          cutoff_time: string
+          enabled: boolean
+          ends_at: string
+          has_override: boolean
+          is_archived: boolean
+          is_cancelled: boolean
+          is_past: boolean
+          occurrence_date: string
+          occurrence_id: string
+          organiser_ids: string[]
+          public_event_id: string
+          series_id: string
+          starts_at: string
+          waitlist_enabled: boolean
+        }[]
+      }
+      _guest_list_organiser_gate_v1: {
+        Args: { p_need_edit: boolean; p_occurrence_id: string }
+        Returns: Json
+      }
+      _guest_list_team_role_v1: {
+        Args: { p_organiser_ids: string[] }
+        Returns: string
+      }
       _guest_normalize_name_v1: { Args: { p_name: string }; Returns: string }
       _guest_resolve_occurrence_pair_v1: {
         Args: { p_id: string }
@@ -11136,6 +11302,7 @@ export type Database = {
         Args: { p_event_id: string }
         Returns: Json
       }
+      _install_walk_readonly_triggers_v1: { Args: never; Returns: Json }
       _invite_inviter_first_name_v1: {
         Args: { p_user: string }
         Returns: string
@@ -11227,6 +11394,8 @@ export type Database = {
       }
       _my_dancer_profile_id_v1: { Args: never; Returns: string }
       _nationality_alpha2_v1: { Args: { p_value: string }; Returns: string }
+      _norm_achievements_dated_v1: { Args: { p: Json }; Returns: Json }
+      _norm_workshop_cities_v1: { Args: { p: Json }; Returns: string[] }
       _normalize_level_to_legacy_v1: {
         Args: { p_level: string }
         Returns: string
@@ -11500,6 +11669,11 @@ export type Database = {
         Args: { p_member_role: string; p_organiser_id: string; p_user: string }
         Returns: boolean
       }
+      _organiser_raffle_night_row: {
+        Args: { p_can_edit: boolean; p_occurrence_id: string }
+        Returns: Json
+      }
+      _organiser_raffle_role: { Args: { p_series_id: string }; Returns: string }
       _organiser_ref_for_series_v1: {
         Args: { p_ref_code: string; p_series_id: string }
         Returns: string
@@ -11928,6 +12102,14 @@ export type Database = {
       }
       _raffle_event_venue_v1: { Args: { p_event_id: string }; Returns: string }
       _raffle_night_date_v1: { Args: { p_local: string }; Returns: string }
+      _raffle_night_entries_count: {
+        Args: { p_occurrence_id: string }
+        Returns: number
+      }
+      _raffle_night_is_locked: {
+        Args: { p_occurrence_id: string }
+        Returns: boolean
+      }
       _raffle_night_v1: {
         Args: { p_event_id: string }
         Returns: {
@@ -12168,6 +12350,10 @@ export type Database = {
       }
       _target_series_id_p5: { Args: { p_target: Json }; Returns: string }
       _target_series_lifecycle_p5: { Args: { p_target: Json }; Returns: string }
+      _ticket_can_handle_money_v1: {
+        Args: { p_organiser_id: string; p_user_id: string }
+        Returns: boolean
+      }
       _ticket_can_manage_organiser_v1: {
         Args: { p_organiser_id: string }
         Returns: boolean
@@ -14826,6 +15012,7 @@ export type Database = {
       check_vendor_team_contract_v1: { Args: never; Returns: Json }
       check_venue_coords_contract_v1: { Args: never; Returns: Json }
       check_venue_publish_gate_contract_v1: { Args: never; Returns: Json }
+      check_walk_readonly_coverage_v1: { Args: never; Returns: Json }
       claim_dancer_profile: { Args: { p_dancer_id: string }; Returns: string }
       claim_my_dancer_profile_v1: {
         Args: { p_instagram?: string }
@@ -15233,6 +15420,10 @@ export type Database = {
         Returns: Json
       }
       get_my_going_v1: { Args: never; Returns: Json }
+      get_my_guest_list_entry_v1: {
+        Args: { p_occurrence_id: string }
+        Returns: Json
+      }
       get_my_occurrence_attendance_p5_v1: {
         Args: { p_occurrence_id: string; p_public_event_id: string }
         Returns: string
@@ -15319,6 +15510,7 @@ export type Database = {
       get_organiser_nights_v2: {
         Args: {
           p_from?: string
+          p_include_cancelled?: boolean
           p_include_past?: boolean
           p_organiser_id: string
           p_past_limit?: number
@@ -15555,10 +15747,12 @@ export type Database = {
         Args: { p_entity_id: string }
         Returns: {
           achievements: string[]
+          achievements_timeline: Json
           availability: string
+          available_for_workshops: boolean
+          bio: string
           city: string
           city_id: string
-          email: string
           entity_id: string
           facebook: string
           faq: string
@@ -15570,6 +15764,7 @@ export type Database = {
           nationality: string
           nationality_code: string
           offers_private: boolean
+          partner_role: string
           phone: string
           photo_url: string
           private_lesson_locations: string[]
@@ -15578,15 +15773,18 @@ export type Database = {
           surname: string
           teaching_styles: string[]
           website: string
+          whatsapp: string
+          workshop_cities: string[]
           years_teaching: number
         }[]
       }
       get_public_teacher_preview_v1: {
         Args: { p_entity_id: string }
         Returns: {
+          achievements: string[]
+          achievements_timeline: Json
           city: string
           city_id: string
-          email: string
           entity_id: string
           facebook: string
           first_name: string
@@ -15599,6 +15797,7 @@ export type Database = {
           surname: string
           teaching_styles: string[]
           website: string
+          whatsapp: string
           years_teaching: number
         }[]
       }
@@ -15751,6 +15950,10 @@ export type Database = {
           event_name: string
           start_local_date: string
         }[]
+      }
+      guest_list_night_public_v1: {
+        Args: { p_occurrence_id: string }
+        Returns: Json
       }
       hook_before_user_created_allowlist_v1: {
         Args: { event: Json }
@@ -15975,6 +16178,10 @@ export type Database = {
         Args: { p_from?: string; p_series_id: string; p_to?: string }
         Returns: Json
       }
+      organiser_check_in_guest_v1: {
+        Args: { p_entry_id: string; p_occurrence_id: string }
+        Returns: Json
+      }
       organiser_claim_hints_v1: {
         Args: { p_organiser_ids: string[] }
         Returns: Json
@@ -15999,6 +16206,45 @@ export type Database = {
       }
       organiser_get_occurrence_programme_v1: {
         Args: { p_occurrence_id: string }
+        Returns: Json
+      }
+      organiser_guest_list_add_v1: {
+        Args: {
+          p_every_week?: boolean
+          p_first_name: string
+          p_occurrence_id: string
+        }
+        Returns: Json
+      }
+      organiser_guest_list_night_v1: {
+        Args: {
+          p_limit?: number
+          p_occurrence_id: string
+          p_offset?: number
+          p_query?: string
+          p_view?: string
+        }
+        Returns: Json
+      }
+      organiser_guest_list_remove_v1: {
+        Args: { p_entry_id: string; p_occurrence_id?: string }
+        Returns: Json
+      }
+      organiser_guest_list_restore_v1: {
+        Args: { p_entry_id: string; p_occurrence_id?: string }
+        Returns: Json
+      }
+      organiser_guest_list_scan_v1: {
+        Args: { p_occurrence_id: string; p_qr_token: string }
+        Returns: Json
+      }
+      organiser_guest_list_set_night_v1: {
+        Args: {
+          p_capacity_max?: number
+          p_cutoff_time?: string
+          p_enabled: boolean
+          p_occurrence_id: string
+        }
         Returns: Json
       }
       organiser_home_v1: { Args: never; Returns: Json }
@@ -16031,6 +16277,14 @@ export type Database = {
       }
       organiser_publish_gate_v1: {
         Args: { p_actor: string; p_series_id: string }
+        Returns: Json
+      }
+      organiser_raffle_night_set_v1: {
+        Args: { p_enabled: boolean; p_occurrence_id: string }
+        Returns: Json
+      }
+      organiser_raffle_nights_v1: {
+        Args: { p_series_id: string }
         Returns: Json
       }
       organiser_room_drop_preview_v1: {
@@ -16188,6 +16442,10 @@ export type Database = {
           p_reason?: string
           p_to_user_id: string
         }
+        Returns: Json
+      }
+      organiser_undo_check_in_guest_v1: {
+        Args: { p_entry_id: string; p_occurrence_id: string }
         Returns: Json
       }
       organiser_undo_last_change_v1: {
@@ -16732,6 +16990,10 @@ export type Database = {
         Args: { p_venue_id: string }
         Returns: undefined
       }
+      remove_my_guest_list_entry_v1: {
+        Args: { p_occurrence_id: string }
+        Returns: Json
+      }
       remove_organiser_member_v1: {
         Args: { p_organiser_id: string; p_user_id: string }
         Returns: Json
@@ -17026,6 +17288,10 @@ export type Database = {
         Returns: Json
       }
       submit_listing_request_v1: { Args: { p_payload: Json }; Returns: Json }
+      submit_my_guest_list_entry_v1: {
+        Args: { p_first_name: string; p_occurrence_id: string }
+        Returns: Json
+      }
       submit_organiser_profile_v1: {
         Args: { p_organiser_id: string }
         Returns: Json
@@ -17302,6 +17568,10 @@ export type Database = {
         Args: { p_id: string; p_patch: Json }
         Returns: Json
       }
+      ticket_refund_authorise_v1: {
+        Args: { p_order_id: string; p_user_id: string }
+        Returns: Json
+      }
       ticket_sales_summary_v1: {
         Args: { p_organiser_id: string }
         Returns: Json
@@ -17396,6 +17666,8 @@ export type Database = {
       uuid_to_bigint: { Args: { p_uuid: string }; Returns: number }
       validate_override_payload_v1: { Args: { p_payload: Json }; Returns: Json }
       venue_is_public: { Args: { p_publish_state: string }; Returns: boolean }
+      walk_readonly_check_v1: { Args: never; Returns: boolean }
+      walk_readonly_storage_deny_v1: { Args: never; Returns: boolean }
       would_violate_events_time_constraints: {
         Args: { p_end: string; p_start: string }
         Returns: boolean
