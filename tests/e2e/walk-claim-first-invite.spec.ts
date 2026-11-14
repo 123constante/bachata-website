@@ -48,7 +48,7 @@ test('C1 signed out: claim first, then email', async ({ page }) => {
   await snap(page, 'C2-email-after-claim');
 });
 
-test('C3 signed in, no name yet: claim, then Now about you, org name refused', async ({ page }) => {
+test('C3 signed in, no name yet: claim, then Now about you, org name soft prompt', async ({ page }) => {
   await setup(page, OPEN, { complete: false });
   await page.goto(`/invite/${TOKEN}`);
   await page.getByTestId('join-claim').waitFor({ timeout: 30000 });

@@ -98,11 +98,12 @@ export const JOIN_COPY = {
   // Claim-first About: a separate step about the PERSON (the real case: an invitee typed the organisation as their name).
   aboutYou: {
     heading: 'Now about you',
+    organisation: 'You are taking over',
     lead: (org: string) => `This is about you, the person. ${org} stays the organisation${APOS}s name.`,
     firstName: 'Your own first name',
     firstNameHelp: (org: string) => `Like Maria or Carlos. Not ${org}.`,
     // Typed exactly the organisation's name: Continue stays off and this says why.
-    sameAsOrg: (org: string) => `${org} is the organisation${APOS}s name. Please type your own first name.`,
+    sameAsOrg: (org: string) => `That looks like the organisation${APOS}s name (${org}). Is it your own first name? You can still continue.`,
   },
 
   join: {
