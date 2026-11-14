@@ -24,6 +24,7 @@ import type { EventWorkspace } from '../../events/eventModel';
 import { P3_PATHS } from '../shell/paths';
 import { PAGE_FIRST, PAGE_MORE, SCOPE, buildEvents, type Filter, type Night, type Seat } from './eventsModel';
 import { EventsView, NightSheet } from './EventsView';
+import { RaffleSheet } from './raffle/RaffleSheet';
 import { GuestListSheet } from '../guestlist/GuestListSheet';
 
 /** "Every night": the existing occurrence.bulk_cancel (same command and reason list as the Change dates screen) for every coming night. The count is named before anything is sent. */
@@ -190,7 +191,7 @@ export function DeleteDraft({ night, onDone, onClose }: { night: Night; onDone: 
   );
 }
 
-type Open = { kind: 'night' | 'cancel' | 'delete' | 'guest'; night: Night } | null;
+type Open = { kind: 'night' | 'cancel' | 'delete' | 'raffle' | 'guest'; night: Night } | null;
 
 /** The organiser Events tab behind flags.organiserDash: the model's list, the night sheet, and the two commands that exist (cancel one date, delete a draft). */
 export function DashEvents({ rows, today, page }: { rows: readonly P3Row[]; today: string; page: HomeOrganiser }) {
@@ -217,8 +218,10 @@ export function DashEvents({ rows, today, page }: { rows: readonly P3Row[]; toda
       {open?.kind === 'night' && (
         <NightSheet night={open.night} onClose={close} openTo={P3_PATHS.event(open.night.openId)}
           onGuestList={() => setOpen({ kind: 'guest', night: open.night })}
-          onCancel={() => setOpen({ kind: 'cancel', night: open.night })} onDelete={() => setOpen({ kind: 'delete', night: open.night })} />
+          onCancel={() => setOpen({ kind: 'cancel', night: open.night })} onDelete={() => setOpen({ kind: 'delete', night: open.night })}
+          onRaffle={() => setOpen({ kind: 'raffle', night: open.night })} />
       )}
+      {open?.kind === 'raffle' && <RaffleSheet night={open.night} onClose={() => setOpen({ kind: 'night', night: open.night })} />}
       {open?.kind === 'cancel' && <CancelNight night={open.night} today={today} onDone={done} onClose={close} />}
       {open?.kind === 'guest' && <GuestListSheet night={open.night} onClose={close} />}
       {open?.kind === 'delete' && <DeleteDraft night={open.night} onDone={done} onClose={close} />}

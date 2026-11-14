@@ -4,6 +4,7 @@ import { P3_PATHS } from '../shell/paths';
 import { Sheet } from '../screens/Sheet';
 import { GuestListRow } from '../guestlist/GuestListSheet';
 import { STATUS_WORD, type EventsModel, type Filter, type Night, type NeedsEntry } from './eventsModel';
+import { RaffleRow } from './raffle/RaffleParts';
 
 const TAP = { minHeight: 44, minWidth: 44 } as const;
 const TAG_CLASS: Record<Night['status'], string> = { live: 'live', draft: 'draft', hidden: 'hidden', cancelled: 'cancel', past: 'finished' };
@@ -125,8 +126,8 @@ export function EventsView({ model, pageId, query, filter, onQuery, onFilter, on
 }
 
 /** The sheet for one night: Open, Cancel (reason when off), Delete draft (drafts only), and the one honest "not built" row. */
-export function NightSheet({ night, onClose, onCancel, onDelete, onGuestList, openTo }: {
-  night: Night; onClose: () => void; onCancel: () => void; onDelete: () => void; onGuestList?: () => void; openTo: string;
+export function NightSheet({ night, onClose, onCancel, onDelete, onGuestList, onRaffle, openTo }: {
+  night: Night; onClose: () => void; onCancel: () => void; onDelete: () => void; onGuestList?: () => void; onRaffle?: () => void; openTo: string;
 }) {
   const cancelWhy = useId();
   const dupWhy = useId();
@@ -135,6 +136,7 @@ export function NightSheet({ night, onClose, onCancel, onDelete, onGuestList, op
       <p className="p3-note" data-testid="ev-sheet-status"><StatusTag status={night.status} /> {night.sub}</p>
       {onGuestList && <GuestListRow night={night} onOpen={onGuestList} />}
       <div className="p3-stack-s">
+        {onRaffle && <RaffleRow night={night} onOpen={onRaffle} />}
         <Link className="p3-btn p3-btn-link" style={TAP} to={openTo} data-testid="ev-open">{night.canEdit ? 'Open and edit' : 'Open'}</Link>
         <button type="button" className="p3-btn p3-btn-line" style={TAP} disabled={!night.cancel.ok} aria-describedby={night.cancel.ok ? undefined : cancelWhy} onClick={onCancel} data-testid="ev-cancel">Cancel this night</button>
         {night.cancel.why && <p className="p3-note" id={cancelWhy} data-testid="ev-cancel-why">{night.cancel.why}</p>}

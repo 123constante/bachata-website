@@ -97,6 +97,10 @@
       "reason": "Account restore after deletion request."
     },
     {
+      "name": "organiser_raffle_night_set_v1",
+      "reason": "Per-night raffle on/off switch (admin PR #1576). Not an event edit; owner/manager only, signed-in person only, called from one confirmation button (raffleHardStop.test.ts)."
+    },
+    {
       "name": "organiser_profile_update_p5_v1",
       "reason": "Organiser page details; this is what onboarding itself saves."
     },
