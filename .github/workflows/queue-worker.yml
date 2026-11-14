@@ -94,6 +94,12 @@ jobs:
           b="claude/queue-$ISSUE"
           if git ls-remote --exit-code --heads origin "$b" >/dev/null 2>&1; then
             git fetch origin "$b" && git checkout -B "$b" "origin/$b"
+            # Older issue branches predate scripts added to main since (e.g. queue-sdk-worker.mjs).
+            if ! git merge --no-edit origin/main; then
+              git merge --abort || true
+              echo "::error::could not merge origin/main into $b (conflict)"
+              exit 1
+            fi
           else
             git checkout -B "$b" origin/main
           fi
