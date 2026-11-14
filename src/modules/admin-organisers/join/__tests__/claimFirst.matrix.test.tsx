@@ -12,7 +12,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ProfileCompletion } from '@/lib/profileCompletion';
-import { nameIsOrganisation, organiserLogoUrl, parseJoinPreview, recallClaimConfirmed, rememberClaimConfirmed, showClaimFirst, type JoinStep } from '../joinModel';
+import { nameIsCloseToOrganisation, nameIsOrganisation, organiserLogoUrl, parseJoinPreview, recallClaimConfirmed, rememberClaimConfirmed, showClaimFirst, type JoinStep } from '../joinModel';
 
 const TOKEN = 'cd'.repeat(32);
 const ORG = 'Sueno Events';
@@ -194,13 +194,13 @@ describe('claim screen (flag on)', () => {
     expect(screen.getByTestId('join-about-lead').textContent).toContain(ORG);
     const input = screen.getByTestId('join-about-first-name');
     const save = screen.getByTestId('join-about-save') as HTMLButtonElement;
-    // Untouched: Continue is off with a reason, and nothing is saved.
+    expect(screen.getByTestId('join-about-org').textContent).toContain(ORG);
+    // Untouched: Continue is off (nothing typed), and nothing is saved.
     expect(save.disabled).toBe(true);
     for (const typed of ['Sueno Events', '  sueno events ', 'SUENO-EVENTS', 'Suéno Events']) {
       fireEvent.change(input, { target: { value: typed } });
-      expect(save.disabled).toBe(true);
+      expect(save.disabled).toBe(false); // soft prompt only
       expect(screen.getByTestId('join-about-name-is-org').textContent).toContain('your own first name');
-      expect(save.getAttribute('aria-describedby')).toBe('join-about-name-is-org');
     }
     fireEvent.change(input, { target: { value: 'Maria' } });
     expect(save.disabled).toBe(false);
@@ -241,6 +241,17 @@ describe('claim-first model', () => {
     ['Café Latino', 'Cafe Latino', true],
   ])('nameIsOrganisation(%j, %j) = %s', (first, org, want) => {
     expect(nameIsOrganisation(first, org)).toBe(want);
+  });
+
+  it.each([
+    ['Sueno Evnts', 'Sueno Events', true],
+    ['Sueno Events Crew', 'Sueno Events', true],
+    ['Sueno', 'Sueno Events', false],
+    ['Maria', 'Maria Bachata', false],
+    ['Ana', 'Ann', false],
+    ['', 'Sueno Events', false],
+  ])('nameIsCloseToOrganisation(%j, %j) = %s', (first, org, want) => {
+    expect(nameIsCloseToOrganisation(first, org)).toBe(want);
   });
 
   it('logo: https only, else null; parseJoinPreview carries it', () => {

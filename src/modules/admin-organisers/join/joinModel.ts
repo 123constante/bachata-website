@@ -190,6 +190,31 @@ export function nameIsOrganisation(firstName: string, organiserName: string): bo
   return a !== '' && a === nameKey(organiserName);
 }
 
+const editDistance = (a: string, b: string): number => {
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[b.length];
+};
+
+/**
+ * SOFT check for the "Now about you" step: the typed first name is the organisation's name, or a near miss of it
+ * (a typo, or the whole organisation name with a word added). Only ever a prompt, never a block: a person really
+ * called Maria may run "Maria Bachata", and a name INSIDE the organisation's is not close.
+ */
+export function nameIsCloseToOrganisation(firstName: string, organiserName: string): boolean {
+  const a = nameKey(firstName);
+  const o = nameKey(organiserName);
+  if (a === '' || o === '') return false;
+  if (a === o) return true;
+  if (o.length >= 4 && a.includes(o)) return true;
+  const slack = o.length >= 8 ? 2 : o.length >= 4 ? 1 : 0;
+  return slack > 0 && editDistance(a, o) <= slack;
+}
+
 // ---- the step table -------------------------------------------------------------------------
 
 export type JoinStep =

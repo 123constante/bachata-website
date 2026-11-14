@@ -38,3 +38,10 @@ Brief: `docs/briefs/claim-first-organiser-invite-fix1.md` on `brief/claim-first-
 - contract-check at 0c8f5bd was red on live-DB checks that do not name this PR's files:
   `purge_stale_dates_v1` unruled delete path / `check_occurrence_delete_booking_safety_v1` missing (admin migration 20260810220000),
   and the event-write door guard live report (`healthy=false`, 5 violations). Needs the admin repo, not this branch.
+
+## Round 2 (2026-11-14, ticket dt_287819c708d5) — brief `docs/briefs/invite-claim-then-about-you.md`
+- Done: "Now about you" shows the organisation ("You are taking over / <name>") above the person fields.
+- Done: the organisation-name check is now SOFT (`nameIsCloseToOrganisation`: same name, a typo, or the whole name plus a word). Amber `role=status` line; Continue is NOT blocked. Flag off = unchanged.
+- Tests: `claimFirst.matrix.test.tsx` 86 pass; join folder 734 pass. Walk (flag on) 4/4, shots refreshed. Note: the walk needs `VITE_ENABLE_CLAIM_FIRST_INVITE=true` or C1/C3 time out (same on main).
+- tsc (tsconfig.app.json): 0 errors in touched files; 5 pre-existing errors in untouched join test files.
+- Left: logo still needs admin `organiser_invite_preview_v1` to return `organiser_logo_url` (admin repo). Not verified: real prod SELECT shape survey this run, real-device phone, teamsueno2026 (untouched by flag-gated code, not exercised).
