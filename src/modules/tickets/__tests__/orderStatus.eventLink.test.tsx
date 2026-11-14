@@ -5,6 +5,8 @@ import { MemoryRouter } from 'react-router-dom';
 
 const rpc = vi.fn();
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: (...a: unknown[]) => rpc(...a), auth: { getSession: vi.fn() } } }));
+// Signed out and resolved: the thank-you page stays the fallback (a signed-in buyer is forwarded to the Tickets tab).
+vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: null, authStatus: 'ready', retryAuth: () => {} }) }));
 vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
 
 import TicketThanksPage from '../TicketThanksPage';

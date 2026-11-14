@@ -1,8 +1,9 @@
 import { Suspense, useEffect, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo } from '@/lib/seo';
+import { DANCER_TICKETS } from '@/modules/dancer-app/shell/routes';
 import { MAX_ORDER_POLLS, isOrderId, pollDelayMs, thanksCopy, type OrderStatusReading, type ThanksOrderState } from './ticketCheckoutModel';
 import { readOrderStatus } from './ticketCheckoutApi';
 import { clearOrderId, readOrderId } from './orderStorage';
@@ -20,6 +21,31 @@ const OrderQrBlock = lazyWithRetry(() => import('./OrderQrBlock'));
  */
 
 export default function TicketThanksPage() {
+  const [params] = useSearchParams();
+  const { user, authStatus } = useAuth();
+  const [stored] = useState(() => {
+    const s = typeof window === 'undefined' ? null : readOrderId();
+    return isOrderId(s) ? s : null;
+  });
+  const fromUrl = params.get('o');
+  const urlOk = isOrderId(fromUrl);
+  const orderId = urlOk ? fromUrl : stored;
+  // A signed-in buyer with an order lands in the Tickets tab, which carries the same order read
+  // and the door QRs (the tab already reads ?o= and free=1). Signed out, or no order id: this
+  // page stays the fallback. Decided before the fallback mounts, so it never polls or clears
+  // the stored id first. Sign-in still resolving: a quiet placeholder, never the fallback.
+  if (authStatus === 'resolving') {
+    return <div className="min-h-[200px]" aria-busy="true" data-testid="tickets-thanks-resolving" />;
+  }
+  if (user && orderId) {
+    const q = new URLSearchParams({ o: orderId });
+    if (params.get('free') === '1' && urlOk) q.set('free', '1');
+    return <Navigate to={`${DANCER_TICKETS}?${q.toString()}`} replace />;
+  }
+  return <ThanksFallback />;
+}
+
+export function ThanksFallback() {
   const [params] = useSearchParams();
   const { user } = useAuth();
   useSeo({ title: 'Your tickets', description: 'Your Bachata Calendar ticket order.', noindex: true });

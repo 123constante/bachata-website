@@ -13,6 +13,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: { auth: { getSession: async () => ({ data: { session: null } }) }, rpc: vi.fn() },
 }));
+// Signed out and resolved: the thank-you page stays the fallback (a signed-in buyer is forwarded to the Tickets tab).
+vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: null, authStatus: 'ready', retryAuth: () => {} }) }));
 vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { children: unknown }) => children }));
 vi.mock('@/lib/seo', () => ({ useSeo: () => undefined }));
 

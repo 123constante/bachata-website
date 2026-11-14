@@ -10,6 +10,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { auth: {}, rpc: vi.fn() } }));
+// Signed out and resolved: the thank-you page stays the fallback (a signed-in buyer is forwarded to the Tickets tab).
+vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: null, authStatus: 'ready', retryAuth: () => {} }) }));
 vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { children: unknown }) => children }));
 vi.mock('@/lib/seo', () => ({ useSeo: () => undefined }));
 

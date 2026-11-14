@@ -12,7 +12,8 @@ const flags = vi.hoisted(() => ({ door: true }));
 vi.mock('@/modules/organiser/p3/door/doorFlags', async (orig) => ({ ...(await orig<object>()), get ticketDoorCode() { return flags.door; } }));
 vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
 
-import TicketThanksPage from '../TicketThanksPage';
+// The signed-in page body now sits behind the forward to the Tickets tab: test it directly.
+import { ThanksFallback as TicketThanksPage } from '../TicketThanksPage';
 import OrderQrBlock from '../OrderQrBlock';
 import { fetchOrderQr } from '../myTicketsApi';
 import { formatShortCode, parseOrderQr } from '../myTicketsModel';
