@@ -17,3 +17,5 @@ Flag `publicTicketing` stays OFF; with it OFF nothing visible changes (the route
 - `OrderQrBlock` (the guest thank-you page) keeps `ORDER_QR_CAP = 8`. The new card has no cap.
 - The stored-id and state derivation are still repeated between `TicketThanksPage` and `useTicketCard` (review finding 8). Folding them into one `useOrderState` is a follow-up.
 - Owner: flip `VITE_ENABLE_PUBLIC_TICKETING`, then do the phone test.
+
+PR: #1664. tsc run on the final commit: 0 errors in branch files.
