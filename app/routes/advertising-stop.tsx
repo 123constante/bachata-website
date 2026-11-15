@@ -64,12 +64,21 @@ export const invalidLinkPage = () =>
     400,
   );
 
-export const upstreamErrorPage = () =>
-  friendlyPage(
-    "Something went wrong",
-    "We could not reach the server. Nothing was changed. Please try the link again in a minute.",
-    502,
-  );
+export const upstreamErrorPage = (method: "GET" | "POST" = "GET") =>
+  method === "GET"
+    ? friendlyPage(
+        "Something went wrong",
+        "We could not reach the server. Nothing was changed. Please try the link again in a minute.",
+        502,
+      )
+    : // A POST that timed out may still have been committed upstream, so this
+      // copy must not claim "nothing was changed". Re-opening the link is safe:
+      // GET never changes state and shows the current status.
+      friendlyPage(
+        "Could not confirm",
+        "We could not confirm whether advertising was stopped. Open the link from the email again to check.",
+        502,
+      );
 
 const methodNotAllowed = () => {
   const headers = pageHeaders();
@@ -105,10 +114,17 @@ async function forward(init: { method: "GET" | "POST"; token: string }): Promise
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
     const body = await upstream.text();
+    // Gateway failures (boot error, WORKER_LIMIT, 5xx) come back as JSON or a
+    // bare error, not the handler's page: show the friendly page instead of
+    // raw text. The handler's own pages (incl. 4xx invalid-token) pass through.
+    if (upstream.status >= 500 || body.trimStart().startsWith("{")) {
+      console.error("[advertising-stop] upstream error status", upstream.status);
+      return upstreamErrorPage(init.method);
+    }
     return new Response(body, { status: upstream.status, headers: pageHeaders() });
   } catch (err) {
     console.error("[advertising-stop] upstream failed", err instanceof Error ? err.message : String(err));
-    return upstreamErrorPage();
+    return upstreamErrorPage(init.method);
   }
 }
 
@@ -123,15 +139,19 @@ export async function action({ request }: Route.ActionArgs): Promise<Response> {
   if (request.method !== "POST") return methodNotAllowed();
   const contentType = (request.headers.get("content-type") ?? "").toLowerCase();
   if (!contentType.startsWith("application/x-www-form-urlencoded")) return invalidLinkPage();
-  const declared = Number(request.headers.get("content-length") ?? "0");
-  if (declared > MAX_BODY_BYTES) return invalidLinkPage();
+  // Browsers always send Content-Length for a urlencoded form. Requiring it
+  // means a chunked or unbounded body is refused before anything is buffered.
+  const declared = Number(request.headers.get("content-length"));
+  if (!Number.isInteger(declared) || declared <= 0 || declared > MAX_BODY_BYTES) {
+    return invalidLinkPage();
+  }
   let raw: string;
   try {
     raw = await request.text();
   } catch {
     return invalidLinkPage();
   }
-  if (raw.length > MAX_BODY_BYTES) return invalidLinkPage();
+  if (new TextEncoder().encode(raw).length > MAX_BODY_BYTES) return invalidLinkPage();
   const t = new URLSearchParams(raw).get("t");
   if (!validToken(t)) return invalidLinkPage();
   return forward({ method: "POST", token: t });

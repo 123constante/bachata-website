@@ -30,7 +30,11 @@ const post = (body: string, init?: RequestInit) =>
   action({
     request: new Request(`${SITE}?t=from-query&evil=1`, {
       method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded", cookie: "sb=secret" },
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        "content-length": String(new TextEncoder().encode(body).length),
+        cookie: "sb=secret",
+      },
       body,
       ...init,
     }),
@@ -121,16 +125,16 @@ describe("/advertising-stop proxy", () => {
 
   it("POST with non-form content type = invalid page, no upstream call", async () => {
     const res = await post(JSON.stringify({ t: "a" }), {
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "content-length": "11" },
     });
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(res.status).toBe(400);
     expectPageHeaders(res);
   });
 
-  it.each(["GET", "POST"])("%s upstream throws = 502 friendly page", async (method) => {
+  it("GET upstream throws = 502 friendly page saying nothing changed", async () => {
     fetchSpy.mockRejectedValue(new Error("network down"));
-    const res = method === "GET" ? await get("?t=a") : await post("t=a");
+    const res = await get("?t=a");
     expect(res.status).toBe(502);
     const html = await res.text();
     expect(html).toContain("Something went wrong");
@@ -138,11 +142,45 @@ describe("/advertising-stop proxy", () => {
     expectPageHeaders(res);
   });
 
-  it("upstream timeout (abort) = 502 and a 5 s timeout signal is passed", async () => {
+  it("POST upstream throws = 502 page that does NOT claim nothing changed", async () => {
     fetchSpy.mockRejectedValue(new DOMException("timed out", "TimeoutError"));
+    const res = await post("t=a");
+    expect(res.status).toBe(502);
+    const html = await res.text();
+    expect(html).toContain("could not confirm");
+    expect(html).not.toContain("Nothing was changed");
+    expectPageHeaders(res);
+  });
+
+  it.each([
+    ["5xx html", 503, "<p>down</p>"],
+    ["gateway JSON", 546, '{"code":"WORKER_LIMIT"}'],
+    ["JSON 401", 401, ' {"msg":"bad jwt"}'],
+  ])("upstream %s = 502 friendly page, never the raw body", async (_l, status, body) => {
+    fetchSpy.mockResolvedValue(new Response(body, { status }));
     const res = await get("?t=a");
     expect(res.status).toBe(502);
+    expect(await res.text()).not.toContain(body.trim());
+    expectPageHeaders(res);
+  });
+
+  it("passes a 5000 ms timeout signal and refuses redirects", async () => {
+    const timeoutSpy = vi.spyOn(AbortSignal, "timeout");
+    await get("?t=a");
+    expect(timeoutSpy).toHaveBeenCalledWith(5000);
     expect(fetchSpy.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal);
     expect(fetchSpy.mock.calls[0][1].redirect).toBe("error");
+  });
+
+  it.each([
+    ["missing", null],
+    ["non-numeric", "abc"],
+    ["oversized", "5000"],
+  ])("POST with %s content-length = invalid page, no upstream call", async (_l, len) => {
+    const headers: Record<string, string> = { "content-type": "application/x-www-form-urlencoded" };
+    if (len !== null) headers["content-length"] = len;
+    const res = await post("t=a", { headers });
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(res.status).toBe(400);
   });
 });
