@@ -6,5 +6,7 @@
   "queue-daily-report.yml",
   "queue-merge.yml",
   "queue-watchdog.yml",
-  "queue-worker.yml"
+  "queue-worker.yml",
+  "auto-merge-on-open.yml",
+  "revert-on-red.yml"
 ]
