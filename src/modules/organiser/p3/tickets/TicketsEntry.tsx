@@ -158,7 +158,8 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   const closeStatus = useCallback(() => setStatus(null), [setStatus]);
   const dismiss = (id: number) => setAlerts((a) => a.filter((x) => x.id !== id));
 
-  const types = useSeriesTypes(org.id, series.id);
+  // `reserved` comes from the sales summary below (same query, same money flag): never the table column.
+  const types = useSeriesTypes(org.id, series.id, canRefund(org.role));
   const list = types.data ?? [];
   // Slice 2 (PQ1): only the owner's orders read asks for pence columns.
   // Slice 2 (T4 / Q16, X5): Going taps of a free event, and the event's own ticket link. Counts and words only.

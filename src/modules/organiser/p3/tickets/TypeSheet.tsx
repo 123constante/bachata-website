@@ -10,6 +10,7 @@ import {
   MAX_PER_ORDER,
   PAYMENTS_WHERE,
   PAYMENTS_WHERE_LINK,
+  RESERVED_LOADING,
   SELLING_ELSEWHERE_LINK,
   STRIPE_AT_PRICE_HINT,
   CONNECT_START_ERROR_SHOWN,
@@ -175,13 +176,20 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
   };
 
   const pence = formPence(form);
-  const sellBlock = moveBlock({ pricePence: pence ?? 0, reserved: type?.reserved ?? 0, capacity: Number(form.capacity) || 0 }, 'on_sale', ctx);
+  // A saved type's reserved count comes from the sales summary; until it has, no capacity floor is known, so
+  // nothing is saved (fail closed). A new ticket has none taken.
+  const reservedPending = !!type && type.reservedKnown !== true;
+  const sellBlock = moveBlock(
+    { pricePence: pence ?? 0, reserved: type?.reserved ?? 0, reservedKnown: type ? type.reservedKnown === true : true, capacity: Number(form.capacity) || 0 },
+    'on_sale',
+    ctx,
+  );
 
   // A paid, complete new ticket with payments not connected: save as a draft and connect, here.
   const connect = !type && !locked && ctx.seriesLive && Object.keys(allErrors()).length === 0 ? connectBlock(pence ?? 0, ctx, onboard ?? { switchedOff: true, note: null }) : null;
 
   const submit = async (sell: boolean, thenConnect = false) => {
-    if (locked) return;
+    if (locked || reservedPending) return;
     const errs = allErrors();
     setErrors(errs);
     setServerError(null);
@@ -256,9 +264,22 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
   const busy = saving !== null;
 
   const saveChanges = (
-    <button type="button" className="p3-btn" onClick={() => void submit(false)} disabled={busy} aria-busy={saving === 'save' || undefined} data-testid="tix-save">
-      {saving === 'save' ? 'Saving\u2026' : 'Save changes'}
-    </button>
+    <>
+      {reservedPending && (
+        <p id={`${id}-reserved`} className="p3-note" data-testid="tix-reserved-pending">{RESERVED_LOADING}</p>
+      )}
+      <button
+        type="button"
+        className="p3-btn"
+        onClick={() => void submit(false)}
+        disabled={busy || reservedPending}
+        aria-describedby={reservedPending ? `${id}-reserved` : undefined}
+        aria-busy={saving === 'save' || undefined}
+        data-testid="tix-save"
+      >
+        {saving === 'save' ? 'Saving\u2026' : 'Save changes'}
+      </button>
+    </>
   );
   let footer;
   if (step < 3 && type && !locked) {
