@@ -51,14 +51,20 @@
       "a.flex.gap-1.hover:text-foreground.hover:text-primary.items-center.text-muted-foreground.transition-colors.transition-colors",
       "a.focus-visible:outline.focus-visible:outline-2.focus-visible:outline-offset-2.focus-visible:outline-primary-foreground.hover:text-primary-foreground.hover:underline.rounded-sm.text-primary-foreground/85",
       "button.-mr-0.5.hover:bg-black/10.p-0.5.rounded-full.shrink-0",
+      "button.[&_svg]:pointer-events-none.[&_svg]:shrink-0.[&_svg]:size-4.bg-primary.disabled:opacity-50.disabled:pointer-events-none.focus-visible:outline-none.focus-visible:ring-2",
       "button.backdrop-blur-sm.bg-black/55.flex.focus-visible:ring-2.focus-visible:ring-white/50.focus:outline-none.gap-1.h-7",
       "button.backdrop-blur-sm.bg-black/55.flex.focus-visible:ring-2.focus-visible:ring-white/50.focus:outline-none.h-9.hover:bg-black/70",
       "button.backdrop-blur-sm.bg-black/60.hover:bg-black/80.inline-flex.items-center.justify-center.p-1.5.rounded-full",
       "button.bg-primary/[0.04].border.border-primary/30.flex.flex-1.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-primary",
       "button.cal-mobile-trigger.cal-pill",
+      "button.flex.gap-1.hover:underline.items-center.justify-center.mx-auto.py-1.text-xs",
       "button.flex.h-12.items-center.justify-center.rounded-full.shrink-0.w-12",
       "button.rsb-lever",
+      "input.bg-background.border.border-input.disabled:cursor-not-allowed.disabled:opacity-50.file:bg-transparent.file:border-0.file:font-medium",
       "span.font-medium.max-w-[150px].md:max-w-none.text-foreground.truncate"
+    ],
+    "disabled-no-reason": [
+      "button.[&_svg]:pointer-events-none.[&_svg]:shrink-0.[&_svg]:size-4.bg-primary.disabled:opacity-50.disabled:pointer-events-none.focus-visible:outline-none.focus-visible:ring-2"
     ]
   },
   "/faq": {
