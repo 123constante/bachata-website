@@ -245,6 +245,7 @@ const TARGETS = [
   { rel: 'scripts/run-lint-chain.mjs' },
   { rel: 'scripts/ship-gate.mjs' },
   { rel: 'scripts/sweep-stale-bot-prs.mjs' },
+  { rel: 'scripts/unit-stamp.mjs' },
   { rel: 'scripts/walk-seed.mjs' },
   { rel: 'scripts/lib/walk-fixtures.mjs' },
   { rel: 'scripts/lib/walk-gate-decision.mjs' },

@@ -138,7 +138,15 @@ fi
 # pass); any other exit = red there, push refused. REMOTE_TEST=off forces local.
 heads_pushed=$((branch_refs + to_main))
 unit_where="here"
-if [ "${REMOTE_TEST:-}" = "off" ]; then
+# `npm run pre-ship` stamps a green test:unit with the TREE sha. Same tree, under 60 min old:
+# the offline gate would re-run a subset of what just passed. Anything else (no stamp, other
+# tree, stale, garbled, node missing) runs the gate exactly as below. Proof: tests/unitStamp.test.ts.
+stamp_verdict=$(node "$REPO_ROOT/scripts/unit-stamp.mjs" check 2>/dev/null || echo run)
+if [ "${stamp_verdict%% *}" = "skip" ] && [ -n "$HEAD_SHA" ] && [ -z "$unscoped" ]; then
+    set -- $stamp_verdict
+    echo "> pre-push: unit gate skipped (pre-ship passed on this exact tree $2, $3 min ago)"
+    unit_where="stamp"
+elif [ "${REMOTE_TEST:-}" = "off" ]; then
     unit_reason="REMOTE_TEST=off"
 elif [ ! -f "$HOME/.claude/bin/remote-test.mjs" ]; then
     unit_reason="helper not installed"

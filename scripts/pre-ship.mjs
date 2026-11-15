@@ -1423,7 +1423,25 @@ async function main(argv = process.argv.slice(2)) {
         continue;
       }
       const extraEnv = id === "build:ship" ? perfBuild.env : null;
-      results.push({ id, label, ok: runCheck(id, args || [], extraEnv) });
+      let unitBefore = null;
+      if (id === "test:unit") {
+        try {
+          unitBefore = (await import("./unit-stamp.mjs")).snapshotTree();
+        } catch {
+          /* no snapshot = no stamp */
+        }
+      }
+      const checkOk = runCheck(id, args || [], extraEnv);
+      results.push({ id, label, ok: checkOk });
+      // Unit stamp for .githooks/pre-push (tree-keyed, clean tree only, never fatal).
+      if (id === "test:unit" && checkOk && unitBefore) {
+        try {
+          const { writeStamp } = await import("./unit-stamp.mjs");
+          writeStamp(unitBefore);
+        } catch {
+          /* no stamp = pre-push runs its gate as before */
+        }
+      }
     }
   }
 
