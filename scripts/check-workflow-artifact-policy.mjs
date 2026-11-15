@@ -588,7 +588,9 @@ const FLOORS = {
   // 16 -> 20 on 2026-11-04: MEASURED.workflowFiles 34 puts the pinned band at
   // [ceil(34/2), 34 - 2] = [17, 32]; 16 fell below its lower edge. 20 sits
   // inside the band and off both ends.
-  workflowFiles: 20,
+  // 20 -> 30 on 2026-11-15: MEASURED.workflowFiles 48 puts the pinned band at
+  // [ceil(48/2), 48 - 2] = [24, 46]; 20 fell below its lower edge. 30 is inside the band, off both ends.
+  workflowFiles: 30,
   uploadSteps: 3,
   // A COLLAPSE floor, and deliberately nothing more. Gate 1 compares two reads
   // of the same parsed document, so both halves see the same thing if the
