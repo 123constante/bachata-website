@@ -3,7 +3,7 @@
 //   classifyTier(files) -> 'A' | 'B' | 'C'   (the HIGHEST tier of any file wins)
 //
 //   A  owner Approve: any guard path (isGuardPath), anything under supabase/migrations or any *.sql,
-//      secrets (.env*, a path naming "secret"), money (isMoney on the path, money-set.json).
+//      secrets (.env/.env.*/.envrc/env.* basenames, a secret(s) segment or stem), money (isMoney on the path, money-set.json).
 //   B  merge on green CI + a worker self-review in the PR body: any other HARD-tier path
 //      (review-scope.mjs riskTier). .github/, .claude/ and .githooks/ are guarded today, so in
 //      practice B is the unguarded files under scripts/ and bin/.
@@ -26,7 +26,18 @@ try {
 }
 
 const SQL = /(^|\/)supabase\/migrations\/|\.sql$/i;
-const SECRET = /(^|\/)\.env(\.|$)|secret/i;
+// Secrets by BASENAME: .env, .env.<x>, .envrc, env.<x> (env.production); and the word secret(s)
+// only as a whole path segment or a whole file stem (secrets/x.json, config/secret.ts), never inside a
+// prose name (docs/secret-santa.md, scripts/rotate-secret.mjs).
+const ENV_BASENAME = /^(\.env(\..+)?|\.envrc|env\.[a-z0-9_-]+)$/i;
+const SECRET_WORD = /^secrets?$/i;
+function isSecretPath(q) {
+  const segs = q.split('/');
+  const base = segs[segs.length - 1];
+  if (ENV_BASENAME.test(base)) return true;
+  if (segs.slice(0, -1).some((d) => SECRET_WORD.test(d))) return true;
+  return SECRET_WORD.test(base.replace(/\..*$/, ''));
+}
 
 /** Tier of ONE file: a path string, or a GitHub pull-file object ({filename|path, patch, changes,
  *  previous_filename}). A string is money-checked by PATH only; an object is handed to isMoney whole,
@@ -41,7 +52,7 @@ export function fileTier(f, deps = {}) {
   const p = obj ? (f.filename ?? f.path) : f;
   if (typeof p !== 'string' || p === '') return 'A';
   const prev = obj && typeof f.previous_filename === 'string' && f.previous_filename ? [f.previous_filename] : [];
-  for (const q of [p, ...prev]) if (guard(q) || SQL.test(q) || SECRET.test(q)) return 'A';
+  for (const q of [p, ...prev]) if (guard(q) || SQL.test(q) || isSecretPath(q)) return 'A';
   if (money(obj ? f : { path: p, changes: 0 })) return 'A';
   if ([p, ...prev].some((q) => tier(q) === 'hard')) return 'B';
   return 'C';
@@ -66,15 +77,24 @@ export function mergeTiersEnabled(env = process.env) {
   return Boolean(env) && env.MERGE_TIERS_ENABLED === 'true';
 }
 
-/** The PR body records the worker's self-review: a `## Self-review` heading followed by at least
- *  one non-blank line before the next heading (an empty heading does not count). */
+/** Placeholder lines that never count as a self-review. */
+const PLACEHOLDER = /^(-|todo|n\/a|none|tbd)$/i;
+
+/** The PR body records the worker's self-review: a `## Self-review` heading followed, before the next
+ *  heading, by at least one REAL line: not blank, not an HTML comment, not a placeholder (-, TODO,
+ *  n/a, none, tbd) and carrying at least 12 letters/digits. Placeholder bodies fail. */
 export function hasSelfReview(body) {
-  const lines = String(body ?? '').split(/\r?\n/);
+  const text = String(body ?? '').replace(/<!--[\s\S]*?(-->|$)/g, '');
+  const lines = text.split(/\r?\n/);
   const i = lines.findIndex((l) => /^## Self-review\s*$/i.test(l));
   if (i < 0) return false;
   for (const l of lines.slice(i + 1)) {
     if (/^#{1,2} /.test(l)) return false;
-    if (l.trim() !== '') return true;
+    const t = l.trim();
+    if (t === '' || PLACEHOLDER.test(t)) continue;
+    const item = t.replace(/^([-*]|\d+\.)\s+/, '');
+    if (PLACEHOLDER.test(item)) continue;
+    if ((item.match(/[A-Za-z0-9]/g) || []).length >= 12) return true;
   }
   return false;
 }

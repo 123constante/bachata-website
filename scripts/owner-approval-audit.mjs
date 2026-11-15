@@ -31,8 +31,9 @@
  * Merge tiers (brief merge-tiers; scripts/lib/merge-tier.mjs), ONLY when env MERGE_TIERS_ENABLED is
  * exactly 'true' (the workflow passes vars.MERGE_TIERS_ENABLED; default off): a commit whose files
  * classify as tier B (hard-tier, but no guard / migration / secret / money path) is OK without an
- * owner approval WHEN it came from a merged PR whose body records a self-review (hasSelfReview). A
- * direct push stays RED. Tier A and C keep today's rule exactly. Flag off = today's verdicts.
+ * owner approval WHEN the merged PR whose merge_commit_sha IS the audited sha was authored by
+ * BOT_LOGIN and its body records a self-review (hasSelfReview). Any other associated PR, a human
+ * author, or a direct push stays RED. Tier A and C keep today's rule exactly. Flag off = today's verdicts.
  */
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -49,6 +50,8 @@ import { pathClass, reviewRecordVerdict, readReviewRecord } from "./automerge-cl
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 export const OWNER_LOGIN = "123constante";
+/** The only author whose self-review body can stand in for an owner click (merge tier B). */
+export const BOT_LOGIN = "kiki-claude-bot";
 
 /**
  * Pure verdict. `files` = paths the commit touched; `prs` = [{number, headSha, reviews}]
@@ -57,12 +60,13 @@ export const OWNER_LOGIN = "123constante";
  * On = guard paths count as hard too, and a verdict carries escalate (RED on a guard path), guard
  * (the guard paths touched) and prs (the PR numbers) for escalateRed().
  */
-export function decideAudit({ files, prs, owner = OWNER_LOGIN, escalation = false, mergeTiers = false, tierFiles = null }) {
+export function decideAudit({ files, prs, owner = OWNER_LOGIN, escalation = false, mergeTiers = false, tierFiles = null, sha = null }) {
   // Merge tiers (flag on only): tier B lands on green CI with a recorded self-review, no owner click.
-  // A direct push (no PR) or a PR without a recorded self-review falls through to today's rule.
-  if (mergeTiers === true && (files || []).length > 0 && classifyTier(tierFiles || files) === "B") {
-    const pr = (prs || []).find((p) => p && hasSelfReview(p.body));
-    if (pr) return { code: 0, reason: `merge tier B (MERGE_TIERS_ENABLED): PR #${pr.number} records a self-review; owner approval not required` };
+  // ONLY the PR whose merge commit IS this sha counts (never another associated PR), and only when the
+  // bot authored it. A direct push, a human/other author, or no recorded self-review = today's rule.
+  if (mergeTiers === true && typeof sha === "string" && sha !== "" && (files || []).length > 0 && classifyTier(tierFiles || files) === "B") {
+    const pr = (prs || []).find((p) => p && p.mergeCommitSha === sha);
+    if (pr && pr.author === BOT_LOGIN && hasSelfReview(pr.body)) return { code: 0, reason: `merge tier B (MERGE_TIERS_ENABLED): PR #${pr.number} records a self-review; owner approval not required` };
   }
   if (escalation !== true) return verdictOf({ files, prs, owner, isHard: (f) => riskTier(f) === "hard" });
   const v = verdictOf({ files, prs, owner, isHard: (f) => riskTier(f) === "hard" || isGuardPath(f) });
@@ -216,10 +220,10 @@ async function auditCommit(repo, sha, escalation, mergeTiers = false) {
     if (needStatuses) {
       try { statuses = await paginate(`/repos/${repo}/commits/${p.head.sha}/statuses`); } catch { statuses = []; }
     }
-    prs.push({ number: p.number, headSha: p.head.sha, reviews, statuses, labels: (p.labels || []).map((l) => l && l.name), body: p.body || "" });
+    prs.push({ number: p.number, headSha: p.head.sha, reviews, statuses, labels: (p.labels || []).map((l) => l && l.name), body: p.body || "", author: (p.user && p.user.login) || "", mergeCommitSha: p.merge_commit_sha || "" });
   }
   // Tier from the full file objects so the money check scans changed lines too, not only paths.
-  const v = mergeTiers ? decideAudit({ files, prs, escalation, mergeTiers, tierFiles: commit.files }) : decideAudit({ files, prs, escalation });
+  const v = mergeTiers ? decideAudit({ files, prs, escalation, mergeTiers, tierFiles: commit.files, sha }) : decideAudit({ files, prs, escalation });
   return { ...v, records: await recordAudits(repo, files, prs) };
 }
 
