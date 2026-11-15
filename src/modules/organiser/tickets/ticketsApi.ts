@@ -168,8 +168,20 @@ export const ORDER_SELECT_COUNTS = 'id, ticket_type_id, quantity, status, paid_a
  * Every order of these ticket types, any status (pending / expired ones freeze the price too). No email, no Stripe ids.
  * `money: false` reads counts only: the pence fields parse to 0 and are never shown.
  */
-export async function fetchOrders(typeIds: readonly string[], opts: { money?: boolean } = {}): Promise<Order[]> {
+export async function fetchOrders(typeIds: readonly string[], opts: { money?: boolean; organiserId?: string } = {}): Promise<Order[]> {
   if (typeIds.length === 0) return [];
+  if (opts.money !== false && opts.organiserId) {
+    // Owner/admin money read: ticket_orders_for_organiser_v1 (admin #1384 revokes the money columns from the table).
+    // Until that migration is applied the function does not exist; fall through to the table read below.
+    const { data, error } = await db().rpc('ticket_orders_for_organiser_v1', { p_organiser_id: opts.organiserId });
+    const res = (data ?? {}) as { ok?: unknown; orders?: unknown; reason?: unknown };
+    if (!error && res.ok === true && Array.isArray(res.orders)) {
+      const wanted = new Set<string>(typeIds);
+      return (res.orders as Record<string, unknown>[]).filter((r) => wanted.has(String(r.ticket_type_id))).map(parseOrderRow);
+    }
+    const missing = error && (error.code === 'PGRST202' || error.code === '42883');
+    if (!missing) throw error ?? new Error(typeof res.reason === 'string' ? res.reason : 'orders_not_allowed');
+  }
   const out: Order[] = [];
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await db()
