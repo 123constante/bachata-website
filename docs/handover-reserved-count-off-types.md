@@ -40,3 +40,10 @@ conservative (the floor can only be stricter than the server's).
 
 ## Next
 - Admin repo revokes `ticket_types.reserved_count` from `authenticated` after this deploys (not here).
+
+## Verified / Not verified
+- tsc run on the branch head: 0 errors in branch files.
+- Verified: organiser vitest 13821 passed; new matrix tests; check:mojibake clean; lint 35/36 (red
+  link `check:no-social-word` is on an untouched file and fails on main too); 390x844 walks s1 / t3 / t5 pass.
+- Not verified: pre-ship, full test:unit, build; PR CI to green; sales-report and promo walks fail on main
+  as well (orders RPC not mocked); real signed-in prod session; Ricky's phone test.
