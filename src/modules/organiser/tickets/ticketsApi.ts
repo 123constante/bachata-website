@@ -170,10 +170,13 @@ export const ORDER_SELECT_COUNTS = 'id, ticket_type_id, quantity, status, paid_a
  */
 export async function fetchOrders(typeIds: readonly string[], opts: { money?: boolean; organiserId?: string } = {}): Promise<Order[]> {
   if (typeIds.length === 0) return [];
-  if (opts.money !== false && opts.organiserId) {
-    // Owner/admin money read: ticket_orders_for_organiser_v1 (admin #1384 revokes the money columns from the table).
-    // Until that migration is applied the function does not exist; fall through to the table read below.
-    const { data, error } = await db().rpc('ticket_orders_for_organiser_v1', { p_organiser_id: opts.organiserId });
+  if (opts.organiserId) {
+    // Admin #1384 revokes ticket_orders.status and the money columns from the table, so both reads go through a
+    // server reader: owner/admin money -> ticket_orders_for_organiser_v1; counts (manager / contributor seats) ->
+    // ticket_order_statuses_for_organiser_v1 (no money keys; pence parse to 0). Until that migration is applied
+    // the function does not exist; fall through to the table read below.
+    const fn = opts.money === false ? 'ticket_order_statuses_for_organiser_v1' : 'ticket_orders_for_organiser_v1';
+    const { data, error } = await db().rpc(fn, { p_organiser_id: opts.organiserId });
     const res = (data ?? {}) as { ok?: unknown; orders?: unknown; reason?: unknown };
     if (!error && res.ok === true && Array.isArray(res.orders)) {
       const wanted = new Set<string>(typeIds);
