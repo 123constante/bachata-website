@@ -5630,6 +5630,69 @@ export type Database = {
           },
         ]
       }
+      organiser_access_notify_queue: {
+        Row: {
+          attempt_at: string | null
+          created_at: string
+          error: string | null
+          event: string
+          id: string
+          logged_at: string | null
+          organiser_id: string
+          payload: Json
+          recipient_email: string | null
+          recipient_user_id: string | null
+          sent_at: string | null
+          source_id: string
+          status: string
+        }
+        Insert: {
+          attempt_at?: string | null
+          created_at?: string
+          error?: string | null
+          event: string
+          id?: string
+          logged_at?: string | null
+          organiser_id: string
+          payload?: Json
+          recipient_email?: string | null
+          recipient_user_id?: string | null
+          sent_at?: string | null
+          source_id: string
+          status?: string
+        }
+        Update: {
+          attempt_at?: string | null
+          created_at?: string
+          error?: string | null
+          event?: string
+          id?: string
+          logged_at?: string | null
+          organiser_id?: string
+          payload?: Json
+          recipient_email?: string | null
+          recipient_user_id?: string | null
+          sent_at?: string | null
+          source_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organiser_access_notify_queue_organiser_id_fkey"
+            columns: ["organiser_id"]
+            isOneToOne: false
+            referencedRelation: "organiser_admin_dashboard_v2"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organiser_access_notify_queue_organiser_id_fkey"
+            columns: ["organiser_id"]
+            isOneToOne: false
+            referencedRelation: "organiser_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organiser_analytics_daily_totals: {
         Row: {
           day: string
@@ -10584,14 +10647,14 @@ export type Database = {
           },
           {
             foreignKeyName: "fk_venues_entity_id"
-            columns: ["venue_entity_id"]
+            columns: ["entity_id"]
             isOneToOne: true
             referencedRelation: "entities"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "fk_venues_entity_id"
-            columns: ["entity_id"]
+            columns: ["venue_entity_id"]
             isOneToOne: true
             referencedRelation: "entities"
             referencedColumns: ["id"]
@@ -10693,6 +10756,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           founded_year: number | null
+          gallery_urls: Json | null
           has_leader: boolean | null
           id: string | null
           instagram: string | null
@@ -11576,6 +11640,17 @@ export type Database = {
         Args: { p_organiser_id: string; p_user: string }
         Returns: string[]
       }
+      _organiser_access_notify_enqueue_p5: {
+        Args: {
+          p_event: string
+          p_organiser_id: string
+          p_payload: Json
+          p_recipient_email: string
+          p_recipient_user_id: string
+          p_source_id: string
+        }
+        Returns: string
+      }
       _organiser_access_requests_p5: {
         Args: never
         Returns: {
@@ -11780,6 +11855,14 @@ export type Database = {
           profile_id: string
           user_id: string
         }[]
+      }
+      _organiser_team_row_readable_v1: {
+        Args: {
+          p_is_active: boolean
+          p_member_profile_id: string
+          p_organiser_id: string
+        }
+        Returns: boolean
       }
       _organiser_team_rows_v1: {
         Args: { p_organiser_id: string }
@@ -12639,6 +12722,14 @@ export type Database = {
       }
       accept_terms_v1: {
         Args: { p_kind: string; p_version: string }
+        Returns: Json
+      }
+      access_notify_record_v1: {
+        Args: { p_error?: string; p_id: string; p_outcome: string }
+        Returns: Json
+      }
+      access_notify_take_v1: {
+        Args: { p_dry_run?: boolean; p_limit?: number }
         Returns: Json
       }
       account_erase_due_list_v1: { Args: { p_limit?: number }; Returns: Json }
@@ -14392,6 +14483,7 @@ export type Database = {
           p_contact_email?: string
           p_contact_phone?: string
           p_founded_year?: number
+          p_gallery_urls?: Json
           p_id?: string
           p_instagram?: string
           p_is_active?: boolean
@@ -17550,6 +17642,10 @@ export type Database = {
         Args: { p_order_id: string; p_session_id: string; p_status: string }
         Returns: Json
       }
+      ticket_order_counts_for_organiser_v1: {
+        Args: { p_organiser_id: string }
+        Returns: Json
+      }
       ticket_order_dispute_closed_v1: {
         Args: {
           p_account_id: string
@@ -17586,9 +17682,18 @@ export type Database = {
         Returns: Json
       }
       ticket_order_public_status_v1: { Args: { p_ref: string }; Returns: Json }
+      ticket_order_read_v1: { Args: { p_order_id: string }; Returns: Json }
       ticket_order_set_email_status_v1: {
         Args: { p_email_status: string; p_order_id: string }
         Returns: undefined
+      }
+      ticket_order_statuses_for_organiser_v1: {
+        Args: { p_organiser_id: string }
+        Returns: Json
+      }
+      ticket_orders_for_organiser_v1: {
+        Args: { p_organiser_id: string }
+        Returns: Json
       }
       ticket_orders_hold_due_v1: { Args: { p_limit?: number }; Returns: Json }
       ticket_orders_sweep_v1: { Args: never; Returns: Json }
