@@ -67,9 +67,28 @@ function verdictOf({ files, prs, owner, isHard }) {
     if (ownerApprovedAtHead(pr, owner)) {
       return { code: 0, reason: `PR #${pr.number} owner-approved at head ${pr.headSha.slice(0, 8)}` };
     }
+    // Guard paths stay owner-only: the bot status never covers them (reviewer finding 1).
+    if (reviewerPassAtHead(pr) && !hard.some((f) => isGuardPath(f))) {
+      return { code: 0, reason: `PR #${pr.number} reviewer-passed at head ${pr.headSha.slice(0, 8)}` };
+    }
   }
   const nums = prs.map((p) => "#" + p.number).join(", ");
   return { code: 1, reason: `hard-tier change in ${nums} without an owner approval at the PR head: ${hard.join(", ")}` };
+}
+
+export const REVIEWER_STATUS_CONTEXT = "hard-tier-review";
+export const REVIEWER_ID = 336045711; // kiki-claude-bot numeric account id (a login can be renamed)
+
+/**
+ * The newest commit status named hard-tier-review on the PR's head sha is `success` and was
+ * created by the reviewer account. `pr.statuses` = GET /commits/{headSha}/statuses (newest
+ * first), fetched for the head sha, so a later push (new sha) has no status and voids it.
+ */
+export function reviewerPassAtHead(pr) {
+  const newest = ((pr && pr.statuses) || [])
+    .filter((x) => x && x.context === REVIEWER_STATUS_CONTEXT)
+    .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")) || (b.id || 0) - (a.id || 0))[0];
+  return Boolean(newest && newest.state === "success" && newest.creator && newest.creator.id === REVIEWER_ID);
 }
 
 /** The owner's LATEST non-COMMENTED review is APPROVED at the PR's head sha. */
@@ -177,7 +196,10 @@ async function auditCommit(repo, sha, escalation) {
   const prs = [];
   for (const p of assoc.filter((x) => x.merged_at)) {
     const reviews = await paginate(`/repos/${repo}/pulls/${p.number}/reviews`);
-    prs.push({ number: p.number, headSha: p.head.sha, reviews, labels: (p.labels || []).map((l) => l && l.name) });
+    // Only a hard-tier commit needs the status: a flaky read must not turn a clean commit INFRA.
+    const needStatuses = files.some((f) => riskTier(f) === "hard" || isGuardPath(f));
+    const statuses = needStatuses ? await paginate(`/repos/${repo}/commits/${p.head.sha}/statuses`) : [];
+    prs.push({ number: p.number, headSha: p.head.sha, reviews, statuses, labels: (p.labels || []).map((l) => l && l.name) });
   }
   const v = decideAudit({ files, prs, escalation });
   return { ...v, records: await recordAudits(repo, files, prs) };

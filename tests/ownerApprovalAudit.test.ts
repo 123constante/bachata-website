@@ -51,6 +51,41 @@ describe('owner-approval audit -- decideAudit', () => {
     }).code).toBe(1);
   });
 
+  it('passes a hard-tier change with a reviewer success status by the reviewer account', () => {
+    const st = { context: 'hard-tier-review', state: 'success', creator: { id: 336045711 } };
+    const v = decideAudit({ files: ['scripts/ship-gate.mjs'], prs: [{ number: 9, headSha: 'h9', reviews: [], statuses: [st] }] });
+    expect(v.code).toBe(0);
+  });
+
+  it('REDS when the reviewer status is failure, pending, absent, or set by someone else', () => {
+    const mk = (state: string, id: number) => ({ context: 'hard-tier-review', state, creator: { id } });
+    for (const statuses of [
+      [mk('failure', 336045711)],
+      [mk('pending', 336045711)],
+      [mk('success', 1)],
+      [{ context: 'other', state: 'success', creator: { id: 336045711 } }],
+      [],
+    ]) {
+      expect(decideAudit({ files: ['scripts/ship-gate.mjs'], prs: [{ number: 9, headSha: 'h9', reviews: [], statuses }] }).code).toBe(1);
+    }
+  });
+
+  it('uses the NEWEST status by created_at, whatever the list order', () => {
+    const ok = { id: 1, created_at: '2026-01-01T00:00:00Z', context: 'hard-tier-review', state: 'success', creator: { id: 336045711 } };
+    const bad = { id: 2, created_at: '2026-01-02T00:00:00Z', context: 'hard-tier-review', state: 'failure', creator: { id: 336045711 } };
+    for (const statuses of [[ok, bad], [bad, ok]]) {
+      expect(decideAudit({ files: ['scripts/ship-gate.mjs'], prs: [{ number: 9, headSha: 'h9', reviews: [], statuses }] }).code).toBe(1);
+    }
+  });
+
+  it('never lets the reviewer status cover a guard path, with escalation on or off', () => {
+    const st = { context: 'hard-tier-review', state: 'success', creator: { id: 336045711 } };
+    for (const escalation of [false, true]) {
+      const v = decideAudit({ files: ['.github/automation/guard-paths.json'], prs: [{ number: 9, headSha: 'h9', reviews: [], statuses: [st] }], escalation });
+      expect(v.code).toBe(1);
+    }
+  });
+
   it('REDS a hard-tier direct push to main (no PR)', () => {
     expect(decideAudit({ files: ['bin/tool'], prs: [] }).code).toBe(1);
   });
