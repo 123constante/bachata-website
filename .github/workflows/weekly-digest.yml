@@ -10,6 +10,7 @@ name: Weekly Digest
 #     (check-series-occurrence-horizon.mjs --markdown)
 #   - rework share, trailing 100 commits, both repos (rework-share.mjs --markdown;
 #     frozen recipe owned by admin docs/workflow-overhaul-adoption-checkpoint.md)
+#   - defect escape count (defect-escape.mjs --markdown)
 #
 # To switch delivery to WhatsApp/Telegram later, replace the final step.
 
@@ -93,6 +94,15 @@ jobs:
           {
             echo ""
             node scripts/rework-share.mjs --markdown || echo "_rework share unavailable this week_"
+          } >> digest.md
+
+      - name: Append defect-escape section
+        # soft-signal: report channel, not a gate (same reasoning as the rework-share step above)
+        continue-on-error: true
+        run: |
+          {
+            echo ""
+            node scripts/defect-escape.mjs --markdown || echo "_defect escape unavailable this week_"
           } >> digest.md
 
       - name: Append footer
