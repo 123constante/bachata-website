@@ -27,6 +27,11 @@
  * reads the PR's review record and prints `RECORD-MISSING <sha8>: PR #n <first problem>` when
  * reviewRecordVerdict refuses it. That line never changes the exit code (worstCode ignores it).
  * A PR the owner approved at head is skipped (`RECORD-SKIP`): the approval is the stronger record.
+ *
+ * Merge tiers (brief merge-tiers; scripts/lib/merge-tier.mjs), ONLY when env MERGE_TIERS_ENABLED is
+ * exactly 'true' (the workflow passes vars.MERGE_TIERS_ENABLED; default off): a commit whose files
+ * classify as tier B (hard-tier, but no guard / migration / secret / money path) is OK without an
+ * owner approval. Tier A and C keep today's rule exactly. Flag off = today's verdicts, unchanged.
  */
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -34,6 +39,7 @@ import { fileURLToPath } from "node:url";
 import { riskTier } from "./lib/review-scope.mjs";
 import { isEntryPoint } from "./lib/entry-point.mjs";
 import { isGuardPath } from "./lib/guard-paths.mjs";
+import { classifyTier, mergeTiersEnabled } from "./lib/merge-tier.mjs";
 import { readArming, ARMING_PATH } from "./lib/arming.mjs";
 import { postPauseNotice, PAUSE_LABEL } from "./lib/automation-pause.mjs";
 import { setPauseLabel } from "./automation-pause.mjs";
@@ -50,7 +56,11 @@ export const OWNER_LOGIN = "123constante";
  * On = guard paths count as hard too, and a verdict carries escalate (RED on a guard path), guard
  * (the guard paths touched) and prs (the PR numbers) for escalateRed().
  */
-export function decideAudit({ files, prs, owner = OWNER_LOGIN, escalation = false }) {
+export function decideAudit({ files, prs, owner = OWNER_LOGIN, escalation = false, mergeTiers = false, tierFiles = null }) {
+  // Merge tiers (flag on only): tier B lands on green CI with a recorded self-review, no owner click.
+  if (mergeTiers === true && (files || []).length > 0 && classifyTier(tierFiles || files) === "B") {
+    return { code: 0, reason: "merge tier B (MERGE_TIERS_ENABLED): hard-tier, no guard/migration/secret/money path; owner approval not required" };
+  }
   if (escalation !== true) return verdictOf({ files, prs, owner, isHard: (f) => riskTier(f) === "hard" });
   const v = verdictOf({ files, prs, owner, isHard: (f) => riskTier(f) === "hard" || isGuardPath(f) });
   const guard = (files || []).filter((f) => isGuardPath(f));
@@ -186,7 +196,7 @@ async function paginate(path) {
 }
 
 /** Audit ONE commit: its own files, the merged PRs it belongs to. */
-async function auditCommit(repo, sha, escalation) {
+async function auditCommit(repo, sha, escalation, mergeTiers = false) {
   const commit = await gh(`/repos/${repo}/commits/${sha}`);
   if ((commit.files || []).length >= 300) {
     return { code: 2, reason: `${sha.slice(0, 8)} lists 300+ files (API cap) - cannot prove the hard-tier set` };
@@ -205,7 +215,8 @@ async function auditCommit(repo, sha, escalation) {
     }
     prs.push({ number: p.number, headSha: p.head.sha, reviews, statuses, labels: (p.labels || []).map((l) => l && l.name) });
   }
-  const v = decideAudit({ files, prs, escalation });
+  // Tier from the full file objects so the money check scans changed lines too, not only paths.
+  const v = mergeTiers ? decideAudit({ files, prs, escalation, mergeTiers, tierFiles: commit.files }) : decideAudit({ files, prs, escalation });
   return { ...v, records: await recordAudits(repo, files, prs) };
 }
 
@@ -258,9 +269,11 @@ async function main() {
   }
   const escalation = readEscalation();
   console.log(`audit_escalation (arming.json): ${escalation ? "on" : "off"}`);
+  const mergeTiers = mergeTiersEnabled();
+  if (mergeTiers) console.log("merge tiers (MERGE_TIERS_ENABLED): on");
   const verdicts = [];
   for (const c of shas) {
-    const v = await auditCommit(repo, c, escalation);
+    const v = await auditCommit(repo, c, escalation, mergeTiers);
     verdicts.push(v);
     console.log(`${v.code === 0 ? "OK" : v.code === 1 ? "RED" : "INFRA"} ${c.slice(0, 8)}: ${v.reason}`);
     for (const r of v.records || []) {

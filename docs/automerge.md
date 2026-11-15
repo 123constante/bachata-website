@@ -277,6 +277,29 @@ is a separate decision about CI-guard PRs, not a wider allowlist here.
 | #482 | NO | `test:` PR that also adds root `diagnose_flags.js` / `diagnose_rpc.ts` |
 | #639 | NO | `test:` PR, 865 lines, plus `package.json` and a Playwright config |
 
+## Merge tiers (behind `MERGE_TIERS_ENABLED`, default off)
+
+Owner click 2026-11-15: gate by blast radius, then detect and revert fast. One classifier,
+`scripts/lib/merge-tier.mjs` `classifyTier(files)`; the highest tier of any file wins, and it reuses
+`isGuardPath`, `riskTier` and `isMoney` (no second path list). Fail closed: no files = A.
+
+| Tier | Paths | Merge |
+|---|---|---|
+| A | guard paths, `supabase/migrations/**`, `*.sql`, secrets (`.env*`, `*secret*`), money set | owner Approve at head (today's rule) |
+| B | other hard-tier paths (`scripts/`, `bin/`, `.githooks/`, `.github/`, `.claude/`) | auto-merge on green CI, with a `## Self-review` section in the PR body |
+| C | everything else | auto-merge on green CI |
+
+With repo variable `MERGE_TIERS_ENABLED` set to `true`:
+- `scripts/owner-approval-audit.mjs` stops reding tier-B commits that lack an owner approval (the
+  workflow must pass `MERGE_TIERS_ENABLED: ${{ vars.MERGE_TIERS_ENABLED }}` in the audit step's env).
+- `docs/proposals/auto-merge-on-open.yml` arms `gh pr merge --auto --squash --match-head-commit` on
+  bot PRs of tier B/C (never forks, classifier from the base commit).
+- `docs/proposals/revert-on-red.yml` opens one revert PR (`claude/revert-<sha8>`) when a push-to-main
+  check goes red after an auto-merged B/C PR; never tier A, never a revert. `dry_run` logs only.
+
+The two proposals are installed into `.github/workflows/` by the orchestrator after review.
+Flag unset = every verdict is exactly today's.
+
 ## NOT verified
 
 - That `kiki-claude-bot` has write access and `BOT_PR_TOKEN` can enable

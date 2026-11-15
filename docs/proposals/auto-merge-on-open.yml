@@ -1,0 +1,81 @@
+# PROPOSAL (brief merge-tiers). Cloud workers cannot write .github/workflows/; the orchestrator
+# copies this file to .github/workflows/auto-merge-on-open.yml after the owner's review.
+#
+# Arms GitHub auto-merge on a bot PR of merge tier B or C (scripts/lib/merge-tier.mjs classifyTier).
+# GitHub then waits for the required checks of ruleset "main checks"; nothing here merges directly.
+#   - only when repo variable MERGE_TIERS_ENABLED == 'true' (default off: the job is skipped)
+#   - only for PRs authored by kiki-claude-bot, never from a fork
+#   - tier B: also needs a '## Self-review' section in the PR body (the recorded worker self-review)
+#   - tier A: does nothing (owner Approve as today)
+#   - the classifier runs from the BASE commit, never the PR's own code (a PR cannot rewrite
+#     merge-tier.mjs to downgrade itself)
+#   - --match-head-commit: a push after classification voids the arming (synchronize re-runs it)
+# Token: BOT_PR_TOKEN (as bot-automerge.yml). A GITHUB_TOKEN merge would not trigger the push
+# workflows on main (owner-approval audit, revert-on-red), so it must NOT be used here.
+name: Auto-merge on open (merge tiers)
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: auto-merge-on-open-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  arm:
+    if: >-
+      vars.MERGE_TIERS_ENABLED == 'true' &&
+      github.event.pull_request.user.login == 'kiki-claude-bot' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: List the PR's files
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const files = await github.paginate(github.rest.pulls.listFiles, { ...context.repo, pull_number: context.payload.pull_request.number, per_page: 100 });
+            // 3000 is the API cap: a capped list cannot prove the tier, so write nothing (-> tier A).
+            if (files.length >= 3000) { core.warning('file list at the API cap: tier A'); return; }
+            require('fs').writeFileSync('pr-files.json', JSON.stringify(files.map((f) => ({ filename: f.filename, previous_filename: f.previous_filename, patch: f.patch, changes: f.changes }))));
+      - name: Classify the tier
+        id: tier
+        run: >-
+          node --input-type=module -e "import { readFileSync, existsSync, appendFileSync } from 'node:fs';
+          import { classifyTier } from './scripts/lib/merge-tier.mjs';
+          const files = existsSync('pr-files.json') ? JSON.parse(readFileSync('pr-files.json', 'utf8')) : [];
+          const t = classifyTier(files); console.log('merge tier: ' + t);
+          appendFileSync(process.env.GITHUB_OUTPUT, 'tier=' + t + String.fromCharCode(10));"
+      # Tier B needs the worker's self-review recorded in the PR body (a '## Self-review' heading).
+      - name: Tier B self-review recorded
+        id: review
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+          TIER: ${{ steps.tier.outputs.tier }}
+        run: |
+          if [ "$TIER" != "B" ] || printf '%s\n' "$BODY" | grep -q '^## Self-review'; then echo "ok=true" >> "$GITHUB_OUTPUT"
+          else echo "tier B without a '## Self-review' section in the PR body: not armed"; echo "ok=false" >> "$GITHUB_OUTPUT"; fi
+      - name: Arm auto-merge (tier B or C only)
+        if: (steps.tier.outputs.tier == 'B' || steps.tier.outputs.tier == 'C') && steps.review.outputs.ok == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --auto --squash --match-head-commit "$HEAD"
+      - name: Tier A -- leave it for the owner
+        if: steps.tier.outputs.tier != 'B' && steps.tier.outputs.tier != 'C'
+        env:
+          TIER: ${{ steps.tier.outputs.tier }}
+        run: 'echo "merge tier $TIER - owner Approve required; auto-merge not armed"'
