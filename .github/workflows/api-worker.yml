@@ -1,0 +1,126 @@
+name: api-worker
+
+# Manual-only build worker on the Anthropic API (promo credit), off the owner's PC.
+# Started by ~/.claude/bin/api-dispatch.mjs (gh workflow run). Never on push or schedule.
+# The agent step has NO secrets in its environment: the real key lives in key-proxy.mjs, which runs
+# as another OS user. Push and PR happen in a later step, outside the agent.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ticket:
+        description: dispatch ticket (dt_...)
+        required: true
+      branch:
+        description: worker branch to create or continue (claude/...)
+        required: true
+      brief_ref:
+        description: git ref that holds the brief
+        required: true
+      brief_path:
+        description: path of the brief file at brief_ref
+        required: true
+      model:
+        description: model id
+        required: true
+        default: claude-sonnet-5-5
+      max_usd:
+        description: hard per-run spend stop in USD
+        required: true
+        default: '8'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: api-worker-${{ inputs.branch }}
+  cancel-in-progress: false
+
+jobs:
+  worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Start key proxy (separate OS user)
+        env:
+          API_WORKER_KEY: ${{ secrets.API_WORKER_KEY }}
+          API_WORKER_WORKSPACE: ${{ secrets.API_WORKER_WORKSPACE }}
+        run: |
+          chmod -R a+rX "$GITHUB_WORKSPACE/scripts/api-worker"
+          setsid sudo --preserve-env=API_WORKER_KEY,API_WORKER_WORKSPACE -u nobody \
+            "$(command -v node)" "$GITHUB_WORKSPACE/scripts/api-worker/key-proxy.mjs" > /tmp/key-proxy.log 2>&1 &
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if grep -q listening /tmp/key-proxy.log 2>/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/key-proxy.log
+          exit 1
+
+      - name: Check out the worker branch and read the brief
+        env:
+          BRANCH: ${{ inputs.branch }}
+          BRIEF_REF: ${{ inputs.brief_ref }}
+          BRIEF_PATH: ${{ inputs.brief_path }}
+        run: |
+          if git ls-remote --exit-code --heads origin "$BRANCH" > /dev/null; then
+            git fetch origin "$BRANCH"
+            git checkout -B "$BRANCH" "origin/$BRANCH"
+          else
+            git checkout -b "$BRANCH" origin/main
+          fi
+          git fetch origin "$BRIEF_REF"
+          git show "FETCH_HEAD:$BRIEF_PATH" > /tmp/brief.md
+          wc -c /tmp/brief.md
+
+      - name: Run the agent (no secrets here)
+        env:
+          ANTHROPIC_BASE_URL: http://127.0.0.1:8787
+          ANTHROPIC_API_KEY: dummy-key-the-proxy-replaces
+          MODEL: ${{ inputs.model }}
+          MAX_USD: ${{ inputs.max_usd }}
+          TICKET: ${{ inputs.ticket }}
+        run: |
+          {
+            echo "You are an unattended build worker, ticket $TICKET, in a disposable checkout of this repo."
+            echo "Read CLAUDE.md first. Do exactly the brief below, on the current branch."
+            echo "Hard limits: commit locally only (git add, git commit). Never git push, never gh, never touch"
+            echo ".github/workflows, .env or secret files, never merge or approve, never --no-verify."
+            echo "Run the checks the brief names. Before you stop, write a short handover to .api-worker-handover.md"
+            echo "(done, not done, what to check) and commit it. If you cannot finish, say so there: a fresh worker continues on this branch."
+            echo
+            echo "BRIEF:"
+            cat /tmp/brief.md
+          } > /tmp/prompt.md
+          claude -p "$(cat /tmp/prompt.md)" --model "$MODEL" --max-budget-usd "$MAX_USD" \
+            --dangerously-skip-permissions --output-format json > /tmp/agent-out.json || true
+          node -e "const o=JSON.parse(require('fs').readFileSync('/tmp/agent-out.json','utf8'));const s='ticket '+process.env.TICKET+': cost USD '+o.total_cost_usd+', turns '+o.num_turns+', '+(o.subtype||'');console.log(s);require('fs').appendFileSync(process.env.GITHUB_STEP_SUMMARY,s+'\n')"
+
+      - name: Push the branch and open the PR (bot token, outside the agent)
+        env:
+          BOT_PR_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
+          GH_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
+          BRANCH: ${{ inputs.branch }}
+          TICKET: ${{ inputs.ticket }}
+          REPO: ${{ github.repository }}
+        run: |
+          git config user.name "kiki-claude-bot"
+          git config user.email "kiki-claude-bot@users.noreply.github.com"
+          git commit --allow-empty -m "chore: api-worker done [worker-done $TICKET]"
+          AUTH="$(printf 'x-access-token:%s' "$BOT_PR_TOKEN" | base64 -w0)"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH" push origin "$BRANCH"
+          if [ -z "$(gh pr list --head "$BRANCH" --json number -q '.[0].number')" ]; then
+            gh pr create --repo "$REPO" --base main --head "$BRANCH" \
+              --title "api-worker $TICKET" --body "Built by api-worker, ticket $TICKET. Handover: .api-worker-handover.md on the branch."
+          fi
