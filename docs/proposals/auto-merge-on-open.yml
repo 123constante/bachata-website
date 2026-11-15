@@ -5,7 +5,10 @@
 # GitHub then waits for the required checks of ruleset "main checks"; nothing here merges directly.
 #   - only when repo variable MERGE_TIERS_ENABLED == 'true' (default off: the job is skipped)
 #   - only for PRs authored by kiki-claude-bot, never from a fork
-#   - tier B: also needs a '## Self-review' section in the PR body (the recorded worker self-review)
+#   - tier B: also needs a non-empty '## Self-review' section in the PR body (hasSelfReview)
+#   - not armed (tier A, or B without a self-review) while auto-merge is on = it is DISABLED, so a
+#     later push that adds a guard path cannot ride an earlier arming
+#   - never arms a revert PR (head claude/revert-*): revert-on-red.yml's PRs wait for a human
 #   - tier A: does nothing (owner Approve as today)
 #   - the classifier runs from the BASE commit, never the PR's own code (a PR cannot rewrite
 #     merge-tier.mjs to downgrade itself)
@@ -16,7 +19,7 @@ name: Auto-merge on open (merge tiers)
 
 on:
   pull_request:
-    types: [opened, reopened, synchronize]
+    types: [opened, reopened, synchronize, edited]
 
 permissions:
   contents: read
@@ -31,7 +34,8 @@ jobs:
     if: >-
       vars.MERGE_TIERS_ENABLED == 'true' &&
       github.event.pull_request.user.login == 'kiki-claude-bot' &&
-      github.event.pull_request.head.repo.full_name == github.repository
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      !startsWith(github.event.pull_request.head.ref, 'claude/revert-')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -58,15 +62,18 @@ jobs:
           const files = existsSync('pr-files.json') ? JSON.parse(readFileSync('pr-files.json', 'utf8')) : [];
           const t = classifyTier(files); console.log('merge tier: ' + t);
           appendFileSync(process.env.GITHUB_OUTPUT, 'tier=' + t + String.fromCharCode(10));"
-      # Tier B needs the worker's self-review recorded in the PR body (a '## Self-review' heading).
+      # Tier B needs the worker's self-review recorded in the PR body (non-empty '## Self-review').
       - name: Tier B self-review recorded
         id: review
         env:
           BODY: ${{ github.event.pull_request.body }}
           TIER: ${{ steps.tier.outputs.tier }}
-        run: |
-          if [ "$TIER" != "B" ] || printf '%s\n' "$BODY" | grep -q '^## Self-review'; then echo "ok=true" >> "$GITHUB_OUTPUT"
-          else echo "tier B without a '## Self-review' section in the PR body: not armed"; echo "ok=false" >> "$GITHUB_OUTPUT"; fi
+        run: >-
+          node --input-type=module -e "import { appendFileSync } from 'node:fs';
+          import { hasSelfReview } from './scripts/lib/merge-tier.mjs';
+          const ok = process.env.TIER !== 'B' || hasSelfReview(process.env.BODY);
+          if (!ok) console.log('tier B without a non-empty ## Self-review section: not armed');
+          appendFileSync(process.env.GITHUB_OUTPUT, 'ok=' + ok + String.fromCharCode(10));"
       - name: Arm auto-merge (tier B or C only)
         if: (steps.tier.outputs.tier == 'B' || steps.tier.outputs.tier == 'C') && steps.review.outputs.ok == 'true'
         env:
@@ -74,8 +81,13 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --auto --squash --match-head-commit "$HEAD"
-      - name: Tier A -- leave it for the owner
-        if: steps.tier.outputs.tier != 'B' && steps.tier.outputs.tier != 'C'
+      - name: Not armed -- disable any earlier arming, leave it for the owner
+        if: ${{ !((steps.tier.outputs.tier == 'B' || steps.tier.outputs.tier == 'C') && steps.review.outputs.ok == 'true') }}
         env:
+          GH_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
           TIER: ${{ steps.tier.outputs.tier }}
-        run: 'echo "merge tier $TIER - owner Approve required; auto-merge not armed"'
+          ARMED: ${{ github.event.pull_request.auto_merge != null }}
+        run: |
+          echo "merge tier $TIER - not armed (owner Approve, or a tier-B self-review, is needed)"
+          if [ "$ARMED" = "true" ]; then gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --disable-auto; fi

@@ -31,7 +31,8 @@
  * Merge tiers (brief merge-tiers; scripts/lib/merge-tier.mjs), ONLY when env MERGE_TIERS_ENABLED is
  * exactly 'true' (the workflow passes vars.MERGE_TIERS_ENABLED; default off): a commit whose files
  * classify as tier B (hard-tier, but no guard / migration / secret / money path) is OK without an
- * owner approval. Tier A and C keep today's rule exactly. Flag off = today's verdicts, unchanged.
+ * owner approval WHEN it came from a merged PR whose body records a self-review (hasSelfReview). A
+ * direct push stays RED. Tier A and C keep today's rule exactly. Flag off = today's verdicts.
  */
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -39,7 +40,7 @@ import { fileURLToPath } from "node:url";
 import { riskTier } from "./lib/review-scope.mjs";
 import { isEntryPoint } from "./lib/entry-point.mjs";
 import { isGuardPath } from "./lib/guard-paths.mjs";
-import { classifyTier, mergeTiersEnabled } from "./lib/merge-tier.mjs";
+import { classifyTier, mergeTiersEnabled, hasSelfReview } from "./lib/merge-tier.mjs";
 import { readArming, ARMING_PATH } from "./lib/arming.mjs";
 import { postPauseNotice, PAUSE_LABEL } from "./lib/automation-pause.mjs";
 import { setPauseLabel } from "./automation-pause.mjs";
@@ -58,8 +59,10 @@ export const OWNER_LOGIN = "123constante";
  */
 export function decideAudit({ files, prs, owner = OWNER_LOGIN, escalation = false, mergeTiers = false, tierFiles = null }) {
   // Merge tiers (flag on only): tier B lands on green CI with a recorded self-review, no owner click.
+  // A direct push (no PR) or a PR without a recorded self-review falls through to today's rule.
   if (mergeTiers === true && (files || []).length > 0 && classifyTier(tierFiles || files) === "B") {
-    return { code: 0, reason: "merge tier B (MERGE_TIERS_ENABLED): hard-tier, no guard/migration/secret/money path; owner approval not required" };
+    const pr = (prs || []).find((p) => p && hasSelfReview(p.body));
+    if (pr) return { code: 0, reason: `merge tier B (MERGE_TIERS_ENABLED): PR #${pr.number} records a self-review; owner approval not required` };
   }
   if (escalation !== true) return verdictOf({ files, prs, owner, isHard: (f) => riskTier(f) === "hard" });
   const v = verdictOf({ files, prs, owner, isHard: (f) => riskTier(f) === "hard" || isGuardPath(f) });
@@ -213,7 +216,7 @@ async function auditCommit(repo, sha, escalation, mergeTiers = false) {
     if (needStatuses) {
       try { statuses = await paginate(`/repos/${repo}/commits/${p.head.sha}/statuses`); } catch { statuses = []; }
     }
-    prs.push({ number: p.number, headSha: p.head.sha, reviews, statuses, labels: (p.labels || []).map((l) => l && l.name) });
+    prs.push({ number: p.number, headSha: p.head.sha, reviews, statuses, labels: (p.labels || []).map((l) => l && l.name), body: p.body || "" });
   }
   // Tier from the full file objects so the money check scans changed lines too, not only paths.
   const v = mergeTiers ? decideAudit({ files, prs, escalation, mergeTiers, tierFiles: commit.files }) : decideAudit({ files, prs, escalation });

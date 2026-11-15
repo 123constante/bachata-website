@@ -286,11 +286,11 @@ Owner click 2026-11-15: gate by blast radius, then detect and revert fast. One c
 | Tier | Paths | Merge |
 |---|---|---|
 | A | guard paths, `supabase/migrations/**`, `*.sql`, secrets (`.env*`, `*secret*`), money set | owner Approve at head (today's rule) |
-| B | other hard-tier paths (`scripts/`, `bin/`, `.githooks/`, `.github/`, `.claude/`) | auto-merge on green CI, with a `## Self-review` section in the PR body |
+| B | other hard-tier paths: in practice unguarded `scripts/` and `bin/` (`.github/`, `.claude/`, `.githooks/` are guarded) | auto-merge on green CI, with a non-empty `## Self-review` section in the PR body |
 | C | everything else | auto-merge on green CI |
 
 With repo variable `MERGE_TIERS_ENABLED` set to `true`:
-- `scripts/owner-approval-audit.mjs` stops reding tier-B commits that lack an owner approval (the
+- `scripts/owner-approval-audit.mjs` stops reding tier-B commits from a PR with a self-review (a direct push stays RED; the
   workflow must pass `MERGE_TIERS_ENABLED: ${{ vars.MERGE_TIERS_ENABLED }}` in the audit step's env).
 - `docs/proposals/auto-merge-on-open.yml` arms `gh pr merge --auto --squash --match-head-commit` on
   bot PRs of tier B/C (never forks, classifier from the base commit).

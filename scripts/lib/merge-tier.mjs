@@ -5,7 +5,8 @@
 //   A  owner Approve: any guard path (isGuardPath), anything under supabase/migrations or any *.sql,
 //      secrets (.env*, a path naming "secret"), money (isMoney on the path, money-set.json).
 //   B  merge on green CI + a worker self-review in the PR body: any other HARD-tier path
-//      (review-scope.mjs riskTier: scripts/, bin/, .githooks/, .github/, .claude/).
+//      (review-scope.mjs riskTier). .github/, .claude/ and .githooks/ are guarded today, so in
+//      practice B is the unguarded files under scripts/ and bin/.
 //   C  auto-merge on green: everything else.
 //
 // No second path list: guard paths and the hard tier come from their one owner each. PURE apart from
@@ -63,4 +64,17 @@ export function classifyTier(files, deps = {}) {
 /** The flag as the workflows pass it: env MERGE_TIERS_ENABLED from vars.MERGE_TIERS_ENABLED. Only the exact string 'true' is on. */
 export function mergeTiersEnabled(env = process.env) {
   return Boolean(env) && env.MERGE_TIERS_ENABLED === 'true';
+}
+
+/** The PR body records the worker's self-review: a `## Self-review` heading followed by at least
+ *  one non-blank line before the next heading (an empty heading does not count). */
+export function hasSelfReview(body) {
+  const lines = String(body ?? '').split(/\r?\n/);
+  const i = lines.findIndex((l) => /^## Self-review\s*$/i.test(l));
+  if (i < 0) return false;
+  for (const l of lines.slice(i + 1)) {
+    if (/^#{1,2} /.test(l)) return false;
+    if (l.trim() !== '') return true;
+  }
+  return false;
 }

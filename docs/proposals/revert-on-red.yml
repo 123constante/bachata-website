@@ -11,6 +11,8 @@
 #     open PR for it = do nothing (also serialised by the concurrency group)
 #   - workflow_dispatch with dry_run: true (the default) classifies and logs only: no branch, no
 #     PR, no comment, no issue. This is how it is tested without a real red main.
+# LIMIT: only the push's TIP commit (workflow_run.head_sha) is evaluated; an earlier commit of a
+# multi-commit push is not (bot auto-merges land one squash commit per push, so the tip is that commit).
 # The workflows list is the push-to-main set as of 2026-11-15; adjust when one is renamed.
 name: Revert on red (merge tiers)
 
@@ -84,10 +86,13 @@ jobs:
             const pr = prs.find((p) => p.merged_at && p.base.ref === 'main');
             if (!pr) return say(false, 'no merged PR (direct push): owner decides');
             if (/^claude\/revert-/.test(pr.head.ref)) return say(false, 'came from a revert PR (no loop)');
-            // Merged by auto-merge = the PR timeline has auto_merge_enabled and the merger is not the owner.
+            // Merged by auto-merge = the bot merged it (auto-merge-on-open arms with BOT_PR_TOKEN, so
+            // GitHub records the bot as merged_by) AND the LAST auto-merge timeline event is an enable.
+            const { data: full } = await github.rest.pulls.get({ ...context.repo, pull_number: pr.number });
+            if (!full.merged_by || full.merged_by.login !== 'kiki-claude-bot') return say(false, `PR #${pr.number} merged by ${full.merged_by && full.merged_by.login}, not the bot's auto-merge`);
             const events = await github.paginate(github.rest.issues.listEvents, { ...context.repo, issue_number: pr.number, per_page: 100 });
-            const auto = events.some((e) => e.event === 'auto_merge_enabled' || e.event === 'auto_squash_enabled');
-            if (!auto) return say(false, `PR #${pr.number} was not merged by auto-merge`);
+            const am = events.filter((e) => /^auto_(merge|squash|rebase)_enabled$|^auto_merge_disabled$/.test(e.event));
+            if (!am.length || am[am.length - 1].event === 'auto_merge_disabled') return say(false, `PR #${pr.number} was not merged by auto-merge`);
             const files = await github.paginate(github.rest.pulls.listFiles, { ...context.repo, pull_number: pr.number, per_page: 100 });
             require('fs').writeFileSync('pr-files.json', JSON.stringify(files.length >= 3000 ? [] : files.map((f) => ({ filename: f.filename, previous_filename: f.previous_filename, patch: f.patch, changes: f.changes }))));
             core.setOutput('pr', String(pr.number));

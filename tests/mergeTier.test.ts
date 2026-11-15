@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error -- plain .mjs script, no types
-import { classifyTier, fileTier, mergeTiersEnabled } from '../scripts/lib/merge-tier.mjs';
+import { classifyTier, fileTier, mergeTiersEnabled, hasSelfReview } from '../scripts/lib/merge-tier.mjs';
 // @ts-expect-error -- plain .mjs script, no types
 import { isGuardPath } from '../scripts/lib/guard-paths.mjs';
 // @ts-expect-error -- plain .mjs script, no types
@@ -63,6 +63,14 @@ describe('merge tiers -- classifyTier', () => {
     expect(classifyTier(['scripts/owner-approval-audit.mjs'])).not.toBe(mutant(['scripts/owner-approval-audit.mjs']));
   });
 
+  it('hasSelfReview needs the heading AND content under it', () => {
+    expect(hasSelfReview('## Self-review\r\n- read every hunk')).toBe(true);
+    expect(hasSelfReview('## Self-review\n')).toBe(false);
+    expect(hasSelfReview('## Self-review\n\n## Phone QA\n- x')).toBe(false);
+    expect(hasSelfReview('Self-review: done')).toBe(false);
+    expect(hasSelfReview(null)).toBe(false);
+  });
+
   it('the flag is on only for the exact string true', () => {
     expect(mergeTiersEnabled({ MERGE_TIERS_ENABLED: 'true' })).toBe(true);
     for (const v of [undefined, '', 'TRUE', '1', 'yes', 'false']) expect(mergeTiersEnabled({ MERGE_TIERS_ENABLED: v })).toBe(false);
@@ -79,10 +87,26 @@ describe('owner-approval audit -- merge tiers flag', () => {
     expect(decideAudit({ files: ['scripts/ship-gate.mjs'], prs: unapproved, mergeTiers: 'true' })).toEqual(off);
   });
 
-  it('flag ON: a tier-B commit without approval is OK', () => {
-    const v = decideAudit({ files: ['scripts/ship-gate.mjs', 'src/App.tsx'], prs: unapproved, mergeTiers: true });
+  const reviewed = [{ number: 10, headSha: 'h3', reviews: [], body: '## Summary\nx\n\n## Self-review\n- checked the diff\n' }];
+
+  it('flag ON: a tier-B commit from a PR with a recorded self-review is OK without approval', () => {
+    const v = decideAudit({ files: ['scripts/ship-gate.mjs', 'src/App.tsx'], prs: reviewed, mergeTiers: true });
     expect(v.code).toBe(0);
     expect(v.reason).toContain('merge tier B');
+  });
+
+  it('flag ON: a tier-B DIRECT PUSH (no PR) stays RED', () => {
+    expect(decideAudit({ files: ['scripts/ship-gate.mjs'], prs: [], mergeTiers: true }).code).toBe(1);
+  });
+
+  it('flag ON: a tier-B PR without a self-review (or an empty heading) stays RED', () => {
+    expect(decideAudit({ files: ['scripts/ship-gate.mjs'], prs: unapproved, mergeTiers: true }).code).toBe(1);
+    const empty = [{ ...reviewed[0], body: '## Self-review\n\n## Next\nx' }];
+    expect(decideAudit({ files: ['scripts/ship-gate.mjs'], prs: empty, mergeTiers: true }).code).toBe(1);
+  });
+
+  it('flag ON: a self-review does not lift tier A', () => {
+    expect(decideAudit({ files: ['scripts/owner-approval-audit.mjs'], prs: reviewed, mergeTiers: true }).code).toBe(1);
   });
 
   it('flag ON: tier A keeps today\'s rule (guard path RED without owner approval at head)', () => {
