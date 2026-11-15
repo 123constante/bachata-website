@@ -9,6 +9,11 @@ export function formatStamp(tree, nowMs) {
   return JSON.stringify({ tree: String(tree), at: nowMs });
 }
 
+/** Stamp only a clean tree that did not move while the suite ran. Both args: {tree, clean}. */
+export function canWriteStamp(before, after) {
+  return !!(before && after && before.clean === true && after.clean === true && before.tree === after.tree);
+}
+
 /** @returns {{skip: boolean, minutes?: number}} */
 export function decideUnitStamp(stampText, tree, nowMs) {
   const run = { skip: false };

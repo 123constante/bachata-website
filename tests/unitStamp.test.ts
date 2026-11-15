@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { decideUnitStamp, formatStamp, STAMP_MAX_AGE_MS } from '../scripts/lib/unit-stamp.mjs';
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { canWriteStamp, decideUnitStamp, formatStamp, STAMP_MAX_AGE_MS } from '../scripts/lib/unit-stamp.mjs';
 
 const TREE = 'a'.repeat(40);
 const OTHER = 'b'.repeat(40);
@@ -37,5 +41,45 @@ describe('decideUnitStamp', () => {
     const near = TREE.slice(0, 39) + 'b';
     expect(decideUnitStamp(formatStamp(near, NOW), TREE, NOW).skip).toBe(false);
     expect(decideUnitStamp(formatStamp(TREE, NOW), TREE, NOW).skip).toBe(true);
+  });
+});
+
+describe('non-finite now', () => {
+  it('NaN / Infinity nowMs runs', () => {
+    expect(decideUnitStamp(formatStamp(TREE, NOW), TREE, NaN).skip).toBe(false);
+    expect(decideUnitStamp(formatStamp(TREE, NOW), TREE, Infinity).skip).toBe(false);
+  });
+});
+
+describe('canWriteStamp', () => {
+  const clean = { tree: TREE, clean: true };
+  it('writes only when clean and the tree did not move', () => {
+    expect(canWriteStamp(clean, clean)).toBe(true);
+    expect(canWriteStamp(clean, { tree: OTHER, clean: true })).toBe(false);
+    expect(canWriteStamp(clean, { tree: TREE, clean: false })).toBe(false);
+    expect(canWriteStamp({ tree: TREE, clean: false }, clean)).toBe(false);
+    expect(canWriteStamp(null as never, clean)).toBe(false);
+  });
+});
+
+describe('unit-stamp CLI', () => {
+  it('`write` writes no stamp and prints run', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'unit-stamp-'));
+    const g = (...a: string[]) => execFileSync('git', a, { cwd: dir, stdio: 'ignore' });
+    g('init', '-q');
+    fs.writeFileSync(path.join(dir, 'f'), 'x');
+    g('add', 'f');
+    g('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'c');
+    const script = path.resolve(__dirname, '../scripts/unit-stamp.mjs');
+    let out = '';
+    let code = 0;
+    try {
+      out = execFileSync('node', [script, 'write'], { cwd: dir, encoding: 'utf8' });
+    } catch (e) {
+      code = (e as { status?: number }).status ?? 1;
+    }
+    expect(fs.existsSync(path.join(dir, '.git', 'preship-unit-stamp'))).toBe(false);
+    expect(code !== 0 || out.trim() === 'run').toBe(true);
+    fs.rmSync(dir, { recursive: true, force: true });
   });
 });

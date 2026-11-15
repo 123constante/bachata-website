@@ -1,18 +1,25 @@
 // CLI for the pre-ship -> pre-push unit stamp. See scripts/lib/unit-stamp.mjs.
-//   node scripts/unit-stamp.mjs write   -- after a green test:unit; refuses on a dirty tree
 //   node scripts/unit-stamp.mjs check   -- prints "skip <tree7> <minutes>" or "run"; always exit 0
+// The CLI only CHECKS. Writing is the `writeStamp` export, imported by pre-ship after a
+// green test:unit: a hand-run `write` would vouch for a suite that never ran.
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import { isEntryPoint } from "./lib/entry-point.mjs";
-import { decideUnitStamp, formatStamp } from "./lib/unit-stamp.mjs";
+import { canWriteStamp, decideUnitStamp, formatStamp } from "./lib/unit-stamp.mjs";
 
 const git = (...a) => execFileSync("git", a, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
 const stampPath = () => git("rev-parse", "--git-path", "preship-unit-stamp");
 
-export function writeStamp() {
-  // A dirty tree means HEAD^{tree} is not what the suite ran on: no stamp.
-  if (git("status", "--porcelain")) return false;
-  fs.writeFileSync(stampPath(), formatStamp(git("rev-parse", "HEAD^{tree}"), Date.now()));
+/** Tree + clean-status as of now; pre-ship takes it BEFORE the suite runs. */
+export function snapshotTree() {
+  return { tree: git("rev-parse", "HEAD^{tree}"), clean: !git("status", "--porcelain") };
+}
+
+/** Write only if the tree is clean and unchanged since `before` (taken before the suite ran). */
+export function writeStamp(before) {
+  const now = snapshotTree();
+  if (!canWriteStamp(before || now, now)) return false;
+  fs.writeFileSync(stampPath(), formatStamp(now.tree, Date.now()));
   return true;
 }
 
@@ -27,10 +34,10 @@ export function checkStamp() {
 }
 
 if (isEntryPoint(import.meta.url)) {
+  // Any argument other than `check` (including the retired `write`) only prints a verdict.
   try {
-    if (process.argv[2] === "write") writeStamp();
-    else console.log(checkStamp());
+    console.log(checkStamp());
   } catch {
-    if (process.argv[2] !== "write") console.log("run");
+    console.log("run");
   }
 }
