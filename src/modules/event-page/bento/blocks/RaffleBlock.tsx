@@ -375,7 +375,7 @@ const RaffleBlockLegacy = ({ eventId }: { eventId: string | null }) => {
                 )}
               </div>
               <div className="rsb-meta-cell">
-                <div className="rsb-meta-k">Prizes won</div>
+                <div className="rsb-meta-k">People contacted</div>
                 <motion.div
                   key={totalWinners}
                   initial={{ opacity: 0.3, y: -2 }}
@@ -385,9 +385,8 @@ const RaffleBlockLegacy = ({ eventId }: { eventId: string | null }) => {
                 >
                   {totalWinners}
                 </motion.div>
-                {/* Site-wide, all-time. Counts rows in raffle_winners = WINS,
-                    not distinct people (a dancer who won three nights counts 3),
-                    hence "prizes won" and not a count of dancers. Deliberately no
+                {/* Site-wide, all-time. Counts entries the organisers marked won or contacted
+                    (event_raffle_entries.outreach_state), hence "people contacted". Deliberately no
                     "you're in" branch -- against a winners total that reads as
                     "you have won"; the entered state has its own chip below.
                     "all time" also sidesteps any singular/plural. */}
