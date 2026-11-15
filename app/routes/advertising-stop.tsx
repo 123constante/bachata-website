@@ -48,7 +48,7 @@ function friendlyPage(title: string, message: string, status: number): Response 
 <meta name="robots" content="noindex, nofollow">
 <title>${title}</title>
 <style>
-body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f6f6f7;color:#18181b}
+body{margin:0;padding:0 16px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f6f6f7;color:#18181b}
 main{max-width:420px;margin:48px auto;padding:20px 16px;background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
 h1{font-size:20px;margin:0 0 8px}
 p{font-size:16px;line-height:1.45;margin:0}
