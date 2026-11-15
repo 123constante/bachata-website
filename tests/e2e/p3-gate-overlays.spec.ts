@@ -64,6 +64,8 @@ async function openReal(page: Page) {
   await page.route('**/rest/v1/rpc/ticket_sales_summary_v1*', (r) => json(r, { ok: true, ticket_types: [] }));
   await page.route('**/rest/v1/ticket_types*', (r) => json(r, []));
   await page.route('**/rest/v1/ticket_orders*', (r) => json(r, []));
+  // Option A: Tickets is inline, so the event page itself reads the promo list at load; mock it like the others.
+  await page.route('**/rest/v1/rpc/ticket_promo_list_v1*', (r) => json(r, { ok: true, rows: [] }));
   const tix: string[] = [];
   await page.route('**/rest/v1/rpc/ticket_type_upsert_v1*', async (route: Route) => {
     tix.push(route.request().postData() ?? '');
@@ -133,11 +135,10 @@ test.describe('P3-GATE overlays on the real app (390x844)', () => {
   test('Tickets: a refused Add keeps the ticket sheet, opens the gate sheet in view, no generic error, no page scroll', async ({ page }) => {
     test.skip(!TIX_ON, 'needs VITE_ENABLE_ORGANISER_TICKETING=true in the dev server');
     const { tix } = await openReal(page);
-    const row = page.getByTestId('tix-row');
-    await row.scrollIntoViewIfNeeded();
-    const before = await scrolls(page);
-    await row.click();
+    // Option A: Tickets is inline, so there is no row to open; bring Add into view first, then measure.
+    await page.getByTestId('tix-add').scrollIntoViewIfNeeded();
     await expect(page.getByTestId('tix-add')).toBeVisible();
+    const before = await scrolls(page);
     expect(await scrolls(page), 'opening Tickets did not scroll the page').toEqual(before);
     await page.getByTestId('tix-add').click();
     await page.getByTestId('tix-form-name').fill('Standard');

@@ -52,7 +52,6 @@ async function open(page: Page, steps: Step[], opts: { refuse?: string } = {}) {
   });
   await page.goto(`/account/p3/events/${FRIDAY}?o=${ORG}`);
   await expect(page.getByTestId('tix-row')).toBeVisible({ timeout: 45_000 });
-  await page.getByTestId('tix-row').click();
   await page.getByTestId(`tix-type-${T_ID}`).getByTestId('tix-edit').click();
   await expect(page.getByTestId('tix-steps')).toBeVisible();
   return state;

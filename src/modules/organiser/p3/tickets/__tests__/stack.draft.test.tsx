@@ -38,20 +38,18 @@ describe('stacked sheets', () => {
   it('the tall sheet closes back to the Tickets row', () => {
     show(<TicketsEntry seriesId="ser-1" />);
     tap(screen.getByTestId('tix-row'));
-    expect(layers()).toEqual(['tix-tall']);
+    expect(layers()).toEqual([]);
     esc();
     expect(layers()).toEqual([]);
-    expect(document.activeElement).toBe(screen.getByTestId('tix-row'));
   });
 
   it('add sheet over the tall sheet: Escape closes ONE layer and focus returns to Add a ticket', () => {
     show(<TicketsEntry seriesId="ser-1" />);
     tap(screen.getByTestId('tix-row'));
     tap(screen.getByTestId('tix-add'));
-    expect(layers()).toEqual(['tix-tall', 'tix-sheet']);
-    expect(screen.getByTestId('tix-tall').getAttribute('data-top')).toBe('false');
+    expect(layers()).toEqual(['tix-sheet']);
     esc();
-    expect(layers()).toEqual(['tix-tall']);
+    expect(layers()).toEqual([]);
     expect(document.activeElement).toBe(screen.getByTestId('tix-add'));
     esc();
     expect(layers()).toEqual([]);
@@ -66,7 +64,7 @@ describe('stacked sheets', () => {
     expect(screen.getByTestId('tix-step').textContent).toBe('2 / 3');
     fireEvent.click(screen.getByTestId('tix-sheet-back'));
     expect(screen.getByTestId('tix-step').textContent).toBe('1 / 3');
-    expect(layers()).toEqual(['tix-tall', 'tix-sheet']);
+    expect(layers()).toEqual(['tix-sheet']);
     expect(screen.queryByTestId('tix-sheet-back')).toBeNull();
   });
 
@@ -75,20 +73,11 @@ describe('stacked sheets', () => {
     tap(screen.getByTestId('tix-row'));
     const refund = within(screen.getByTestId('tix-order-o0')).getByTestId('tix-refund');
     tap(refund);
-    expect(layers()).toEqual(['tix-tall', 'tix-refund-sheet']);
+    expect(layers()).toEqual(['tix-refund-sheet']);
     expect(screen.getByTestId('tix-refund-order').textContent).toContain('2 \u00D7 \u00A312.50');
     fireEvent.click(screen.getByTestId('tix-refund-cancel'));
-    expect(layers()).toEqual(['tix-tall']);
+    expect(layers()).toEqual([]);
     expect(document.activeElement).toBe(refund);
-  });
-
-  it('the scrim of the lower layer does nothing while a layer is over it', () => {
-    show(<TicketsEntry seriesId="ser-1" />);
-    tap(screen.getByTestId('tix-row'));
-    tap(screen.getByTestId('tix-add'));
-    const lower = screen.getByTestId('tix-tall-scrim');
-    fireEvent.click(lower);
-    expect(layers()).toEqual(['tix-tall', 'tix-sheet']);
   });
 
   it('See all opens the orders view in the same layer; Back returns to the list, the sheet stays', () => {
@@ -98,9 +87,9 @@ describe('stacked sheets', () => {
     expect(screen.getAllByTestId(/^tix-order-o\d$/)).toHaveLength(5);
     expect(screen.getAllByTestId('tix-order-tag').map((t) => t.textContent)).toEqual(['Paid', 'Paid', 'Paid', 'Refunded', 'Disputed']);
     expect(screen.queryByTestId('tix-add')).toBeNull();
-    fireEvent.click(screen.getByTestId('tix-tall-back'));
+    fireEvent.click(screen.getByTestId('tix-orders-sheet-back'));
     expect(screen.getByTestId('tix-list-view')).toBeTruthy();
-    expect(layers()).toEqual(['tix-tall']);
+    expect(layers()).toEqual([]);
   });
 });
 
@@ -147,7 +136,7 @@ describe('the add-ticket draft is held above the sheets (defect fix, red-first)'
     tap(screen.getByTestId('tix-add'));
     toReview();
     esc();
-    expect(layers()).toEqual(['tix-tall']);
+    expect(layers()).toEqual([]);
     tap(screen.getByTestId('tix-add'));
     expect(review()).toEqual(HELD);
   });
@@ -208,7 +197,7 @@ describe('focus inside a layer, and no close while a write is in flight (review 
     tap(within(screen.getByTestId('tix-order-o0')).getByTestId('tix-refund'));
     fireEvent.click(screen.getByTestId('tix-refund-confirm'));
     fireEvent.click(screen.getByTestId('tix-refund-cancel'));
-    expect(layers()).toEqual(['tix-tall']);
+    expect(layers()).toEqual([]);
     const btn = within(screen.getByTestId('tix-order-o0')).getByTestId('tix-refund') as HTMLButtonElement;
     expect([btn.disabled, btn.textContent]).toEqual([true, 'Refunding\u2026']);
     answer({ kind: 'failed', reason: null });
@@ -225,7 +214,7 @@ describe('focus inside a layer, and no close while a write is in flight (review 
     toReview();
     fireEvent.click(screen.getByTestId('tix-save'));
     esc();
-    expect(layers()).toEqual(['tix-tall']);
+    expect(layers()).toEqual([]);
     tap(screen.getByTestId('tix-add'));
     expect((screen.getByTestId('tix-form-name') as HTMLInputElement).value).toBe('');
     esc();
@@ -264,11 +253,11 @@ describe('a late outcome never touches the sheet open NOW (review r1 F1, F2, F3,
     fireEvent.click(screen.getByTestId('tix-refund-confirm'));
     fireEvent.click(screen.getByTestId('tix-refund-cancel'));
     tap(within(screen.getByTestId('tix-order-o1')).getByTestId('tix-refund'));
-    expect(layers()).toEqual(['tix-tall', 'tix-refund-sheet']);
+    expect(layers()).toEqual(['tix-refund-sheet']);
     await act(async () => answer({ kind: 'ok' }));
     // R2: the late words name the order they are about, never read as B's.
     expect((await screen.findByTestId('tix-toast')).textContent).toBe(`Refund started for ${who('o0')}'s order.`);
-    expect(layers()).toEqual(['tix-tall', 'tix-refund-sheet']);
+    expect(layers()).toEqual(['tix-refund-sheet']);
     expect(api.refundOrder).toHaveBeenCalledTimes(1);
   });
 
@@ -285,7 +274,7 @@ describe('a late outcome never touches the sheet open NOW (review r1 F1, F2, F3,
     fireEvent.change(screen.getByTestId('tix-form-name'), { target: { value: 'Second ticket' } });
     await act(async () => answer({ ok: true, reason: null, id: 'x' }));
     expect((await screen.findByTestId('tix-toast')).textContent).toBe('"Late bird": Ticket saved as a draft. Switch it to Selling when you are ready.');
-    expect(layers()).toEqual(['tix-tall', 'tix-sheet']);
+    expect(layers()).toEqual(['tix-sheet']);
     expect((screen.getByTestId('tix-form-name') as HTMLInputElement).value).toBe('Second ticket');
   });
 
@@ -352,12 +341,12 @@ describe('a late outcome never touches the sheet open NOW (review r1 F1, F2, F3,
     expect(screen.getByTestId('tix-close-confirm').textContent).toBe('Closing\u2026');
     // Never the silent no-op r3 N2 found, and never a block that claims nothing is running (R5): the layer goes.
     esc();
-    expect(layers()).toEqual(['tix-tall']);
+    expect(layers()).toEqual([]);
     expect(screen.queryByTestId('tix-close-confirm')).toBeNull();
     expect(api.setTicketStatus).toHaveBeenCalledTimes(1);
     await act(async () => answer({ ok: false, reason: null }));
     expect(screen.getByTestId('tix-toast').getAttribute('role')).toBe('alert');
-    expect(layers()).toEqual(['tix-tall']);
+    expect(layers()).toEqual([]);
   });
 
   it('P10 / r3 N3: the same order refused twice is two alerts with the same words, each dismissed alone', async () => {
@@ -396,10 +385,10 @@ describe('a late outcome never touches the sheet open NOW (review r1 F1, F2, F3,
     fireEvent.click(screen.getByTestId('tix-close'));
     expect(screen.getByTestId('tix-close-keep')).toBeTruthy();
     esc();
-    expect(layers()).toEqual(['tix-tall', 'tix-sheet']);
+    expect(layers()).toEqual(['tix-sheet']);
     expect([screen.queryByTestId('tix-close-keep'), !!screen.queryByTestId('tix-close')]).toEqual([null, true]);
     esc();
-    expect(layers()).toEqual(['tix-tall']);
+    expect(layers()).toEqual([]);
     expect(api.setTicketStatus).not.toHaveBeenCalled();
   });
 

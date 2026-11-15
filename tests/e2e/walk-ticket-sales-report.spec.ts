@@ -78,14 +78,15 @@ async function open(page: Page, fx: Fixture, role?: string) {
     const row = { charges_enabled: true, payouts_enabled: true, details_submitted: true };
     return json(r, (r.request().headers()['accept'] ?? '').includes('vnd.pgrst.object') ? row : [row]);
   });
-  await page.route('**/rest/v1/rpc/ticket_sales_summary_v1*', (r) => json(r, { ok: true, ticket_types: [] }));
+  // the server's money_visible, as prod sends it: true for an owner seat, false otherwise. Without it the
+  // client fails closed to counts only (showMoney is the one gate), so the money lines would never render.
+  await page.route('**/rest/v1/rpc/ticket_sales_summary_v1*', (r) => json(r, { ok: true, ticket_types: [], money_visible: (role ?? 'owner') === 'owner' }));
   await page.route('**/rest/v1/rpc/ticket_door_list_v1*', (r) => json(r, { result: 'not_allowed', rows: [], in_count: null, total_count: null }));
   await page.route('**/rest/v1/rpc/ticket_promo_list_v1*', (r) => json(r, { ok: true, rows: [] }));
   await page.route('**/rest/v1/ticket_types*', (r) => json(r, state.current.types));
   await page.route('**/rest/v1/ticket_orders*', (r) => json(r, state.current.orders));
   await page.goto(`/account/p3/events/${FRIDAY}?o=${ORG}`);
   await expect(page.getByTestId('tix-row')).toBeVisible({ timeout: 45_000 });
-  await page.getByTestId('tix-row').click();
   return state;
 }
 
@@ -119,10 +120,10 @@ test('a: prod shape today (2 paid, 3 refunded with fee, 3 expired)', async ({ pa
   const card = await toReport(page);
   const std = card.getByTestId(`tix-report-row-${T_STD}`);
   await expect(std.getByTestId('tix-report-counts')).toHaveText('3 sold · 3 refunded · 57 left of 60');
-  await expect(std.getByTestId('tix-report-money')).toHaveText('Taken £64.00 · Refunded £33.00 · Net £31.00');
+  await expect(std.getByTestId('tix-report-money')).toHaveText('Taken £64 · Refunded £33 · Net £31');
   await expect(card.getByTestId(`tix-report-row-${T_FREE}`).getByTestId('tix-report-counts')).toHaveText('0 sold · 0 refunded · 20 left of 20');
   await expect(text(page, 'tix-report-total-counts')).toHaveText('3 sold · 3 refunded');
-  await expect(text(page, 'tix-report-total-money')).toHaveText('Taken £64.00 · Refunded £33.00 · Net £31.00');
+  await expect(text(page, 'tix-report-total-money')).toHaveText('Taken £64 · Refunded £33 · Net £31');
   await expect(text(page, 'tix-report-notpaid')).toHaveText('3 orders not paid, left out.');
   await expect(text(page, 'tix-report-download')).toBeEnabled();
   await geometry(page);
@@ -151,7 +152,7 @@ test('b: 40 paid orders, two types, one sold out', async ({ page }) => {
   await expect(card.getByTestId(`tix-report-row-${T_STD}`).getByTestId('tix-report-counts')).toHaveText('30 sold · 0 refunded · 0 left of 30');
   await expect(card.getByTestId(`tix-report-row-${T_FREE}`).getByTestId('tix-report-counts')).toHaveText('10 sold · 0 refunded · 40 left of 50');
   await expect(text(page, 'tix-report-total-counts')).toHaveText('40 sold · 0 refunded');
-  await expect(text(page, 'tix-report-total-money')).toHaveText('Taken £550.00 · Refunded £0.00 · Net £550.00');
+  await expect(text(page, 'tix-report-total-money')).toHaveText('Taken £550 · Refunded £0 · Net £550');
   await geometry(page);
   await page.screenshot({ path: `${OUT}/b-forty-paid.png` });
 });
@@ -160,7 +161,7 @@ test('c: part-refunded paid order', async ({ page }) => {
   await open(page, fixtures().c);
   await toReport(page);
   await expect(text(page, 'tix-report-total-counts')).toHaveText('4 sold · 0 refunded');
-  await expect(text(page, 'tix-report-total-money')).toHaveText('Taken £40.00 · Refunded £5.00 · Net £35.00');
+  await expect(text(page, 'tix-report-total-money')).toHaveText('Taken £40 · Refunded £5 · Net £35');
   await geometry(page);
   await page.screenshot({ path: `${OUT}/c-part-refunded.png` });
 });
@@ -179,9 +180,9 @@ test('d: lost dispute (fixture only): Disputed line, Net 0.00 for a 12 pound ord
   const state = await open(page, fixtures().d);
   await toReport(page);
   await swapOrders(page, state, { types: [type(T_STD, 'Standard', 1200, 60, 1)], orders: [order(T_STD, 'disputed', { subtotal: 1200 })] });
-  await expect(text(page, `tix-report-row-${T_STD}`).getByTestId('tix-report-disputed')).toHaveText('Disputed 1 ticket · £12.00 not counted in Net', { timeout: 20_000 });
-  await expect(text(page, 'tix-report-total-counts')).toHaveText('0 sold · 0 refunded · 1 disputed (£12.00)');
-  await expect(text(page, 'tix-report-total-money')).toHaveText('Taken £12.00 · Refunded £0.00 · Net £0.00');
+  await expect(text(page, `tix-report-row-${T_STD}`).getByTestId('tix-report-disputed')).toHaveText('Disputed 1 ticket · £12 not counted in Net', { timeout: 20_000 });
+  await expect(text(page, 'tix-report-total-counts')).toHaveText('0 sold · 0 refunded · 1 disputed (£12)');
+  await expect(text(page, 'tix-report-total-money')).toHaveText('Taken £12 · Refunded £0 · Net £0');
   await text(page, 'tix-report').scrollIntoViewIfNeeded();
   await geometry(page);
   await page.screenshot({ path: `${OUT}/fixture-dispute.png` });
@@ -204,7 +205,7 @@ test('e: nothing paid (pending and expired only): empty state, download disabled
 test('f: contributor (not a manager): report shows, no refund control', async ({ page }) => {
   await open(page, fixtures().c, 'contributor');
   const card = await toReport(page);
-  await expect(text(page, 'tix-report-total-money')).toHaveText('Taken £40.00 · Refunded £5.00 · Net £35.00');
+  await expect(text(page, 'tix-report-total-money')).toHaveText('Taken £40 · Refunded £5 · Net £35');
   await expect(card.getByTestId('tix-refund')).toHaveCount(0);
   await expect(page.getByTestId('tix-refund')).toHaveCount(0);
   await geometry(page);

@@ -14,6 +14,8 @@ import {
   orderTagFor,
   partRefundedNote,
   canRefund,
+  totalsOf,
+  formatPence,
   orderLineFor,
   PAYMENTS_WHERE,
   SWITCH_LABEL,
@@ -101,7 +103,8 @@ export { CONNECT_RETURN_EVERY_MS, CONNECT_RETURN_FOR_MS };
 function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) {
   const queryClient = useQueryClient();
   const today = londonTodayKey();
-  const [open, setOpen] = useState(false);
+  // Option A: the page is inline, so the editor and Refund sheets are always allowed to open.
+  const open = true;
   const [view, setView] = useState<View>('list');
   const [editing, setEditing] = useState<{ type: TicketType | null } | null>(null);
   const [draft, setDraft] = useState<TypeDraft | null>(null);
@@ -193,7 +196,6 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
     arrived.current = true;
     if (asked) {
       setView('list');
-      setOpen(true);
     }
     if (back === 'refresh') setArrivedRefresh(true);
     if (back === 'return') {
@@ -400,90 +402,120 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
             ))}
           </ul>
         </div>
-        <h4 className="p3-h2 p3-h2-s">Orders</h4>
-        <div className="p3-card p3-tight" data-testid="tix-orders">{ordersCard(false)}</div>
       </>
     );
   }
+  const ordersBlock = view === 'list' && types.isSuccess && list.length > 0 ? (
+    <>
+      <h4 className="p3-h2 p3-h2-s">Orders</h4>
+      <div className="p3-card p3-tight" data-testid="tix-orders">{ordersCard(false)}</div>
+    </>
+  ) : null;
+  const totals = types.isSuccess && summary.data?.ok ? totalsOf(summary.data.types) : null;
+  const capacityTotal = list.reduce((n, t) => n + t.capacity, 0);
+  const statsRow = totals ? (
+    <div className="p3-card p3-stats" data-testid="tix-stats">
+      <div className="p3-stat" data-testid="tix-stat-sold">
+        <span className="p3-stat-n">{totals.ticketsSold}<span className="p3-stat-of"> of {capacityTotal}</span></span>
+        <span className="p3-row-s">sold</span>
+      </div>
+      {showMoney ? (
+        <div className="p3-stat" data-testid="tix-stat-takings">
+          <span className="p3-stat-n">{formatPence(Math.max(0, totals.grossPence - totals.refundedPence))}</span>
+          <span className="p3-row-s">taken after refunds</span>
+        </div>
+      ) : (
+        <div className="p3-stat" data-testid="tix-stat-orders">
+          <span className="p3-stat-n">{totals.ordersPaid}</span>
+          <span className="p3-row-s">{totals.ordersPaid === 1 ? 'order' : 'orders'}</span>
+        </div>
+      )}
+    </div>
+  ) : null;
 
   const addId = `tix-add-why-${series.id}`;
   const roleId = `tix-role-why-${series.id}`;
   const roleWhy = why === NOT_MANAGER;
-  const listFooter =
-    view === 'list' ? (
-      <div className="p3-stack-s">
-        <button type="button" className="p3-btn" disabled={!!why} aria-describedby={why ? (roleWhy ? roleId : addId) : undefined} onClick={() => openEditor(null)} data-testid="tix-add">
-          Add a ticket
-        </button>
-        {why && !roleWhy && <p id={addId} className="p3-note" data-testid="tix-add-reason">{why}</p>}
-      </div>
-    ) : undefined;
+  const addBlock = (
+    <div className="p3-stack-s">
+      <button type="button" className="p3-btn" style={{ minHeight: 44 }} disabled={!!why} aria-describedby={why ? (roleWhy ? roleId : addId) : undefined} onClick={() => openEditor(null)} data-testid="tix-add">
+        Add a ticket
+      </button>
+      {why && !roleWhy && <p id={addId} className="p3-note" data-testid="tix-add-reason">{why}</p>}
+    </div>
+  );
 
+  const moneyNotes = (
+    <>
+      {!manager && <p id={roleId} className="p3-note" data-testid="tix-readonly">{NOT_MANAGER}</p>}
+      {!owner && types.isSuccess && list.length > 0 && <p className="p3-note" data-testid="tix-counts-only-top">{COUNTS_ONLY_NOTE}</p>}
+    </>
+  );
   return (
     <>
-      <button type="button" className="p3-card p3-status-row" onClick={() => { setView('list'); setOpen(true); }} data-testid="tix-row">
-        <span className="p3-grow">
-          <span className="p3-row-t">Tickets</span>
-          <span className="p3-row-s" data-testid="tix-row-detail">{` \u00B7 ${detail}`}</span>
-        </span>
-        {row && <span className={TONE_CLASS[row.chip.tone]} data-testid="tix-row-chip">{row.chip.label}</span>}
-        <span aria-hidden="true">&rsaquo;</span>
-      </button>
-      {open && (
-        <StackSheet
-          full
-          title={`${view === 'orders' ? 'Orders' : 'Tickets'} \u00B7 ${series.name}`}
-          onClose={() => setOpen(false)}
-          onBack={view === 'orders' ? () => setView('list') : undefined}
-          footer={listFooter}
-          testId="tix-tall"
-        >
-          {view === 'list' ? (
-            <div className="p3-stack-s" data-testid="tix-list-view">
-              <p className="p3-note" data-testid="tix-event-rules">
-                {eventDateLine(series)}. {buyerRulesLine()}
-              </p>
-              {!manager && <p id={roleId} className="p3-note" data-testid="tix-readonly">{NOT_MANAGER}</p>}
-              {externalLine && <p className="p3-note" data-testid="tix-external-link">{externalLine}</p>}
-              {goingLine && <p className="p3-note" data-testid="tix-going-count">{goingLine}</p>}
-              {banner && !externalLine && (
-                <div className="p3-card p3-stack-s" role="status" data-testid="tix-return-banner" data-kind={banner.kind}>
-                  <p className="p3-note" data-testid="tix-return-line">{banner.line}</p>
-                  {banner.actions.map((a) => (
-                    <button
-                      key={`${a.kind}-${a.typeId ?? ''}`}
-                      type="button"
-                      className="p3-btn"
-                      style={{ minHeight: 44 }}
-                      disabled={a.kind === 'carry_on' ? onboard.busy : a.kind === 'check' ? false : bannerBusy}
-                      aria-busy={(a.kind === 'carry_on' ? onboard.busy : bannerBusy) || undefined}
-                      onClick={() => (a.kind === 'carry_on' ? void onboard.go() : a.kind === 'check' ? void stripeQuery.refetch() : putOnSale(a.typeId))}
-                      data-testid={`tix-return-${a.kind}`}
-                    >
-                      {a.label}
-                    </button>
-                  ))}
-                  {banner.actions.some((a) => a.kind === 'carry_on') && onboard.note && (
-                    <p role="alert" className="p3-error" data-testid={CONNECT_START_ERROR_SHOWN}>{onboard.note}</p>
-                  )}
-                </div>
-              )}
-              {body}
-              {types.isSuccess && (
-                <Suspense fallback={<p className="p3-note" data-testid="promo-loading">Loading promo codes&hellip;</p>}>
-                  <PromoSection organiserId={org.id} seriesId={series.id} onSay={say} onAlert={(text) => late(text, false)} />
-                </Suspense>
+      <section className="p3-stack-s" data-testid="tix-tall">
+        <div className="p3-status-row" data-testid="tix-row">
+          <span className="p3-grow">
+            <span className="p3-row-t">Tickets</span>
+            <span className="p3-row-s" data-testid="tix-row-detail">{` \u00B7 ${detail}`}</span>
+          </span>
+          {row && <span className={TONE_CLASS[row.chip.tone]} data-testid="tix-row-chip">{row.chip.label}</span>}
+        </div>
+        {view === 'list' && (
+        <div className="p3-stack-s" data-testid="tix-list-view">
+          {statsRow}
+          {moneyNotes}
+          <p className="p3-note" data-testid="tix-event-rules">
+            {eventDateLine(series)}. {buyerRulesLine()}
+          </p>
+          {externalLine && <p className="p3-note" data-testid="tix-external-link">{externalLine}</p>}
+          {goingLine && <p className="p3-note" data-testid="tix-going-count">{goingLine}</p>}
+          {banner && !externalLine && (
+            <div className="p3-card p3-stack-s" role="status" data-testid="tix-return-banner" data-kind={banner.kind}>
+              <p className="p3-note" data-testid="tix-return-line">{banner.line}</p>
+              {banner.actions.map((a) => (
+                <button
+                  key={`${a.kind}-${a.typeId ?? ''}`}
+                  type="button"
+                  className="p3-btn"
+                  style={{ minHeight: 44 }}
+                  disabled={a.kind === 'carry_on' ? onboard.busy : a.kind === 'check' ? false : bannerBusy}
+                  aria-busy={(a.kind === 'carry_on' ? onboard.busy : bannerBusy) || undefined}
+                  onClick={() => (a.kind === 'carry_on' ? void onboard.go() : a.kind === 'check' ? void stripeQuery.refetch() : putOnSale(a.typeId))}
+                  data-testid={`tix-return-${a.kind}`}
+                >
+                  {a.label}
+                </button>
+              ))}
+              {banner.actions.some((a) => a.kind === 'carry_on') && onboard.note && (
+                <p role="alert" className="p3-error" data-testid={CONNECT_START_ERROR_SHOWN}>{onboard.note}</p>
               )}
             </div>
-          ) : (
-            <>
-            <div className="p3-card p3-tight" data-testid="tix-orders-view">{ordersCard(true)}</div>
-            {orders.isSuccess && (
-              <Suspense fallback={null}>
-                <SalesReport seriesId={series.id} eventName={series.name} types={list} orders={orders.data ?? []} today={today} money={showMoney} />
-              </Suspense>
-            )}
-            </>
+          )}
+          {body}
+          {types.isSuccess && addBlock}
+          {types.isSuccess && (
+            <Suspense fallback={<p className="p3-note" data-testid="promo-loading">Loading promo codes&hellip;</p>}>
+              <PromoSection organiserId={org.id} seriesId={series.id} onSay={say} onAlert={(text) => late(text, false)} />
+            </Suspense>
+          )}
+          {ordersBlock}
+        </div>
+        )}
+      </section>
+      {view === 'orders' && (
+        <StackSheet
+          full
+          title={`Orders \u00B7 ${series.name}`}
+          onClose={() => setView('list')}
+          onBack={() => setView('list')}
+          testId="tix-orders-sheet"
+        >
+          <div className="p3-card p3-tight" data-testid="tix-orders-view">{ordersCard(true)}</div>
+          {orders.isSuccess && (
+            <Suspense fallback={null}>
+              <SalesReport seriesId={series.id} eventName={series.name} types={list} orders={orders.data ?? []} today={today} money={showMoney} />
+            </Suspense>
           )}
         </StackSheet>
       )}

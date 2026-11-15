@@ -167,7 +167,7 @@ describe('arrival', () => {
   it('fresh: the sheet stays closed, nothing is refetched', () => {
     setup(1200, 'started', 'owner', true);
     arrive('');
-    expect(screen.queryByTestId('tix-tall')).toBeNull();
+    expect(screen.queryByTestId('tix-orders-sheet')).toBeNull();
     expect((q.stripe as { query: { refetch: () => void } }).query.refetch).not.toHaveBeenCalled();
   });
 
