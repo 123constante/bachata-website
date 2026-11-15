@@ -1,6 +1,8 @@
-# Review carried to PR #1680 (bot re-push of #1677, same commit 0bf9bef00)
+# Review carried to PR #1680 (bot re-push of #1677, same commit)
 
-Verbatim copy of the independent review docs/review/review-1677-orders-money-rpc.md (branch claude/review-1677). PR #1680 head is the identical commit, so the verdict applies unchanged.
+## Verdict: PASS
+
+Reviewed head 0bf9bef00068c51a41a79a748cdb562fcd207721 (PR #1680 head is this identical commit). Verbatim copy of the independent review docs/review/review-1677-orders-money-rpc.md (branch claude/review-1677), whose verdict is Hard-tier PASS.
 
 ---
 
