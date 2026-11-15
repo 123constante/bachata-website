@@ -56,6 +56,8 @@ export const type = (id: string, over: Partial<TicketType> = {}): TicketType => 
   pricePence: 1200,
   capacity: 40,
   reserved: 0,
+  // The loaded shape: the sales summary has given this type's reserved count (withReserved).
+  reservedKnown: true,
   salesOpenAt: null,
   salesCloseAt: null,
   status: 'on_sale',

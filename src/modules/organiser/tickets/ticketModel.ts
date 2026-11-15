@@ -190,7 +190,10 @@ export interface TicketType {
   name: string;
   pricePence: number;
   capacity: number;
+  /** From ticket_sales_summary_v1 (withReserved), never the table. 0 while reservedKnown is false. */
   reserved: number;
+  /** false until the sales summary has given this type's reserved count: nothing may be decided on it. */
+  reservedKnown: boolean;
   salesOpenAt: string | null;
   salesCloseAt: string | null;
   status: TicketStatus;
@@ -316,10 +319,18 @@ export const STRIPE_REFRESH_NOTE = 'The Stripe link ran out. Carry on with Strip
 /** CONNECT_START_ERROR_SHOWN: the start error has this test id wherever it is drawn (sheet, banner, draft row). */
 export const CONNECT_START_ERROR_SHOWN = 'tix-connect-error';
 
+/** A type's reserved count has not come from the sales summary yet: no capacity or on-sale decision on it. */
+export const RESERVED_LOADING = 'Ticket numbers are still loading. Try again in a moment.';
+
 /** Why a move button is disabled, or null when it can be pressed. One rule for every screen. */
-export const moveBlock = (type: Pick<TicketType, 'pricePence' | 'reserved' | 'capacity'>, to: TicketStatus, ctx: MoveContext): string | null => {
+export const moveBlock = (
+  type: Pick<TicketType, 'pricePence' | 'reserved' | 'capacity'> & { reservedKnown?: boolean },
+  to: TicketStatus,
+  ctx: MoveContext,
+): string | null => {
   if (!canManage(ctx.role)) return NOT_MANAGER;
   if (to === 'on_sale' && !ctx.seriesLive) return 'Put this event live before selling tickets.';
+  if (to === 'on_sale' && type.reservedKnown === false) return RESERVED_LOADING;
   if (to === 'on_sale' && type.reserved >= type.capacity) return 'Every ticket is taken. Raise the number of tickets first.';
   if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe === 'unknown') return 'Checking your payment set-up. Try again in a moment.';
   if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe === 'waiting') return STRIPE_WAITING_REASON;
