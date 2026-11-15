@@ -68,7 +68,7 @@ function verdictOf({ files, prs, owner, isHard }) {
       return { code: 0, reason: `PR #${pr.number} owner-approved at head ${pr.headSha.slice(0, 8)}` };
     }
     // Guard paths stay owner-only: the bot status never covers them (reviewer finding 1).
-    if (reviewerPassAtHead(pr) && !hard.some((f) => isGuardPath(f))) {
+    if (reviewerPassAtHead(pr) && !(files || []).some((f) => isGuardPath(f))) {
       return { code: 0, reason: `PR #${pr.number} reviewer-passed at head ${pr.headSha.slice(0, 8)}` };
     }
   }
@@ -198,7 +198,11 @@ async function auditCommit(repo, sha, escalation) {
     const reviews = await paginate(`/repos/${repo}/pulls/${p.number}/reviews`);
     // Only a hard-tier commit needs the status: a flaky read must not turn a clean commit INFRA.
     const needStatuses = files.some((f) => riskTier(f) === "hard" || isGuardPath(f));
-    const statuses = needStatuses ? await paginate(`/repos/${repo}/commits/${p.head.sha}/statuses`) : [];
+    // A failed read fails closed: no statuses means RED (owner approval needed), never INFRA for the whole push range.
+    let statuses = [];
+    if (needStatuses) {
+      try { statuses = await paginate(`/repos/${repo}/commits/${p.head.sha}/statuses`); } catch { statuses = []; }
+    }
     prs.push({ number: p.number, headSha: p.head.sha, reviews, statuses, labels: (p.labels || []).map((l) => l && l.name) });
   }
   const v = decideAudit({ files, prs, escalation });

@@ -86,6 +86,21 @@ describe('owner-approval audit -- decideAudit', () => {
     }
   });
 
+  it('never lets the reviewer status cover a mixed commit (hard file plus a guard file that is not hard-tier), escalation off', () => {
+    const st = { context: 'hard-tier-review', state: 'success', creator: { id: 336045711 } };
+    const v = decideAudit({ files: ['scripts/ship-gate.mjs', 'CLAUDE.md'], prs: [{ number: 9, headSha: 'h9', reviews: [], statuses: [st] }], escalation: false });
+    expect(v.code).toBe(1);
+  });
+
+  it('breaks a created_at tie by id (higher id wins)', () => {
+    const t = '2026-11-15T10:00:00Z';
+    const ok = { id: 5, context: 'hard-tier-review', state: 'success', created_at: t, creator: { id: 336045711 } };
+    const bad = { id: 6, context: 'hard-tier-review', state: 'failure', created_at: t, creator: { id: 336045711 } };
+    for (const statuses of [[ok, bad], [bad, ok]]) {
+      expect(decideAudit({ files: ['scripts/x.mjs'], prs: [{ number: 9, headSha: 'h9', reviews: [], statuses }] }).code).toBe(1);
+    }
+  });
+
   it('REDS a hard-tier direct push to main (no PR)', () => {
     expect(decideAudit({ files: ['bin/tool'], prs: [] }).code).toBe(1);
   });
