@@ -8,5 +8,6 @@
   "queue-watchdog.yml",
   "queue-worker.yml",
   "auto-merge-on-open.yml",
-  "revert-on-red.yml"
+  "revert-on-red.yml",
+  "weekly-digest.yml"
 ]
