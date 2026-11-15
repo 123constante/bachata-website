@@ -2097,6 +2097,7 @@ export type Database = {
           from_state: string | null
           id: string
           reason: string | null
+          reason_code: string | null
           target_id: string
           target_type: string
           to_state: string | null
@@ -2110,6 +2111,7 @@ export type Database = {
           from_state?: string | null
           id?: string
           reason?: string | null
+          reason_code?: string | null
           target_id: string
           target_type: string
           to_state?: string | null
@@ -2123,6 +2125,7 @@ export type Database = {
           from_state?: string | null
           id?: string
           reason?: string | null
+          reason_code?: string | null
           target_id?: string
           target_type?: string
           to_state?: string | null
@@ -5954,6 +5957,39 @@ export type Database = {
           sent_until?: string
         }
         Relationships: []
+      }
+      organiser_follows: {
+        Row: {
+          created_at: string
+          organiser_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          organiser_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          organiser_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organiser_follows_organiser_id_fkey"
+            columns: ["organiser_id"]
+            isOneToOne: false
+            referencedRelation: "organiser_admin_dashboard_v2"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organiser_follows_organiser_id_fkey"
+            columns: ["organiser_id"]
+            isOneToOne: false
+            referencedRelation: "organiser_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       organiser_front_door_flags: {
         Row: {
@@ -14179,6 +14215,15 @@ export type Database = {
         Args: { p_reason: string; p_target_id: string; p_target_type: string }
         Returns: Json
       }
+      admin_reject_entity_with_code_v1: {
+        Args: {
+          p_note?: string
+          p_reason_code: string
+          p_target_id: string
+          p_target_type: string
+        }
+        Returns: Json
+      }
       admin_reject_pending_canonical_key_v1: {
         Args: { p_key: string; p_kind: string }
         Returns: undefined
@@ -14959,6 +15004,7 @@ export type Database = {
       check_og_render_health_v1: { Args: never; Returns: Json }
       check_organiser_contact_privacy_v1: { Args: never; Returns: Json }
       check_organiser_door_v1: { Args: never; Returns: Json }
+      check_organiser_guest_list_no_uid_v1: { Args: never; Returns: Json }
       check_organiser_onboarding_gate_v1: { Args: never; Returns: Json }
       check_organiser_profile_edit_contract_v1: { Args: never; Returns: Json }
       check_organiser_profile_gate_v1: { Args: never; Returns: Json }
@@ -15001,6 +15047,7 @@ export type Database = {
       check_raffle_capacity_contract_v1: { Args: never; Returns: Json }
       check_raffle_draw_snapshot_contract_v1: { Args: never; Returns: Json }
       check_raffle_winners_contract_v1: { Args: never; Returns: Json }
+      check_realtime_column_grants_v1: { Args: never; Returns: Json }
       check_rpc_bodies_v1: { Args: { p_names: string[] }; Returns: Json[] }
       check_rpc_body_v1: { Args: { p_name: string }; Returns: Json }
       check_search_public_v5_contract_v1: { Args: never; Returns: Json }
@@ -15434,6 +15481,7 @@ export type Database = {
         Args: { p_public_event_id: string }
         Returns: Json
       }
+      get_my_followed_organisers_v1: { Args: never; Returns: Json }
       get_my_going_v1: { Args: never; Returns: Json }
       get_my_guest_list_entry_v1: {
         Args: { p_occurrence_id: string }
@@ -15444,6 +15492,7 @@ export type Database = {
         Returns: string
       }
       get_my_organiser_going_total_v1: { Args: never; Returns: Json }
+      get_my_saved_v1: { Args: never; Returns: Json }
       get_my_series_going_v1: { Args: { p_series_id: string }; Returns: Json }
       get_nights_going_v1: {
         Args: { p_limit?: number; p_occurrence_ids: string[] }
@@ -16089,6 +16138,14 @@ export type Database = {
           ref_id: string
           source: string
           url: string
+        }[]
+      }
+      list_reject_reason_codes_v1: {
+        Args: never
+        Returns: {
+          code: string
+          label: string
+          sort_order: number
         }[]
       }
       listing_request_is_stale: {
@@ -17245,6 +17302,10 @@ export type Database = {
           p_public_event_id: string
           p_status?: string
         }
+        Returns: Json
+      }
+      set_my_organiser_follow_v1: {
+        Args: { p_follow: boolean; p_organiser_id: string }
         Returns: Json
       }
       set_my_role_declined_v1: {
