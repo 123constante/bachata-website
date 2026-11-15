@@ -38,3 +38,8 @@ Body edited after merge; auto-merge window between push and synchronize; 3000-fi
 - `npm run lint`: 35/36 links green; `check:no-social-word` is red on main already
   (`src/modules/tickets/__tests__/priceSteps.matrix.test.tsx:32`, not in this PR).
 - Full `npm run test:unit`, e2e and browser walk not run (no UI paths in this PR).
+
+## Gates
+- tsc run on 01b7b05: 0 errors in branch files (0 errors repo-wide).
+- `node scripts/prepush-check.mjs` does not exist here; checked by hand: PR body labels exact (both checkers exit 0), no SQL/Undo function, no new entry-point script.
+- Brief asked for ONE commit: the fix is one commit (01b7b05); this second commit only adds this Gates note + the done marker (an amend + force-push was refused by the sandbox).
