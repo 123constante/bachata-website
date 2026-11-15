@@ -47,6 +47,17 @@ describe("shouldHonorReturnTo", () => {
   });
 });
 
+describe("shouldHonorReturnTo: a ticket buyer's sign-up", () => {
+  const signup = (returnTo: string, organiserSelfServe: boolean) => shouldHonorReturnTo({ returnTo, isSignupFlow: true, organiserSelfServe });
+  it.each(["/account/my-tickets", "/app/tickets"])("honours %s with organiser self-serve off", (rt) => {
+    expect(signup(rt, false)).toBe(true);
+    expect(signup(rt, true)).toBe(true);
+  });
+  it.each(["/account/my-tickets/x", "/account/my-tickets?next=//evil.com", "/app/tickets/", "//evil.com", "https://evil.com", "/account", "/app/tickets#x"])("does not widen to %s", (rt) => {
+    expect(signup(rt, false)).toBe(false);
+  });
+});
+
 // W2 walk finding 7: "Sign in" on a public page, then sign up as an Organiser, landed back on that
 // page, so the new organiser never reached /account/o. A plain public browse page gives way to the
 // organiser landing; a claim or invite returnTo is the task itself and is kept; a sign-in is unchanged.

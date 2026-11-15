@@ -94,9 +94,15 @@ export function shouldHonorReturnTo(input: {
 }): boolean {
   if (!input.returnTo) return false;
   if (!input.isSignupFlow) return true;
+  // A ticket buyer's sign-up returns to their tickets whatever the organiser flag says. Exact paths only.
+  if (isBuyerTicketsReturnTo(input.returnTo)) return true;
   if (!input.organiserSelfServe) return false;
   return !input.organiserSignup || isTaskReturnTo(input.returnTo);
 }
+
+// The buyer's tickets screens (MY_TICKETS_ACCOUNT_PATH / the dancer app Tickets tab). Exact match only, no query.
+const BUYER_TICKETS_RETURN_TOS = ["/account/my-tickets", "/app/tickets"];
+const isBuyerTicketsReturnTo = (returnTo: string): boolean => BUYER_TICKETS_RETURN_TOS.includes(returnTo);
 
 // The task path itself and anything under it.
 const TASK_PATHS = ["/invite", "/account", "/app", "/finish-profile"];
