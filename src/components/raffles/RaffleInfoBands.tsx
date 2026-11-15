@@ -97,7 +97,7 @@ const CountUp: React.FC<{ value: number; prefix?: string }> = ({ value, prefix }
 // totalWinners is different: a standalone, sitewide all-time count (same
 // source as the event-page raffle card's figure) exposes no odds for any
 // single raffle, so it's shown here rather than on individual raffle cards.
-// Its caption says "All-time wins" because the divider above this band
+// Its caption says "People contacted" because the divider above this band
 // reads "This month" -- and because the source counts wins, not people.
 export const JackpotCounter: React.FC<{
   entriesThisMonth: number | null;

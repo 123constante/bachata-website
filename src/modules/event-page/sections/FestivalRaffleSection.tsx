@@ -212,7 +212,7 @@ export function FestivalRaffleSection({ eventId }: { eventId: string | null }) {
               {!isWinnerState && (
                 <div className="rb-meta">
                   <div className="meta-cell">
-                    <p className="k">Prizes won</p>
+                    <p className="k">People contacted</p>
                     <div className="v gold">{totalWinners}</div>
                     <p className="sub">{totalWinners === 0 ? 'Be the first' : 'All time'}</p>
                   </div>
