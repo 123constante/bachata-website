@@ -240,6 +240,7 @@ const TARGETS = [
   { rel: 'scripts/queue-sdk-worker.mjs' },
   { rel: 'scripts/queue-watchdog.mjs' },
   { rel: 'scripts/prove-entry-point-dispatch.mjs' },
+  { rel: 'scripts/defect-escape.mjs' },
   { rel: 'scripts/rework-share.mjs' },
   { rel: 'scripts/run-lint-chain.mjs' },
   { rel: 'scripts/ship-gate.mjs' },
