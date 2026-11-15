@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { isListedSeries, type HomeSeriesFull } from '../../shared/homeModel';
 import type { HomeOrganiser, OrganiserHome } from '../../shared/selfServeApi';
-import { fetchCourseDates, fetchManagedTypes, fetchOrders, fetchSalesSummary, fetchSeriesTypes, fetchStripeAccount, startOnboarding, ticketKeys } from '../../tickets/ticketsApi';
+import { fetchCourseDates, fetchManagedTypes, fetchOrders, fetchSalesSummary, fetchSeriesTypes, fetchStripeAccount, startOnboarding, ticketKeys, withReserved } from '../../tickets/ticketsApi';
 import { reasonMessage, stripeStateOf, type StripeState } from '../../tickets/ticketModel';
 import { useP3Home } from '../data/useP3Data';
 import { useEventWorkspace } from '../../shared/runCommands';
@@ -51,21 +51,35 @@ export function useStripe(organiserId: string | undefined) {
 }
 
 /** `money` is required (review 1520-r1 F3): only the owner's summary keeps pence, under its own key. */
-export function useSummary(organiserId: string | undefined, money: boolean) {
+export function useSummary(organiserId: string | undefined, money: boolean, enabled = true) {
   return useQuery({
     queryKey: [...ticketKeys.summary(organiserId), money ? 'money' : 'counts'],
     queryFn: () => fetchSalesSummary(organiserId as string, { money }),
-    enabled: !!organiserId,
+    enabled: enabled && !!organiserId,
     staleTime: 30_000,
   });
 }
 
-export function useSeriesTypes(organiserId: string | undefined, seriesId: string, enabled = true) {
-  return useQuery({
+/**
+ * This event's ticket types, with `reserved` taken from the sales summary (admin review 1793 R3: the table
+ * column is never read). The summary is the same query as useSummary(organiserId, money), so a screen that
+ * already reads it makes no extra request. The types count as loaded only once the summary has settled; a
+ * failed or refused summary leaves every type reservedKnown false (fail closed, see withReserved).
+ */
+export function useSeriesTypes(organiserId: string | undefined, seriesId: string, money: boolean, enabled = true) {
+  const types = useQuery({
     queryKey: ticketKeys.types(organiserId, seriesId),
     queryFn: () => fetchSeriesTypes(organiserId as string, seriesId),
     enabled: enabled && !!organiserId,
   });
+  const summary = useSummary(organiserId, money, enabled);
+  const settled = summary.isSuccess || summary.isError;
+  const data = useMemo(
+    () => (types.data && settled ? withReserved(types.data, summary.isSuccess ? summary.data : undefined) : undefined),
+    [types.data, settled, summary.isSuccess, summary.data],
+  );
+  const waiting = types.isSuccess && !settled;
+  return { ...types, data, isSuccess: types.isSuccess && settled, isPending: types.isPending || waiting, isLoading: types.isLoading || waiting };
 }
 
 /** T3: ticket_types_manage_v1 (steps, base, has_orders). Its own key under ticketKeys.all, so a refresh of the area refetches it. */

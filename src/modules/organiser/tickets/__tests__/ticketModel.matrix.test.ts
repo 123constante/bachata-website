@@ -48,6 +48,7 @@ const type = (over: Partial<TicketType> = {}): TicketType => ({
   pricePence: 1250,
   capacity: 100,
   reserved: 0,
+  reservedKnown: true,
   salesOpenAt: null,
   salesCloseAt: null,
   status: 'draft',

@@ -112,6 +112,11 @@ export async function fetchSalesSummary(organiserId: string, opts: { money: bool
   return parseSummary(data, opts);
 }
 
+/**
+ * A ticket_types row. `reserved` is NOT read from the table (admin review 1793 R3: the raw column drops on a
+ * refund, so a seat without money could see one happened). It starts unknown (0, reservedKnown false) and
+ * withReserved fills it from ticket_sales_summary_v1, which compensates for non-money seats.
+ */
 export const parseTypeRow = (r: Record<string, unknown>): TicketType => ({
   id: String(r.id),
   seriesId: String(r.event_series_id),
@@ -119,15 +124,29 @@ export const parseTypeRow = (r: Record<string, unknown>): TicketType => ({
   name: String(r.name ?? ''),
   pricePence: num(r.price_pence),
   capacity: num(r.capacity),
-  reserved: num(r.reserved_count),
+  reserved: 0,
+  reservedKnown: false,
   salesOpenAt: strOrNull(r.sales_open_at),
   salesCloseAt: strOrNull(r.sales_close_at),
   status: asStatus(r.status),
   manualSoldOut: r.manual_sold_out === true,
 });
 
-const TYPE_COLS =
-  'id, event_series_id, occurrence_id, name, price_pence, capacity, reserved_count, sales_open_at, sales_close_at, status, manual_sold_out, created_at';
+/**
+ * Fill each type's `reserved` from the sales summary. Fail closed: a summary that is missing, not ok, or
+ * lacks the type leaves it unknown (reserved 0, reservedKnown false), and every decision on it waits.
+ */
+export const withReserved = (types: readonly TicketType[], summary: SummaryResult | undefined): TicketType[] => {
+  const byId = new Map((summary?.ok ? summary.types : []).map((s) => [s.id, s.reserved]));
+  return types.map((t) => {
+    const reserved = byId.get(t.id);
+    return reserved === undefined ? { ...t, reserved: 0, reservedKnown: false } : { ...t, reserved, reservedKnown: true };
+  });
+};
+
+/** Never `reserved_count` (see parseTypeRow): the admin repo revokes that column once this ships. */
+export const TYPE_COLS =
+  'id, event_series_id, occurrence_id, name, price_pence, capacity, sales_open_at, sales_close_at, status, manual_sold_out, created_at';
 
 export async function fetchSeriesTypes(organiserId: string, seriesId: string): Promise<TicketType[]> {
   const out: TicketType[] = [];
