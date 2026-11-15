@@ -652,7 +652,9 @@ const MEASURED = {
   // (foundations slice 2, parts 4/6): main before them measured 36 files, 58 jobs, 383 steps
   // (green, inside the drift band); with them analyse() gave 38 files, 60 jobs, 389 steps,
   // 7 upload steps, largest still db-contract-check.yml (67).
-  workflowFiles: 38,
+  // RE-DERIVED 2026-11-15 after auto-merge-on-open.yml + revert-on-red.yml (merge tiers): the guard
+  // measured 48 workflow files just now; only workflowFiles was reported stale, the rest is unchanged.
+  workflowFiles: 48,
   jobs: 60,
   steps: 389,
   uploadSteps: 7,
