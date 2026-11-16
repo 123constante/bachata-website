@@ -101,7 +101,12 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           TIER: ${{ steps.tier.outputs.tier }}
         # Unconditional: the event payload's auto_merge can be stale (armed after this event fired),
-        # so always disable; a PR with nothing armed makes gh exit non-zero, which is not a failure.
+        # so always disable. If the disable exits non-zero, re-read the PR: only a positively read
+        # "not armed" is harmless; still armed, or an unreadable state, fails the job (fail closed).
         run: |
           echo "merge tier $TIER - not armed (owner Approve, or a tier-B self-review, is needed)"
-          gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --disable-auto || echo "disable-auto: nothing armed (or gh refused); not a failure"
+          if ! gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --disable-auto; then
+            STILL=$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json autoMergeRequest --jq '.autoMergeRequest != null' || echo unknown)
+            if [ "$STILL" != "false" ]; then echo "::error::disable-auto failed and auto-merge is $STILL (true/unknown) on #$PR"; exit 1; fi
+            echo "disable-auto: nothing was armed"
+          fi

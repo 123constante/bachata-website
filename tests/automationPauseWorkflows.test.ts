@@ -129,9 +129,13 @@ describe('auto-merge-on-open.yml: pull_request_target on main, main checked out,
     const dis = byName(/^Not armed/);
     expect(String(dis.if)).toContain('always()');
     expect(String(dis.if).replace(/\s+/g, ' ')).toContain(`!(${arm})`);
-    expect(String(dis.run)).toMatch(/^gh pr merge "\$PR" --repo "\$GITHUB_REPOSITORY" --disable-auto/m);
-    expect(String(dis.run)).not.toMatch(/\bif \[/);
+    const run = String(dis.run);
+    expect(run).toMatch(/^if ! gh pr merge "\$PR" --repo "\$GITHUB_REPOSITORY" --disable-auto; then$/m);
+    expect(run).not.toMatch(/ARMED/);
     expect(dis.env.ARMED).toBeUndefined();
+    // a failed disable passes only when the re-read says positively not armed (fail closed)
+    expect(run).toMatch(/--json autoMergeRequest --jq '\.autoMergeRequest != null' \|\| echo unknown\)/);
+    expect(run).toMatch(/if \[ "\$STILL" != "false" \]; then [^\n]*exit 1; fi/);
   });
 });
 
