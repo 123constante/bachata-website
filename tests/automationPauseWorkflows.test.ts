@@ -58,6 +58,9 @@ const CONSUMERS: [string, Parameters<typeof consumerProblems>[1]][] = [
   ['dependabot-automerge.yml', { job: 'enable', gated: [/^Enable auto-merge/], pr: true, perms: { contents: 'write', 'pull-requests': 'write', issues: 'read' } }],
   ['stale-bot-pr-sweep.yml', { job: 'sweep', gated: [/^Sweep stale bot PRs/], perms: { contents: 'read', issues: 'read', 'pull-requests': 'write' } }],
   ['post-merge-prod-alarm.yml', { job: 'brake', gated: [/^Disable auto-merge on every open PR/, /^Open or update the alarm issue/], info: true, perms: { contents: 'read', issues: 'write', 'pull-requests': 'write' } }],
+  // Merge tiers (slice 4b): every write uses BOT_PR_TOKEN, so GITHUB_TOKEN is read-only in both.
+  ['auto-merge-on-open.yml', { job: 'arm', gated: [/^Arm auto-merge/], pr: true, perms: { contents: 'read', 'pull-requests': 'read', issues: 'read' } }],
+  ['revert-on-red.yml', { job: 'revert', gated: [/^Open the revert PR/], perms: { contents: 'read', 'pull-requests': 'read', issues: 'read' } }],
 ];
 
 for (const [file, spec] of CONSUMERS) {
@@ -104,6 +107,41 @@ describe('dependabot-automerge.yml: paused = no enable; an armed auto-merge is d
   it('the reader output names the reason (the Dependabot-token risk stays visible)', () => {
     const r = steps.find((s) => READER.test(String(s.run || '')))!;
     expect(r['continue-on-error']).toBe(true);
+  });
+});
+
+describe('auto-merge-on-open.yml: pull_request_target on main, main checked out, disable always runs', () => {
+  const wf = parse(read('auto-merge-on-open.yml'));
+  const steps: Step[] = wf.jobs.arm.steps;
+  const byName = (re: RegExp) => steps.find((s) => re.test(String(s.name || '')))!;
+  it('is pull_request_target limited to base main (no pull_request trigger), and the job requires base.ref main', () => {
+    expect(Object.keys(wf.on)).toEqual(['pull_request_target']);
+    expect(wf.on.pull_request_target.branches).toEqual(['main']);
+    expect(String(wf.jobs.arm.if)).toContain("github.event.pull_request.base.ref == 'main'");
+  });
+  it('every checkout is ref main without credentials (never PR head code)', () => {
+    const cos = steps.filter((s) => /^actions\/checkout@/.test(String(s.uses || '')));
+    expect(cos.length).toBeGreaterThan(0);
+    for (const c of cos) { expect(c.with.ref).toBe('main'); expect(c.with['persist-credentials']).toBe(false); }
+  });
+  it('the disable step is always() + the negated arm condition, and disables unconditionally', () => {
+    const arm = String(byName(/^Arm auto-merge/).if).replace(/\s+/g, ' ');
+    const dis = byName(/^Not armed/);
+    expect(String(dis.if)).toContain('always()');
+    expect(String(dis.if).replace(/\s+/g, ' ')).toContain(`!(${arm})`);
+    expect(String(dis.run)).toMatch(/^gh pr merge "\$PR" --repo "\$GITHUB_REPOSITORY" --disable-auto/m);
+    expect(String(dis.run)).not.toMatch(/\bif \[/);
+    expect(dis.env.ARMED).toBeUndefined();
+  });
+});
+
+describe('revert-on-red.yml: ancestor check, and a failed gh pr create becomes an owner-turn issue', () => {
+  const text = read('revert-on-red.yml');
+  it('the dispatch sha must be an ancestor of main', () => {
+    expect(text).toMatch(/'merge-base', '--is-ancestor', sha, 'origin\/main'/);
+  });
+  it('gh pr create failing calls owner_turn', () => {
+    expect(text).toMatch(/if ! URL=\$\(gh pr create [^\n]*\); then owner_turn /);
   });
 });
 
