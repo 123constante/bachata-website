@@ -85,6 +85,7 @@ const STEP_REASON: Record<string, string> = {
   invalid_payload: 'Pick a date and time and enter a price.',
   not_found: 'This ticket or price change is no longer there. Reload the page.',
   has_price_steps: FREE_WITH_STEPS,
+  not_owner_or_admin: 'Only the owner of this organiser can change prices.',
 };
 
 /** The words for a step writer's refusal; anything unknown is the shared "try again". */
@@ -109,7 +110,8 @@ const LONDON_LABEL = new Intl.DateTimeFormat('en-GB', {
 export const londonLabel = (iso: string): string => LONDON_LABEL.format(new Date(iso)).replace(/ at /, ', ');
 
 /** The copy under each step (brief, exact). */
-export const appliesLine = (iso: string): string => `This new price applies to every night of this ticket from ${londonLabel(iso)}.`;
+export const appliesLine = (iso: string, course = false): string =>
+  `This new price applies to ${course ? 'the whole course' : 'every night of this ticket'} from ${londonLabel(iso)}.`;
 
 /** A London wall-clock value that the clocks skip (spring forward): it never happens. */
 export const timeDoesNotExist = (value: string): boolean => {
