@@ -29,26 +29,26 @@ Real orders: 3 (2026-11-07), all party/festival-night shape.
 | Workshop | Same as class. | Same as class. No live workshop series. | NO. |
 | Course | Whole course only (decided 2026-11-09). Price steps allowed. | `kind = course` needs `valid_from`/`valid_to` and no `occurrence_id` (DB CHECK). Editor and price steps walked 2026-11-16 on a draft. | Organiser side: YES (draft ticket, step set and removed). Public buy and real order: NO. |
 
-## 3. Course door rule (proposed, owner to confirm)
+## 3. Course door rule (proposed, owner has not objected; confirm at first course order)
 
 - A course ticket scans once per night. Per-night scans are stored in `ticket_night_check_ins`
   (`ticket_id`, `occurrence_id`, `checked_in_at`, `checked_in_by`); `_ticket_check_in_core_v2`,
   `_ticket_door_counts_v2` and `ticket_door_list_v2` read it and mention courses.
 - Status: SUPPORTED in code. Not exercised by any real course order.
 
-## 4. Course refund rule (proposed, owner to confirm)
+## 4. Course refund rule (DECIDED by owner click, 2026-11-16)
 
+- Rule: the organiser decides the refund amount by hand. No automatic pro-rata in v1.
 - Today: `ticket_order_mark_refunded_v1` / `ticket_order_charge_refunded_v1` / `ticket_refund_authorise_v1`
-  do not mention course and do not read night check-ins. A refund is per order, not pro-rata.
-- Proposal: a part-way course refund is decided by the organiser as a manual amount; no automatic pro-rata in v1.
-  Confirm with the owner before any build.
+  do not mention course and do not read night check-ins. A refund is per order, so the rule needs no build.
+- Not verified: a manual part-amount refund on a course order (no course order exists).
 
 ## 5. Gaps (each becomes its own follow-up; none is a contract promise)
 
 1. GAP-F1 Festival per-night tickets: a festival with one date has nothing to pick. Needs either multi-date festivals or a defined "night" model. Design first.
 2. GAP-C1 Class and workshop: never bought; no walk of the public buy path for a per-date ticket.
 3. GAP-C2 Course: no public purchase walked; refund and door never exercised on real data.
-4. GAP-R1 Course refund has no part-way rule (section 4).
+4. Closed: course refund rule decided as organiser-decides (section 4). Check a part-amount refund works when a course order first exists.
 
 ## 4b. Not verified
 
