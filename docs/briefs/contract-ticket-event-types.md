@@ -55,3 +55,20 @@ Real orders: 3 (2026-11-07), all party/festival-night shape.
 - Public buy-page UI filters by event type: not read line by line.
 - Whether `ticket_types_public_v2` returns a per-date class ticket correctly: no prod row to read.
 - Live email delivery and a fresh door scan: not re-run (needs a paid order on the live Stripe key).
+
+## 6. Audit: how festivals and courses are run today (prod, live series, read-only, 2026-11-16)
+
+### Festivals (10 live)
+- A festival is ONE series with ONE date row. The multi-day span lives in the date's start and end times: 53 to 127 hours (about 2 to 5 days). 9 of 10 have a span; one has none.
+- Selling today is external: 9 of 10 carry the organiser's own ticket link. Only Ritmo de Bachata (2027-02-05) uses our tickets (12 types).
+- Organiser-written `passes` JSON exists on 2 (9 and 3 passes). `festival_meta` holds features, gallery, hotels, languages, music styles, programme and a ticket link.
+- Consequence for the contract: "a night" is not a row today. Per-night tickets need a night model inside a one-date festival (GAP-F1). Whole-festival passes fit the data as it is.
+
+### Courses (8 live)
+- A course is a weekly-recurring series that ends after a count; `course_total_sessions` equals the number of date rows on all 8 (3 to 16 sessions).
+- Selling today: 3 of 8 use an external ticket link, 5 have none. 0 have our tickets. 1 has `passes` JSON.
+- Consequence for the contract: our course ticket (`valid_from` to `valid_to`, whole course) maps onto these series. The 5 with no link are the first candidates for in-site selling.
+
+### Open for the owner (not decided)
+- Festival nights: model each night as its own date row, or keep one date and let a ticket name a day inside the span? (decides GAP-F1)
+- Do organisers want the external ticket link hidden once our tickets are live? Festivals already do this (see `ticket-festival-in-site.md`); courses not designed.
