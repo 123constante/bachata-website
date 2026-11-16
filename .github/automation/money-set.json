@@ -26,7 +26,15 @@
     "**/*payout*",
     "**/*payout*/**",
     "**/*refund*",
-    "**/*refund*/**"
+    "**/*refund*/**",
+    "**/*price*",
+    "**/*price*/**",
+    "**/*payment*",
+    "**/*payment*/**",
+    "**/*promo*",
+    "**/*promo*/**",
+    "**/*fee*",
+    "**/*fee*/**"
   ],
   "tables": [
     "ticket_orders",

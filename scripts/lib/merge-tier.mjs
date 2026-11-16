@@ -6,7 +6,7 @@
 //      secrets (.env/.env.*/.envrc/env.* basenames, a secret(s) segment or stem), money (isMoney on the path, money-set.json).
 //   B  merge on green CI + a worker self-review in the PR body: any other HARD-tier path
 //      (review-scope.mjs riskTier). .github/, .claude/ and .githooks/ are guarded today, so in
-//      practice B is the unguarded files under scripts/ and bin/.
+//      practice B is the unguarded files under scripts/ and bin/, plus DEPLOY_CONFIG below.
 //   C  auto-merge on green: everything else.
 //
 // No second path list: guard paths and the hard tier come from their one owner each. PURE apart from
@@ -26,6 +26,10 @@ try {
 }
 
 const SQL = /(^|\/)supabase\/migrations\/|\.sql$/i;
+// Tier B (slice 4a): build/deploy config and edge functions ship prod without passing through the
+// app's tests, so they never auto-merge on green alone. Root package.json / vercel.json / vite.config.ts
+// only; ticket/stripe edge functions are already A through the money set (checked first).
+const DEPLOY_CONFIG = /^(package\.json|vercel\.json|vite\.config\.ts|supabase\/functions\/.+)$/i;
 // Secrets by BASENAME: .env, .env.<x>, .envrc, env.<x> (env.production); and the word secret(s)
 // only as a whole path segment or a whole file stem (secrets/x.json, config/secret.ts), never inside a
 // prose name (docs/secret-santa.md, scripts/rotate-secret.mjs).
@@ -54,7 +58,7 @@ export function fileTier(f, deps = {}) {
   const prev = obj && typeof f.previous_filename === 'string' && f.previous_filename ? [f.previous_filename] : [];
   for (const q of [p, ...prev]) if (guard(q) || SQL.test(q) || isSecretPath(q)) return 'A';
   if (money(obj ? f : { path: p, changes: 0 })) return 'A';
-  if ([p, ...prev].some((q) => tier(q) === 'hard')) return 'B';
+  if ([p, ...prev].some((q) => tier(q) === 'hard' || DEPLOY_CONFIG.test(q))) return 'B';
   return 'C';
 }
 

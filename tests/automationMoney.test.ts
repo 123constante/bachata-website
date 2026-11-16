@@ -46,6 +46,7 @@ describe('money-set.json (PART 2.1)', () => {
       'src/**/*ticket*', 'src/**/*ticket*/**', 'app/**/*ticket*', 'supabase/functions/stripe-webhook/**', 'supabase/functions/stripe-connect-onboard/**',
       'supabase/functions/ticket-checkout/**', 'supabase/functions/ticket-email/**', 'supabase/functions/ticket-refund/**',
       '**/*stripe*', '**/*stripe*/**', '**/*payout*', '**/*payout*/**', '**/*refund*', '**/*refund*/**',
+      '**/*price*', '**/*price*/**', '**/*payment*', '**/*payment*/**', '**/*promo*', '**/*promo*/**', '**/*fee*', '**/*fee*/**',
     ]);
     expect(SET.keys).toEqual([
       'STRIPE_CHECKOUT_PREFIX', 'STRIPE_MODE', 'BOOKING_FEE_PENCE',
