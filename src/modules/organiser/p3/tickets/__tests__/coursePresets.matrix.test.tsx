@@ -86,6 +86,13 @@ describe('saved type: presets per shape', () => {
     check(screen.getByTestId('tix-steps').parentElement as HTMLElement);
   });
 
+  it('a saved step says whole course for a course and every night for a night ticket', async () => {
+    await editor(6000, [S('a', '2027-02-15T00:00:00.000Z')], { kind: 'course', from: '2027-03-01' });
+    expect(within(screen.getByTestId('tix-steps')).getByTestId('tix-step-applies').textContent).toContain('the whole course');
+    cleanup();
+    await editor(6000, [S('a', '2027-02-15T00:00:00.000Z')], { kind: 'night', from: '2027-03-01' });
+    expect(within(screen.getByTestId('tix-steps')).getByTestId('tix-step-applies').textContent).toContain('every night of this ticket');
+  });
   it('tapping a preset opens the T3 form with the time and NO price, and writes nothing', async () => {
     await editor(6000, [], { kind: 'course', from: '2027-03-01' });
     fireEvent.click(screen.getByTestId('tix-preset-weeks-4'));

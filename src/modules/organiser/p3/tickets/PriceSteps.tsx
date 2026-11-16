@@ -41,6 +41,8 @@ export interface PriceStepsProps {
   hasOrders: boolean;
   /** T5 (flag ticketCoursePresets): the course's early-bird presets; null/absent = none shown. */
   presets?: PresetsView | null;
+  /** A course is one ticket for the whole course, so the step copy says that, not "every night". */
+  isCourse?: boolean;
 }
 
 type Editing = { step: PriceStep | null; form: StepForm };
@@ -50,7 +52,7 @@ type Editing = { step: PriceStep | null; form: StepForm };
  * and remove is its own command (ticket_price_step_set_v1 / _remove_v1), apart from the ticket's
  * Save. A refusal keeps the draft open with the server's reason; an untouched move sends nothing.
  */
-export function PriceSteps({ seriesId, row, loading, failed, onRetry, hasOrders, presets }: PriceStepsProps) {
+export function PriceSteps({ seriesId, row, loading, failed, onRetry, hasOrders, presets, isCourse }: PriceStepsProps) {
   const queryClient = useQueryClient();
   const gated = useGatedCopy();
   const id = useId();
@@ -90,7 +92,12 @@ export function PriceSteps({ seriesId, row, loading, failed, onRetry, hasOrders,
     setNote(null);
     setRemoving(null);
   };
-  const setForm = (p: Partial<StepForm>) => editing && setEditing({ ...editing, form: { ...editing.form, ...p } });
+  const setForm = (p: Partial<StepForm>) => {
+    if (!editing) return;
+    setEditing({ ...editing, form: { ...editing.form, ...p } });
+    // An edited field's old error is stale: drop it now, the next Save re-checks.
+    setErrors((e) => ({ ...e, ...(p.at !== undefined ? { at: undefined } : {}), ...(p.price !== undefined ? { price: undefined } : {}) }));
+  };
 
   const save = async () => {
     if (!editing || inFlight.current) return;
@@ -214,7 +221,7 @@ export function PriceSteps({ seriesId, row, loading, failed, onRetry, hasOrders,
                   ) : (
                     <>
                       <span className="p3-row-t">{stepVerb(row.steps, i, row.basePricePence)}</span>
-                      <span className="p3-row-s" data-testid="tix-step-applies">{appliesLine(s.effectiveFrom)}</span>
+                      <span className="p3-row-s" data-testid="tix-step-applies">{appliesLine(s.effectiveFrom, isCourse)}</span>
                       {s.isLive ? (
                         <span className="p3-note" data-testid="tix-step-live">{STEP_LIVE_NOTE}</span>
                       ) : removing === s.id ? (

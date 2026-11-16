@@ -7,6 +7,7 @@ import {
   buildStepCommand,
   isAmbiguousTime,
   parseManage,
+  appliesLine,
   stepReasonMessage,
   timeDoesNotExist,
   validateStep,
@@ -73,8 +74,14 @@ describe('parseManage', () => {
     expect(parseManage({ ok: false, reason: 'invalid_payload' })).toEqual({ ok: false, reason: 'invalid_payload', types: [] });
   });
   it('every documented refusal has its own words', () => {
-    for (const r of ['reserve_not_ready', 'too_many_steps', 'not_paid_ticket', 'step_in_past', 'out_of_order', 'same_price', 'invalid_price', 'not_found', 'has_price_steps', 'time_does_not_exist'])
+    for (const r of ['reserve_not_ready', 'too_many_steps', 'not_paid_ticket', 'step_in_past', 'out_of_order', 'same_price', 'invalid_price', 'not_found', 'has_price_steps', 'time_does_not_exist', 'not_owner_or_admin'])
       expect(stepReasonMessage(r)).not.toBe(stepReasonMessage('???'));
+  });
+  it('a course step says it covers the whole course, a night ticket says every night', () => {
+    const iso = '2027-02-01T00:00:00.000Z';
+    expect(appliesLine(iso)).toContain('every night of this ticket');
+    expect(appliesLine(iso, true)).toContain('the whole course');
+    expect(appliesLine(iso, true)).not.toContain('night');
   });
 });
 

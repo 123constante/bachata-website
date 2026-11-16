@@ -430,6 +430,7 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
                 onRetry={() => void managed.refetch()}
                 hasOrders={hasOrders}
                 presets={presets}
+                isCourse={courseRead.data?.kind === 'course'}
               />
             )}
             {flags.ticketPriceStepsEditor && !type && pence !== null && pence > 0 && <p className="p3-note" data-testid="tix-steps-unsaved">{STEPS_UNSAVED}</p>}
