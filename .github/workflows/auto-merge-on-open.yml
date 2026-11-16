@@ -24,6 +24,7 @@ on:
 permissions:
   contents: read
   pull-requests: read
+  issues: read # the pause switch reader (docs/automation-pause.md); nothing else
 
 concurrency:
   group: auto-merge-on-open-${{ github.event.pull_request.number }}
@@ -74,15 +75,24 @@ jobs:
           const ok = process.env.TIER !== 'B' || hasSelfReview(process.env.BODY);
           if (!ok) console.log('tier B without a non-empty ## Self-review section: not armed');
           appendFileSync(process.env.GITHUB_OUTPUT, 'ok=' + ok + String.fromCharCode(10));"
+      # PAUSE SWITCH (docs/automation-pause.md): exit 3 = paused. continue-on-error so a pause is
+      # not a red run; fail closed: only paused == 'false' (positively read) lets a write step run.
+      - name: Read the automation pause switch
+        id: pause
+        # soft-signal: exit 3 = PAUSED is the measured outcome, written to outputs; only paused == 'false' acts (fail closed)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/automation-pause.mjs
       - name: Arm auto-merge (tier B or C only)
-        if: (steps.tier.outputs.tier == 'B' || steps.tier.outputs.tier == 'C') && steps.review.outputs.ok == 'true'
+        if: (steps.tier.outputs.tier == 'B' || steps.tier.outputs.tier == 'C') && steps.review.outputs.ok == 'true' && steps.pause.outputs.paused == 'false'
         env:
           GH_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
           PR: ${{ github.event.pull_request.number }}
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --auto --squash --match-head-commit "$HEAD"
       - name: Not armed -- disable any earlier arming, leave it for the owner
-        if: ${{ !((steps.tier.outputs.tier == 'B' || steps.tier.outputs.tier == 'C') && steps.review.outputs.ok == 'true') }}
+        if: ${{ always() && !((steps.tier.outputs.tier == 'B' || steps.tier.outputs.tier == 'C') && steps.review.outputs.ok == 'true' && steps.pause.outputs.paused == 'false') }}
         env:
           GH_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
           PR: ${{ github.event.pull_request.number }}
