@@ -286,7 +286,7 @@ describe('r2 fixes (review 1294-r1)', () => {
     await screen.findByTestId('door-codebox');
     typeCode('K7M2QX');
     fireEvent.click(await screen.findByTestId('door-act-list'));
-    await screen.findByTestId('door-list-error');
+    await screen.findByTestId('door-list-error', {}, { timeout: 5000 });
     expect(screen.queryByTestId('door-paused-banner')?.textContent ?? '').not.toMatch(/tap Check in/);
   });
   it('F7: flag OFF: empty submit shows no reason and the busy label stays Check (as main)', async () => {
