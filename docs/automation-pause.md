@@ -37,6 +37,7 @@ its own switch; the orchestrator sets both repos' labels when it pauses.
 | `bot-automerge.yml` | after checkout of main, and again immediately before `Enable auto-merge` | no enable; the existing disable step runs (an armed auto-merge would merge later) |
 | `dependabot-automerge.yml` | checkout of main, before `Enable auto-merge` | no enable; an armed auto-merge on the PR is disabled |
 | `stale-bot-pr-sweep.yml` (daily 04:23 UTC + manual) | after checkout of main, before the sweep step | closes nothing; a notice step says so (a failed read is treated as paused) |
+| `revert-on-red.yml` (merge tiers) | before it opens a revert PR | skips SILENTLY: no revert PR, no comment, the job ends green; only the step log says paused |
 | `post-merge-prod-alarm.yml` (brake) | `--info`, logged only | the brake ALWAYS runs: a pause stops merging, never alerting |
 | `automation-pause-guard.yml` | `--guard` (A15b), every 30 min + on label events; `--info` before the scheduled disarm | label added, OR a scheduled run that does not read RUNNING (a label set with GITHUB_TOKEN fires no `issues` event): disarms auto-merge on every open PR |
 

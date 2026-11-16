@@ -655,13 +655,17 @@ const MEASURED = {
   // (green, inside the drift band); with them analyse() gave 38 files, 60 jobs, 389 steps,
   // 7 upload steps, largest still db-contract-check.yml (67).
   // RE-DERIVED 2026-11-15 after auto-merge-on-open.yml + revert-on-red.yml (merge tiers): the guard
-  // measured 48 workflow files just now; only workflowFiles was reported stale, the rest is unchanged.
+  // measured 48 workflow files just now; only workflowFiles was reported stale.
+  // RE-DERIVED 2026-11-16 (merge-tier slice 4a): the 2026-11-15 note above left jobs/steps at their
+  // 2026-11-04 values, which were already behind main. `node scripts/check-workflow-artifact-policy.mjs`
+  // on main d3f562d gave 48 files, 73 jobs, 467 steps, 8 upload steps; largest still
+  // db-contract-check.yml (69 steps).
   workflowFiles: 48,
-  jobs: 60,
-  steps: 389,
-  uploadSteps: 7,
+  jobs: 73,
+  steps: 467,
+  uploadSteps: 8,
   /** db-contract-check.yml, the largest single workflow, in steps. */
-  largestWorkflowSteps: 67,
+  largestWorkflowSteps: 69,
 };
 
 /**
