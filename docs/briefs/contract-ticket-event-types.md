@@ -69,6 +69,8 @@ Real orders: 3 (2026-11-07), all party/festival-night shape.
 - Selling today: 3 of 8 use an external ticket link, 5 have none. 0 have our tickets. 1 has `passes` JSON.
 - Consequence for the contract: our course ticket (`valid_from` to `valid_to`, whole course) maps onto these series. The 5 with no link are the first candidates for in-site selling.
 
+### Decided (owner click, 2026-11-16)
+- Festival nights: a festival keeps ONE date row; a per-night ticket names a day inside its span. No per-night date rows. GAP-F1 stays open as a build item: it needs a design (ticket field for the day, buyer picker, door check-in for a day inside one date) before any code.
+
 ### Open for the owner (not decided)
-- Festival nights: model each night as its own date row, or keep one date and let a ticket name a day inside the span? (decides GAP-F1)
 - Do organisers want the external ticket link hidden once our tickets are live? Festivals already do this (see `ticket-festival-in-site.md`); courses not designed.
