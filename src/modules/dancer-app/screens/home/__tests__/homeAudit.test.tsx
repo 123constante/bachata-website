@@ -133,8 +133,8 @@ describe('seeds', () => {
   it('15 upcoming nights: one going row naming the next night, no count tile', async () => {
     h.reply = { upcoming: Array.from({ length: 15 }, (_, i) => night(`s${i}`, `Night ${i}`, i + 1)), past: [] };
     renderInShell({ path: '/app/home', backend: { profile: londoner(), statsShape: 'normal' } });
-    const row = await screen.findByTestId('home-row-going');
-    expect(row.textContent).toContain('Night 0');
+    await screen.findByTestId('home-row-going');
+    await waitFor(() => expect(screen.getByTestId('home-row-going').textContent).toContain('Night 0'));
     expect(screen.queryByTestId('tile-going-count')).toBeNull();
   });
 

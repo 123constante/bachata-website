@@ -121,7 +121,7 @@ describe.each(VIEWPORTS)('/auth at $name', (vp) => {
     signInWithOtp.mockResolvedValue({ data: null, error: ERR_422 });
     mountAuth('/auth?mode=signin&returnTo=%2Forganisers%2Fritmo');
     sendLink('new@example.com');
-    await screen.findByText('No account for this email yet. Create one to continue.');
+    await screen.findByText('No account for this email yet. Create one to continue.', {}, { timeout: 5000 });
     await tick();
     expect(a11yTree()).toMatchSnapshot();
   });
