@@ -1,7 +1,7 @@
 # Slice 4a: guard-path and money sets for the merge tiers (flag stays OFF)
 
 Repo 123constante/bachata-website. Branch claude/merge-tier-slice4a (from main). Hard tier: touches .github/workflows/*, .github/automation/*, scripts/. PR needs independent review.
-Context: #1681 installed .github/workflows/auto-merge-on-open.yml and revert-on-red.yml (flag MERGE_TIERS_ENABLED stays OFF; do NOT set it). Review docs: docs/review/review-1681-r2.md on branch claude/review-1681-r2 (and docs/review/review-1681.md on claude/review-1681) hold the findings below.
+Context: #1681 installed .github/workflows/auto-merge-on-open.yml and revert-on-red.yml (flag MERGE_TIERS_ENABLED stays OFF; do NOT set it). The #1681 review findings are listed below.
 
 ## Do (smallest change per item)
 1. .github/automation/guard-paths.json: add scripts/lib/merge-tier.mjs, scripts/lib/review-scope.mjs, tests/mergeTier.test.ts (tier A).
@@ -12,7 +12,7 @@ Files you may touch: .github/automation/guard-paths.json, .github/automation/mon
 Out of scope: removing the 2 allow-list entries (owner-only file), flipping the flag.
 
 ## Checks before pushing
-`npx vitest run tests/automationPauseWorkflows.test.ts tests/automationRegister.test.ts tests/mergeTier.test.ts`, `node scripts/check-workflow-artifact-policy.mjs`, `npm run check:mojibake`, `npx tsc --noEmit -p .`. cmp docs/proposals/*.yml against .github/workflows/*.yml.
+`npx vitest run` on the mergeTier test and the automation tests, the artifact-policy guard script, `npm run check:mojibake`, `npx tsc --noEmit -p .`. 
 
 ## Handover
 PR body needs the Verified on real data block (no data path: say so; NOT verified: the workflows have never run, the flag is off). Docs/tests/workflow PR: delete the Phone QA section. Final commit subject ends [worker-done <ticket>].
