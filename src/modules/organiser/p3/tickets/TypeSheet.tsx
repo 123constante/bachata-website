@@ -425,7 +425,7 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
               <PriceSteps
                 seriesId={seriesId}
                 row={managedRow}
-                loading={managed.isPending}
+                loading={managed.isPending || courseRead.isLoading}
                 failed={managed.isError || (managed.isSuccess && !managed.data.ok)}
                 onRetry={() => void managed.refetch()}
                 hasOrders={hasOrders}
