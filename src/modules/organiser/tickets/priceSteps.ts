@@ -85,7 +85,7 @@ const STEP_REASON: Record<string, string> = {
   invalid_payload: 'Pick a date and time and enter a price.',
   not_found: 'This ticket or price change is no longer there. Reload the page.',
   has_price_steps: FREE_WITH_STEPS,
-  not_owner_or_admin: 'Only the owner of this organiser can change prices.',
+  not_owner_or_admin: 'Only the owner or an admin of this organiser can change prices.',
 };
 
 /** The words for a step writer's refusal; anything unknown is the shared "try again". */
