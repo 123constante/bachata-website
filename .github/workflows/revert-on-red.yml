@@ -1,0 +1,160 @@
+# PROPOSAL (brief merge-tiers). Cloud workers cannot write .github/workflows/; the orchestrator
+# copies this file to .github/workflows/revert-on-red.yml after the owner's review.
+#
+# When a push-to-main workflow fails and the failing commit came from a tier B or C PR that was
+# merged by GitHub auto-merge, open ONE bot-authored revert PR, comment on the original PR, and
+# ping the owner once (issue labelled owner-turn). Rules:
+#   - only when repo variable MERGE_TIERS_ENABLED == 'true'
+#   - never reverts tier A (scripts/lib/merge-tier.mjs classifyTier, run from main's checkout)
+#   - never reverts a revert (subject starting 'Revert "' or a claude/revert-* head branch)
+#   - at most one revert per commit, EVER: branch claude/revert-<sha8>; an existing branch, a PR
+#     for it in ANY state (open, closed, merged) or an issue/PR mentioning it = do nothing (also
+#     serialised by the concurrency group)
+#   - never fails silently: if `git revert` conflicts or the push fails, it opens an owner-turn
+#     issue naming the sha and the red workflow, then exits 0
+#   - workflow_dispatch with dry_run: true (the default) classifies and logs only: no branch, no
+#     PR, no comment, no issue. This is how it is tested without a real red main.
+# LIMIT: only the push's TIP commit (workflow_run.head_sha) is evaluated; an earlier commit of a
+# multi-commit push is not (bot auto-merges land one squash commit per push, so the tip is that commit).
+# The workflows list is the push-to-main set as of 2026-11-15; adjust when one is renamed.
+name: Revert on red (merge tiers)
+
+on:
+  workflow_run:
+    workflows:
+      - Source Integrity
+      - BOM Check
+      - DB Contract Check
+      - E2E Smoke
+      - Perf Budget
+      - Typecheck (WallClock brand gate)
+      - Unit & Contract Tests
+      - Workflow Lint
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Commit on main to evaluate"
+        required: true
+      dry_run:
+        description: "Log the decision only (no branch, PR, comment or issue)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: revert-on-red-${{ github.event.workflow_run.head_sha || github.event.inputs.sha }}
+  cancel-in-progress: false
+
+jobs:
+  revert:
+    if: >-
+      vars.MERGE_TIERS_ENABLED == 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'failure' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.head_repository.full_name == github.repository))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha || github.event.inputs.sha }}
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run != 'false' }}
+      FAILED_RUN: ${{ github.event.workflow_run.html_url || 'workflow_dispatch' }}
+      FAILED_WORKFLOW: ${{ github.event.workflow_run.name || 'workflow_dispatch' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.BOT_PR_TOKEN }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Decide
+        id: decide
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const sha = process.env.SHA;
+            const say = (ok, why) => { core.info(`${ok ? 'REVERT' : 'SKIP'} ${sha.slice(0, 8)}: ${why}`); core.setOutput('revert', ok ? 'true' : 'false'); };
+            if (!/^[0-9a-f]{40}$/.test(sha)) return say(false, 'not a full sha');
+            const { data: commit } = await github.rest.repos.getCommit({ ...context.repo, ref: sha });
+            if (/^Revert "/.test(commit.commit.message)) return say(false, 'is itself a revert (no loop)');
+            const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({ ...context.repo, commit_sha: sha });
+            const pr = prs.find((p) => p.merged_at && p.base.ref === 'main');
+            if (!pr) return say(false, 'no merged PR (direct push): owner decides');
+            if (/^claude\/revert-/.test(pr.head.ref)) return say(false, 'came from a revert PR (no loop)');
+            // Merged by auto-merge = the bot merged it (auto-merge-on-open arms with BOT_PR_TOKEN, so
+            // GitHub records the bot as merged_by) AND the LAST auto-merge timeline event is an enable.
+            const { data: full } = await github.rest.pulls.get({ ...context.repo, pull_number: pr.number });
+            if (!full.merged_by || full.merged_by.login !== 'kiki-claude-bot') return say(false, `PR #${pr.number} merged by ${full.merged_by && full.merged_by.login}, not the bot's auto-merge`);
+            const events = await github.paginate(github.rest.issues.listEvents, { ...context.repo, issue_number: pr.number, per_page: 100 });
+            const am = events.filter((e) => /^auto_(merge|squash|rebase)_enabled$|^auto_merge_disabled$/.test(e.event));
+            if (!am.length || am[am.length - 1].event === 'auto_merge_disabled') return say(false, `PR #${pr.number} was not merged by auto-merge`);
+            const files = await github.paginate(github.rest.pulls.listFiles, { ...context.repo, pull_number: pr.number, per_page: 100 });
+            require('fs').writeFileSync('pr-files.json', JSON.stringify(files.length >= 3000 ? [] : files.map((f) => ({ filename: f.filename, previous_filename: f.previous_filename, patch: f.patch, changes: f.changes }))));
+            core.setOutput('pr', String(pr.number));
+            const sha8 = sha.slice(0, 8);
+            core.setOutput('branch', `claude/revert-${sha8}`);
+            const branch = `claude/revert-${sha8}`;
+            // Duplicate guard: a revert PR for this sha in ANY state, or any issue/PR naming the branch
+            // (the owner-turn issue below names it), means this commit was already handled once.
+            const any = await github.paginate(github.rest.pulls.list, { ...context.repo, state: 'all', head: `${context.repo.owner}:${branch}`, per_page: 100 });
+            if (any.length) return say(false, `revert PR #${any[0].number} (${any[0].state}${any[0].merged_at ? ', merged' : ''}) already exists`);
+            const found = await github.request('GET /search/issues', { q: `repo:${context.repo.owner}/${context.repo.repo} "${branch}"`, per_page: 5 });
+            if (found.data.total_count > 0) return say(false, `#${found.data.items[0].number} already names ${branch}`);
+            say(true, `PR #${pr.number} auto-merged; tier check next`);
+      # PAUSE SWITCH (docs/automation-pause.md): exit 3 = paused. continue-on-error so a pause is
+      # not a red run; fail closed: only paused == 'false' (positively read) lets a write step run.
+      - name: Read the automation pause switch
+        id: pause
+        # soft-signal: exit 3 = PAUSED is the measured outcome, written to outputs; only paused == 'false' acts (fail closed)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/automation-pause.mjs
+      - name: Tier (never revert tier A)
+        id: tier
+        if: steps.decide.outputs.revert == 'true'
+        run: >-
+          node --input-type=module -e "import { readFileSync, appendFileSync } from 'node:fs';
+          import { classifyTier } from './scripts/lib/merge-tier.mjs';
+          const t = classifyTier(JSON.parse(readFileSync('pr-files.json', 'utf8'))); console.log('merge tier: ' + t);
+          appendFileSync(process.env.GITHUB_OUTPUT, 'tier=' + t + String.fromCharCode(10));"
+      - name: Dry run -- stop here
+        if: steps.decide.outputs.revert == 'true' && env.DRY_RUN == 'true'
+        env:
+          TIER: ${{ steps.tier.outputs.tier }}
+        run: 'echo "DRY RUN: would revert $SHA (tier $TIER) if tier is B or C; nothing opened"'
+      - name: Open the revert PR, comment, ping the owner
+        if: steps.decide.outputs.revert == 'true' && env.DRY_RUN != 'true' && steps.pause.outputs.paused == 'false' && (steps.tier.outputs.tier == 'B' || steps.tier.outputs.tier == 'C')
+        env:
+          GH_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
+          PR: ${{ steps.decide.outputs.pr }}
+          BRANCH: ${{ steps.decide.outputs.branch }}
+          TIER: ${{ steps.tier.outputs.tier }}
+        run: |
+          set -euo pipefail
+          # Never fail silently: a revert that cannot be made or pushed becomes an owner-turn issue.
+          owner_turn() {
+            gh issue create --repo "$GITHUB_REPOSITORY" --label owner-turn \
+              --title "Red main: automatic revert of ${SHA:0:8} (#$PR) FAILED -- $1" \
+              --body "Commit: $SHA (PR #$PR, merge tier $TIER). Red workflow: $FAILED_WORKFLOW ($FAILED_RUN). Revert branch: $BRANCH. Step that failed: $1. Revert by hand or fix forward."
+            exit 0
+          }
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null; then echo "branch $BRANCH exists: one revert per commit"; exit 0; fi
+          git config user.name "kiki-claude-bot"
+          git config user.email "336045711+kiki-claude-bot@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          if ! git revert --no-edit "$SHA"; then git revert --abort || true; owner_turn "git revert conflicted"; fi
+          if ! git push origin "$BRANCH"; then owner_turn "git push of $BRANCH failed"; fi
+          printf 'Automatic revert of %s (PR #%s, merge tier %s): a push-to-main check went red.\n\nRed workflow: %s\nFailed run: %s\nRevert branch: %s\n\nMerge only after checking the red is caused by this commit. Raised by .github/workflows/revert-on-red.yml.\n' "$SHA" "$PR" "$TIER" "$FAILED_WORKFLOW" "$FAILED_RUN" "$BRANCH" > body.md
+          URL=$(gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$BRANCH" --title "Revert ${SHA:0:8} (red main after auto-merge of #$PR)" --body-file body.md)
+          gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "Main went red after this auto-merged PR landed ($FAILED_WORKFLOW: $FAILED_RUN). Revert opened: $URL"
+          gh issue create --repo "$GITHUB_REPOSITORY" --label owner-turn --title "Red main: revert of ${SHA:0:8} (#$PR) needs your look" --body "Revert PR: $URL ($BRANCH). Red workflow: $FAILED_WORKFLOW ($FAILED_RUN)."

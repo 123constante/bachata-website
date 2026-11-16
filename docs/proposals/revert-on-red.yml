@@ -110,6 +110,15 @@ jobs:
             const found = await github.request('GET /search/issues', { q: `repo:${context.repo.owner}/${context.repo.repo} "${branch}"`, per_page: 5 });
             if (found.data.total_count > 0) return say(false, `#${found.data.items[0].number} already names ${branch}`);
             say(true, `PR #${pr.number} auto-merged; tier check next`);
+      # PAUSE SWITCH (docs/automation-pause.md): exit 3 = paused. continue-on-error so a pause is
+      # not a red run; fail closed: only paused == 'false' (positively read) lets a write step run.
+      - name: Read the automation pause switch
+        id: pause
+        # soft-signal: exit 3 = PAUSED is the measured outcome, written to outputs; only paused == 'false' acts (fail closed)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/automation-pause.mjs
       - name: Tier (never revert tier A)
         id: tier
         if: steps.decide.outputs.revert == 'true'
@@ -124,7 +133,7 @@ jobs:
           TIER: ${{ steps.tier.outputs.tier }}
         run: 'echo "DRY RUN: would revert $SHA (tier $TIER) if tier is B or C; nothing opened"'
       - name: Open the revert PR, comment, ping the owner
-        if: steps.decide.outputs.revert == 'true' && env.DRY_RUN != 'true' && (steps.tier.outputs.tier == 'B' || steps.tier.outputs.tier == 'C')
+        if: steps.decide.outputs.revert == 'true' && env.DRY_RUN != 'true' && steps.pause.outputs.paused == 'false' && (steps.tier.outputs.tier == 'B' || steps.tier.outputs.tier == 'C')
         env:
           GH_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
           PR: ${{ steps.decide.outputs.pr }}
