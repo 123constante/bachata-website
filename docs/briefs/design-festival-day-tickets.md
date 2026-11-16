@@ -1,6 +1,6 @@
 # DESIGN: festival day tickets (GAP-F1)
 
-Status: DRAFT 1, 2026-11-16. Not reviewed. No code. This is a proposal for independent review before any build.
+Status: DRAFT 2, 2026-11-16 (owner answered grace and time zone). Not reviewed. No code. This is a proposal for independent review before any build.
 Companion to `docs/briefs/contract-ticket-event-types.md` (owner click 2026-11-16: a festival keeps ONE date row; a per-night ticket names a day inside its span; no per-night date rows).
 Facts below were read from prod function definitions and table columns on 2026-11-16 (read-only).
 
@@ -23,7 +23,7 @@ Why not one type with a buyer-picked day: it needs a per-day counter (today `res
 The public ticket list groups types by `valid_day`: day tiers first in date order, passes beside them. The buyer picks a tier, not a day. No new checkout step. `ticket_types_public_v2` returns `valid_day`; reserve and checkout need no new input.
 
 ### 2.3 Refusal
-`_ticket_night_refusal_v1` gains: if `valid_day` is set, refuse with `night_ended` once the end of that day has passed. The end of the day is the earlier of the next London midnight plus a grace set per festival (default 6 hours, for late socials) and the span end. Open for the owner: the grace length.
+`_ticket_night_refusal_v1` gains: if `valid_day` is set, refuse with `night_ended` once the end of that day has passed. The end of the day is the earlier of the next London midnight plus a grace set per festival (default 6 hours, for late socials) and the span end. DECIDED (owner click 2026-11-16): grace is 6 hours.
 
 ### 2.4 Door
 - A day ticket (`valid_day` set) is valid only on its day. Scanning on another day returns `wrong_night` (the existing result name), with the day shown on the door screen. It scans once; the existing `tickets.checked_in_at` path is enough.
@@ -50,7 +50,7 @@ Unchanged. A refund is per order and the organiser decides the amount (contract 
 - GAP-F2 (latent today): a pass scans once for the whole festival. It is closed by slice 2.
 - Per-day capacity for a pass: a pass counts once against its own capacity, not against each day. Open.
 - A festival that moves its dates after tickets exist. A moved day leaves day tickets pointing outside the span. Needs a rule (block the move, or void and refund). Open.
-- Time zone: all day maths uses `Europe/London`. A festival abroad uses London calendar days; its local midnight may differ. Open for the owner.
+- Time zone: DECIDED (owner click 2026-11-16): all day maths uses `Europe/London`; a festival abroad uses London calendar days. The 6 hour grace absorbs a 1 to 2 hour offset.
 
 ## 6. Not verified
 - `_ticket_door_night_ok_v1` was not read; the claim that a day ticket needs only a `valid_day` test there is unconfirmed.
