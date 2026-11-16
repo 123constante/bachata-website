@@ -4,7 +4,7 @@ Independent read-only review (fresh subagent, did not write the code). Reviewed 
 
 ## Verdict: PASS WITH NITS
 
-Round 1 at head 6d711d4 was BLOCK: `isCourse` read `form.kind`, which is empty for a saved course. Fixed in 2ba8718 (reads `courseRead.data?.kind`), plus a test on the saved-course path. This round re-read the full diff at 2ba8718.
+Round 1 (the first commit) was BLOCK: `isCourse` read `form.kind`, which is empty for a saved course. Fixed in 2ba8718 (reads `courseRead.data?.kind`), plus a test on the saved-course path. This round re-read the full diff at 2ba8718.
 
 ## Findings
 1. NIT, CONFIRMED. `courseRead` only runs when both course flags are on. While it loads, fails, or with the presets flag off, a saved course's step says "every night of this ticket". Courses are only created with the presets flag on, so the flag-off case is moot; the loading flash is brief.
