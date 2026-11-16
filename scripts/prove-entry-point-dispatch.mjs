@@ -230,6 +230,7 @@ const TARGETS = [
   { rel: 'scripts/hooks/pre-exec-guard.mjs' },
   { rel: 'scripts/hooks/review-stamp.mjs' },
   { rel: 'scripts/hooks/session-lock.mjs' },
+  { rel: 'scripts/hooks/session-lock-block.mjs' },
   { rel: 'scripts/lint-workflow-notification.mjs' },
   { rel: 'scripts/mutate-workflow-artifact-policy.mjs' },
   { rel: 'scripts/owner-approval-audit.mjs' },

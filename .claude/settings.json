@@ -259,6 +259,16 @@
             "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/pre-exec-guard.mjs --hook"
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/session-lock-block.mjs",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "PostToolUse": [
