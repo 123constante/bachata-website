@@ -13,7 +13,7 @@ import '../door/door.css';
 import type { Night } from '../events/eventsModel';
 import { addName, checkIn, readNight, removeName, restoreName, scan, setNight, tokenOf, undoCheckIn, type Outcome } from './guestListApi';
 import {
-  PAGE, GUEST_VIEWS, TAB_WORD, doorLine, draftOf, editBlock, emptyWords, namesWord, reasonWords, scanWords, settingsArgs, settingsError,
+  PAGE, TAB_WORD, isContributorView, viewsFor, doorLine, draftOf, editBlock, emptyWords, namesWord, reasonWords, scanWords, settingsArgs, settingsError,
   stateBanner, statusLine, type GuestEntry, type GuestListView, type GuestTab, type SettingsDraft,
 } from './guestListModel';
 
@@ -119,21 +119,21 @@ export function GuestListLive({ occurrenceId, title, onClose }: { occurrenceId: 
       {banner && <p className="p3-note" role="status" data-testid="gl-banner">{banner}</p>}
       {block && <p className="p3-note" id={WHY_ID} data-testid="gl-why">{block}</p>}
       <div className="p3-seg" role="group" aria-label="Guest list view">
-        {GUEST_VIEWS.map((t) => (
+        {viewsFor(v).map((t) => (
           <button key={t} type="button" style={TAP} aria-pressed={tab === t} onClick={() => { setTab(t); setNote(null); setScanning(false); }} data-testid={`gl-tab-${t}`}>
             {TAB_WORD[t]}{t === 'names' ? ` ${v.counts.names}` : t === 'door' ? ` ${v.counts.inCount}/${v.counts.names}` : ''}
           </button>
         ))}
       </div>
       <div role="status" aria-live="polite">{note && <p className="p3-note" data-testid="gl-note">{note}</p>}</div>
-      {tab === 'settings' ? (
+      {tab === 'settings' && !isContributorView(v) ? (
         <Settings v={v} busy={busy} onSave={(d) => {
           const a = settingsArgs(v, d);
           return a ? send(() => setNight(occurrenceId, v.night.enabled, a.capacity, a.cutoff), 'Saved.') : Promise.resolve(true);
         }} onSwitch={(on) => void send(() => setNight(occurrenceId, on, v.night.capacityMax, v.night.cutoffTime ?? ''), on ? 'Guest list is on for this night.' : 'Guest list is off for this night.')} block={block} />
       ) : (
         <>
-          {tab === 'names' && <AddName busy={busy} block={block} onAdd={(n, w) => send(() => addName(occurrenceId, n, w), `${n} added.`)} />}
+          {tab === 'names' && !isContributorView(v) && <AddName busy={busy} block={block} onAdd={(n, w) => send(() => addName(occurrenceId, n, w), `${n} added.`)} />}
           {tab === 'door' && <DoorTop v={v} blocked={!v.canCheckIn} scanning={scanning} onScan={() => setScanning((s) => !s)} occurrenceId={occurrenceId} onScanned={(m) => { setNote(m); void reload(); }} />}
           <label className="p3-field" style={FIELD}><span className="p3-row-s">Search names</span>
             <input className="p3-input" style={INPUT} type="search" value={query} onChange={(e) => { setQuery(e.target.value); setLimit(PAGE); }} data-testid="gl-search" /></label>
@@ -177,7 +177,7 @@ function Rows({ v, tab, query, busy, onRemove, onRestore, onCheck }: { v: GuestL
             <span className="p3-row-s">{[e.everyWeek && 'Every week', e.waitlist && 'Waitlist', e.byTeam ? 'Added by the team' : 'Added by themselves', e.checkedIn && 'In'].filter(Boolean).join(' · ')}</span></span>
           {tab === 'door' ? (
             <button type="button" className="p3-btn p3-btn-line" style={TAP} disabled={!v.canCheckIn || busy} onClick={() => onCheck(e)} data-testid="gl-check">{e.checkedIn ? 'Undo' : 'Check in'}</button>
-          ) : (
+          ) : isContributorView(v) ? null : (
             <button type="button" className="p3-btn p3-btn-line" style={TAP} disabled={!!ro || busy} title={ro ?? undefined} onClick={() => { setRemoved((r) => [...r, e]); onRemove(e); }} data-testid="gl-remove" aria-label={`Remove ${e.firstName}`}>Remove</button>
           )}
         </li>

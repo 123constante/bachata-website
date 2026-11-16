@@ -55,20 +55,21 @@ describe('live shapes', () => {
     draw();
     expect((await screen.findByTestId('gl-refused')).textContent).toMatch(/not on this page/);
   });
-  it('contributor: everything that changes is disabled and the reason is on screen once', async () => {
-    read(body({ role: 'contributor', can_edit: false, can_check_in: false, read_only_reason: 'view_only' }));
+  it('contributor: Names is read-only, Settings is hidden, Door works and says so once', async () => {
+    read(body({ role: 'contributor', can_edit: false, can_check_in: true, read_only_reason: 'view_only' }));
     draw();
-    expect((await screen.findByTestId('gl-why')).textContent).toMatch(/Contributors can look/);
-    expect((screen.getByTestId('gl-add-go') as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getAllByTestId('gl-remove')[0] as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(screen.getByTestId('gl-tab-settings'));
-    expect((screen.getByTestId('gl-switch') as HTMLInputElement).disabled).toBe(true);
-    expect((screen.getByTestId('gl-save') as HTMLButtonElement).disabled).toBe(true);
+    expect((await screen.findByTestId('gl-why')).textContent).toMatch(/Contributors can check people in/);
+    expect(screen.queryByTestId('gl-tab-settings')).toBeNull();
+    expect(screen.queryByTestId('gl-add')).toBeNull();
+    expect(screen.queryByTestId('gl-remove')).toBeNull();
     fireEvent.click(screen.getByTestId('gl-tab-door'));
-    expect((screen.getByTestId('gl-scan') as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getAllByTestId('gl-check')[0] as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId('gl-scan') as HTMLButtonElement).disabled).toBe(false);
+    const check = screen.getAllByTestId('gl-check')[0] as HTMLButtonElement;
+    expect(check.disabled).toBe(false);
+    fireEvent.click(check);
+    await waitFor(() => expect(h.api.checkIn).toHaveBeenCalledTimes(1));
     expect(h.api.addName).not.toHaveBeenCalled();
-    expect((document.body.textContent ?? '').split('Contributors can look').length - 1).toBe(1); // said once
+    expect((document.body.textContent ?? '').split('Contributors can check people in').length - 1).toBe(1); // said once
   });
   it('empty list says what to do; 63 names page 50 at a time', async () => {
     read(body({ entries: [], total: 0 }, {}));
