@@ -10,15 +10,17 @@
 #     later push that adds a guard path cannot ride an earlier arming
 #   - never arms a revert PR (head claude/revert-*): revert-on-red.yml's PRs wait for a human
 #   - tier A: does nothing (owner Approve as today)
-#   - the classifier runs from the BASE commit, never the PR's own code (a PR cannot rewrite
-#     merge-tier.mjs to downgrade itself)
+#   - pull_request_target (branches: [main]) and a checkout of ref main: the workflow DEFINITION
+#     and the classifier always come from main, never the PR's own code (a PR cannot rewrite
+#     merge-tier.mjs, or this file, to downgrade itself); PR head code is never checked out
 #   - --match-head-commit: a push after classification voids the arming (synchronize re-runs it)
 # Token: BOT_PR_TOKEN (as bot-automerge.yml). A GITHUB_TOKEN merge would not trigger the push
 # workflows on main (owner-approval audit, revert-on-red), so it must NOT be used here.
 name: Auto-merge on open (merge tiers)
 
 on:
-  pull_request:
+  pull_request_target:
+    branches: [main]
     types: [opened, reopened, synchronize, edited]
 
 permissions:
@@ -34,6 +36,7 @@ jobs:
   arm:
     if: >-
       vars.MERGE_TIERS_ENABLED == 'true' &&
+      github.event.pull_request.base.ref == 'main' &&
       github.event.pull_request.user.login == 'kiki-claude-bot' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       !startsWith(github.event.pull_request.head.ref, 'claude/revert-')
@@ -42,7 +45,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: main
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
@@ -97,7 +100,13 @@ jobs:
           GH_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
           PR: ${{ github.event.pull_request.number }}
           TIER: ${{ steps.tier.outputs.tier }}
-          ARMED: ${{ github.event.pull_request.auto_merge != null }}
+        # Unconditional: the event payload's auto_merge can be stale (armed after this event fired),
+        # so always disable. If the disable exits non-zero, re-read the PR: only a positively read
+        # "not armed" is harmless; still armed, or an unreadable state, fails the job (fail closed).
         run: |
           echo "merge tier $TIER - not armed (owner Approve, or a tier-B self-review, is needed)"
-          if [ "$ARMED" = "true" ]; then gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --disable-auto; fi
+          if ! gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --disable-auto; then
+            STILL=$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json autoMergeRequest --jq '.autoMergeRequest != null' || echo unknown)
+            if [ "$STILL" != "false" ]; then echo "::error::disable-auto failed and auto-merge is $STILL (true/unknown) on #$PR"; exit 1; fi
+            echo "disable-auto: nothing was armed"
+          fi

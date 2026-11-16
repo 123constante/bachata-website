@@ -42,10 +42,11 @@ on:
         type: boolean
         default: true
 
+# GITHUB_TOKEN is read-only: every write (push, PR, comment, issue) uses BOT_PR_TOKEN.
 permissions:
-  contents: write
-  pull-requests: write
-  issues: write
+  contents: read
+  pull-requests: read
+  issues: read
 
 concurrency:
   group: revert-on-red-${{ github.event.workflow_run.head_sha || github.event.inputs.sha }}
@@ -84,6 +85,8 @@ jobs:
             const sha = process.env.SHA;
             const say = (ok, why) => { core.info(`${ok ? 'REVERT' : 'SKIP'} ${sha.slice(0, 8)}: ${why}`); core.setOutput('revert', ok ? 'true' : 'false'); };
             if (!/^[0-9a-f]{40}$/.test(sha)) return say(false, 'not a full sha');
+            // Ancestor check (a dispatch can name any sha): only a commit already on main is evaluated.
+            if (require('child_process').spawnSync('git', ['merge-base', '--is-ancestor', sha, 'origin/main']).status !== 0) return say(false, 'not an ancestor of main');
             const { data: commit } = await github.rest.repos.getCommit({ ...context.repo, ref: sha });
             if (/^Revert "/.test(commit.commit.message)) return say(false, 'is itself a revert (no loop)');
             const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({ ...context.repo, commit_sha: sha });
@@ -155,6 +158,6 @@ jobs:
           if ! git revert --no-edit "$SHA"; then git revert --abort || true; owner_turn "git revert conflicted"; fi
           if ! git push origin "$BRANCH"; then owner_turn "git push of $BRANCH failed"; fi
           printf 'Automatic revert of %s (PR #%s, merge tier %s): a push-to-main check went red.\n\nRed workflow: %s\nFailed run: %s\nRevert branch: %s\n\nMerge only after checking the red is caused by this commit. Raised by .github/workflows/revert-on-red.yml.\n' "$SHA" "$PR" "$TIER" "$FAILED_WORKFLOW" "$FAILED_RUN" "$BRANCH" > body.md
-          URL=$(gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$BRANCH" --title "Revert ${SHA:0:8} (red main after auto-merge of #$PR)" --body-file body.md)
+          if ! URL=$(gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$BRANCH" --title "Revert ${SHA:0:8} (red main after auto-merge of #$PR)" --body-file body.md); then owner_turn "gh pr create for $BRANCH failed"; fi
           gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "Main went red after this auto-merged PR landed ($FAILED_WORKFLOW: $FAILED_RUN). Revert opened: $URL"
           gh issue create --repo "$GITHUB_REPOSITORY" --label owner-turn --title "Red main: revert of ${SHA:0:8} (#$PR) needs your look" --body "Revert PR: $URL ($BRANCH). Red workflow: $FAILED_WORKFLOW ($FAILED_RUN)."
