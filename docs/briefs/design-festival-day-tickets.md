@@ -1,6 +1,6 @@
 # DESIGN: festival day tickets (GAP-F1)
 
-Status: DRAFT 4, 2026-11-16. Independent review done (Opus, read-only): APPROVE WITH CHANGES. Section 9 lists the required changes and SUPERSEDES any earlier line it contradicts. Not yet buildable: findings 1 to 5 must be settled before slice 1. No code. This is a proposal for independent review before any build.
+Status: DRAFT 5, 2026-11-16 (owner answered findings 13 and 2, section 10). Independent review done (Opus, read-only): APPROVE WITH CHANGES. Section 9 lists the required changes and SUPERSEDES any earlier line it contradicts. Not yet buildable: findings 1 to 5 must be settled before slice 1. No code. This is a proposal for independent review before any build.
 Companion to `docs/briefs/contract-ticket-event-types.md` (owner click 2026-11-16: a festival keeps ONE date row; a per-night ticket names a day inside its span; no per-night date rows).
 Facts below were read from prod function definitions and table columns on 2026-11-16 (read-only).
 
@@ -98,3 +98,10 @@ Cleanup: section 2.4 says existing check-in rows backfill; section 8 says no bac
 
 ### Could not verify (reviewer)
 Whether `door_scan_v1` has a live caller (none in Website src; admin app not checked); the clock convention for festivals abroad; whether the organiser meant the 7 named types as single-day; any runtime door or checkout behaviour (no festival order exists); admin-repo callers of the v1 door functions; bodies of `my_tickets_v1` and `ticket_sales_summary_v2`.
+
+## 10. Owner decisions on the review (click answers, 2026-11-16)
+
+- Finding 13: a buyer picks a TIER on a festival page (for example "Friday Party Pass"), not a night. No new checkout step. The contract row "buyer picks a night" is superseded for festivals.
+- Finding 2: Ritmo's 7 day-named types are single-day tickets (Friday Party Pass, Saturday Party Pass, Sunday Party Only, Saturday Day Pass (Workshop Only), Saturday Pass (Day Workshops and Party), Sunday Day Pass (Workshops Only), Sunday Pass (Workshop and Party)). "Jack & Jill Entry" is an add-on that admits nobody. The 4 full and party passes stay passes. Classification applies to slice 1. The organiser can correct it; it is not yet confirmed with the organiser. Zero orders exist, so a correction costs nothing until the first sale.
+- Findings 1, 3 to 12 and 14 are engineering and stand as written in section 9.
+- Next: slice 1 is specified well enough to hand to a migration worker. It is still blocked on nothing the owner holds.
