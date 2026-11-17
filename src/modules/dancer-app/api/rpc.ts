@@ -1,4 +1,5 @@
 import { rpcLoose } from '@/integrations/supabase/rpcLoose';
+import { BUYER_ONBOARDING_ENABLED } from '@/lib/buyerOnboardingFlag';
 import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import type { GoingNextNight } from '@/modules/going/goingRpc';
 import { DancerApiError, codeFromMessage, toDancerError } from './errors';
@@ -27,6 +28,8 @@ export const DANCER_RPC = {
   feedback: 'submit_feedback_v1',
   registerInterest: 'register_feature_interest_v1',
   myInterest: 'my_feature_interest_v1',
+  // Not in types.ts yet (the auto-heal PR regenerates it); rpcLoose takes the name as a string.
+  ensureProfile: 'ensure_my_dancer_profile_v1',
 } as const;
 
 const call = async (fn: string, args?: Record<string, unknown>): Promise<unknown> => {
@@ -194,6 +197,10 @@ const realBackend: DancerBackend = {
     return { alreadyRegistered: isRecord(data) && data.already_registered === true };
   },
   fetchMyFeatureInterest: async () => parseMyInterest(await call(DANCER_RPC.myInterest)),
+  ensureMyDancerProfile: async () => {
+    const data = await call(DANCER_RPC.ensureProfile);
+    return { created: isRecord(data) && data.created === true };
+  },
 };
 
 const backend = (): DancerBackend => backendOverride() ?? realBackend;
@@ -210,7 +217,22 @@ const wrap = async <T>(run: () => Promise<T>): Promise<T> => {
 export const fetchGate = (): Promise<DancerGate> => wrap(() => backend().fetchGate());
 
 /** my_dancer_edit_v1: the signed-in person's own profile, everything the Edit / Home screens show. */
-export const fetchMyDancerEdit = (): Promise<MyDancerEdit> => wrap(() => backend().fetchMyDancerEdit());
+export const fetchMyDancerEdit = (): Promise<MyDancerEdit> => wrap(async () => {
+  try {
+    return await backend().fetchMyDancerEdit();
+  } catch (err) {
+    // Buyer onboarding A: a signed-in person with no profile gets one created silently, then
+    // the read runs once more. If the create itself fails (rate_limited, not_signed_in, offline)
+    // the ORIGINAL no_profile stands, so the "Message us" fallback shows and the next visit retries.
+    if (!BUYER_ONBOARDING_ENABLED || toDancerError(err).code !== 'no_profile') throw err;
+    try {
+      await backend().ensureMyDancerProfile();
+    } catch {
+      throw err;
+    }
+    return backend().fetchMyDancerEdit();
+  }
+});
 
 /** The keys save_my_dancer_profile_v2 refuses (by mere presence) from a person with no other profile type. */
 const WHATSAPP_KEYS = ['whatsapp', 'show_whatsapp_publicly'] as const;

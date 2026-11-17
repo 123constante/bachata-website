@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Lock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { BUYER_ONBOARDING_ENABLED } from '@/lib/buyerOnboardingFlag';
 import { fetchPublicTicketTypes, postTicketCheckout, publicTicketKeys } from './ticketCheckoutApi';
 import {
   CANCELLED_PARAM, MAX_PER_ORDER, PREVIEW_ORIGIN_REASON, TERMS_REASON, THANKS_PATH, availability, checkoutOriginOk, formatPence, maxQuantity, reasonCopy, typesForNight,
@@ -47,9 +48,11 @@ function Trust() {
   );
 }
 
+const NOT_YOU_FAILED = 'We could not sign you out. Try again.';
+
 export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueLine, onClose, now: nowProp }: TicketPickerB1Props) {
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const queryClient = useQueryClient();
   const now = useMemo(() => nowProp ?? new Date(), [nowProp]);
   const { data } = useQuery({
@@ -74,6 +77,9 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
   const [refusal, setRefusal] = useState('');
   const [held, setHeld] = useState<PickerHeld | null>(null);
   const [verifiedEmail, setVerifiedEmail] = useState('');
+  const knownEmail = user?.email ?? verifiedEmail;
+  const [notYouBusy, setNotYouBusy] = useState(false);
+  const [notYouErr, setNotYouErr] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [cancelled] = useState(() => new URLSearchParams(location.search).get(CANCELLED_PARAM) === 'cancelled');
@@ -152,9 +158,21 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
 
   function onContinue() {
     if (continueOff) return;
-    const known = user?.email ?? verifiedEmail;
-    if (known) { void startPayment(known); return; }
+    if (knownEmail) { void startPayment(knownEmail); return; }
     setEmailBad(false); setSendErr(''); setStage('email');
+  }
+
+  // "Not you?": sign out on this device, keep the basket (it lives in storage, not the session),
+  // then the email + code card runs for the new address.
+  // A failed sign-out leaves the old account signed in: say so plainly and stay put.
+  async function notYou() {
+    if (notYouBusy) return;
+    setNotYouBusy(true); setNotYouErr('');
+    let outcome: Awaited<ReturnType<typeof signOut>>;
+    try { outcome = await signOut(); } catch { outcome = 'failed'; }
+    setNotYouBusy(false);
+    if (outcome === 'failed') { setNotYouErr(NOT_YOU_FAILED); return; }
+    setVerifiedEmail(''); setEmail(''); setEmailBad(false); setSendErr(''); setStage('email');
   }
 
   async function sendCode() {
@@ -280,6 +298,13 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
             <span className="text-[13px]" style={{ color: INK }}>{TERMS_CHECKBOX_LABEL}</span>
           </label>
           {blocked && <p data-testid="picker-blocked" className="mb-[6px] text-[13px]" style={{ color: SUB }}>{blocked}</p>}
+          {BUYER_ONBOARDING_ENABLED && knownEmail && (
+            <p data-testid="picker-not-you" className="mb-[6px] flex flex-wrap items-center gap-x-1 break-words text-[13px]" style={{ color: SUB }}>
+              <span>Tickets go to {knownEmail}.</span>
+              <button type="button" data-testid="picker-not-you-btn" onClick={() => void notYou()} disabled={notYouBusy} className="min-h-[44px] underline" style={{ color: BRAND, opacity: notYouBusy ? 0.5 : 1 }}>Not you?</button>
+            </p>
+          )}
+          {BUYER_ONBOARDING_ENABLED && notYouErr && <p role="alert" data-testid="picker-not-you-error" className="mb-[6px] text-[13px]" style={{ color: BAD }}>{notYouErr}</p>}
           <button type="button" data-testid="picker-continue" onClick={onContinue} disabled={continueOff} className={btn} style={primary(continueOff)}>{heldNow ? PRICE_CONFIRM_LABEL : 'Continue'}</button>
           <Trust />
         </div>

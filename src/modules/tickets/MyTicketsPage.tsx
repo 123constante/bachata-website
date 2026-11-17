@@ -9,6 +9,8 @@ import { londonTodayKey } from '@/lib/londonDate';
 import { ticketDoorCode } from '@/modules/organiser/p3/door/doorFlags';
 import { fetchMyTickets, type MyTicketsResult } from './myTicketsApi';
 import DoorCodeLine from './DoorCodeLine';
+import { BUYER_ONBOARDING_ENABLED } from '@/lib/buyerOnboardingFlag';
+import { ticketQrShown, ticketStatusAt, ticketStatusLine } from './ticketCardStatus';
 import { MY_TICKETS_PATH } from './myTicketsModel';
 import {
   QR_MISSING,
@@ -44,11 +46,14 @@ function TicketCard({ t, position, today, defaultOpen }: { t: MyTicket; position
   const [anyway, setAnyway] = useState(false);
   const [open, setOpen] = useState(defaultOpen);
   const show = open && qrVisible(t, anyway);
-  const code = doorCodeText(t.shortCode, ticketDoorCode);
+  // Buyer onboarding ON: the one shared status mapping (ticketCardStatus); passed / cancelled / refunded = greyed, no QR, no code.
+  const status = BUYER_ONBOARDING_ENABLED ? ticketStatusAt({ date: t.date }) : 'valid';
+  const reason = ticketStatusLine(status);
+  const code = ticketQrShown(status) ? doorCodeText(t.shortCode, ticketDoorCode) : null;
   // Directly under the QR when one is drawn; otherwise in the QR's place, so it shows on every card.
   const codeLine = code ? <DoorCodeLine code={code} checkedIn={t.checkedIn} testId="my-ticket-short-code" /> : null;
   return (
-    <li className="rounded-md p-3 text-[14px]" style={surface} data-testid="my-ticket" data-checked-in={t.checkedIn ? 'true' : 'false'}>
+    <li className="rounded-md p-3 text-[14px]" style={reason ? { ...surface, opacity: 0.6 } : surface} data-testid="my-ticket" data-checked-in={t.checkedIn ? 'true' : 'false'} data-ticket-status={status}>
       <div className="flex items-start justify-between gap-2">
         <h3 className="text-[15px] font-semibold leading-tight line-clamp-2">{t.title}</h3>
         {t.checkedIn && (
@@ -65,7 +70,9 @@ function TicketCard({ t, position, today, defaultOpen }: { t: MyTicket; position
         <p className="mt-1 text-[13px] font-medium" data-testid="my-ticket-checked-in">{checkedInLine(t)}</p>
       )}
       <div className="mt-2">
-        {!t.qrToken ? (
+        {reason ? (
+          <p className="text-[13px] font-medium" role="status" data-testid="my-ticket-status">{reason}</p>
+        ) : !t.qrToken ? (
           <>
             <p className="text-[12px]" style={muted} data-testid="my-ticket-no-qr">{QR_MISSING}</p>
             {codeLine}

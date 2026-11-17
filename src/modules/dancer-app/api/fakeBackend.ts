@@ -41,6 +41,8 @@ export type FakeBackendOptions = {
   interest?: FeatureKey[];
   /** Feedback messages allowed per day before `rate_limited` (server: 5). */
   feedbackLimit?: number;
+  /** ensure_my_dancer_profile_v1 creations allowed per day before `rate_limited` (server: 5). */
+  ensureLimit?: number;
 };
 
 export type FakeCall = {
@@ -53,7 +55,8 @@ export type FakeCall = {
     | 'fetchMyViews'
     | 'submitFeedback'
     | 'registerFeatureInterest'
-    | 'fetchMyFeatureInterest';
+    | 'fetchMyFeatureInterest'
+    | 'ensureMyDancerProfile';
   args?: unknown;
 };
 
@@ -130,6 +133,10 @@ export const createFakeBackend = (opts: FakeBackendOptions = {}): FakeDancerBack
   const feedback: Array<{ body: string; kind: FeedbackKind; page: string | null }> = [];
   const interest: FeatureKey[] = [...(opts.interest ?? [])];
   const feedbackLimit = opts.feedbackLimit ?? 5;
+  const ensureLimit = opts.ensureLimit ?? 5;
+  let ensured = 0;
+  // The live function returns created:false whenever a dancer_profiles row with that id exists, archived included.
+  const archivedRow = opts.shape === 'archivedRetiredStub';
 
   const consumeFailure = () => {
     if (failNext) {
@@ -171,6 +178,18 @@ export const createFakeBackend = (opts: FakeBackendOptions = {}): FakeDancerBack
       calls.push({ fn: 'fetchMyDancerEdit' });
       consumeFailure();
       return requireMember();
+    },
+
+    /** Server order: no session -> not_signed_in; a row already there -> created false; 6th create a day -> rate_limited. */
+    async ensureMyDancerProfile() {
+      calls.push({ fn: 'ensureMyDancerProfile' });
+      consumeFailure();
+      if (!signedIn) throw new DancerApiError('not_signed_in', 'not_signed_in');
+      if (profile || archivedRow) return { created: false };
+      if (ensured >= ensureLimit) throw new DancerApiError('rate_limited', 'rate_limited');
+      ensured += 1;
+      profile = DANCER_SHAPES.emptyStub.profile;
+      return { created: true };
     },
 
     async saveMyDancerProfile(delta) {

@@ -7,7 +7,7 @@ import type { OrderQrTicket } from '@/modules/tickets/myTicketsModel';
 import { thanksCopy, type ThanksOrderState } from '@/modules/tickets/ticketCheckoutModel';
 
 /** One ticket in the card: the order QR row, plus what only the full-screen door view shows. */
-export type CardTicket = OrderQrTicket & { eventTitle: string | null; eventDate: string | null };
+export type CardTicket = OrderQrTicket & { eventTitle: string | null; eventDate: string | null; eventCancelled?: boolean; refunded?: boolean };
 
 export type CardView =
   | { kind: 'loading' }

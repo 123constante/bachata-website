@@ -1,13 +1,14 @@
 import { Suspense, type ComponentType } from 'react';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { BUYER_ONBOARDING_ENABLED } from '@/lib/buyerOnboardingFlag';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { useAuth } from '@/hooks/useAuth';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
 import { useDancerAnalyticsIdentity } from '../analytics/events';
 import { DancerAreaGate } from '../gate/DancerAreaGate';
 import { DancerAppShell } from './DancerAppShell';
-import { DANCER_HOME, DANCER_ROUTES, type DancerRouteId } from './routes';
+import { DANCER_HOME, DANCER_ROUTES, DANCER_TICKETS, type DancerRouteId } from './routes';
 import OnboardingScreen from '../screens/onboarding/OnboardingScreen';
 import HomeScreen from '../screens/home/HomeScreen';
 import NightsScreen from '../screens/nights/NightsScreen';
@@ -51,7 +52,13 @@ const TEASER_SCREENS: Partial<Record<DancerRouteId, ComponentType>> = { home: Te
 const ScreenOrTeaser = ({ id, Screen }: { id: DancerRouteId; Screen: ComponentType }) => {
   const teaser = useTeaserState();
   const Twin = TEASER_SCREENS[id];
+  const { search } = useLocation();
   if (Twin && teaser === 'pending') return null;
+  // Checkout return (buyer onboarding ON) lands on Home with ?o=. Only the teaser Home draws the
+  // order card; anyone else goes on to the Tickets tab, which does, with ?o= (and free=1) kept.
+  if (id === 'home' && BUYER_ONBOARDING_ENABLED && teaser !== 'on' && new URLSearchParams(search).has('o')) {
+    return <Navigate to={`${DANCER_TICKETS}${search}`} replace />;
+  }
   const Shown = Twin && teaser === 'on' ? Twin : Screen;
   return <Suspense fallback={null}><Shown /></Suspense>;
 };
