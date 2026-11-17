@@ -254,7 +254,7 @@ async function paginate(path) {
 }
 
 /** Review docs for PR n: docs/review/<n>*.md (or review-<n>*.md) on branches claude/review-<n>[a-z]|-...
- *  -> [{ name, text, committedAt }]. Never throws: any failure drops that doc (fails closed: no evidence). */
+ *  -> [{ name, text, committedAt }]. Never throws: ANY failed read returns [] for the whole PR (fails closed: no evidence). */
 async function readReviewDocs(repo, n) {
   const out = [];
   try {
@@ -271,9 +271,9 @@ async function readReviewDocs(repo, n) {
           const committedAt = commits[0] && commits[0].commit && commits[0].commit.committer && commits[0].commit.committer.date;
           out.push({ name: `${branch}:${f.name}`, text: Buffer.from(file.content || "", "base64").toString("utf8"), committedAt });
         }
-      } catch { /* unreadable branch: no evidence from it */ }
+      } catch { return []; /* any partial read: no evidence at all (a dropped newer FAIL doc must not leave an older PASS) */ }
     }
-  } catch { /* no refs: no evidence */ }
+  } catch { return []; /* no refs: no evidence */ }
   return out;
 }
 
