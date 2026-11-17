@@ -27,3 +27,4 @@ Brief: `docs/briefs/BRIEF-organiser-v1-shell.md` (branch brief/organiser-v1-shel
 - Tried, did not help: lazy-loading V2Shell/V2Tabs (dancer-app stayed at 49). It was reverted.
 - Measured with the perf-budget.yml env on `npm run build` + `npm run check:bundle-budget`: every budgeted route is back to main fffedcc's local numbers (event 379.8 KB / 39 files, dancer-app 379.9 KB / 48, home 209.6 / 35). Every ratchet is green, and `perf-budgets.json` is unchanged.
 - Lesson: never pass `flags` as a value. Read `flags.x` by name.
+- tsc run on 8d72a20: 0 errors in branch files. Perf Budget job steps all exit 0 locally. Lint: only check:no-social-word is red (it is red on main too). Not verified: CI at the head (pending), and no browser re-walk (no UI change).
