@@ -50,7 +50,7 @@ const row = (id: string, name: string, next: string) => ({
 });
 
 beforeEach(() => { h.rows = []; window.sessionStorage.clear(); });
-afterEach(() => { cleanup(); h.f.organiserShellV2 = false; });
+afterEach(() => { cleanup(); h.f.organiserShellV2 = false; h.f.organiserGuestListLive = false; h.f.organiserRaffleLive = false; });
 
 describe('shellV2On: needs all three flags', () => {
   it.each([
@@ -112,6 +112,30 @@ describe('flag ON: the V2 shell', () => {
     at(`${P3_BASE}/guests`);
     expect((screen.getByTestId('v2-event-switch') as HTMLSelectElement).value).toBe('a');
   });
+  const dated = (id: string, name: string, dates: string[]) => ({
+    ...row(id, name, dates[0]), event: { dates: dates.map((date) => ({ date, status: 'scheduled' })) }, upcoming: dates.length, nextTime: '8pm', nextStart: null, place: '',
+  });
+  it.each<[string, 'organiserGuestListLive' | 'organiserRaffleLive', boolean, string[], string, number]>([
+    ['guests', 'organiserGuestListLive', false, [], 'v2-guests-soon', 0],
+    ['guests', 'organiserGuestListLive', false, ['2026-11-20', '2026-11-27'], 'v2-guests-soon', 0],
+    ['guests', 'organiserGuestListLive', true, [], 'v2-guests-nonights', 0],
+    ['guests', 'organiserGuestListLive', true, ['2026-11-20'], 'v2-guests-tab', 1],
+    ['guests', 'organiserGuestListLive', true, ['2026-11-20', '2026-11-27', '2026-12-04'], 'v2-guests-tab', 3],
+    ['raffle', 'organiserRaffleLive', false, [], 'v2-raffle-soon', 0],
+    ['raffle', 'organiserRaffleLive', false, ['2026-11-20', '2026-11-27'], 'v2-raffle-soon', 0],
+    ['raffle', 'organiserRaffleLive', true, [], 'v2-raffle-nonights', 0],
+  ])('%s %s=%s with %j dates -> %s (%i night headings)', (tab, flag, on, dates, testId, headings) => {
+    h.f[flag] = on;
+    h.rows = [dates.length ? dated('a', 'Alpha', dates) : { ...row('a', 'Alpha', '2026-01-01'), event: { dates: [] } }];
+    at(`${P3_BASE}/${tab}`);
+    const box = screen.getByTestId(testId);
+    expect(box.querySelectorAll('h2').length).toBe(headings);
+    // Coming soon is ONE card, never one per night; and no copy sends the person to add dates
+    if (!on) {
+      expect(box.textContent).toMatch(/coming soon/i);
+      expect(box.textContent).not.toMatch(/Add dates/);
+    }
+  });
   it.each(['tickets', 'guests', 'raffle'])('%s with no events: one sentence and a next step', (tab) => {
     at(`${P3_BASE}/${tab}`);
     const card = screen.getByTestId(`v2-${tab}-empty`);
@@ -121,7 +145,7 @@ describe('flag ON: the V2 shell', () => {
   it.each(['tickets', 'guests', 'raffle'])('%s loading and error: one sentence and a button', (tab) => {
     h.home = { ...h.home, isPending: true };
     at(`${P3_BASE}/${tab}`);
-    expect(screen.getByTestId(`v2-${tab}-loading`).querySelector('button')).toBeTruthy();
+    expect(screen.getByTestId(`v2-${tab}-loading`).querySelector('a')?.getAttribute('href')).toBe(BACK_TO);
     cleanup();
     h.home = { ...h.home, isPending: false, isError: true };
     at(`${P3_BASE}/${tab}`);

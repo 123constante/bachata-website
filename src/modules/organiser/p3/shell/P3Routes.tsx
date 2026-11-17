@@ -55,7 +55,8 @@ const DoorScreen = lazyWithRetry(() => import('../door/DoorScreen').then((m) => 
 const toEvent = (p: Readonly<Params>) => ({ to: P3_PATHS.event(p.seriesId ?? ''), label: 'Event' });
 const toEvents = () => ({ to: P3_PATHS.events, label: 'Events' });
 const toYou = () => ({ to: P3_PATHS.you, label: 'You' });
-const toHome = () => ({ to: P3_PATHS.home, label: 'Home' });
+// With the V2 shell on there is no Home tab: the way back is Events (flag off: Home, as before).
+const toHome = () => (shellV2On(flags) ? { to: P3_PATHS.events, label: 'Events' } : { to: P3_PATHS.home, label: 'Home' });
 /**
  * The interim bridge's URLs (#1202: R1's New event steps in P3's frame). They redirect now: the
  * first two to P3's New event (the page kept), any step of a draft to that draft's event page

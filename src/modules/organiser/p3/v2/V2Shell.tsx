@@ -48,11 +48,14 @@ export function EventChoiceProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (eventId) storeEvent(eventId);
   }, [eventId]);
-  const value: EventChoice = {
-    loading: !!home.isPending || scope.loading,
-    error: !!home.isError,
+  const loading = !!home.isPending || scope.loading;
+  const error = !!home.isError;
+  const refetch = home.refetch;
+  const value = useMemo<EventChoice>(() => ({
+    loading,
+    error,
     noPage: scope.noPage,
-    retry: () => void home.refetch(),
+    retry: () => void refetch(),
     page: scope.selected,
     rows,
     today,
@@ -65,7 +68,7 @@ export function EventChoiceProvider({ children }: { children: ReactNode }) {
       next.set(EVENT_PARAM, id);
       setParams(next, { replace: true });
     },
-  };
+  }), [loading, error, scope.noPage, refetch, scope.selected, rows, today, eventId, params, setParams]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

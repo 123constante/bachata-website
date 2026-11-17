@@ -5,10 +5,12 @@ import { AccountEntry } from '../shell/P3Shell';
 import { P3_PATHS } from '../shell/paths';
 import { TicketsEntry } from '../tickets/TicketsEntry';
 import { GuestListRow, GuestListSheet } from '../guestlist/GuestListSheet';
-import { RaffleRow } from '../events/raffle/RaffleParts';
+import { ComingSoonRaffle, RaffleRow } from '../events/raffle/RaffleParts';
+import { flags } from '@/lib/featureFlags';
+import { supportLinks } from '../../shared/support';
 import { RaffleSheet } from '../events/raffle/RaffleSheet';
 import { buildEvents, type Night, type Seat } from '../events/eventsModel';
-import { useEventChoice, type EventChoice } from './V2Shell';
+import { BACK_TO, BACK_WORD, useEventChoice, type EventChoice } from './V2Shell';
 import { vibrate } from './feedback';
 
 const TAP = { minHeight: 44, minWidth: 44 } as const;
@@ -30,7 +32,7 @@ function Gate({ c, what, children }: { c: EventChoice; what: string; children: (
   if (c.loading) {
     return (
       <V2State testId={`v2-${what}-loading`} sentence={<>Loading your events&hellip;</>}>
-        <button type="button" className="p3-btn p3-btn-line" style={TAP} onClick={c.retry}>Load again</button>
+        <a className={linkBtn} style={TAP} href={BACK_TO}>{BACK_WORD}</a>
       </V2State>
     );
   }
@@ -93,23 +95,27 @@ export function V2TicketsTab() {
 const seatOf = (page: EventChoice['page']): Seat => (page?.role === 'owner' || page?.role === 'manager' ? page.role : 'contributor');
 
 /** The chosen event's coming dated nights (soonest first), as the Events tab builds them. */
-export function nightsOfChoice(c: EventChoice): Night[] {
+export function nightsOfChoice(c: Pick<EventChoice, 'event' | 'today' | 'page'>): Night[] {
   if (!c.event) return [];
   const m = buildEvents({ rows: [c.event], today: c.today, seat: seatOf(c.page), query: '', filter: 'all', shown: 1000, showPast: false });
   return m.nights.filter((n) => n.date && (n.status === 'live' || n.status === 'cancelled'));
 }
 
-function NightsTab({ what, row, sheet }: {
+function NightsTab({ what, live, soon, row, sheet }: {
   what: 'guests' | 'raffle';
+  /** Off = the feature is Coming soon: ONE card (`soon`) for the event, whatever its dates. */
+  live: boolean;
+  soon: ReactNode;
   row: (night: Night, open: () => void) => ReactNode;
   sheet: (night: Night, close: () => void) => ReactNode;
 }) {
   const c = useEventChoice();
   const [open, setOpen] = useState<Night | null>(null);
-  const nights = useMemo(() => nightsOfChoice(c), [c]);
+  const { event, today, page } = c;
+  const nights = useMemo(() => nightsOfChoice({ event, today, page }), [event, today, page]);
   return (
     <Gate c={c} what={what}>
-      {() => nights.length === 0 ? (
+      {() => !live ? <div className="p3-stack" data-testid={`v2-${what}-soon`}>{soon}</div> : nights.length === 0 ? (
         <V2State testId={`v2-${what}-nonights`} sentence={`${c.event!.name} has no coming dates.`}>
           <Link className={linkBtn} style={TAP} to={P3_PATHS.eventDates(c.event!.id)}>Add dates</Link>
         </V2State>
@@ -128,12 +134,24 @@ function NightsTab({ what, row, sheet }: {
   );
 }
 
+/** Guest list while organiserGuestListLive is off: one sentence and a way to tell us. */
+function GuestsSoon() {
+  const { email, whatsapp } = supportLinks();
+  const href = email ? `mailto:${email}?subject=${encodeURIComponent('Guest list for my night')}` : whatsapp;
+  return (
+    <V2State testId="v2-guests-soon-card" sentence="Guest lists are coming soon. Dancers cannot sign up in the app yet.">
+      {href ? <a className={linkBtn} style={TAP} href={href} target="_blank" rel="noopener noreferrer">Tell us what you need</a>
+        : <Link className={linkBtn} style={TAP} to={P3_PATHS.events}>Back to your events</Link>}
+    </V2State>
+  );
+}
+
 /** Guest list: the chosen event's nights, each opening the existing guest list sheet. */
 export function V2GuestsTab() {
-  return <NightsTab what="guests" row={(n, o) => <GuestListRow night={n} onOpen={o} />} sheet={(n, x) => <GuestListSheet night={n} onClose={x} />} />;
+  return <NightsTab what="guests" live={flags.organiserGuestListLive} soon={<GuestsSoon />} row={(n, o) => <GuestListRow night={n} onOpen={o} />} sheet={(n, x) => <GuestListSheet night={n} onClose={x} />} />;
 }
 
 /** Raffle: the chosen event's nights, each opening the existing raffle sheet (open / close stays its own confirm). */
 export function V2RaffleTab() {
-  return <NightsTab what="raffle" row={(n, o) => <RaffleRow night={n} onOpen={o} />} sheet={(n, x) => <RaffleSheet night={n} onClose={x} />} />;
+  return <NightsTab what="raffle" live={flags.organiserRaffleLive} soon={<ComingSoonRaffle />} row={(n, o) => <RaffleRow night={n} onOpen={o} />} sheet={(n, x) => <RaffleSheet night={n} onClose={x} />} />;
 }
