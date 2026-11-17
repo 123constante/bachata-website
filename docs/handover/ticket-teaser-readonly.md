@@ -15,3 +15,9 @@ Brief: `docs/briefs/ticket-buyer-teaser.md` on branch `brief/ticket-buyer`. Flag
 - Continue goes to `/app/welcome`; for a view-only buyer the gate sends that to `/account` (existing behaviour, onboarding is out of scope). Decide whether the gate should admit welcome when the teaser is on.
 - Home greeting is "Hi there" (no name is read for a view-only buyer).
 - Me tab lock mark is a visual only (as in the mockup).
+
+## Open: bundle-budget (blocks CI, needs an owner decision)
+- First CI run failed because `TeaserScreens` imported `tickets/cardKit` (lazy-TicketCard-only), which dropped the `/app/*` manifest entry. Fixed in `01f3191`+1 (own `nightDate` in `teaserModel.ts`, same words as `doorDate`, pinned by a test).
+- With the entry back, local build (CI env): `/app/*` is 389.6 KB / 52 chunks vs main 379.8 KB / 48 (budget 381 / allowance 48). New first-load chunks vs main: `model`, `myTicketsApi`, `myTicketsModel`, `orderStorage`, `ticketCheckoutApi`.
+- Tried making the four twins one lazy chunk (`lazyWithRetry` in `DancerAppRoutes`): the manifest entry is lost again (the lazy chunk shares `useTicketCard` and friends with the dancer-app chunk). Reverted.
+- Next: either raise the `/app/*` row with a measured note in `perf-budgets.json` (as #1664 did), or find why the tickets modules left the dancer-app chunk (candidate: `TeaserScreens` importing `useTicketCard` + `tickets/model` statically alongside `TicketsScreen`).

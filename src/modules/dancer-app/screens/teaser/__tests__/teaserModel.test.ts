@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { admitsViewOnly } from '../../../gate/viewOnly';
-import { LOCKED_ROWS, TEASER_PATHS, teaserActive, ticketLine } from '../teaserModel';
+import { LOCKED_ROWS, TEASER_PATHS, nightDate, teaserActive, ticketLine } from '../teaserModel';
 
 describe('teaserActive', () => {
   const cases: [boolean, boolean, boolean, boolean][] = [
@@ -28,6 +28,10 @@ describe('admitsViewOnly with the teaser flag', () => {
 });
 
 describe('copy', () => {
+  it('night date matches the door view', async () => {
+    const { doorDate } = await import('../../tickets/cardKit');
+    for (const d of ['2026-11-21', '2027-01-03', null, 'soon']) expect(nightDate(d)).toBe(doorDate(d));
+  });
   it('ticket line', () => {
     expect(ticketLine('Full pass', 'Sat 21 Nov 2026')).toBe('Sat 21 Nov 2026 · Full pass');
     expect(ticketLine('Full pass', null)).toBe('Full pass');

@@ -50,3 +50,19 @@ export const LOCKED_ROWS = {
 
 /** "Your ticket" subtitle: the first ticket's date and type, or just the type. */
 export const ticketLine = (typeName: string, dateLabel: string | null): string => (dateLabel ? `${dateLabel} · ${typeName}` : typeName);
+
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+/**
+ * "Saturday 21 November 2026" for a YYYY-MM-DD night, same words as the door view's date (tickets/cardKit doorDate).
+ * Its own copy ON PURPOSE: cardKit belongs to the lazy TicketCard chunk, and importing it here would make it a
+ * module shared with the dancer-app chunk, which drops the /app/* row from the bundle-budget manifest.
+ */
+export const nightDate = (date: string | null): string | null => {
+  if (!date) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!m) return date;
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  return `${WEEKDAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+};

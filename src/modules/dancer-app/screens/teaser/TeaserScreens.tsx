@@ -5,12 +5,11 @@ import { appWelcomeHref } from '@/lib/accountRouting';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { DANCER_HOME } from '../../shell/routes';
 import { CARD_COPY } from '../tickets/model';
-import { doorDate } from '../tickets/cardKit';
 import { useTicketCard } from '../tickets/useTicketCard';
 import SignOutControl from '../options/SignOutControl';
 import '../tickets/tickets.css';
 import './teaser.css';
-import { LOCKED_ROWS, TEASER_COPY, ticketLine } from './teaserModel';
+import { LOCKED_ROWS, TEASER_COPY, nightDate, ticketLine } from './teaserModel';
 
 // Lazy, as on the Tickets tab: the QR generator never lands on a first load.
 const TicketCard = lazyWithRetry(() => import('../tickets/TicketCard'));
@@ -86,7 +85,7 @@ export function TeaserHome() {
             <span className="tz-tkt-ic"><Ticket aria-hidden="true" style={{ width: 22, height: 22 }} /></span>
             <span style={{ flex: 1, minWidth: 0 }}>
               <b>{TEASER_COPY.ticketTitle}</b>
-              <small>{ticketLine(first.typeName, doorDate(first.eventDate))}</small>
+              <small>{ticketLine(first.typeName, nightDate(first.eventDate))}</small>
             </span>
             <span className="tz-pill">{first.checkedIn ? 'Checked in' : 'Valid'}</span>
           </Link>
