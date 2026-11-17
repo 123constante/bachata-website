@@ -44,52 +44,8 @@ export function orderCardView(state: ThanksOrderState, eventId: string | null, f
   return { kind: 'pending', free };
 }
 
-export type RoleId = 'dancer' | 'dj' | 'teacher' | 'organiser' | 'videographer' | 'venue';
+// The role chips live in ./roleChips (the shell's profile sheet imports them without pulling this module into the dancer-app entry chunk).
+export { ROLE_CHIPS, ROLE_SOON, roleTarget, type RoleId } from './roleChips';
 
-export const ROLE_CHIPS: readonly { id: RoleId; label: string }[] = [
-  { id: 'dancer', label: 'Dancer' },
-  { id: 'dj', label: 'DJ' },
-  { id: 'teacher', label: 'Teacher' },
-  { id: 'organiser', label: 'Organiser' },
-  { id: 'videographer', label: 'Videographer' },
-  { id: 'venue', label: 'Venue' },
-];
-
-/** Shown under the chips for a role with no flow to hand off to today. */
-export const ROLE_SOON = 'is coming soon. We will add it here as soon as it opens.';
-
-/**
- * Where a chip hands off: the EXISTING flows, never a copy of them. A chip is a link, so an
- * untouched sheet sends nothing. null = parked ("coming soon"). Dancer is parked for a person
- * the dancer-area gate does not admit (view-only): /app/welcome would only bounce them to
- * /account.
- */
-export function roleTarget(role: RoleId, opts: { viewOnly: boolean; welcomeHref: string; organiserHref: string; teacherHref: string; djHref: string }): string | null {
-  switch (role) {
-    case 'dancer':
-      return opts.viewOnly ? null : opts.welcomeHref;
-    case 'organiser':
-      return opts.organiserHref;
-    case 'teacher':
-      return opts.teacherHref;
-    case 'dj':
-      return opts.djHref;
-    default:
-      return null;
-  }
-}
-
-/**
- * The bar and the locks show for an unfinished profile: view-only, no dancer profile
- * (my_dancer_edit_v1 says no_profile), or required steps not done. Not read yet, or a read
- * that failed for any other reason (offline), = not shown: a finished dancer is never locked
- * out by a network blip, and nothing flashes.
- */
-export type ProfileRead = { status: 'pending' | 'error' | 'no_profile' | 'success'; requiredDone: boolean };
-
-export function profileIncomplete(viewOnly: boolean, read: ProfileRead): boolean {
-  if (viewOnly) return true;
-  if (read.status === 'no_profile') return true;
-  if (read.status !== 'success') return false;
-  return !read.requiredDone;
-}
+// profileIncomplete lives in ./profileIncomplete (the shell imports it without pulling this module into the dancer-app entry chunk).
+export { profileIncomplete, type ProfileRead } from './profileIncomplete';

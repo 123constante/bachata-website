@@ -6,6 +6,7 @@ import { EmberWorld } from '@/modules/organiser/ui';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useAuth } from '@/hooks/useAuth';
 import { flags } from '@/lib/featureFlags';
+import { TICKET_TEASER_ENABLED } from '../screens/teaser/teaserFlag';
 import { FOCUS_NOT_NOW_LABEL } from '@/lib/focusMode';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import '../theme/dancer.css';
@@ -14,8 +15,10 @@ import { fetchMyDancerEdit } from '../api/rpc';
 import { myDancerEditKey } from '../api/useMyDancerEdit';
 import { DancerApiError } from '../api/errors';
 import { useViewOnly } from '../gate/viewOnly';
-import { profileIncomplete } from '../screens/tickets/model';
+import { profileIncomplete } from '../screens/tickets/profileIncomplete';
 import '../screens/tickets/tickets.css';
+import { TeaserContext, teaserState } from '../screens/teaser/teaserGate';
+import '../screens/teaser/teaser.css';
 import { mayBeFocus, requiredDone, shellChrome } from './focusChrome';
 import { ProfileSheetProvider, useProfileSheet } from './profileSheet';
 import { activeTabFor, shellTabs, type DancerTab } from './routes';
@@ -71,15 +74,19 @@ export const DancerAppShell = () => {
     enabled: Boolean(user?.id) && (candidate || (ticketsOn && !viewOnly)),
   });
   const noProfile = profile.error instanceof DancerApiError && profile.error.code === 'no_profile';
-  const incomplete =
-    ticketsOn &&
-    profileIncomplete(viewOnly, {
-      status: profile.data ? 'success' : noProfile ? 'no_profile' : profile.isError ? 'error' : 'pending',
-      requiredDone: requiredDone(profile.data),
-    });
+  const read = {
+    status: profile.data ? 'success' : noProfile ? 'no_profile' : profile.isError ? 'error' : 'pending',
+    requiredDone: requiredDone(profile.data),
+  } as const;
+  const incomplete = ticketsOn && profileIncomplete(viewOnly, read);
   // Locked tabs: only for a person with no dancer profile to show (view-only, or no_profile).
   // A dancer mid-setup keeps their tabs and sees only the bar.
-  const tabsLocked = ticketsOn && (viewOnly || noProfile);
+  // Post-pay teaser (TICKET_TEASER_ENABLED): an ALLOWED person with an unfinished profile gets the four real
+  // tabs, each a read-only twin (DancerAppRoutes), so no tab is locked out; the Me tab keeps a small lock mark.
+  // Never a view-only person (their onboarding raises area_closed). Flag off = unchanged.
+  const teaserNow = teaserState({ teaserFlag: TICKET_TEASER_ENABLED, ticketingFlag: ticketsOn, viewOnly, read });
+  const teaser = teaserNow === 'on';
+  const tabsLocked = ticketsOn && !teaser && (viewOnly || noProfile);
   const { focus, notNowTo } = shellChrome(pathname, search, candidate ? profile.data : null);
   const active = activeTabFor(pathname);
   const guardRef = useRef<LeaveGuard | null>(null);
@@ -125,12 +132,14 @@ export const DancerAppShell = () => {
         data-testid="dancer-app-content"
         style={focus ? { paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' } : undefined}
       >
-        <Outlet />
+        <TeaserContext.Provider value={teaserNow}>
+          <Outlet />
+        </TeaserContext.Provider>
       </div>
       {!focus && (
-        <nav className={ticketsOn ? 'da-tabs dt-tabs-5' : 'da-tabs'} aria-label="Dancer app" data-testid="dancer-app-tabs">
-          {shellTabs(ticketsOn).map((tab) => (
-            <ShellTab key={tab.id} tab={tab} isActive={active === tab.id} locked={tabsLocked && tab.id !== 'tickets'} guardRef={guardRef} />
+        <nav className={ticketsOn && !teaser ? 'da-tabs dt-tabs-5' : 'da-tabs'} aria-label="Dancer app" data-testid="dancer-app-tabs">
+          {shellTabs(ticketsOn && !teaser).map((tab) => (
+            <ShellTab key={tab.id} tab={tab} isActive={active === tab.id} locked={tabsLocked && tab.id !== 'tickets'} marked={teaser && tab.id === 'me'} guardRef={guardRef} />
           ))}
         </nav>
       )}
@@ -145,7 +154,7 @@ export const DancerAppShell = () => {
  * One bottom tab. Locked (Option A: unfinished profile, ticketing on) = the lock mark, and the
  * tap opens the "What are you?" sheet instead of the screen, so it is never a dead control.
  */
-const ShellTab = ({ tab, isActive, locked, guardRef }: { tab: DancerTab; isActive: boolean; locked: boolean; guardRef: { current: LeaveGuard | null } }) => {
+const ShellTab = ({ tab, isActive, locked, marked = false, guardRef }: { tab: DancerTab; isActive: boolean; locked: boolean; marked?: boolean; guardRef: { current: LeaveGuard | null } }) => {
   const sheet = useProfileSheet();
   const Icon = TAB_ICON[tab.id];
   if (locked) {
@@ -177,6 +186,7 @@ const ShellTab = ({ tab, isActive, locked, guardRef }: { tab: DancerTab; isActiv
       data-testid={`dancer-app-tab-${tab.id}`}
     >
       <Icon aria-hidden="true" style={{ width: 20, height: 20 }} />
+      {marked && <Lock aria-hidden="true" className="tz-tab-lock" style={{ width: 11, height: 11 }} />}
       <span>{tab.label}</span>
     </Link>
   );

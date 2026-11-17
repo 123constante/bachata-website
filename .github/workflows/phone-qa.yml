@@ -82,22 +82,37 @@ jobs:
       - name: Trust the workspace for git (container job)
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
+      # PRs touching only docs, supabase/, .claude/ or other workflows cannot move a
+      # pixel the phone suite sees, so the heavy steps below skip; the job still runs
+      # and reports, so the check keeps its name (scripts/ci/docs-only.mjs e2e_skip,
+      # same classifier as E2E Smoke). Fail-safe: any error means e2e_skip=false.
+      - name: Detect PRs the phone suite cannot see
+        id: changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MERGE_SHA: ${{ github.sha }}
+        run: node scripts/ci/docs-only.mjs --merge "$MERGE_SHA"
+
       - name: Setup Node
+        if: steps.changes.outputs.e2e_skip != 'true'
         uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
 
       - name: Upgrade npm to 11 (Node 22 ships with npm 10)
+        if: steps.changes.outputs.e2e_skip != 'true'
         run: npm install -g npm@11
 
       - name: Install dependencies
+        if: steps.changes.outputs.e2e_skip != 'true'
         run: npm ci
 
       # A failure prints each assertion with its measured px; reproduce locally for
       # screenshots and traces (test-results/phone-qa/). The auto-walk pictures below
       # are the one upload here; check-workflow-artifact-policy.mjs records the count.
       - name: Run the phone suite (390x844 and 360x640)
+        if: steps.changes.outputs.e2e_skip != 'true'
         run: npx playwright test --config playwright.phone.config.ts --shard=${{ matrix.shard }}/3
 
       # Auto-walk pictures for the review pack (scripts/auto-walk-manifest.mjs).
@@ -105,7 +120,7 @@ jobs:
       # Reports only: NOT covered lines never fail the job. Shard 1 only: the pictures
       # do not depend on the shard, and three uploads named auto-walk would collide.
       - name: Auto-walk pictures (390x844)
-        if: ${{ !cancelled() && github.event_name == 'pull_request' && matrix.shard == 1 }}
+        if: ${{ !cancelled() && github.event_name == 'pull_request' && matrix.shard == 1 && steps.changes.outputs.e2e_skip != 'true' }}
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
@@ -113,7 +128,7 @@ jobs:
           node scripts/auto-walk-manifest.mjs --summary >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload auto-walk pictures
-        if: ${{ !cancelled() && github.event_name == 'pull_request' && matrix.shard == 1 }}
+        if: ${{ !cancelled() && github.event_name == 'pull_request' && matrix.shard == 1 && steps.changes.outputs.e2e_skip != 'true' }}
         uses: actions/upload-artifact@v7
         with:
           name: auto-walk
@@ -163,19 +178,34 @@ jobs:
       - name: Trust the workspace for git (container job)
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
+      # PRs touching only docs, supabase/, .claude/ or other workflows cannot move a
+      # pixel the phone suite sees, so the heavy steps below skip; the job still runs
+      # and reports, so the check keeps its name (scripts/ci/docs-only.mjs e2e_skip,
+      # same classifier as E2E Smoke). Fail-safe: any error means e2e_skip=false.
+      - name: Detect PRs the phone suite cannot see
+        id: changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MERGE_SHA: ${{ github.sha }}
+        run: node scripts/ci/docs-only.mjs --merge "$MERGE_SHA"
+
       - name: Setup Node
+        if: steps.changes.outputs.e2e_skip != 'true'
         uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
 
       - name: Upgrade npm to 11 (Node 22 ships with npm 10)
+        if: steps.changes.outputs.e2e_skip != 'true'
         run: npm install -g npm@11
 
       - name: Install dependencies
+        if: steps.changes.outputs.e2e_skip != 'true'
         run: npm ci
 
       - name: Production build against the fake Supabase
+        if: steps.changes.outputs.e2e_skip != 'true'
         env:
           VITE_SUPABASE_URL: https://phoneqafakenotaproject.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIn0.e2e-test-placeholder-not-a-real-key
@@ -185,4 +215,5 @@ jobs:
         run: npm run build
 
       - name: Run the production-build smoke
+        if: steps.changes.outputs.e2e_skip != 'true'
         run: npx playwright test --config playwright.build.config.ts

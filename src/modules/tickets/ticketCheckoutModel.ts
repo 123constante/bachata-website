@@ -217,6 +217,10 @@ const PREVIEW_ORIGIN = previewCheckoutOrigin(
 export const checkoutOriginOk = (origin: string, previewOrigin: string = PREVIEW_ORIGIN) =>
   CHECKOUT_ORIGINS.includes(origin) || (previewOrigin !== '' && origin === previewOrigin);
 
+/** Shared with the ticket picker B1: one wording for each Buy-off reason. */
+export const PREVIEW_ORIGIN_REASON = 'Checkout only works on bachatacalendar.co.uk, not on this preview.';
+export const TERMS_REASON = 'Tick the box to accept the terms of sale.';
+
 export interface FormState {
   type: PublicTicketType | null;
   quantity: number;
@@ -230,13 +234,13 @@ export interface FormState {
 export function disabledReason(f: FormState, now: Date): string | null {
   if (!f.type) return 'Pick a ticket first.';
   // Before any field: a preview can never complete checkout, so do not ask for an email first.
-  if (!checkoutOriginOk(f.origin)) return 'Checkout only works on bachatacalendar.co.uk, not on this preview.';
+  if (!checkoutOriginOk(f.origin)) return PREVIEW_ORIGIN_REASON;
   const max = maxQuantity(f.type, now);
   if (max === 0) return `${f.type.name} cannot be bought right now (${availability(f.type, now).label.toLowerCase()}).`;
   if (f.quantity < 1 || f.quantity > max) return `Choose between 1 and ${max} tickets.`;
   if (!f.email.trim()) return 'Enter your email so we can send your tickets.';
   if (!isEmail(f.email)) return 'That email does not look right.';
-  if (!f.termsAccepted) return 'Tick the box to accept the terms of sale.';
+  if (!f.termsAccepted) return TERMS_REASON;
   if (f.submitting) return 'Working on it\u2026';
   return null;
 }

@@ -2,6 +2,8 @@ import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { flags } from '@/lib/featureFlags';
+import { TicketPickerB1 } from './TicketPickerB1';
 import { TicketsBlock } from './TicketsBlock';
 import { nightOptions, type NightSource } from './NightPicker';
 import { buildChips, type Chip, type GoodToKnowInput } from './goodToKnow';
@@ -99,7 +101,7 @@ export function ProgrammeBlock({ view, onSeeFull }: { view: ProgrammeView | null
   );
 }
 
-export function EventTicketsPage({ seriesId, occurrenceId, organiserId, title, dateLine, venueLine, chipInput, nights, onClose, programHooks }: EventTicketsPageProps) {
+function ClassicEventTicketsPage({ seriesId, occurrenceId, organiserId, title, dateLine, venueLine, chipInput, nights, onClose, programHooks }: EventTicketsPageProps) {
   const { useOccurrenceProgram, useProgramItems } = programHooks;
   // Sit below the site header (fixed bar plus the sticky tabs row): measured, 106px on a phone.
   const [topPx, setTopPx] = useState(106);
@@ -181,6 +183,14 @@ export function EventTicketsPage({ seriesId, occurrenceId, organiserId, title, d
     </div>,
     document.body,
   );
+}
+
+/** Flag ticketPickerB1 swaps in the white B1 checkout; OFF is the classic page above, unchanged. */
+export function EventTicketsPage(props: EventTicketsPageProps) {
+  if (flags.ticketPickerB1) {
+    return <TicketPickerB1 seriesId={props.seriesId} occurrenceId={props.occurrenceId} title={props.title} dateLine={props.dateLine} venueLine={props.venueLine} onClose={props.onClose} />;
+  }
+  return <ClassicEventTicketsPage {...props} />;
 }
 
 export default EventTicketsPage;

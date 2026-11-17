@@ -46,7 +46,7 @@ describe('route table', () => {
       '/app/options',
       '/app/tickets',
     ]);
-    for (const r of DANCER_ROUTES) expect(DANCER_SCREENS[r.id], r.id).toBeTypeOf('function');
+    for (const r of DANCER_ROUTES) expect(DANCER_SCREENS[r.id], r.id).toBeTruthy();
   });
 
   it.each([
