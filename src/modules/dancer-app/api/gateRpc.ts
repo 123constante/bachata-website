@@ -1,5 +1,5 @@
 import { rpcLoose } from '@/integrations/supabase/rpcLoose';
-import type { DancerDelta, DancerGate, FeatureKey, FeedbackKind, FeedbackReceipt, MyDancerEdit, MyDancerStats, MyFeatureInterest, MyProfileViews, PublicDancerExtras } from './types';
+import type { BuyerRole, DancerDelta, DancerGate, FeatureKey, FeedbackKind, FeedbackReceipt, MyDancerEdit, MyDancerStats, MyFeatureInterest, MyProfileViews, PublicDancerExtras } from './types';
 
 /**
  * The SMALL half of api/: the backend slot and the gate read. It is all that
@@ -13,6 +13,8 @@ export type DancerBackend = {
   fetchMyDancerEdit(): Promise<MyDancerEdit>;
   /** ensure_my_dancer_profile_v1: create the signed-in person's auto_stub profile if missing (idempotent). */
   ensureMyDancerProfile(): Promise<{ created: boolean }>;
+  /** set_my_buyer_roles_v1: replace the signed-in person's buyer roles ([] allowed); returns what is stored. */
+  setMyBuyerRoles(roles: BuyerRole[]): Promise<BuyerRole[]>;
   saveMyDancerProfile(delta: DancerDelta): Promise<MyDancerEdit>;
   fetchPublicExtras(profileId: string): Promise<PublicDancerExtras>;
   fetchMyStats(): Promise<MyDancerStats>;

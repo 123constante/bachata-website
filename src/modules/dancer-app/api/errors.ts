@@ -45,6 +45,10 @@ const COPY: Record<DancerErrorCode, string> = {
   invalid_kind: 'Pick what kind of message this is.',
   invalid_page: 'We could not tell which page you were on. Try sending it again.',
   invalid_feature: 'We could not save that. Try again later.',
+  // "What are you?" (set_my_buyer_roles_v1). The choices' own words, never the stored values.
+  invalid_roles: 'We could not read your choice. Reload the page and try again.',
+  too_many_roles: 'You can pick up to four.',
+  unknown_role: 'Pick from Dancer, Organiser, Teacher or DJ.',
   unknown: 'Something went wrong. Check your connection and try again.',
 };
 
@@ -120,6 +124,9 @@ const FIELD: Record<DancerErrorCode, DancerErrorField> = {
   invalid_kind: null,
   invalid_page: null,
   invalid_feature: null,
+  invalid_roles: null,
+  too_many_roles: null,
+  unknown_role: null,
   unknown: null,
 };
 

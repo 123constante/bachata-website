@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
@@ -28,6 +28,9 @@ import {
   type PageState,
 } from './myTicketsModel';
 import QrCode from './TicketQrCode';
+
+// Buyer onboarding B: the "Finish your profile" card ("What are you?"). Its own chunk, loaded only with the flag ON.
+const FinishProfileCard = BUYER_ONBOARDING_ENABLED ? lazy(() => import('@/modules/dancer-app/screens/finish/FinishProfileCard')) : null;
 
 /**
  * /account/my-tickets (queue B, flags.publicTicketing). A signed-in buyer's paid tickets with
@@ -138,11 +141,13 @@ function Section({ title, tickets, positions, today, past, openSet }: { title: s
   );
 }
 
-export function MyTicketsView({ result, authReady, onRetry, today }: {
+export function MyTicketsView({ result, authReady, onRetry, today, profileCard }: {
   result: MyTicketsResult | null;
   authReady: 'resolving' | 'signed_out' | 'signed_in' | 'unavailable';
   onRetry: () => void;
   today: string;
+  /** Buyer onboarding B (flag ON only): drawn under the heading once the tickets read is in (ready or empty). */
+  profileCard?: ReactNode;
 }) {
   const location = useLocation();
   const state: PageState =
@@ -158,6 +163,7 @@ export function MyTicketsView({ result, authReady, onRetry, today }: {
   return (
     <div className="mx-auto w-full max-w-[430px] px-3 py-3" data-testid="my-tickets" data-state={state}>
       <h1 className="mb-2 text-[17px] font-semibold" style={{ color: 'hsl(var(--bento-accent))' }}>My tickets</h1>
+      {profileCard && (state === 'ready' || state === 'empty') ? profileCard : null}
       {state === 'ready' && reply ? (
         <>
           {note && <p className="mb-2 rounded-md p-2 text-[12px]" style={surface} data-testid="my-tickets-truncated">{note}</p>}
@@ -213,7 +219,13 @@ export default function MyTicketsPage() {
   const authReady = authStatus === 'resolving' ? 'resolving' : authStatus === 'unavailable' ? 'unavailable' : uid ? 'signed_in' : 'signed_out';
   return (
     <GlobalLayout breadcrumbs={buildBreadcrumbs('myTickets')}>
-      <MyTicketsView result={result} authReady={authReady} onRetry={onRetry} today={londonTodayKey()} />
+      <MyTicketsView
+        result={result}
+        authReady={authReady}
+        onRetry={onRetry}
+        today={londonTodayKey()}
+        profileCard={FinishProfileCard && uid ? <Suspense fallback={null}><FinishProfileCard key={uid} /></Suspense> : undefined}
+      />
     </GlobalLayout>
   );
 }

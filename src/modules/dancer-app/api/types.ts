@@ -19,6 +19,10 @@ export type StrengthStep = (typeof STRENGTH_STEPS)[number];
 
 export type DancerStrength = { pct: number; next_step: StrengthStep | null; missing: StrengthStep[] };
 
+/** set_my_buyer_roles_v1's allowed values, in the order the server stores them. */
+export const BUYER_ROLES = ['dancer', 'organiser', 'teacher', 'dj'] as const;
+export type BuyerRole = (typeof BUYER_ROLES)[number];
+
 /** my_dancer_edit_v1(), and what save_my_dancer_profile_v2 returns after a save. */
 export type MyDancerEdit = {
   profile_id: string;
@@ -51,6 +55,11 @@ export type MyDancerEdit = {
   achievements: string[];
   /** Active person_roles other than 'dancing', e.g. ['teaching', 'djing']. */
   other_roles: string[];
+  /**
+   * Buyer onboarding B: what the person said they are ("What are you?"), private (never on a
+   * public read). [] = not answered yet or skipped. Saved by set_my_buyer_roles_v1.
+   */
+  buyer_roles: BuyerRole[];
   /** false = paused via my_profile_disable_v1. */
   is_active: boolean;
   /** Always null in release 1a. */
@@ -141,6 +150,10 @@ export const DANCER_ERROR_CODES = [
   'invalid_kind',
   'invalid_page',
   'invalid_feature',
+  // set_my_buyer_roles_v1 (admin 20261117214202), 22023.
+  'invalid_roles',
+  'too_many_roles',
+  'unknown_role',
   'unknown',
 ] as const;
 export type DancerErrorCode = (typeof DANCER_ERROR_CODES)[number];

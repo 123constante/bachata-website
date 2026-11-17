@@ -1,7 +1,7 @@
 import { DancerApiError } from './errors';
 import { DANCER_SHAPES, FAKE_CITIES, withDerived, type DancerShapeName } from './fixtures';
 import type { DancerBackend } from './rpc';
-import { DANCE_ROLES, FEEDBACK_KINDS, FEEDBACK_MAX_LENGTH, SAVE_KEYS, type DancerDelta, type FeatureKey, type FeedbackKind, type DancerErrorCode, type DancerGate, type MyDancerEdit, type PublicDancerExtras } from './types';
+import { BUYER_ROLES, DANCE_ROLES, FEEDBACK_KINDS, FEEDBACK_MAX_LENGTH, SAVE_KEYS, type DancerDelta, type FeatureKey, type FeedbackKind, type DancerErrorCode, type DancerGate, type MyDancerEdit, type PublicDancerExtras } from './types';
 import { sameValue } from './delta';
 import { STATS_SHAPES, type StatsShapeName } from './statsFixtures';
 
@@ -56,7 +56,8 @@ export type FakeCall = {
     | 'submitFeedback'
     | 'registerFeatureInterest'
     | 'fetchMyFeatureInterest'
-    | 'ensureMyDancerProfile';
+    | 'ensureMyDancerProfile'
+    | 'setMyBuyerRoles';
   args?: unknown;
 };
 
@@ -273,6 +274,25 @@ export const createFakeBackend = (opts: FakeBackendOptions = {}): FakeDancerBack
       consumeFailure();
       requireMember();
       return { registered: [...interest] };
+    },
+
+    /**
+     * set_my_buyer_roles_v1, server order: no session -> not_signed_in (42501); null -> invalid_roles;
+     * more than 4 -> too_many_roles; a value outside the four -> unknown_role (22023); no row -> no_profile
+     * (P0002). Not behind the dancer-area gate. De-dupes; stored order dancer, organiser, teacher, dj.
+     */
+    async setMyBuyerRoles(roles) {
+      calls.push({ fn: 'setMyBuyerRoles', args: roles });
+      consumeFailure();
+      if (!signedIn) throw new DancerApiError('not_signed_in', 'not_signed_in');
+      if (!Array.isArray(roles)) throw new DancerApiError('invalid_roles', 'invalid_roles');
+      if (roles.length > 4) throw new DancerApiError('too_many_roles', 'too_many_roles');
+      if (roles.some((r) => !(BUYER_ROLES as readonly string[]).includes(r))) throw new DancerApiError('unknown_role', 'unknown_role');
+      if (!profile) throw new DancerApiError('no_profile', 'no_profile');
+      const stored = BUYER_ROLES.filter((r) => roles.includes(r));
+      profile = { ...profile, buyer_roles: stored };
+      writes += 1;
+      return [...stored];
     },
   };
 };

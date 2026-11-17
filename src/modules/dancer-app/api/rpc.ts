@@ -4,7 +4,7 @@ import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import type { GoingNextNight } from '@/modules/going/goingRpc';
 import { DancerApiError, codeFromMessage, toDancerError } from './errors';
 import { DANCER_GATE_RPC, backendOverride, fetchGateRaw, type DancerBackend } from './gateRpc';
-import { DANCE_ROLES, FEEDBACK_KINDS, STRENGTH_STEPS, type DanceRole, type DancerDelta, type DancerGate, type FeatureKey, type FeedbackKind, type FeedbackReceipt, type MyDancerEdit, type MyDancerStats, type MyFeatureInterest, type MyProfileViews, type PublicDancerExtras, type StrengthStep } from './types';
+import { BUYER_ROLES, DANCE_ROLES, FEEDBACK_KINDS, STRENGTH_STEPS, type BuyerRole, type DanceRole, type DancerDelta, type DancerGate, type FeatureKey, type FeedbackKind, type FeedbackReceipt, type MyDancerEdit, type MyDancerStats, type MyFeatureInterest, type MyProfileViews, type PublicDancerExtras, type StrengthStep } from './types';
 
 export { setFakeBackend, parseGate, type DancerBackend } from './gateRpc';
 
@@ -30,6 +30,8 @@ export const DANCER_RPC = {
   myInterest: 'my_feature_interest_v1',
   // Not in types.ts yet (the auto-heal PR regenerates it); rpcLoose takes the name as a string.
   ensureProfile: 'ensure_my_dancer_profile_v1',
+  // Buyer onboarding B (admin 20261117214202); not in types.ts yet, so rpcLoose as above.
+  buyerRoles: 'set_my_buyer_roles_v1',
 } as const;
 
 const call = async (fn: string, args?: Record<string, unknown>): Promise<unknown> => {
@@ -82,6 +84,18 @@ const parseSteps = (v: unknown): StrengthStep[] =>
     return false;
   });
 
+const isBuyerRole = (v: unknown): v is BuyerRole => (BUYER_ROLES as readonly unknown[]).includes(v);
+
+/** A buyer_roles array from the server -> the known roles, de-duped, in the stored order (dancer, organiser, teacher, dj). */
+export const parseBuyerRoles = (v: unknown): BuyerRole[] => {
+  const got = new Set<BuyerRole>();
+  for (const s of strings(v)) {
+    if (isBuyerRole(s)) got.add(s);
+    else unknownValue('buyer_roles', s);
+  }
+  return BUYER_ROLES.filter((r) => got.has(r));
+};
+
 /** my_dancer_edit_v1 / save_my_dancer_profile_v2 -> MyDancerEdit; arrays are never null. */
 export const parseMyDancerEdit = (data: unknown): MyDancerEdit => {
   if (!isRecord(data) || typeof data.profile_id !== 'string') {
@@ -114,6 +128,7 @@ export const parseMyDancerEdit = (data: unknown): MyDancerEdit => {
     favorite_songs: strings(data.favorite_songs),
     achievements: strings(data.achievements),
     other_roles: strings(data.other_roles),
+    buyer_roles: parseBuyerRoles(data.buyer_roles),
     is_active: data.is_active !== false,
     erase_requested_at: str(data.erase_requested_at),
     linked_from_admin: data.linked_from_admin === true,
@@ -201,6 +216,7 @@ const realBackend: DancerBackend = {
     const data = await call(DANCER_RPC.ensureProfile);
     return { created: isRecord(data) && data.created === true };
   },
+  setMyBuyerRoles: async (roles) => parseBuyerRoles(await call(DANCER_RPC.buyerRoles, { p_roles: roles })),
 };
 
 const backend = (): DancerBackend => backendOverride() ?? realBackend;
@@ -260,6 +276,21 @@ export const saveMyDancerProfile = (delta: DancerDelta, current?: MyDancerEdit):
     const send = person ? dropWhatsappIfNotAllowed(delta, person) : delta;
     if (Object.keys(send).length === 0 && person) return person;
     return backend().saveMyDancerProfile(send);
+  });
+
+/** Same roles, order ignored (both sides are parsed, so de-duped). */
+export const sameBuyerRoles = (a: readonly BuyerRole[], b: readonly BuyerRole[]): boolean =>
+  a.length === b.length && a.every((r) => b.includes(r));
+
+/**
+ * set_my_buyer_roles_v1 ("What are you?"). `saved` = what my_dancer_edit_v1 said: an
+ * unchanged pick sends nothing and returns `saved` ("saving an untouched record sends no command").
+ */
+export const saveMyBuyerRoles = (roles: readonly BuyerRole[], saved: readonly BuyerRole[]): Promise<BuyerRole[]> =>
+  wrap(async () => {
+    const pick = BUYER_ROLES.filter((r) => roles.includes(r));
+    if (sameBuyerRoles(pick, saved)) return BUYER_ROLES.filter((r) => saved.includes(r));
+    return backend().setMyBuyerRoles(pick);
   });
 
 /** get_public_dancer_extras_v1: bio, languages and (only when allowed) WhatsApp for a public page. */
