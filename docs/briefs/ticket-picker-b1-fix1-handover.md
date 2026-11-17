@@ -21,3 +21,12 @@ Flag `ticketPickerB1` stays OFF. No migrations, no new DB objects.
 - `heldFrom` keeps the listed price for a line the reply does not name. The server total is authoritative; a mismatch only means one more `price_changed`.
 - `verifiedEmail` is kept in local state so a refusal after the code step does not ask for a second code; it is not cleared if auth changes while the picker is open (ties into finding 7).
 - A row still shows the old unit price after `price_changed` until the re-read lands. In the walk harness the re-read was mocked to fail, so the row stayed at the old price while the bar showed the new total.
+
+## Checks
+- tsc run on 316a453 (code head; later commits are docs only): 0 errors in branch files (`tsc -p tsconfig.app.json`; the repo has 136 errors elsewhere, the same count on main).
+- vitest `src/modules/tickets` 858/858; `ticketPickerB1.test.tsx` 14/14. `check:mojibake` clean.
+- `npm run pre-ship`: 44 PASS, 3 FAIL, none caused by this branch: `check:no-social-word` (fails on main), `test:unit` (live-DB contract tests + `integrityCouldNotRun` in the sandbox; no tickets file), typecheck ratchet (136 on main too, baseline 106). test:e2e was skipped by pre-ship as a result.
+- Walk at 390x844 (Playwright harness, deleted afterwards): terms gate, terms text, 20 cap, email, code + 60 s timer, wrong code, price_changed confirm (second POST carries the new unit and total), preview block. No horizontal scroll, no tap target under 40px.
+
+## Not verified
+- A live multi-line `ticket-checkout` call, real OTP email and real Supabase error codes, a real Stripe redirect, a real device, the signed-in flow in a browser, test:e2e.
