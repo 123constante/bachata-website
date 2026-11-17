@@ -49,7 +49,7 @@ export const LOCKED_ROWS = {
 } as const;
 
 /** "Your ticket" subtitle: the first ticket's date and type, or just the type. */
-export const ticketLine = (typeName: string, dateLabel: string | null): string => (dateLabel ? `${dateLabel} · ${typeName}` : typeName);
+export const ticketLine = (typeName: string, dateLabel: string | null): string => (dateLabel ? `${dateLabel} \u00B7 ${typeName}` : typeName);
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];

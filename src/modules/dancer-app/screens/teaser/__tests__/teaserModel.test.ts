@@ -33,7 +33,7 @@ describe('copy', () => {
     for (const d of ['2026-11-21', '2027-01-03', null, 'soon']) expect(nightDate(d)).toBe(doorDate(d));
   });
   it('ticket line', () => {
-    expect(ticketLine('Full pass', 'Sat 21 Nov 2026')).toBe('Sat 21 Nov 2026 · Full pass');
+    expect(ticketLine('Full pass', 'Sat 21 Nov 2026')).toBe('Sat 21 Nov 2026 \u00B7 Full pass');
     expect(ticketLine('Full pass', null)).toBe('Full pass');
   });
   it('every locked row says what it is', () => {
