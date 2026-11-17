@@ -44,5 +44,14 @@
 [data-profile="dancer"] .dt-chip { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; border: 1px solid var(--da-border); background: var(--da-surface-2); color: var(--da-text); font-size: 14px; font-weight: 600; text-decoration: none; }
 [data-profile="dancer"] .dt-chip[aria-pressed="true"] { border-color: var(--da-accent); }
 [data-profile="dancer"] .dt-sheet-soon { font-size: 13px; margin: 10px 0 0; color: var(--da-text-muted); }
+/* Buyer onboarding B: the four-role multi-pick, its actions, and the organiser link card. */
+[data-profile="dancer"] .dt-chips-4 { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+[data-profile="dancer"] .dt-chips-4 .dt-chip { font-size: 13px; padding: 0 4px; }
+[data-profile="dancer"] .dt-chips-4 .dt-chip[aria-pressed="true"] { background: color-mix(in srgb, var(--da-accent) 22%, var(--da-surface-2)); }
+[data-profile="dancer"] .dt-sheet-actions { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; margin-top: 12px; }
+[data-profile="dancer"] .dt-btn:disabled { opacity: 0.6; }
+[data-profile="dancer"] .dt-btn-quiet { background: transparent; color: var(--da-text); border: 1px solid var(--da-border); }
+[data-profile="dancer"] .dt-sheet-error { font-size: 13px; margin: 10px 0 0; color: var(--da-pop-gold); }
+[data-profile="dancer"] .dt-org-card { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; padding: 0 12px; border-radius: var(--da-radius); border: 1px solid var(--da-border); background: var(--da-surface); color: var(--da-text); font-size: 14px; font-weight: 600; text-decoration: none; flex-shrink: 0; }
 /* Five tabs while ticketing is on (Tickets first): one row, never a wrap. */
 [data-profile="dancer"] .da-tabs.dt-tabs-5 { grid-template-columns: repeat(5, 1fr); }

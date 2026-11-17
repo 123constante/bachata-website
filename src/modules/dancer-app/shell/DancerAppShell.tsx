@@ -93,7 +93,7 @@ export const DancerAppShell = () => {
   return (
     <EmberWorld data-profile="dancer" className="dancer-app" data-testid="dancer-app-shell" data-chrome={focus ? 'focus' : 'full'}>
       <LeaveGuardProvider guardRef={guardRef}>
-      <ProfileSheetProvider incomplete={incomplete} viewOnly={viewOnly}>
+      <ProfileSheetProvider incomplete={incomplete} viewOnly={viewOnly} person={profile.data ?? null}>
       <header className="da-header" data-testid="dancer-app-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
           <SiteHomeLink onBeforeLeave={() => (guardRef.current ? guardRef.current('/') : true)} />

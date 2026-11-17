@@ -1,7 +1,7 @@
 import { DancerApiError } from './errors';
 import { DANCER_SHAPES, FAKE_CITIES, withDerived, type DancerShapeName } from './fixtures';
 import type { DancerBackend } from './rpc';
-import { DANCE_ROLES, FEEDBACK_KINDS, FEEDBACK_MAX_LENGTH, SAVE_KEYS, type DancerDelta, type FeatureKey, type FeedbackKind, type DancerErrorCode, type DancerGate, type MyDancerEdit, type PublicDancerExtras } from './types';
+import { BUYER_ROLES, DANCE_ROLES, FEEDBACK_KINDS, FEEDBACK_MAX_LENGTH, SAVE_KEYS, type DancerDelta, type FeatureKey, type FeedbackKind, type DancerErrorCode, type DancerGate, type MyDancerEdit, type PublicDancerExtras } from './types';
 import { sameValue } from './delta';
 import { STATS_SHAPES, type StatsShapeName } from './statsFixtures';
 
@@ -56,7 +56,8 @@ export type FakeCall = {
     | 'submitFeedback'
     | 'registerFeatureInterest'
     | 'fetchMyFeatureInterest'
-    | 'ensureMyDancerProfile';
+    | 'ensureMyDancerProfile'
+    | 'setMyBuyerRoles';
   args?: unknown;
 };
 
@@ -190,6 +191,21 @@ export const createFakeBackend = (opts: FakeBackendOptions = {}): FakeDancerBack
       ensured += 1;
       profile = DANCER_SHAPES.emptyStub.profile;
       return { created: true };
+    },
+
+    /** Server order: not_signed_in, invalid_roles (null), too_many_roles (> 4), unknown_role, no_profile. */
+    async setMyBuyerRoles(roles) {
+      calls.push({ fn: 'setMyBuyerRoles', args: roles });
+      consumeFailure();
+      if (!signedIn) throw new DancerApiError('not_signed_in', 'not_signed_in');
+      if (!Array.isArray(roles)) throw new DancerApiError('invalid_roles', 'invalid_roles');
+      if (roles.length > 4) throw new DancerApiError('too_many_roles', 'too_many_roles');
+      if (roles.some((r) => !(BUYER_ROLES as readonly string[]).includes(r))) throw new DancerApiError('unknown_role', 'unknown_role');
+      if (!profile) throw new DancerApiError('no_profile', 'no_profile');
+      const stored = BUYER_ROLES.filter((r) => roles.includes(r));
+      profile = { ...profile, buyer_roles: stored };
+      writes += 1;
+      return [...stored];
     },
 
     async saveMyDancerProfile(delta) {

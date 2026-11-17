@@ -13,6 +13,13 @@ export type DancerGate = { open: boolean; allowed: boolean };
 export const DANCE_ROLES = ['Leader', 'Follower', 'Lead and Follow'] as const;
 export type DanceRole = (typeof DANCE_ROLES)[number];
 
+/**
+ * Buyer onboarding B: the "What are you?" answer, set_my_buyer_roles_v1(p_roles text[]) (admin
+ * 20261117214202). The server's order; private (my_dancer_edit_v1 and the organiser's own buyers only).
+ */
+export const BUYER_ROLES = ['dancer', 'organiser', 'teacher', 'dj'] as const;
+export type BuyerRole = (typeof BUYER_ROLES)[number];
+
 /** strength.missing vocabulary, in priority order; next_step = the first missing item. */
 export const STRENGTH_STEPS = ['first_name', 'city', 'role', 'photo', 'started_year', 'styles', 'bio_social'] as const;
 export type StrengthStep = (typeof STRENGTH_STEPS)[number];
@@ -51,6 +58,8 @@ export type MyDancerEdit = {
   achievements: string[];
   /** Active person_roles other than 'dancing', e.g. ['teaching', 'djing']. */
   other_roles: string[];
+  /** Buyer onboarding B: what the person said they are (server order); [] = not answered or skipped. Never public. */
+  buyer_roles: BuyerRole[];
   /** false = paused via my_profile_disable_v1. */
   is_active: boolean;
   /** Always null in release 1a. */
@@ -141,6 +150,10 @@ export const DANCER_ERROR_CODES = [
   'invalid_kind',
   'invalid_page',
   'invalid_feature',
+  // set_my_buyer_roles_v1 (buyer onboarding B).
+  'invalid_roles',
+  'too_many_roles',
+  'unknown_role',
   'unknown',
 ] as const;
 export type DancerErrorCode = (typeof DANCER_ERROR_CODES)[number];

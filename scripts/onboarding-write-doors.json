@@ -41,6 +41,10 @@
   },
   "not_event_writes": [
     {
+      "name": "set_my_buyer_roles_v1",
+      "reason": "Buyer onboarding B (admin 20261117214202): the signed-in person's own 'What are you?' answer on their dancer_profiles row; not an event edit, no organiser gate."
+    },
+    {
       "name": "organiser_guest_list_set_night_v1",
       "reason": "Guest list on one night (admin #1577); names and door check-in, not an event edit. Gated by team role inside the RPC."
     },

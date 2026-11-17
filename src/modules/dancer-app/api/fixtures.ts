@@ -77,6 +77,7 @@ const blank: MyDancerEdit = {
   favorite_songs: [],
   achievements: [],
   other_roles: [],
+  buyer_roles: [],
   is_active: true,
   erase_requested_at: null,
   linked_from_admin: false,
