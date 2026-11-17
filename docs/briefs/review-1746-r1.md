@@ -1,0 +1,4 @@
+# Brief: review PR #1746 (Website)
+Independent review of 123constante/bachata-website PR #1746 (CI: Phone QA skips heavy steps via the e2e_skip classifier in scripts/ci/docs-only.mjs).
+Check: (1) every heavy step in both jobs of phone-qa.yml (phone-qa matrix, build-smoke) is gated by steps.changes.outputs.e2e_skip != 'true', including the auto-walk upload (if-no-files-found: error); (2) the job still runs and reports so check names stay; (3) phone-qa.yml edits are never skippable (E2E_OWN + case); (4) fail-safe: classifier error means run everything; (5) required-job name tests (tests/automationFoundations.test.ts) and workflow-artifact-policy counts are unaffected.
+Do not edit the PR. Write docs/review/pr-1746-review.md starting with `# Review: PR #1746 head <sha>`, then `## Verdict: PASS` or FAIL with reasons, and `Reviewed head <sha>`. Open a docs-only PR for it as the bot.
