@@ -22,6 +22,11 @@ export const P3_PATHS = {
   stats: `${P3_BASE}/stats`,
   /** Slice 2 (flag organiserDash): Compare nights, pushed from Home (no tab bar). */
   compare: `${P3_BASE}/compare`,
+  /** Slice 3 (flag organiserDash): the read-only Who is in sheet (tonight's door list); `from` = where back goes. */
+  whoIsIn: (seriesId: string, from?: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/in${from ? `?from=${from}` : ''}`,
+  /** Slice 3: the read-only Who came / did not come sheet for one past night. */
+  whoCame: (seriesId: string, occurrenceId: string, from?: string) =>
+    `${P3_BASE}/events/${encodeURIComponent(seriesId)}/came/${encodeURIComponent(occurrenceId)}${from ? `?from=${from}` : ''}`,
   you: `${P3_BASE}/you`,
   /** One event's page (W2a). */
   event: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}`,

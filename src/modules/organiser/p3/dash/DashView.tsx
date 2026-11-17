@@ -34,9 +34,12 @@ export interface DashViewProps {
   going?: ReactNode;
   doorTo?: string | null;
   compareTo?: string | null;
+  /** Slice 3: the read-only sheets (null = no link: draft, cancelled, or no night id). */
+  whoIsInTo?: string | null;
+  whoCameTo?: string | null;
 }
 
-export function DashView({ model: m, pageName, onShareNight, onSharePage, onRetry, pageLink = null, notice = null, analyticsFailed = false, going = null, doorTo = null, compareTo = null }: DashViewProps) {
+export function DashView({ model: m, pageName, onShareNight, onSharePage, onRetry, pageLink = null, notice = null, analyticsFailed = false, going = null, doorTo = null, compareTo = null, whoIsInTo = null, whoCameTo = null }: DashViewProps) {
   if (m.load === 'loading') {
     return (
       <div className="p3-card p3-state" data-testid="dash-loading" aria-busy="true">
@@ -65,9 +68,13 @@ export function DashView({ model: m, pageName, onShareNight, onSharePage, onRetr
       {da && (
         <section className="p3-card" aria-label="Last night" data-testid="dash-day-after">
           <div className="p3-row-s">{da.title}</div>
-          {da.big !== null && (
+          {da.big !== null && (whoCameTo ? (
+            <Link to={whoCameTo} style={{ display: 'block', minHeight: 44, color: 'inherit', textDecoration: 'none' }} data-testid="dash-day-after-big">
+              <span style={{ fontSize: 32, fontWeight: 700, color: '#C2410C' }}>{da.big.toLocaleString('en-GB')}</span> <span className="p3-row-t">{da.bigWord}</span> <span className="p3-link" style={{ fontSize: 14 }}>See who came &rsaquo;</span>
+            </Link>
+          ) : (
             <div data-testid="dash-day-after-big"><span style={{ fontSize: 32, fontWeight: 700, color: '#C2410C' }}>{da.big.toLocaleString('en-GB')}</span> <span className="p3-row-t">{da.bigWord}</span></div>
-          )}
+          ))}
           {da.lines.map((l) => <div key={l} className="p3-row-s" data-testid="dash-day-after-line">{l}</div>)}
           {da.big === null && da.lines.length === 0 && <p className="p3-note" data-testid="dash-day-after-tip">Scan tickets at the door next time and who came shows here.</p>}
         </section>
@@ -75,6 +82,9 @@ export function DashView({ model: m, pageName, onShareNight, onSharePage, onRetr
       <section className="p3-card p3-hero" aria-label={hero.title} data-testid="dash-hero" data-kind={hero.kind}>
         <div className="p3-hero-name">{hero.title}</div>
         {hero.headline && <div className="p3-when" data-testid="dash-headline">{hero.headline}</div>}
+        {hero.kind === 'night' && whoIsInTo && (
+          <Link className="p3-link" style={{ minHeight: 44, display: 'inline-flex', alignItems: 'center', fontSize: 14 }} to={whoIsInTo} data-testid="dash-who-in">See who is in &rsaquo;</Link>
+        )}
         <div className="p3-row-s">{hero.why}</div>
         {going}
         {hero.taps && <div className="p3-row-s" data-testid="dash-hero-taps">{hero.taps}</div>}

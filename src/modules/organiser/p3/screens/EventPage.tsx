@@ -333,6 +333,15 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
           <span aria-hidden="true">&rsaquo;</span>
         </Link>
       )}
+      {flags.organiserDash && v.lifecycle !== 'draft' && (
+        <Link className="p3-card p3-status-row" style={{ minHeight: 44 }} to={P3_PATHS.whoIsIn(ws.series.id, 'event')} data-testid="p3-open-who-in">
+          <span className="p3-grow">
+            <span className="p3-row-t">Who is in</span>
+            <span className="p3-row-s"> &middot; Tonight&rsquo;s door, read only</span>
+          </span>
+          <span aria-hidden="true">&rsaquo;</span>
+        </Link>
+      )}
       <EditRows id={v.id} ws={ws} />
       <Sessions v={v} ws={ws} onOpen={(key) => setSession({ key, scope: 'every' })} />
       <Coming v={v} onOpen={(id) => setDate({ kind: 'date', id })} addWhy={addWhy} onAdd={() => setDate({ kind: 'add' })} />
