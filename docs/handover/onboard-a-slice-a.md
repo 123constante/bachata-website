@@ -21,5 +21,5 @@ Brief: `brief/onboard-a:docs/briefs/onboard-a-slice-a.md`. Flag: `VITE_ENABLE_BU
 - 390x844 walk with the flag ON (orchestrator).
 
 ## Status
-- PR: #1763. Continuation head: see the last commit on claude/onboard-a.
+- PR: #1763 (body updated with Verified on real data + Phone QA). Code head 26f95af; tsc run on 26f95af: 0 errors in branch files. Lint chain: only check:no-social-word red, also red on main (priceSteps.matrix.test.tsx:32).
 - Earlier: Head before this commit: 6e6f69a. tsc run on 6e6f69a: 0 errors in branch files.
