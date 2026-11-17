@@ -18,8 +18,6 @@ export type DoorResult = 'ok' | 'already_in' | 'wrong_event' | 'not_valid' | 'un
   | 'wrong_night' | 'wrong_day' | 'add_on_not_admission' | 'unclassified_festival_type' | 'no_signal';
 export const DOOR_RESULTS: readonly DoorResult[] = ['ok', 'already_in', 'wrong_event', 'not_valid', 'unknown_code', 'not_allowed', 'too_many_attempts',
   'wrong_night', 'wrong_day', 'add_on_not_admission', 'unclassified_festival_type', 'no_signal'];
-/** The v3 refusals (admin _ticket_door_refusal_v1): the ticket is real but does not get anyone in tonight. */
-export const V3_REFUSALS = ['wrong_night', 'wrong_day', 'add_on_not_admission', 'unclassified_festival_type'] as const;
 
 /** ticket_check_in_v3's reply: every key always present, null when it does not apply. */
 export interface CheckIn {
