@@ -49,8 +49,6 @@ on:
       # what a bad paths: filter costs: the board empties and nothing says so.
       - 'scripts/lib/previewProbe.mjs'
       - 'package.json'
-      - 'scripts/check-ci-wallclock.mjs'
-      - 'ci-wallclock-budgets.json'
 
 permissions:
   contents: read
@@ -75,8 +73,6 @@ jobs:
           node-version: 22
       - name: Prove the budget rules can fail
         run: node scripts/check-ci-budget.mjs --self-test
-      - name: Prove the wall-clock budget rules can fail
-        run: node scripts/check-ci-wallclock.mjs --self-test
 
   measure:
     # The live sweep runs on the schedule, on demand, and on main -- NOT on
@@ -95,10 +91,6 @@ jobs:
     concurrency:
       group: ci-budget-measure
       cancel-in-progress: false
-    # actions: read for the wall-clock step's run list (built-in token).
-    permissions:
-      contents: read
-      actions: read
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -111,18 +103,6 @@ jobs:
         env:
           CI_BUDGET_GITHUB_TOKEN: ${{ secrets.CI_BUDGET_GITHUB_TOKEN }}
         run: node scripts/check-ci-budget.mjs
-
-      # WALL-CLOCK budget (ci-speed brief, decision 4): how long a PR author waits,
-      # which the spend measure above cannot see. p90 of the last completed
-      # pull_request runs of each workflow in ci-wallclock-budgets.json; red over
-      # failSeconds, a ::warning:: over warnSeconds, exit 2 (red) when it cannot
-      # read enough runs. !cancelled(): a red spend sweep must not hide this result.
-      # Built-in token: run metadata of THIS public repo only (job permissions).
-      - name: Wall-clock budget of the PR checks
-        if: ${{ !cancelled() }}
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: node scripts/check-ci-wallclock.mjs
 
       # INFORMATIONAL, never gates: continue-on-error means a failed lookup
       # cannot red this job, and `if: always()` means the line is still printed

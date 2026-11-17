@@ -16,7 +16,7 @@ Brief: `docs/briefs/ci-speed-profile-and-trim.md` (branch `brief/ci-speed`). Bra
    every later shell case waits on it); it now stops at the first `FAIL MUTANT` line and
    kills the process group.
 4. **Wall-clock budget**: `scripts/check-ci-wallclock.mjs` + `ci-wallclock-budgets.json`,
-   canary + measure steps in `ci-budget-guard.yml` (no new workflow). p90 of the last 40
+   job `wallclock-budget` in `phone-qa.yml` (advisory on a PR, real exit code on workflow_dispatch; not in `ci-budget-guard.yml`, which holds the account-wide token and is not loop-editable, owner click 2026-11-17). p90 of the last 40
    completed pull_request runs per workflow; red over failSeconds, warning over
    warnSeconds, exit 2 under 10 runs; runs under 180 s (skip-mode) are not counted. Budgets are ceilings, set loose on purpose.
 5. **CI-only PRs** (`ci_light` output of `scripts/ci/docs-only.mjs`: workflows,
@@ -115,9 +115,7 @@ to the first shards).
 
 ## Needs owner
 
-- `ci-budget-guard.yml` is not in `scripts/data/automation-workflow-allowlist.json`, so the
-  `workflow-lint` allow-list step goes red on this `claude/` branch BY DESIGN. Owner: add
-  the name (owner-only) or push the workflow hunk from a non-loop branch.
+- Nothing. The allow-list question is settled: the step moved to `phone-qa.yml` (owner click 2026-11-17).
 
 ## Next steps
 

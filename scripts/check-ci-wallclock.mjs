@@ -11,8 +11,8 @@
  * shard, E2E Smoke's 1168 s outlier, the unit leg against its timeout) should
  * go red here, not be found in an audit months later.
  *
- * Runs in ci-budget-guard.yml (canary on every push of its files, measure on
- * schedule / dispatch / main). Read-only: one GET per workflow.
+ * Runs in phone-qa.yml (job wallclock-budget: advisory on a PR, real exit code on
+ * workflow_dispatch). Read-only: one GET per workflow.
  *
  * Exit codes (check-script-conventions R3):
  *   0  every workflow's p90 is inside its fail budget (warnings may print)

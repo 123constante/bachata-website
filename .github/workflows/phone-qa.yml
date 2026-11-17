@@ -41,6 +41,34 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # WALL-CLOCK budget (ci-speed brief decision 4): how long a PR author waits on the
+  # slow checks. ADVISORY on a PR: p90 creep must not red an unrelated PR, so the
+  # step is soft-signal and prints a ::warning:: / step summary; a manual
+  # workflow_dispatch run reads the real exit code (1 over budget, 2 cannot measure).
+  # Lives here, not in ci-budget-guard.yml: that workflow holds the account-wide
+  # CI_BUDGET_GITHUB_TOKEN and is deliberately not loop-editable (owner click 2026-11-17).
+  # Built-in read-only token only: run metadata of THIS public repo.
+  wallclock-budget:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Prove the wall-clock budget rules can fail
+        run: node scripts/check-ci-wallclock.mjs --self-test
+      - name: Wall-clock budget of the PR checks
+        # soft-signal: advisory on a PR (see the job comment); dispatch shows the real result.
+        continue-on-error: ${{ github.event_name == 'pull_request' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/check-ci-wallclock.mjs
+
   # Three parallel shards (owner 2026-11-06): one job hit the 25-minute limit on
   # busy runs. Shards split by file, not duration: on #1461 shard 3 took 14m00s,
   # shard 1 9m17s, shard 2 7m43s, so a 15-minute cap left no headroom and the one
