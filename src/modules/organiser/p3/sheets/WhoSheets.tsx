@@ -9,6 +9,7 @@ import { dayWord } from '../model';
 import { P3_PATHS } from '../shell/paths';
 import { P3PushedShell } from '../you/surface';
 import { fetchDoorNight } from '../dash/pastNights';
+import { isSignedOut } from '../door/data';
 import { fromOf, sheetBackOf, whoCameOf, whoIsInOf, type SheetModel } from './sheetsModel';
 
 /** Slice 3: the read-only sheets' routes. Pushed (no tab bar); back = where the sheet was opened from. */
@@ -22,7 +23,7 @@ function useDoorNight(seriesId: string, occurrenceId: string | null) {
     queryFn: () => fetchDoorNight(seriesId, occurrenceId),
     enabled: !!user?.id && !!seriesId,
     staleTime: 30_000,
-    retry: 1,
+    retry: (n: number, e: unknown) => !isSignedOut(e) && n < 1,
   });
 }
 
@@ -43,7 +44,7 @@ export function WhoIsInRoute({ home }: { home: Back }) {
   const model = q.data ? whoIsInOf(q.data, { doorOnScreen: !!doorTo }) : null;
   return (
     <P3PushedShell title="Who is in" back={f.back} testId="sheet-who-in">
-      <SheetView model={model} name={f.name} sub={null} failed={q.isError} onRetry={() => void q.refetch()} />
+      <SheetView model={model} name={f.name} sub={null} failed={q.isError} signedOut={isSignedOut(q.error)} onRetry={() => void q.refetch()} />
       {doorTo && model?.state === 'ok' && (
         <Link className="p3-btn p3-btn-line" style={{ ...TAP, display: 'inline-flex', alignItems: 'center' }} to={doorTo} data-testid="sheet-open-door">Open Door</Link>
       )}
@@ -62,17 +63,19 @@ export function WhoCameRoute({ home }: { home: Back }) {
   const sub = night && f.today ? dayWord(night.date, f.today, null) : null;
   return (
     <P3PushedShell title="Who came" back={f.back} testId="sheet-who-came">
-      <SheetView model={q.data ? whoCameOf(q.data) : null} name={f.name} sub={sub} failed={q.isError} onRetry={() => void q.refetch()} />
+      <SheetView model={q.data ? whoCameOf(q.data) : null} name={f.name} sub={sub} failed={q.isError} signedOut={isSignedOut(q.error)} onRetry={() => void q.refetch()} />
     </P3PushedShell>
   );
 }
 
 /** Presentational, read only: no control here changes anything. */
-export function SheetView({ model, name, sub, failed = false, onRetry }: { model: SheetModel | null; name: string | null; sub: string | null; failed?: boolean; onRetry?: () => void }) {
+export function SheetView({ model, name, sub, failed = false, signedOut = false, onRetry }: { model: SheetModel | null; name: string | null; sub: string | null; failed?: boolean; signedOut?: boolean; onRetry?: () => void }) {
   return (
     <div className="p3-stack" data-testid="sheet">
       {(name || sub) && <p className="p3-row-s" data-testid="sheet-night">{name}{name && sub ? ', ' : ''}{sub}</p>}
-      {failed ? (
+      {signedOut ? (
+        <p className="p3-card" role="alert" data-testid="sheet-signed-out">You&rsquo;re signed out. Sign in again to see this list.</p>
+      ) : failed ? (
         <div className="p3-card" role="alert" data-testid="sheet-error">
           <p>We couldn&rsquo;t load this list. Check your connection, then try again.</p>
           <button type="button" className="p3-btn p3-btn-line" style={TAP} onClick={onRetry} data-testid="sheet-retry">Try again</button>
@@ -81,9 +84,12 @@ export function SheetView({ model, name, sub, failed = false, onRetry }: { model
         <p className="p3-card" aria-busy="true" data-testid="sheet-loading">Loading the list&hellip;</p>
       ) : (
         <>
-          {model.big !== null && (
+          {/* positive only: a zero headline is never drawn, the list's empty sentence says it instead */}
+          {((model.big !== null && model.big > 0) || model.under) && (
             <section className="p3-card" data-testid="sheet-head">
-              <div><span style={{ fontSize: 32, fontWeight: 700, color: '#C2410C' }} data-testid="sheet-big">{model.big.toLocaleString('en-GB')}</span> <span className="p3-row-t">{model.bigWord}</span></div>
+              {model.big !== null && model.big > 0 && (
+                <div><span style={{ fontSize: 32, fontWeight: 700, color: '#C2410C' }} data-testid="sheet-big">{model.big.toLocaleString('en-GB')}</span> <span className="p3-row-t">{model.bigWord}</span></div>
+              )}
               {model.under && <div className="p3-row-s" data-testid="sheet-under">{model.under}</div>}
             </section>
           )}

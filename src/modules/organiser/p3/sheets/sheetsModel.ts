@@ -40,8 +40,8 @@ function refused(d: DoorList, noNight: string): SheetModel | null {
 
 /** Notes shared by both sheets: names the server did not send, and the 500-row cap. */
 function notesOf(d: DoorList, shown: number, counted: number): string | null {
-  if (counted > 0 && shown === 0) return NO_NAMES;
-  return d.truncated ? ROW_CAP_NOTE : null;
+  if (d.truncated) return ROW_CAP_NOTE;
+  return counted > 0 && shown === 0 ? NO_NAMES : null;
 }
 
 /** Who is in: checked-in names, the count as headline, expected / still to arrive underneath. */
@@ -96,6 +96,13 @@ export function whoCameLinkOf(p: PastNight, from: SheetFrom): string | null {
 }
 
 /** Who is in link for a night, or null for a draft or cancelled night (no door, no sheet). */
+const NO_DOOR_LIFECYCLES = new Set(['draft', 'ended', 'cancelled', 'archived']);
+
+/** The event page's Who is in row: the same rule as Home's, from the event's lifecycle and whether a night is still to come. */
+export function eventWhoIsInLinkOf(seriesId: string, lifecycle: string, hasComingNight: boolean): string | null {
+  return whoIsInLinkOf({ seriesId, draft: lifecycle === 'draft', cancelled: !hasComingNight || NO_DOOR_LIFECYCLES.has(lifecycle) }, 'event');
+}
+
 export function whoIsInLinkOf(night: { seriesId?: string; draft?: boolean; cancelled: boolean } | null, from: SheetFrom): string | null {
   return night?.seriesId && !night.draft && !night.cancelled ? P3_PATHS.whoIsIn(night.seriesId, from) : null;
 }

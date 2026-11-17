@@ -25,6 +25,7 @@ import { programmeRules } from '../model/programme';
 import type { SendOnce } from './CancelEventSheet';
 import { flags } from '@/lib/featureFlags';
 import { TicketsEntry } from '../tickets/TicketsEntry';
+import { eventWhoIsInLinkOf } from '../sheets/sheetsModel';
 import { dancerMessageUsUrl } from '@/lib/contactLinks';
 
 /** The WhatsApp message the festival sessions' "Ask the team to change the programme" opens; the event follows it. */
@@ -260,6 +261,10 @@ function EditRows({ id, ws }: { id: string; ws: EventWorkspace }) {
 function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
   const today = londonTodayKey();
   const v = eventPageOf(ws, today);
+  // slice 3: the read-only Who is in sheet, only while this event has a night still to come (never for a draft)
+  const whoInTo = flags.organiserDash
+    ? eventWhoIsInLinkOf(ws.series.id, v.lifecycle, ws.dates.some((d) => d.lifecycle_status !== 'cancelled' && d.occurrence_date >= today))
+    : null;
   const toast = useToast(ws.series.id, ws.series.version);
   useSavedToast(toast.show);
   const send: Send = (commands, version) => toast.run(commands, version);
@@ -333,8 +338,8 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
           <span aria-hidden="true">&rsaquo;</span>
         </Link>
       )}
-      {flags.organiserDash && v.lifecycle !== 'draft' && (
-        <Link className="p3-card p3-status-row" style={{ minHeight: 44 }} to={P3_PATHS.whoIsIn(ws.series.id, 'event')} data-testid="p3-open-who-in">
+      {whoInTo && (
+        <Link className="p3-card p3-status-row" style={{ minHeight: 44 }} to={whoInTo} data-testid="p3-open-who-in">
           <span className="p3-grow">
             <span className="p3-row-t">Who is in</span>
             <span className="p3-row-s"> &middot; Tonight&rsquo;s door, read only</span>

@@ -2,13 +2,14 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { flags } from '@/lib/featureFlags';
 import type { DoorList, DoorRow } from '../../door/data';
 import { compareOf, type PastNight } from '../../dash/dashModel';
 import { CompareView } from '../../dash/CompareNights';
 import { pastNightOf, pastOf } from '../../dash/pastNights';
 import { isPushed } from '../../shell/P3Shell';
 import { P3_PATHS } from '../../shell/paths';
-import { GUEST, NO_NAMES, ROW_CAP_NOTE, fromOf, sheetBackOf, whoCameLinkOf, whoCameOf, whoIsInLinkOf, whoIsInOf } from '../sheetsModel';
+import { GUEST, NO_NAMES, ROW_CAP_NOTE, eventWhoIsInLinkOf, fromOf, sheetBackOf, whoCameLinkOf, whoCameOf, whoIsInLinkOf, whoIsInOf } from '../sheetsModel';
 import { SheetView } from '../WhoSheets';
 
 /**
@@ -40,7 +41,9 @@ describe('slice 3: Who is in (night) x size x seat', () => {
         expect(m.big).toBe(EXPECT.in[size].big);
         expect(m.lists[0].people).toHaveLength(EXPECT.in[size].people);
         drawn(<SheetView model={m} name="Salsa Fridays" sub={null} />);
-        expect(screen.getByTestId('sheet-big').textContent).toBe(String(EXPECT.in[size].big));
+        // positive only: a zero headline is never drawn
+        if (EXPECT.in[size].big > 0) expect(screen.getByTestId('sheet-big').textContent).toBe(String(EXPECT.in[size].big));
+        else expect(screen.queryByTestId('sheet-big')).toBeNull();
         expect(screen.queryAllByTestId('sheet-person')).toHaveLength(EXPECT.in[size].people);
         // read only, and no money for any seat: no buttons, no pound sign
         expect(screen.queryAllByRole('button')).toHaveLength(0);
@@ -72,6 +75,7 @@ describe('slice 3: Who came / did not come (after) x size x seat', () => {
         drawn(<SheetView model={m} name="Salsa Fridays" sub="Friday 13 November" />);
         if (size === 'zero') {
           expect(m.lists).toHaveLength(0);
+          expect(screen.queryByTestId('sheet-big')).toBeNull();
           expect(screen.getByTestId('sheet-note').textContent).toMatch(/Nobody had a ticket/);
         } else {
           expect(within(screen.getByTestId('sheet-came-list')).queryAllByTestId('sheet-person')).toHaveLength(e.came);
@@ -107,6 +111,8 @@ describe('slice 3: names', () => {
   });
   it('the server capped the list at 500: says the count is the full number', () => {
     expect(whoCameOf(list([row(1, true)], { truncated: true, inCount: 600, totalCount: 700 })).note).toBe(ROW_CAP_NOTE);
+    // capped and none of the 500 rows checked in: the cap is the reason, not "names missing"
+    expect(whoIsInOf(list([row(1, false)], { truncated: true, inCount: 300, totalCount: 700 }), { doorOnScreen: false }).note).toBe(ROW_CAP_NOTE);
   });
   it('a refused seat and a missing night: one sentence, no count', () => {
     const refusedList = list([], { result: 'not_allowed', inCount: null, totalCount: null });
@@ -135,14 +141,27 @@ describe('slice 3: links (cancelled / draft nights have none)', () => {
     expect(whoIsInLinkOf({ seriesId: 's1', draft: false, cancelled: false }, 'home')).toBe(`${P3_PATHS.event('s1')}/in?from=home`);
     expect(whoIsInLinkOf(null, 'home')).toBeNull();
   });
+  it('a Going-only Compare row has no Who came link (it would open an empty sheet)', () => {
+    expect(compareOf([past({ cameIn: null, going: 12 })]).rows[0].to).toBeNull();
+  });
+  it('event page: Who is in only while a night is still to come, never for a draft / ended / cancelled event', () => {
+    expect(eventWhoIsInLinkOf('s1', 'live', true)).toBe(`${P3_PATHS.event('s1')}/in?from=event`);
+    expect(eventWhoIsInLinkOf('s1', 'live', false)).toBeNull();
+    for (const l of ['draft', 'ended', 'cancelled', 'archived']) expect(eventWhoIsInLinkOf('s1', l, true)).toBeNull();
+  });
   it('Compare rows link to Who came', () => {
     render(<MemoryRouter><CompareView model={compareOf([past()])} /></MemoryRouter>);
     expect(screen.getByTestId('dash-compare-who').getAttribute('href')).toBe(`${P3_PATHS.event('s1')}/came/o1?from=compare`);
   });
-  it('the sheets are pushed (no tab bar)', () => {
+  it('the sheets are pushed (no tab bar) while the flag is on; flag off = nothing changes', () => {
+    const was = flags.organiserDash;
+    (flags as { organiserDash: boolean }).organiserDash = false;
+    expect(isPushed(P3_PATHS.whoIsIn('s1'))).toBe(false);
+    (flags as { organiserDash: boolean }).organiserDash = true;
     expect(isPushed(P3_PATHS.whoIsIn('s1'))).toBe(true);
     expect(isPushed(P3_PATHS.whoCame('s1', 'o1'))).toBe(true);
     expect(isPushed(P3_PATHS.event('s1'))).toBe(false);
+    (flags as { organiserDash: boolean }).organiserDash = was;
   });
   it('back returns to where the sheet was opened from; unknown = the event page', () => {
     const home = { to: P3_PATHS.home, label: 'Home' };

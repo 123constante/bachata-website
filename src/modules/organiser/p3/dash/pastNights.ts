@@ -1,7 +1,7 @@
 import { useQueries } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { parseDoorList, type DoorList } from '../door/data';
+import { parseDoorList, SignedOutError, type DoorList } from '../door/data';
 import { fetchRaffleNights, raffleNightsQueryKey } from '../events/raffle/raffleApi';
 import type { RaffleNight, ReadResult } from '../events/raffle/raffleModel';
 import { dayWord } from '../model';
@@ -26,7 +26,7 @@ type Rpc = { rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ data:
  */
 export async function fetchDoorNight(seriesId: string, occurrenceId: string | null): Promise<DoorList> {
   const { data, error } = await (supabase as unknown as Rpc).rpc('ticket_door_list_v3', { p_event_series_id: seriesId, p_occurrence_id: occurrenceId });
-  if (error) throw new Error(error.message);
+  if (error) throw (error as { code?: string }).code === '42501' ? new SignedOutError() : new Error(error.message);
   return parseDoorList(data);
 }
 

@@ -271,9 +271,9 @@ export function compareOf(past: readonly PastNight[]): CompareModel {
   const rows: CompareRow[] = [];
   for (const n of past) {
     if (n.cancelled) continue;
-    const to = whoCameLinkOf(n, 'compare');
-    if (n.cameIn !== null && n.cameIn > 0) rows.push({ key: n.key, name: n.name, when: n.when, value: n.cameIn, word: 'came', to });
-    else if (n.going != null && n.going > 0) rows.push({ key: n.key, name: n.name, when: n.when, value: n.going, word: 'going', to });
+    // only a night with a door count links to Who came (a Going-only night would open an empty sheet)
+    if (n.cameIn !== null && n.cameIn > 0) rows.push({ key: n.key, name: n.name, when: n.when, value: n.cameIn, word: 'came', to: whoCameLinkOf(n, 'compare') });
+    else if (n.going != null && n.going > 0) rows.push({ key: n.key, name: n.name, when: n.when, value: n.going, word: 'going', to: null });
   }
   rows.sort((a, b) => b.value - a.value || (a.key < b.key ? -1 : 1));
   return { rows, empty: rows.length ? null : 'No night has a count yet. Scan tickets at the door on the night and each night shows here, best first.' };
