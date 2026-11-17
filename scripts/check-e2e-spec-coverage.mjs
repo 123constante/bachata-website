@@ -168,7 +168,7 @@ export function runCheck({ scripts, workflows, specs, manual = MANUAL, ciLists =
     if (typeof cmd !== 'string') {
       return { code: 2, lines: [`CANNOT MEASURE: package.json has no "${name}" script (a CI list this guard reads).`], counts: null };
     }
-    const runsIt = new RegExp(`^\\s*(?:-\\s*)?run:\\s*npm run ${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'm');
+    const runsIt = new RegExp(`^\\s*(?:-\\s*)?run:\\s*npm run ${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:\\s+--\\s.*)?\\s*$`, 'm'); // a trailing `-- --shard=N/M` still runs the whole list across its shards
     if (!runsIt.test(workflows?.[wf] ?? '')) {
       problems.push(`${wf} no longer runs \`npm run ${name}\`: the specs it lists are not running in CI. Fix the workflow or CI_LISTS.`);
     }
