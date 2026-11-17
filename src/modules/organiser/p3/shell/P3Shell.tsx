@@ -43,7 +43,7 @@ export function tabOf(pathname: string): P3Tab {
 
 /** An R1 screen in P3's frame (the You hub's pushes, New event, an event's Organisers): it draws its own top bar, with the way back. */
 export function isPushed(pathname: string): boolean {
-  if (isCreate(pathname) || ORGANISERS.test(pathname)) return true;
+  if (isCreate(pathname) || ORGANISERS.test(pathname) || pathname === P3_PATHS.compare) return true;
   return pathname.startsWith(`${P3_PATHS.you}/`) && pathname !== `${P3_PATHS.you}/`;
 }
 

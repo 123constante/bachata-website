@@ -8,6 +8,7 @@ import { P3Shell as P3ShellV1 } from './P3Shell';
 import { EventsScreen } from '../screens/EventsScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { StatsScreen } from '../screens/StatsScreen';
+import { CompareNights } from '../dash/CompareNights';
 import { P3PushedSurface, P3YouSurface } from '../you/surface';
 import { youGetPaidRoute } from './youTickets';
 import { P3_PATHS } from './paths';
@@ -121,6 +122,7 @@ export default function P3Routes() {
           <Route path="create" element={<P3PushedSurface back={toEvents}><CreateFlow /></P3PushedSurface>} />
           {NEW_STEPS.map((step) => <Route key={step} path={step} element={<OldNewStep />} />)}
           <Route path="stats" element={<StatsScreen />} />
+          {flags.organiserDash && <Route path="compare" element={<P3PushedSurface back={toHome}><CompareNights /></P3PushedSurface>} />}
           <Route path="you" element={<P3YouSurface />}>
             <Route index element={<YouScreen />} />
             <Route path="switch" element={<SwitchPage />} />

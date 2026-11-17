@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { P3_PATHS } from '../shell/paths';
 import { captionOf, whatsappHref } from './shareLinks';
@@ -29,9 +30,13 @@ export interface DashViewProps {
   notice?: string | null;
   /** Analytics read failed: the page still draws, without opens, plus an inline retry. */
   analyticsFailed?: boolean;
+  /** Slice 2: the hero night's Going (P3NightGoing, gated on its own), the Door link, the Compare nights screen. */
+  going?: ReactNode;
+  doorTo?: string | null;
+  compareTo?: string | null;
 }
 
-export function DashView({ model: m, pageName, onShareNight, onSharePage, onRetry, pageLink = null, notice = null, analyticsFailed = false }: DashViewProps) {
+export function DashView({ model: m, pageName, onShareNight, onSharePage, onRetry, pageLink = null, notice = null, analyticsFailed = false, going = null, doorTo = null, compareTo = null }: DashViewProps) {
   if (m.load === 'loading') {
     return (
       <div className="p3-card p3-state" data-testid="dash-loading" aria-busy="true">
@@ -54,17 +59,33 @@ export function DashView({ model: m, pageName, onShareNight, onSharePage, onRetr
   const hero = m.hero!;
   const nightLink = hero.night?.link ?? null;
   const noLink = hero.action === 'share-night' && !nightLink;
+  const da = m.dayAfter;
   return (
-    <div className="p3-stack" data-testid="dash">
+    <div className="p3-stack" data-testid="dash" data-clock={m.clock}>
+      {da && (
+        <section className="p3-card" aria-label="Last night" data-testid="dash-day-after">
+          <div className="p3-row-s">{da.title}</div>
+          {da.big !== null && (
+            <div data-testid="dash-day-after-big"><span style={{ fontSize: 32, fontWeight: 700, color: '#C2410C' }}>{da.big.toLocaleString('en-GB')}</span> <span className="p3-row-t">{da.bigWord}</span></div>
+          )}
+          {da.lines.map((l) => <div key={l} className="p3-row-s" data-testid="dash-day-after-line">{l}</div>)}
+          {da.big === null && da.lines.length === 0 && <p className="p3-note" data-testid="dash-day-after-tip">Scan tickets at the door next time and who came shows here.</p>}
+        </section>
+      )}
       <section className="p3-card p3-hero" aria-label={hero.title} data-testid="dash-hero" data-kind={hero.kind}>
         <div className="p3-hero-name">{hero.title}</div>
         {hero.headline && <div className="p3-when" data-testid="dash-headline">{hero.headline}</div>}
         <div className="p3-row-s">{hero.why}</div>
-        {hero.action === 'new-event' ? (
+        {going}
+        {hero.taps && <div className="p3-row-s" data-testid="dash-hero-taps">{hero.taps}</div>}
+        {hero.tip && <p className="p3-note" data-testid="dash-hero-tip">{hero.tip}</p>}
+        {hero.action === 'open-door' && doorTo ? (
+          <Link className="p3-btn" style={{ minHeight: 44, display: 'inline-flex', alignItems: 'center' }} to={doorTo} data-testid="dash-hero-door">{hero.actionLabel}</Link>
+        ) : hero.action === 'new-event' ? (
           <Link className="p3-btn" style={{ minHeight: 44 }} to={P3_PATHS.create} data-testid="dash-hero-action">{hero.actionLabel}</Link>
         ) : (
           <span>
-            <button type="button" className="p3-btn" style={{ minHeight: 44 }} disabled={noLink} aria-describedby={noLink ? 'dash-hero-action-why' : undefined} onClick={() => hero.night && onShareNight?.(hero.night.key)} data-testid="dash-hero-action">{hero.actionLabel}</button>
+            <button type="button" className="p3-btn" style={{ minHeight: 44 }} disabled={noLink} aria-describedby={noLink ? 'dash-hero-action-why' : undefined} onClick={() => hero.night && onShareNight?.(hero.night.key)} data-testid="dash-hero-action">{hero.action === 'open-door' ? 'Share this night' : hero.actionLabel}</button>
             {noLink && <span className="p3-note" id="dash-hero-action-why" data-testid="dash-hero-action-why"> This night has no public link yet.</span>}
           </span>
         )}
@@ -76,7 +97,7 @@ export function DashView({ model: m, pageName, onShareNight, onSharePage, onRetr
           </details>
         )}
         {analyticsFailed && (
-          <p className="p3-note" role="status" data-testid="dash-analytics-failed">Opens aren&rsquo;t showing right now. <button type="button" className="p3-link" style={{ minHeight: 44 }} onClick={onRetry} data-testid="dash-analytics-retry">Try again</button></p>
+          <p className="p3-note" role="status" data-testid="dash-analytics-failed">Link taps aren&rsquo;t showing right now. <button type="button" className="p3-link" style={{ minHeight: 44 }} onClick={onRetry} data-testid="dash-analytics-retry">Try again</button></p>
         )}
         {notice && <p className="p3-ok" role="status" data-testid="dash-share-notice">{notice}</p>}
       </section>
@@ -124,6 +145,12 @@ export function DashView({ model: m, pageName, onShareNight, onSharePage, onRetr
         <Btn c={m.team.control} to={P3_PATHS.youTeamAdd} testId="dash-team-action" />
         {m.cityAverage && <p className="p3-note" data-testid="dash-city-average">{m.cityAverage.text}</p>}
       </section>
+
+      {m.compare && compareTo && (
+        <Link className="p3-card p3-status-row" style={{ minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }} to={compareTo} data-testid="dash-compare-row">
+          <span className="p3-row-t">{m.compare.label}</span><span aria-hidden="true">&rsaquo;</span>
+        </Link>
+      )}
     </div>
   );
 }
