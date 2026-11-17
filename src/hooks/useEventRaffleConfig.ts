@@ -113,8 +113,20 @@ export function useEventRaffleConfig(
     setLoading(true);
     setConfig(null);
     void refresh();
-    const id = window.setInterval(() => { void refresh(); }, POLL_INTERVAL_MS);
-    return () => { window.clearInterval(id); };
+    // Egress: no poll while the tab is hidden (background tabs were the bulk of
+    // get_event_raffle calls); catch up once when the tab is visible again.
+    const id = window.setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
+      void refresh();
+    }, POLL_INTERVAL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void refresh();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [eventId, refresh]);
 
   return { config, loading, error, refresh };
