@@ -22,12 +22,13 @@ jobs:
   # bottom keeps that name (.github/automation/required-jobs.json) and fails unless every shard
   # succeeded.
   e2e-shard:
-    name: e2e-shard (${{ matrix.suite }} ${{ matrix.shard }}/2)
+    name: e2e-shard (${{ matrix.suite }} ${{ matrix.shard }}/${{ matrix.total }})
     strategy:
       fail-fast: false
       matrix:
         suite: [legacy, p3]
         shard: [1, 2]
+        total: [2] # the N in --shard=K/N below; keep equal to the shard list length
     # Draft PRs skip this heavy job; it runs on ready_for_review and on push to main.
     # Merging still waits: a draft cannot merge.
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
@@ -112,7 +113,7 @@ jobs:
           # turns it on so the tests/e2e/organiser-*.spec.ts smoke specs can reach /account/o
           # (the old /account URLs redirect there; organiser-legacy-redirects.spec.ts).
           VITE_ENABLE_ORGANISER_SELF_SERVE: 'true'
-        run: npm run test:e2e -- --shard=${{ matrix.shard }}/2
+        run: npm run test:e2e -- --shard=${{ matrix.shard }}/${{ matrix.total }}
 
       # The P3 walk specs skip themselves unless VITE_ENABLE_ORGANISER_P3 (and, for the door
       # scanner, _TICKETING) is 'true'. Review of #1208, F4: they sat in test:e2e above, which
@@ -136,7 +137,7 @@ jobs:
           VITE_ENABLE_ORGANISER_PHOTO_ORDER: 'true'
           # walk-p3-create-kinds (fix-1208 r4): turns its missing-mount skip into a failure.
           P3_GEOMETRY_REQUIRED: '1'
-        run: npm run test:e2e:p3 -- --shard=${{ matrix.shard }}/2
+        run: npm run test:e2e:p3 -- --shard=${{ matrix.shard }}/${{ matrix.total }}
 
       - name: Upload Playwright artifacts on failure
         if: ${{ (failure()) && steps.changes.outputs.e2e_skip != 'true' }}
