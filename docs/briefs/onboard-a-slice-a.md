@@ -11,3 +11,14 @@ Owner decisions: ~/.claude/plans/LIVE-feat-event-truth-p1p3.md and DECISIONS-tic
 
 ## Rules
 Never apply DDL from the Website repo. Real-data checks per CLAUDE.md definition of done. 390x844 walk. Use HTML entities in JSX.
+
+## Owner clicks 2026-11-17
+- Silent create rate limit: 5 per person per day.
+- Ticket card for a passed or cancelled event: greyed, QR hidden, plain reason ('This night has passed' / 'This night was cancelled').
+- Split: admin repo migration (ensure_my_dancer_profile_v1) lands first by its own worker. This brief's Website worker does items 2-5 only.
+- Under 18: no age check.
+- Rollout: flags on for everyone at once; rollback = flags off.
+- Silent create fails: never block payment; carry on to Stripe, retry on next visit, small plain note.
+- 'Not you?' keeps basket. Copy exactly: 'Tickets go to {email}. Not you?'
+- Refunded or cancelled order: QR voided, card says 'This ticket was refunded'.
+- Owner had no preference, so recommended defaults apply: different-email sign-in = keep separate + note 'Your ticket is under another email' (linking = later duplicate-accounts arc); funnel counts = one daily status line, no new screen; accessibility = labels on every control, focus order, 44px taps, contrast checked in the walk.
