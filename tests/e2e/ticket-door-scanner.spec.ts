@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { FRIDAY, NOW, OrganiserFake, PHONE, expectNoHorizontalScroll, json } from './helpers/organiserFake';
 
 // The ticket door scanner (layout C) at 390x844 against the route-mocked organiser fake, with
-// ticket_check_in_v1 and ticket_door_list_v1 answered in their live shapes (admin migration
+// ticket_check_in_v3 and ticket_door_list_v3 answered in their live shapes (admin migration
 // 20270308040000). The camera is Chromium's fake device (no QR in it), so every answer comes
 // through the code box, the path a guest without a scannable QR takes. Dark set (door rooms are dark). Mounts only with
 // organiserP3 AND organiserTicketing on:
@@ -40,10 +40,10 @@ async function open(page: Page, answer: string, list: unknown = LIST) {
   const fake = new OrganiserFake();
   await fake.install(page);
   // registered after the fake's own rest route, so these answer the door reads
-  await page.route('**/rest/v1/rpc/ticket_door_list_v1*', (route: Route) => json(route, list));
-  await page.route('**/rest/v1/rpc/ticket_check_in_v1*', (route: Route) => {
-    const a = route.request().postDataJSON() as { p_qr_token: string; p_event_series_id: string };
-    expect(a).toEqual({ p_qr_token: TOKEN, p_event_series_id: FRIDAY });
+  await page.route('**/rest/v1/rpc/ticket_door_list_v3*', (route: Route) => json(route, list));
+  await page.route('**/rest/v1/rpc/ticket_check_in_v3*', (route: Route) => {
+    const a = route.request().postDataJSON() as { p_qr_token: string; p_event_series_id: string; p_occurrence_id: string | null };
+    expect(a).toEqual({ p_qr_token: TOKEN, p_event_series_id: FRIDAY, p_occurrence_id: null });
     if (answer === 'offline') return route.abort('internetdisconnected');
     return json(route, REPLIES[answer]);
   });
@@ -97,6 +97,28 @@ for (const r of Object.keys(REPLIES)) {
     await expect(card).toBeInViewport({ ratio: 1 });
     await geometry(page);
     await page.screenshot({ path: `${OUT}/${shot}-${r}.png` });
+  });
+}
+
+// Festival day tickets slice 2b: the v3 refusals, each on the same result card (never LET IN).
+const V3: Record<string, [string, string]> = {
+  wrong_night: ['WRONG NIGHT', 'This ticket is for a different night'],
+  wrong_day: ['WRONG DAY', 'This ticket is for a different day'],
+  add_on_not_admission: ['NOT AN ENTRY TICKET', 'This is an add-on, it does not get anyone in'],
+  unclassified_festival_type: ['CANNOT CHECK THIS TICKET', 'This ticket type is not set up for the door yet. Ask the organiser.'],
+};
+for (const [r, [head, sub]] of Object.entries(V3)) {
+  test(`v3 refusal: ${r}`, async ({ page }) => {
+    REPLIES[r] = { result: r, ticket_type_name: 'Saturday pass', first_name: 'Lucia', quantity: 2, checked_in_at: null, checked_in_by_first_name: null, in_count: 3, total_count: 8 };
+    await open(page, r);
+    await typeCode(page);
+    const card = page.getByTestId('door-result');
+    await expect(card).toHaveAttribute('data-state', r);
+    await expect(card.getByTestId('door-headline')).toHaveText(head);
+    await expect(card.getByTestId('door-sub')).toHaveText(sub);
+    await expect(card).toBeInViewport({ ratio: 1 });
+    await geometry(page);
+    await page.screenshot({ path: `${OUT}/v3-${r}.png` });
   });
 }
 

@@ -2165,6 +2165,53 @@ export type Database = {
         }
         Relationships: []
       }
+      event_advertising_digest_sent_v1: {
+        Row: {
+          event_count: number
+          london_date: string
+          sent_at: string
+        }
+        Insert: {
+          event_count: number
+          london_date: string
+          sent_at?: string
+        }
+        Update: {
+          event_count?: number
+          london_date?: string
+          sent_at?: string
+        }
+        Relationships: []
+      }
+      event_advertising_stops: {
+        Row: {
+          id: number
+          series_id: string
+          stopped_at: string
+          stopped_by: string | null
+        }
+        Insert: {
+          id?: never
+          series_id: string
+          stopped_at?: string
+          stopped_by?: string | null
+        }
+        Update: {
+          id?: never
+          series_id?: string
+          stopped_at?: string
+          stopped_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_advertising_stops_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: true
+            referencedRelation: "event_series_p5"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_attendance: {
         Row: {
           created_at: string | null
@@ -9089,6 +9136,45 @@ export type Database = {
         }
         Relationships: []
       }
+      ticket_festival_day_check_ins: {
+        Row: {
+          checked_in_at: string
+          checked_in_by: string | null
+          day: string
+          occurrence_id: string
+          ticket_id: string
+        }
+        Insert: {
+          checked_in_at?: string
+          checked_in_by?: string | null
+          day: string
+          occurrence_id: string
+          ticket_id: string
+        }
+        Update: {
+          checked_in_at?: string
+          checked_in_by?: string | null
+          day?: string
+          occurrence_id?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_festival_day_check_ins_occurrence_id_fkey"
+            columns: ["occurrence_id"]
+            isOneToOne: false
+            referencedRelation: "event_occurrence_p5"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_festival_day_check_ins_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ticket_night_check_ins: {
         Row: {
           checked_in_at: string
@@ -9518,6 +9604,7 @@ export type Database = {
       }
       ticket_types: {
         Row: {
+          admission_class: string | null
           capacity: number
           created_at: string
           created_by: string | null
@@ -9534,10 +9621,12 @@ export type Database = {
           sales_close_at: string | null
           sales_open_at: string | null
           status: string
+          valid_day: string | null
           valid_from: string | null
           valid_to: string | null
         }
         Insert: {
+          admission_class?: string | null
           capacity: number
           created_at?: string
           created_by?: string | null
@@ -9554,10 +9643,12 @@ export type Database = {
           sales_close_at?: string | null
           sales_open_at?: string | null
           status?: string
+          valid_day?: string | null
           valid_from?: string | null
           valid_to?: string | null
         }
         Update: {
+          admission_class?: string | null
           capacity?: number
           created_at?: string
           created_by?: string | null
@@ -9574,6 +9665,7 @@ export type Database = {
           sales_close_at?: string | null
           sales_open_at?: string | null
           status?: string
+          valid_day?: string | null
           valid_from?: string | null
           valid_to?: string | null
         }
@@ -11120,6 +11212,7 @@ export type Database = {
       _door_city_id_v1: { Args: { p_city: string }; Returns: string }
       _door_name_key_v1: { Args: { p_name: string }; Returns: string }
       _door_scan_ticket_v1: { Args: { p_token: string }; Returns: Json }
+      _door_scan_ticket_v2: { Args: { p_token: string }; Returns: Json }
       _door_seat_covers_v1: {
         Args: {
           p_event_series_id: string
@@ -12509,6 +12602,15 @@ export type Database = {
         }
         Returns: Json
       }
+      _ticket_check_in_core_v3: {
+        Args: {
+          p_event_series_id: string
+          p_occurrence_id: string
+          p_orgs: string[]
+          p_ticket_id: string
+        }
+        Returns: Json
+      }
       _ticket_checkout_sale_refusal_v1: {
         Args: {
           p_quantity: number
@@ -12524,6 +12626,10 @@ export type Database = {
         }
         Returns: Json
       }
+      _ticket_day_end_v1: {
+        Args: { p_occurrence_id: string; p_valid_day: string }
+        Returns: string
+      }
       _ticket_door_counts_v1: {
         Args: { p_event_series_id: string; p_orgs: string[] }
         Returns: Json
@@ -12535,6 +12641,26 @@ export type Database = {
           p_orgs: string[]
         }
         Returns: Json
+      }
+      _ticket_door_counts_v3: {
+        Args: {
+          p_event_series_id: string
+          p_occurrence_id: string
+          p_orgs: string[]
+        }
+        Returns: Json
+      }
+      _ticket_door_day_v1: {
+        Args: { p_occurrence_id: string }
+        Returns: string
+      }
+      _ticket_door_night_at_v1: {
+        Args: { p_at: string; p_event_series_id: string }
+        Returns: string
+      }
+      _ticket_door_night_now_v1: {
+        Args: { p_event_series_id: string }
+        Returns: string
       }
       _ticket_door_night_ok_v1: {
         Args: {
@@ -12553,6 +12679,20 @@ export type Database = {
       _ticket_door_orgs_v1: {
         Args: { p_event_series_id: string }
         Returns: string[]
+      }
+      _ticket_door_refusal_v1: {
+        Args: {
+          p_admission_class: string
+          p_door_day: string
+          p_door_night: string
+          p_festival: boolean
+          p_kind: string
+          p_ticket_night: string
+          p_valid_day: string
+          p_valid_from: string
+          p_valid_to: string
+        }
+        Returns: string
       }
       _ticket_door_seat_manager_orgs_v1: {
         Args: { p_event_series_id: string }
@@ -12586,6 +12726,24 @@ export type Database = {
         Returns: number
       }
       _ticket_email_rate_key_v1: { Args: { p_email: string }; Returns: string }
+      _ticket_festival_day_at_v1: {
+        Args: { p_at: string; p_first: string; p_last: string }
+        Returns: string
+      }
+      _ticket_festival_day_ok_v1: {
+        Args: { p_day: string; p_occurrence_id: string; p_series_id: string }
+        Returns: boolean
+      }
+      _ticket_festival_day_reason_v1: {
+        Args: {
+          p_class: string
+          p_day: string
+          p_kind: string
+          p_occurrence_id: string
+          p_series_id: string
+        }
+        Returns: string
+      }
       _ticket_held_v1: {
         Args: {
           p_occurrence_id: string
@@ -14142,6 +14300,7 @@ export type Database = {
         Args: { p_profile_id: string; p_profile_type?: string }
         Returns: Json
       }
+      admin_person_panel_v1: { Args: { p_profile_id: string }; Returns: Json }
       admin_person_venue_network_v1: {
         Args: { p_profile_id: string; p_profile_type?: string }
         Returns: Json
@@ -14641,6 +14800,10 @@ export type Database = {
         Args: { p_columns: string[]; p_tables: string[] }
         Returns: Json
       }
+      admin_search_all_v1: {
+        Args: { p_limit?: number; p_query: string }
+        Returns: Json
+      }
       admin_search_events: {
         Args: { p_limit?: number; p_search_term: string }
         Returns: {
@@ -14998,6 +15161,15 @@ export type Database = {
         Args: { p_phone_e164: string }
         Returns: Json
       }
+      advertising_digest_record_sent_v1: {
+        Args: { p_count: number; p_london_date: string }
+        Returns: Json
+      }
+      advertising_digest_sent_on_v1: {
+        Args: { p_london_date: string }
+        Returns: boolean
+      }
+      advertising_digest_v1: { Args: { p_now: string }; Returns: Json }
       apply_aggregate_write_p5: { Args: { p_envelope: Json }; Returns: Json }
       approve_city_request: {
         Args: {
@@ -15051,6 +15223,7 @@ export type Database = {
       check_dancer_profiles_legacy_col_drift_v3: { Args: never; Returns: Json }
       check_dancer_profiles_private_columns_v1: { Args: never; Returns: Json }
       check_dancer_rebuild_untouched_v1: { Args: never; Returns: Json }
+      check_entity_members_no_adder_uid_v1: { Args: never; Returns: Json }
       check_entry_liveness_contract_v1: { Args: never; Returns: Json }
       check_epp_avatar_url_drift_v1: { Args: never; Returns: Json }
       check_epp_display_name_drift_v1: { Args: never; Returns: Json }
@@ -15157,6 +15330,8 @@ export type Database = {
       check_slug_resolver_p5_parity_v1: { Args: never; Returns: Json }
       check_surname_hide_public_v1: { Args: never; Returns: Json }
       check_teacher_dj_assignment_integrity_v1: { Args: never; Returns: Json }
+      check_ticket_door_day_v1: { Args: never; Returns: Json }
+      check_ticket_festival_day_v1: { Args: never; Returns: Json }
       check_unmigrated_schema_changes_contract_v1: {
         Args: never
         Returns: Json
@@ -15241,6 +15416,7 @@ export type Database = {
       }
       door_list_v1: { Args: { p_occurrence_id: string }; Returns: Json }
       door_scan_v1: { Args: { p_payload: string }; Returns: Json }
+      door_scan_v2: { Args: { p_payload: string }; Returns: Json }
       enforce_manager_city_scope_for_user: {
         Args: { p_user_id: string }
         Returns: undefined
@@ -15437,6 +15613,10 @@ export type Database = {
           name: string
           photo_url: string[]
         }[]
+      }
+      get_event_advertising_state_v1: {
+        Args: { p_series_id: string }
+        Returns: Json
       }
       get_event_attendance_counts: {
         Args: { p_event_ids: string[] }
@@ -16914,6 +17094,7 @@ export type Database = {
         Args: { p_entry_id: string; p_session_id: string }
         Returns: Json
       }
+      raffle_wa_health_v1: { Args: never; Returns: Json }
       raffle_wa_record_send_result_pool_v1: {
         Args: {
           p_error: string
@@ -17384,6 +17565,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_event_advertising_stopped_v1: {
+        Args: { p_series_id: string; p_stopped: boolean }
+        Returns: Json
+      }
       set_my_going_v1: {
         Args: { p_going: boolean; p_occurrence_id: string }
         Returns: Json
@@ -17488,6 +17673,14 @@ export type Database = {
         }
         Returns: Json
       }
+      ticket_check_in_by_code_v3: {
+        Args: {
+          p_code: string
+          p_event_series_id: string
+          p_occurrence_id: string
+        }
+        Returns: Json
+      }
       ticket_check_in_by_id_v1: {
         Args: { p_event_series_id: string; p_ticket_id: string }
         Returns: Json
@@ -17500,11 +17693,27 @@ export type Database = {
         }
         Returns: Json
       }
+      ticket_check_in_by_id_v3: {
+        Args: {
+          p_event_series_id: string
+          p_occurrence_id: string
+          p_ticket_id: string
+        }
+        Returns: Json
+      }
       ticket_check_in_v1: {
         Args: { p_event_series_id: string; p_qr_token: string }
         Returns: Json
       }
       ticket_check_in_v2: {
+        Args: {
+          p_event_series_id: string
+          p_occurrence_id: string
+          p_qr_token: string
+        }
+        Returns: Json
+      }
+      ticket_check_in_v3: {
         Args: {
           p_event_series_id: string
           p_occurrence_id: string
@@ -17599,6 +17808,10 @@ export type Database = {
         Returns: Json
       }
       ticket_door_list_v2: {
+        Args: { p_event_series_id: string; p_occurrence_id: string }
+        Returns: Json
+      }
+      ticket_door_list_v3: {
         Args: { p_event_series_id: string; p_occurrence_id: string }
         Returns: Json
       }
@@ -17830,6 +18043,29 @@ export type Database = {
           sales_open_at: string
           sold_out: boolean
           status: string
+          valid_from: string
+          valid_to: string
+        }[]
+      }
+      ticket_types_public_v4: {
+        Args: { p_event_series_id: string; p_occurrence_id?: string }
+        Returns: {
+          admission_class: string
+          currency: string
+          effective_close_at: string
+          id: string
+          kind: string
+          name: string
+          next_price_at: string
+          next_price_pence: number
+          occurrence_id: string
+          price_pence: number
+          remaining: number
+          sales_close_at: string
+          sales_open_at: string
+          sold_out: boolean
+          status: string
+          valid_day: string
           valid_from: string
           valid_to: string
         }[]

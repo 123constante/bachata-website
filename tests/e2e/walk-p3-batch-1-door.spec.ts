@@ -48,7 +48,7 @@ async function openDoor(page: Page, o: { perm: Perm; gum: Gum; ua?: keyof typeof
   const fake = new OrganiserFake();
   await fake.install(page);
   await page.route('**/rest/v1/rpc/organiser_onboarding_status_v1*', (r) => json(r, STATUS_OFF));
-  await page.route('**/rest/v1/rpc/ticket_door_list_v1*', (r) => json(r, LIST));
+  await page.route('**/rest/v1/rpc/ticket_door_list_v3*', (r) => json(r, LIST));
   await page.addInitScript(({ perm, gum, ua }) => {
     const w = window as unknown as { __gum: number; __perm: string; __gumMode: string };
     w.__gum = 0; w.__perm = perm; w.__gumMode = gum;

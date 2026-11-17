@@ -2,8 +2,10 @@ import { supabase } from '@/integrations/supabase/client';
 import type { CheckIn } from './model';
 
 /*
- * The two door reads (admin migration 20270308040000_ticket_check_in_v1, live on prod). Both
- * answer ONE jsonb value, so PostgREST's 100-row cap does not apply; the list stops at 500
+ * The door reads: the v3 door functions (admin migration 20270323020000_festival_day_tickets_s2a_v1,
+ * live on prod 2026-11-17). Each takes p_occurrence_id; this screen has no chosen night, so it
+ * sends null and the server picks the earliest night of the series that has not ended (and, for
+ * a festival, the door day). Every answer is ONE jsonb value, so PostgREST's 100-row cap does not apply; the list stops at 500
  * rows itself and says so in `truncated`. Who may scan is the database's call: anyone on the
  * event's organiser team. This file never checks a role.
  */
@@ -19,12 +21,19 @@ export const isSignedOut = (e: unknown) => e instanceof SignedOutError;
 
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v : null);
-const RESULTS = new Set(['ok', 'already_in', 'wrong_event', 'not_valid', 'unknown_code', 'not_allowed', 'too_many_attempts']);
+const RESULTS = new Set<string>(['ok', 'already_in', 'wrong_event', 'not_valid', 'unknown_code', 'not_allowed', 'too_many_attempts',
+  'wrong_night', 'wrong_day', 'add_on_not_admission', 'unclassified_festival_type']);
+/** v3 names why a ticket is not valid; the card says the same thing for both. */
+const NOT_VALID_ALIASES = new Set(['refunded', 'void']);
+
+/** The night this screen sends: none chosen, so the server decides (see the header). */
+const NO_NIGHT = null;
 
 export function parseCheckIn(d: unknown): CheckIn {
   const r = (d ?? {}) as Record<string, unknown>;
   // an answer this screen does not know is not a "let in": show it as an unrecognised code
-  const result = RESULTS.has(String(r.result)) ? (r.result as CheckIn['result']) : 'unknown_code';
+  const raw = String(r.result);
+  const result = RESULTS.has(raw) ? (raw as CheckIn['result']) : NOT_VALID_ALIASES.has(raw) ? 'not_valid' : 'unknown_code';
   return {
     result,
     ticket_type_name: str(r.ticket_type_name),
@@ -38,31 +47,31 @@ export function parseCheckIn(d: unknown): CheckIn {
 }
 
 export async function checkInTicket(code: string, seriesId: string): Promise<CheckIn> {
-  const { data, error } = await db().rpc('ticket_check_in_v1', { p_qr_token: code, p_event_series_id: seriesId });
+  const { data, error } = await db().rpc('ticket_check_in_v3', { p_qr_token: code, p_event_series_id: seriesId, p_occurrence_id: NO_NIGHT });
   if (error) throw error.code === '42501' ? new SignedOutError() : error;
   return parseCheckIn(data);
 }
 
 /*
  * The short door code and the list's Check in (admin 20270314140000_ticket_door_short_code_v1,
- * live on prod): same reply shape as ticket_check_in_v1. by-code also answers too_many_attempts
+ * live on prod): same reply shape as ticket_check_in_v3. by-code also answers too_many_attempts
  * (20 wrong codes per 15 minutes per staff member); by-id never rate-limits, so the list is
  * the way in while typed codes are paused.
  */
 export async function checkInByCode(code: string, seriesId: string): Promise<CheckIn> {
-  const { data, error } = await db().rpc('ticket_check_in_by_code_v1', { p_code: code, p_event_series_id: seriesId });
+  const { data, error } = await db().rpc('ticket_check_in_by_code_v3', { p_code: code, p_event_series_id: seriesId, p_occurrence_id: NO_NIGHT });
   if (error) throw error.code === '42501' ? new SignedOutError() : error;
   return parseCheckIn(data);
 }
 
 export async function checkInById(ticketId: string, seriesId: string): Promise<CheckIn> {
-  const { data, error } = await db().rpc('ticket_check_in_by_id_v1', { p_ticket_id: ticketId, p_event_series_id: seriesId });
+  const { data, error } = await db().rpc('ticket_check_in_by_id_v3', { p_ticket_id: ticketId, p_event_series_id: seriesId, p_occurrence_id: NO_NIGHT });
   if (error) throw error.code === '42501' ? new SignedOutError() : error;
   return parseCheckIn(data);
 }
 
 export interface DoorRow { ticketId: string; firstName: string | null; quantity: number | null; typeName: string | null; checkedInAt: string | null }
-export interface DoorList { result: 'ok' | 'not_allowed'; rows: DoorRow[]; truncated: boolean; inCount: number | null; totalCount: number | null; loadedAt: number }
+export interface DoorList { result: 'ok' | 'not_allowed' | 'wrong_night'; rows: DoorRow[]; truncated: boolean; inCount: number | null; totalCount: number | null; loadedAt: number }
 
 /** The list answer was not one this screen knows (null, a new shape, a partial answer). */
 export class DoorListShapeError extends Error {
@@ -77,7 +86,8 @@ export class DoorListShapeError extends Error {
 export function parseDoorList(d: unknown, loadedAt = Date.now()): DoorList {
   if (!d || typeof d !== 'object' || Array.isArray(d)) throw new DoorListShapeError();
   const r = d as Record<string, unknown>;
-  if (r.result !== 'ok' && r.result !== 'not_allowed') throw new DoorListShapeError();
+  // wrong_night: the series has no night that has not ended (v3 picks one when sent null)
+  if (r.result !== 'ok' && r.result !== 'not_allowed' && r.result !== 'wrong_night') throw new DoorListShapeError();
   if (r.result === 'ok' && !Array.isArray(r.rows)) throw new DoorListShapeError();
   const rows = Array.isArray(r.rows) ? (r.rows as Record<string, unknown>[]) : [];
   return {
@@ -97,7 +107,7 @@ export function parseDoorList(d: unknown, loadedAt = Date.now()): DoorList {
 }
 
 export async function fetchDoorList(seriesId: string): Promise<DoorList> {
-  const { data, error } = await db().rpc('ticket_door_list_v1', { p_event_series_id: seriesId });
+  const { data, error } = await db().rpc('ticket_door_list_v3', { p_event_series_id: seriesId, p_occurrence_id: NO_NIGHT });
   if (error) throw error.code === '42501' ? new SignedOutError() : error;
   return parseDoorList(data);
 }

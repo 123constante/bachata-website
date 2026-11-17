@@ -10,14 +10,16 @@
  */
 
 /**
- * What ticket_check_in_v1 / ticket_check_in_by_id_v1 / ticket_check_in_by_code_v1 answer, plus
+ * What ticket_check_in_v3 / ticket_check_in_by_id_v3 / ticket_check_in_by_code_v3 answer, plus
  * no_signal (the read itself failed, client side). too_many_attempts comes only from the by-code
  * RPC: 20 wrong codes per staff member per 15 minutes (admin 20270314140000_ticket_door_short_code_v1).
  */
-export type DoorResult = 'ok' | 'already_in' | 'wrong_event' | 'not_valid' | 'unknown_code' | 'not_allowed' | 'too_many_attempts' | 'no_signal';
-export const DOOR_RESULTS: readonly DoorResult[] = ['ok', 'already_in', 'wrong_event', 'not_valid', 'unknown_code', 'not_allowed', 'too_many_attempts', 'no_signal'];
+export type DoorResult = 'ok' | 'already_in' | 'wrong_event' | 'not_valid' | 'unknown_code' | 'not_allowed' | 'too_many_attempts'
+  | 'wrong_night' | 'wrong_day' | 'add_on_not_admission' | 'unclassified_festival_type' | 'no_signal';
+export const DOOR_RESULTS: readonly DoorResult[] = ['ok', 'already_in', 'wrong_event', 'not_valid', 'unknown_code', 'not_allowed', 'too_many_attempts',
+  'wrong_night', 'wrong_day', 'add_on_not_admission', 'unclassified_festival_type', 'no_signal'];
 
-/** ticket_check_in_v1's reply: every key always present, null when it does not apply. */
+/** ticket_check_in_v3's reply: every key always present, null when it does not apply. */
 export interface CheckIn {
   result: Exclude<DoorResult, 'no_signal'>;
   ticket_type_name: string | null;
@@ -120,6 +122,30 @@ export const RESULT_TABLE: Record<DoorResult, ResultRow> = {
     detail: () => `Wait up to 15 minutes before typing another code. Now: open tonight${RSQ}s list, find their name and tap Check in.`,
     vibrate: [200, 100, 200], actions: ['list'], keepScanning: true,
   },
+  wrong_night: {
+    band: 'bad', headline: 'WRONG NIGHT',
+    sub: () => 'This ticket is for a different night',
+    detail: () => 'Do not let in. Their ticket is for another night of this event.',
+    vibrate: [400], actions: ['scan'], keepScanning: true,
+  },
+  wrong_day: {
+    band: 'bad', headline: 'WRONG DAY',
+    sub: () => 'This ticket is for a different day',
+    detail: () => 'Do not let in. Their ticket is for another day of this festival.',
+    vibrate: [400], actions: ['scan'], keepScanning: true,
+  },
+  add_on_not_admission: {
+    band: 'bad', headline: 'NOT AN ENTRY TICKET',
+    sub: () => 'This is an add-on, it does not get anyone in',
+    detail: () => 'Do not let in on this ticket. Ask for their day ticket or pass.',
+    vibrate: [400], actions: ['scan'], keepScanning: true,
+  },
+  unclassified_festival_type: {
+    band: 'bad', headline: 'CANNOT CHECK THIS TICKET',
+    sub: () => 'This ticket type is not set up for the door yet. Ask the organiser.',
+    detail: () => 'Do not let in yet. Ask the organiser what to do with this ticket.',
+    vibrate: [400], actions: ['scan'], keepScanning: true,
+  },
   no_signal: {
     band: 'grey', headline: 'NO SIGNAL',
     sub: () => 'Cannot check this code right now',
@@ -183,7 +209,7 @@ export function createScanGate(windowMs = 2500, now: () => number = Date.now) {
 
 /** The short door code's alphabet (no 0, 1, I, L, O), exactly as tickets.short_code is made. */
 export const SHORT_CODE_RE = /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$/;
-/** As ticket_check_in_by_code_v1 reads its input: case, spaces and dashes ignored. */
+/** As ticket_check_in_by_code_v3 reads its input: case, spaces and dashes ignored. */
 export const normaliseShortCode = (raw: string) => raw.replace(/[\s-]/g, '').toUpperCase();
 /** A long QR token (64 hex) or a URL carrying one: never a short code. */
 const looksLikeQr = (raw: string) => /^https?:\/\//i.test(raw.trim()) || /^[0-9a-f]{32,}$/i.test(raw.replace(/\s+/g, ''));

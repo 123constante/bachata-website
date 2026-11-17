@@ -37,7 +37,7 @@ async function open(page: Page, role = 'owner', at?: string) {
     return json(r, (r.request().headers()['accept'] ?? '').includes('vnd.pgrst.object') ? row : [row]);
   });
   await page.route('**/rest/v1/rpc/ticket_sales_summary_v1*', (r) => json(r, { ok: true, ticket_types: types, money_visible: role === 'owner' }));
-  await page.route('**/rest/v1/rpc/ticket_door_list_v1*', (r) => json(r, { result: 'ok', rows: [], in_count: 14, total_count: 20 }));
+  await page.route('**/rest/v1/rpc/ticket_door_list_v3*', (r) => json(r, { result: 'ok', rows: [], in_count: 14, total_count: 20 }));
   await page.route('**/rest/v1/rpc/ticket_promo_list_v1*', (r) => json(r, { ok: true, rows: [] }));
   await page.route('**/rest/v1/ticket_types*', (r) => json(r, types));
   await page.route('**/rest/v1/ticket_orders*', (r) => json(r, orders));

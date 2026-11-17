@@ -6,7 +6,7 @@ import { MemoryRouter } from 'react-router-dom';
 import type { ScannerDeps } from '../camera';
 
 /*
- * p3-prefix-d D1: only an explicit `not_allowed` from ticket_door_list_v1 may show CANNOT CHECK
+ * p3-prefix-d D1: only an explicit `not_allowed` from ticket_door_list_v3 may show CANNOT CHECK
  * TICKETS. Every other answer that is not a well-formed `ok` is a LOAD problem: Could not load,
  * Try again, and the Scan tab keeps its code box. The RPC layer is faked, not fetchDoorList, so
  * the real parser decides.
@@ -21,11 +21,13 @@ import { parseDoorList } from '../data';
 const OK = { result: 'ok', rows: [{ ticket_id: 't1', first_name: 'Aisha', quantity_in_order: 1, ticket_type_name: 'Standard', checked_in_at: null }], truncated: false, in_count: 0, total_count: 1 };
 const NOT_ALLOWED = { result: 'not_allowed', rows: [], truncated: false, in_count: null, total_count: null };
 
-type Screen = 'list' | 'not_allowed' | 'load_error';
+type Screen = 'list' | 'not_allowed' | 'no_night' | 'load_error';
 // shape name, what the RPC answers (or throws), what the screen must show
 const SHAPES: Array<[string, { data?: unknown; error?: unknown; throws?: boolean }, Screen]> = [
   ['ok', { data: OK }, 'list'],
   ['not_allowed', { data: NOT_ALLOWED }, 'not_allowed'],
+  // v3 sent a null night and the series has none left: its own card, not a load error
+  ['wrong_night', { data: { result: 'wrong_night', rows: [], truncated: false, in_count: null, total_count: null, door_day: null } }, 'no_night'],
   ['null', { data: null }, 'load_error'],
   ['empty array', { data: [] }, 'load_error'],
   ['unknown result', { data: { result: 'rate_limited' } }, 'load_error'],
@@ -57,7 +59,7 @@ afterEach(() => { cleanup(); });
 describe('parseDoorList: only explicit answers are believed', () => {
   it.each(SHAPES.filter(([, a]) => 'data' in a))('%s', (_n, a, want) => {
     if (want === 'load_error') expect(() => parseDoorList(a.data)).toThrow();
-    else expect(parseDoorList(a.data).result).toBe(want === 'list' ? 'ok' : 'not_allowed');
+    else expect(parseDoorList(a.data).result).toBe(want === 'list' ? 'ok' : want === 'no_night' ? 'wrong_night' : 'not_allowed');
   });
 });
 
@@ -72,6 +74,10 @@ describe('the door list answer x the screen', () => {
     if (want === 'list') {
       expect(await screen.findByTestId('door-list')).toBeTruthy();
       expect(screen.queryByTestId('door-result')).toBeNull();
+    } else if (want === 'no_night') {
+      expect((await screen.findByTestId('door-list-no-night')).textContent).toContain('No night of this event is on now');
+      expect(screen.queryByTestId('door-list-error')).toBeNull();
+      expect(document.body.textContent).not.toContain('CANNOT CHECK TICKETS');
     } else if (want === 'not_allowed') {
       const card = await screen.findByTestId('door-result');
       expect(card.getAttribute('data-state')).toBe('not_allowed');

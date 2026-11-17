@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { FRIDAY, OrganiserFake, PHONE, expectNoHorizontalScroll, json } from './helpers/organiserFake';
 
 // The door short code + Tonight-list Check in at 390x844 against the route-mocked organiser
-// fake, ticket_check_in_by_code_v1 / ticket_check_in_by_id_v1 / ticket_door_list_v1 answered in
+// fake, ticket_check_in_by_code_v3 / ticket_check_in_by_id_v3 / ticket_door_list_v3 answered in
 // their live prod shapes (admin 20270314140000_ticket_door_short_code_v1). Mounts only with
 // organiserP3, organiserTicketing AND ticketDoorCode on:
 //   VITE_ENABLE_ORGANISER_SELF_SERVE=true VITE_ENABLE_ORGANISER_P3=true VITE_ENABLE_ORGANISER_TICKETING=true \
@@ -31,14 +31,14 @@ test.use({ viewport: PHONE, colorScheme: 'dark', permissions: ['camera'], launch
 async function open(page: Page, codeAnswer: string) {
   const fake = new OrganiserFake();
   await fake.install(page);
-  await page.route('**/rest/v1/rpc/ticket_door_list_v1*', (route: Route) => json(route, LIST));
-  await page.route('**/rest/v1/rpc/ticket_check_in_by_code_v1*', (route: Route) => {
-    expect(route.request().postDataJSON()).toEqual({ p_code: 'K7M2QX', p_event_series_id: FRIDAY });
+  await page.route('**/rest/v1/rpc/ticket_door_list_v3*', (route: Route) => json(route, LIST));
+  await page.route('**/rest/v1/rpc/ticket_check_in_by_code_v3*', (route: Route) => {
+    expect(route.request().postDataJSON()).toEqual({ p_code: 'K7M2QX', p_event_series_id: FRIDAY, p_occurrence_id: null });
     if (codeAnswer === 'offline') return route.abort('internetdisconnected');
     return json(route, CODE[codeAnswer]);
   });
-  await page.route('**/rest/v1/rpc/ticket_check_in_by_id_v1*', (route: Route) => {
-    expect(route.request().postDataJSON()).toEqual({ p_ticket_id: 't2', p_event_series_id: FRIDAY });
+  await page.route('**/rest/v1/rpc/ticket_check_in_by_id_v3*', (route: Route) => {
+    expect(route.request().postDataJSON()).toEqual({ p_ticket_id: 't2', p_event_series_id: FRIDAY, p_occurrence_id: null });
     return json(route, OK);
   });
   await page.goto(`/account/p3/events/${FRIDAY}/door`);
