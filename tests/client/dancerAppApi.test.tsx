@@ -42,6 +42,10 @@ const INTERFACE_CODES = [
   'invalid_kind',
   'invalid_page',
   'invalid_feature',
+  // set_my_buyer_roles_v1 (buyer onboarding B, admin 20261117214202).
+  'invalid_roles',
+  'too_many_roles',
+  'unknown_role',
   'invalid_payload',
   'unknown_key',
   'invalid_type',
