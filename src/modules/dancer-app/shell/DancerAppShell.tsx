@@ -6,6 +6,7 @@ import { EmberWorld } from '@/modules/organiser/ui';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useAuth } from '@/hooks/useAuth';
 import { flags } from '@/lib/featureFlags';
+import { TICKET_TEASER_ENABLED } from '../screens/teaser/teaserFlag';
 import { FOCUS_NOT_NOW_LABEL } from '@/lib/focusMode';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import '../theme/dancer.css';
@@ -81,9 +82,9 @@ export const DancerAppShell = () => {
     });
   // Locked tabs: only for a person with no dancer profile to show (view-only, or no_profile).
   // A dancer mid-setup keeps their tabs and sees only the bar.
-  // Post-pay teaser (flags.ticketTeaser): a view-only buyer gets the four real tabs, each a read-only twin
+  // Post-pay teaser (TICKET_TEASER_ENABLED): a view-only buyer gets the four real tabs, each a read-only twin
   // (DancerAppRoutes), so no tab is locked out; the Me tab keeps a small lock mark. Flag off = unchanged.
-  const teaser = teaserActive({ teaserFlag: flags.ticketTeaser, ticketingFlag: ticketsOn, viewOnly });
+  const teaser = teaserActive({ teaserFlag: TICKET_TEASER_ENABLED, ticketingFlag: ticketsOn, viewOnly });
   const tabsLocked = ticketsOn && !teaser && (viewOnly || noProfile);
   const { focus, notNowTo } = shellChrome(pathname, search, candidate ? profile.data : null);
   const active = activeTabFor(pathname);

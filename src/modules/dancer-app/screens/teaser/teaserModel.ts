@@ -1,7 +1,7 @@
 /**
  * The post-pay teaser's pure parts (brief ticket-buyer-teaser, PR 2): when the read-only dancer
  * app shows, which paths it covers and its words. No React, no I/O: the matrix test reads these.
- * Flag-gated (flags.ticketTeaser, default OFF) and only ever on top of flags.publicTicketing.
+ * Flag-gated (TICKET_TEASER_ENABLED, default OFF) and only ever on top of flags.publicTicketing.
  */
 
 /** The four tab screens the teaser replaces with read-only twins. Tickets stays the existing screen. */

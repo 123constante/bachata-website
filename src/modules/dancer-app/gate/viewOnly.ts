@@ -15,7 +15,7 @@ export const VIEW_ONLY_PATHS: readonly string[] = ['/app/tickets'];
 export const admitsViewOnly = (pathname: string, ticketingOn: boolean, teaserOn = false): boolean => {
   if (!ticketingOn) return false;
   const p = pathname.toLowerCase().replace(/\/+$/, '');
-  // The post-pay teaser (flags.ticketTeaser) adds the four tabs: their read-only twins call no member RPC.
+  // The post-pay teaser (TICKET_TEASER_ENABLED) adds the four tabs: their read-only twins call no member RPC.
   return VIEW_ONLY_PATHS.includes(p) || (teaserOn && TEASER_PATHS.includes(p));
 };
 

@@ -114,9 +114,6 @@ export const flags = {
   // /event/:id and the /tickets/thanks return page. OFF = no block, no route. Turn on with
   // VITE_ENABLE_PUBLIC_TICKETING=true (Vercel env) -- no code change.
   publicTicketing:     import.meta.env.VITE_ENABLE_PUBLIC_TICKETING === 'true',
-  // Post-pay teaser (PR 2 of ticket-buyer): view-only buyers see a read-only Home / Nights / Me / Options in the
-  // real dancer shell. Needs publicTicketing too. OFF = unchanged. VITE_ENABLE_TICKET_TEASER=true.
-  ticketTeaser:        import.meta.env.VITE_ENABLE_TICKET_TEASER === 'true',
   // T4 buyer price steps: read ticket_types_public_v3, post the basket body with expected prices
   // (edge v5 path), "Price rises on <date>" on the card, price_changed confirm. OFF = the old body
   // and the v2 read, exactly as before. Turn on with VITE_ENABLE_TICKET_PRICE_STEPS=true.

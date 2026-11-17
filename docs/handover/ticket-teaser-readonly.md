@@ -1,6 +1,6 @@
 # Handover: post-pay teaser, read-only dancer app (PR 2 of 2)
 
-Brief: `docs/briefs/ticket-buyer-teaser.md` on branch `brief/ticket-buyer`. Flag: `VITE_ENABLE_TICKET_TEASER` (`flags.ticketTeaser`, default OFF; also needs `flags.publicTicketing`). Zero migrations.
+Brief: `docs/briefs/ticket-buyer-teaser.md` on branch `brief/ticket-buyer`. Flag: `VITE_ENABLE_TICKET_TEASER` (`TICKET_TEASER_ENABLED (screens/teaser/teaserFlag.ts)`, default OFF; also needs `flags.publicTicketing`). Zero migrations.
 
 ## Done
 - `gate/viewOnly.ts`: `admitsViewOnly(path, ticketing, teaser)` also admits `/app/home|nights|me|options` view-only when the teaser flag is on (never edit, photo, page, welcome).
@@ -8,7 +8,7 @@ Brief: `docs/briefs/ticket-buyer-teaser.md` on branch `brief/ticket-buyer`. Flag
 - Home: one Finish card ("What are you?") + small "Your ticket" card (opens Nights). Nights: full ticket (existing `TicketCard`, large QR + door code) at the top.
 - `DancerAppShell`: with the teaser active it draws the real four tabs (no Tickets tab, none locked; small lock mark on Me). `DancerAppRoutes` swaps in the twins only for a view-only buyer with both flags on. Flag off: no change.
 - Tests: `screens/teaser/__tests__/teaserModel.test.ts`.
-- Screenshots 390x844: `docs/walk/ticket-teaser/` (home, nights, me, options, sheet), rendered in a throwaway harness (Vite, no auth), not the live shell.
+- Screenshots 390x844: `docs/handover/ticket-teaser-walk/` (home, nights, me, options, sheet), rendered in a throwaway harness (Vite, no auth), not the live shell.
 
 ## Left / next
 - Walk the real signed-in shell with a prod-shaped view-only buyer (no ticket, pending order, failed order, 2+ tickets).

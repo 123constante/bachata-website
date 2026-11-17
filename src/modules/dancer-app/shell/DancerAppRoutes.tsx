@@ -17,6 +17,7 @@ import PageScreen from '../screens/page/PageScreen';
 import OptionsScreen from '../screens/options/OptionsScreen';
 import TicketsScreen from '../screens/tickets/TicketsScreen';
 import { flags } from '@/lib/featureFlags';
+import { TICKET_TEASER_ENABLED } from '../screens/teaser/teaserFlag';
 import { useViewOnly } from '../gate/viewOnly';
 import { TeaserHome, TeaserMe, TeaserNights, TeaserOptions } from '../screens/teaser/TeaserScreens';
 import { teaserActive } from '../screens/teaser/teaserModel';
@@ -34,14 +35,14 @@ export const DANCER_SCREENS: Record<DancerRouteId, ComponentType> = {
   tickets: TicketsScreen,
 };
 
-/** The read-only twins the post-pay teaser shows in place of these four screens (flags.ticketTeaser). */
+/** The read-only twins the post-pay teaser shows in place of these four screens (TICKET_TEASER_ENABLED). */
 const TEASER_SCREENS: Partial<Record<DancerRouteId, ComponentType>> = { home: TeaserHome, nights: TeaserNights, me: TeaserMe, options: TeaserOptions };
 
 /** The real screen, or its read-only twin for a view-only buyer with the teaser flag on. Flag off = always the real one. */
 const ScreenOrTeaser = ({ id, Screen }: { id: DancerRouteId; Screen: ComponentType }) => {
   const viewOnly = useViewOnly();
   const Twin = TEASER_SCREENS[id];
-  if (Twin && teaserActive({ teaserFlag: flags.ticketTeaser, ticketingFlag: flags.publicTicketing, viewOnly })) return <Twin />;
+  if (Twin && teaserActive({ teaserFlag: TICKET_TEASER_ENABLED, ticketingFlag: flags.publicTicketing, viewOnly })) return <Twin />;
   return <Screen />;
 };
 
