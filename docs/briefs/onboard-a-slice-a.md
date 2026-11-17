@@ -22,3 +22,8 @@ Never apply DDL from the Website repo. Real-data checks per CLAUDE.md definition
 - 'Not you?' keeps basket. Copy exactly: 'Tickets go to {email}. Not you?'
 - Refunded or cancelled order: QR voided, card says 'This ticket was refunded'.
 - Owner had no preference, so recommended defaults apply: different-email sign-in = keep separate + note 'Your ticket is under another email' (linking = later duplicate-accounts arc); funnel counts = one daily status line, no new screen; accessibility = labels on every control, focus order, 44px taps, contrast checked in the walk.
+
+## UPDATE 2026-11-17 (DB is LIVE on prod, admin #1950 merged)
+- `public.ensure_my_dancer_profile_v1()` is applied. No args. Returns jsonb `{"profile_id": uuid, "created": bool}`. EXECUTE: authenticated only.
+- Errors: SQLSTATE 42501 message `not_signed_in` (no session); SQLSTATE 54000 message `rate_limited` (max 5 creations per person per day). Map them to the Website's existing error-code names; if no DancerErrorCode type exists in src, use plain string codes `not_signed_in` / `rate_limited` and do not invent a new error framework.
+- Call it silently after sign-in. A failure must never block sign-in or payment. Types: types.ts may not list the RPC yet; cast the rpc name locally rather than hand-editing types.ts (the auto-heal PR regenerates it).
