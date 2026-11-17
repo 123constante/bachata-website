@@ -91,6 +91,10 @@ export const flags = {
   // only after #1577 is applied.
   organiserGuestListLive: import.meta.env.VITE_ENABLE_ORGANISER_GUEST_LIST_LIVE === 'true',
   organiserTicketing:  import.meta.env.VITE_ENABLE_ORGANISER_TICKETING === 'true',
+  // Organiser Tickets screen option A (docs/briefs/organiser-tickets-option-a.md): one big number that follows the
+  // clock of the night, plus the "Back to bachatacalendar.co.uk" exit wording. Needs organiserTicketing, organiserP3
+  // and organiserShellV2. OFF = every screen exactly as before. Turn on with VITE_ENABLE_ORGANISER_TICKETS_A=true.
+  organiserTicketsA:   import.meta.env.VITE_ENABLE_ORGANISER_TICKETS_A === 'true',
   // T3 price steps (docs/briefs/ticket-t3-price-steps-editor.md): the "Price changes" block in the
   // ticket editor. Needs organiserTicketing. OFF = the editor is exactly as before.
   // Turn on with VITE_ENABLE_TICKET_PRICE_STEPS_EDITOR=true (Vercel env) -- no code change.

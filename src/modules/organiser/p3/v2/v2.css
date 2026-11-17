@@ -47,3 +47,7 @@
   background: var(--fg); color: var(--bg); font-size: 14px;
 }
 .p3-theme.v2-look .v2-toast-x { min-height: 44px; min-width: 44px; background: none; border: 0; color: inherit; font: inherit; font-weight: 600; text-decoration: underline; }
+/* Option A exit bar (flag organiserTicketsA): its own 44px white bar above the header. */
+.p3-theme.v2-look .v2-exit { display: flex; align-items: center; min-height: 44px; padding: 0 16px; background: #FFFFFF; border-bottom: 1px solid #E9E9E9; }
+.p3-theme.v2-look .v2-exit-link { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; font-size: 12px; font-weight: 500; color: #464646; text-decoration: none; }
+.p3-theme.v2-look .v2-exit-link:focus-visible { outline: 2px solid var(--gold-fg); outline-offset: 2px; }

@@ -6,6 +6,7 @@ import { EventsScreen } from '../screens/EventsScreen';
 import { AccountEntry } from '../shell/P3Shell';
 import { P3_PATHS } from '../shell/paths';
 import { TicketsEntry } from '../tickets/TicketsEntry';
+import { TicketsA } from '../tickets/a/TicketsA';
 import { GuestListRow, GuestListSheet } from '../guestlist/GuestListSheet';
 import { ComingSoonRaffle, RaffleRow } from '../events/raffle/RaffleParts';
 import { flags } from '@/lib/featureFlags';
@@ -113,7 +114,7 @@ export function V2TicketsTab() {
       {() => (
         <div className="p3-stack" data-testid="v2-tickets-tab">
           <p className="p3-note">Tickets for <strong className="v2-inline">{c.event!.name}</strong>.</p>
-          <TicketsEntry seriesId={c.event!.id} />
+          {flags.organiserTicketsA ? <TicketsA seriesId={c.event!.id} /> : <TicketsEntry seriesId={c.event!.id} />}
           <Link className={linkBtn} style={TAP} to={P3_PATHS.event(c.event!.id)}>Open the event</Link>
         </div>
       )}
