@@ -30,6 +30,7 @@ name: Phone QA
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 permissions:
@@ -46,6 +47,9 @@ jobs:
   # auto-rerun has the same cap. A shard cancelled at its 20-minute limit is re-run once by
   # phone-qa-rerun.yml; a real test failure is never re-run and stays red.
   phone-qa:
+    # Draft PRs skip this heavy job; it runs on ready_for_review (and, for e2e-smoke and unit-tests, on push to main).
+    # Merging still waits: a draft cannot merge, and the matrix check names appear only after ready_for_review.
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     # Browsers and their system libraries come baked into the Playwright image, so no
     # step here runs apt: `playwright install --with-deps` did, and runner apt DNS
@@ -130,6 +134,9 @@ jobs:
   # job: vendorChunkCycleGuard (vite.chunks.ts) fails EVERY client build on it,
   # perf-budget.yml's on every PR and Vercel's deploy included.
   build-smoke:
+    # Draft PRs skip this heavy job; it runs on ready_for_review (and, for e2e-smoke and unit-tests, on push to main).
+    # Merging still waits: a draft cannot merge.
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     # Browsers and their system libraries come baked into the Playwright image, so no
     # step here runs apt: `playwright install --with-deps` did, and runner apt DNS

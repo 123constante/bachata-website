@@ -20,6 +20,7 @@ name: Unit & Contract Tests
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main, master]
 
@@ -35,6 +36,9 @@ concurrency:
 
 jobs:
   unit:
+    # Draft PRs skip this heavy job; it runs on ready_for_review and on push to main.
+    # Merging still waits: a draft cannot merge, and the matrix check names appear only after ready_for_review.
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     # 20, not 10 (2026-11-04): the full London suite measured 414-530 s plus about 75 s of
     # checkout/npm ci, so it sat on the old 10 min limit and was cancelled at 10m11s (#1328).
@@ -189,6 +193,9 @@ jobs:
   # self-test breaks every rule on purpose in a throwaway repo, so a check that
   # cannot fail goes red here first.
   dancer-area-isolation:
+    # Draft PRs skip this heavy job; it runs on ready_for_review and on push to main.
+    # Merging still waits: a draft cannot merge.
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
