@@ -27,3 +27,11 @@ Never apply DDL from the Website repo. Real-data checks per CLAUDE.md definition
 - `public.ensure_my_dancer_profile_v1()` is applied. No args. Returns jsonb `{"profile_id": uuid, "created": bool}`. EXECUTE: authenticated only.
 - Errors: SQLSTATE 42501 message `not_signed_in` (no session); SQLSTATE 54000 message `rate_limited` (max 5 creations per person per day). Map them to the Website's existing error-code names; if no DancerErrorCode type exists in src, use plain string codes `not_signed_in` / `rate_limited` and do not invent a new error framework.
 - Call it silently after sign-in. A failure must never block sign-in or payment. Types: types.ts may not list the RPC yet; cast the rpc name locally rather than hand-editing types.ts (the auto-heal PR regenerates it).
+
+## CONTINUATION 2026-11-17 (fresh worker, SAME branch claude/onboard-a, PR #1763)
+Items 2, 3, 5 are built and pushed (read docs/handover/onboard-a-slice-a.md on the branch first; do not redo them). Do, in order, all behind VITE_ENABLE_BUYER_ONBOARDING (OFF):
+1. Item 4: checkout return lands on teaser Home with the QR. TicketThanksPage redirects a signed-in buyer to /app/home?o=; give TeaserHome the same order poll the Tickets tab uses (reuse, do not copy) so the QR shows once the webhook lands, with a plain pending state.
+2. Ticket card states (owner clicks above): passed event = greyed, QR hidden, 'This night has passed'; cancelled event = 'This night was cancelled'; refunded/cancelled order = QR voided, 'This ticket was refunded'. One shared status mapping used by every screen showing a ticket. Table test over every shape.
+3. Different-email sign-in note 'Your ticket is under another email' (plain, no linking).
+4. Funnel: ONE daily status line only, no new screen; if it needs infra you cannot add here, skip it and say so in the handover.
+5. Run npm run pre-ship pieces that apply; update PR #1763 body with a 'Verified on real data' block incl. honest Not verified. The 390x844 walk is done by the orchestrator after you; do not block on it.
