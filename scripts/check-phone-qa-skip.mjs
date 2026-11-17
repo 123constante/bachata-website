@@ -15,6 +15,7 @@
  * Static: no network, no secrets. `--self-test` runs a mutant that must be refused.
  */
 import { readFileSync } from 'node:fs';
+import { isEntryPoint } from './lib/entry-point.mjs';
 
 const FILE = '.github/workflows/phone-qa.yml';
 const HEAVY = /(npm ci|npm install|npm run build|playwright|actions\/setup-node)/;
@@ -75,12 +76,14 @@ function selfTest(text) {
   return 0;
 }
 
-if (process.argv[1] && process.argv[1].endsWith('check-phone-qa-skip.mjs')) {
-  const text = readFileSync(FILE, 'utf8');
-  if (process.argv.includes('--self-test')) process.exitCode = selfTest(text);
-  else {
-    const p = check(text);
-    process.stdout.write(p.length ? `FAIL\n${p.join('\n')}\n` : 'phone-qa skip guard ok\n');
-    process.exitCode = p.length ? 1 : 0;
-  }
+// main() owns the exit code: its return value becomes process.exitCode.
+export function main(argv = [], text = readFileSync(FILE, 'utf8')) {
+  if (argv.includes('--self-test')) return selfTest(text);
+  const p = check(text);
+  process.stdout.write(p.length ? ['FAIL', ...p, ''].join('\n') : 'phone-qa skip guard ok\n');
+  return p.length ? 1 : 0;
+}
+
+if (isEntryPoint(import.meta.url)) {
+  process.exitCode = main(process.argv.slice(2));
 }
