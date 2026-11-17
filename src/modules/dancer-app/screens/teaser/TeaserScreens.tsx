@@ -2,14 +2,13 @@ import { Suspense, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight, Lock, Ticket } from 'lucide-react';
 import { appWelcomeHref } from '@/lib/accountRouting';
+import { useAuth } from '@/hooks/useAuth';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
-import { DANCER_HOME } from '../../shell/routes';
 import { CARD_COPY } from '../tickets/model';
 import { useTicketCard } from '../tickets/useTicketCard';
-import SignOutControl from '../options/SignOutControl';
 import '../tickets/tickets.css';
 import './teaser.css';
-import { LOCKED_ROWS, TEASER_COPY, nightDate, ticketLine } from './teaserModel';
+import { LOCKED_ROWS, TEASER_COPY, TEASER_HOME, greetingFor, nightDate, ticketLine } from './teaserModel';
 
 // Lazy, as on the Tickets tab: the QR generator never lands on a first load.
 const TicketCard = lazyWithRetry(() => import('../tickets/TicketCard'));
@@ -48,7 +47,7 @@ function LockSheet({ onClose }: { onClose: () => void }) {
           <div className="tz-grab" style={{ margin: '0 auto' }} />
           <h2>{TEASER_COPY.sheetTitle}</h2>
           <p>{TEASER_COPY.sheetBody}</p>
-          <Link to={appWelcomeHref(DANCER_HOME)} className="tz-btn" onClick={onClose} data-testid="teaser-sheet-continue">{TEASER_COPY.sheetContinue}</Link>
+          <Link to={appWelcomeHref(TEASER_HOME)} className="tz-btn" onClick={onClose} data-testid="teaser-sheet-continue">{TEASER_COPY.sheetContinue}</Link>
           <button type="button" className="tz-btn tz-btn-ghost" onClick={onClose} data-testid="teaser-sheet-not-now">{TEASER_COPY.sheetNotNow}</button>
         </div>
       </div>
@@ -65,10 +64,11 @@ const useLockSheet = () => {
 export function TeaserHome() {
   const sheet = useLockSheet();
   const { view } = useTicketCard();
+  const { user } = useAuth();
   const first = view.kind === 'tickets' ? view.tickets[0] : null;
   return (
     <div className="tz-screen" data-testid="teaser-home">
-      <h1 className="tz-h1">Hi there</h1>
+      <h1 className="tz-h1">{greetingFor(user?.user_metadata)}</h1>
       <section className="tz-card tz-pad" data-testid="teaser-finish-card">
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
           <span className="tz-big">{TEASER_COPY.step}</span>
@@ -140,13 +140,14 @@ export function TeaserMe() {
   );
 }
 
-export function TeaserOptions() {
+/** `signOut` is passed in by the route (it lives in the dancer-app chunk; importing it here would make this lazy chunk pull that chunk and drop its manifest entry). */
+export function TeaserOptions({ signOut }: { signOut?: ReactNode }) {
   const sheet = useLockSheet();
   return (
     <div className="tz-screen" data-testid="teaser-options">
       <h1 className="tz-title">Options</h1>
       <LockedRows rows={LOCKED_ROWS.options} onOpen={sheet.open} />
-      <SignOutControl testId="teaser-sign-out" />
+      {signOut}
       {sheet.node}
     </div>
   );

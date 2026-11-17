@@ -4,12 +4,8 @@
  * Flag-gated (TICKET_TEASER_ENABLED, default OFF) and only ever on top of flags.publicTicketing.
  */
 
-/** The four tab screens the teaser replaces with read-only twins. Tickets stays the existing screen. */
-export const TEASER_PATHS: readonly string[] = ['/app/home', '/app/nights', '/app/me', '/app/options'];
-
-/** The teaser shows for a person the dancer gate holds view-only (an unfinished profile), with both flags on. */
-export const teaserActive = (opts: { teaserFlag: boolean; ticketingFlag: boolean; viewOnly: boolean }): boolean =>
-  opts.teaserFlag && opts.ticketingFlag && opts.viewOnly;
+// The gate parts live in ./teaserGate (shell + gate import them without pulling this copy module into the dancer-app entry chunk).
+export { TEASER_PATHS, teaserActive } from './teaserGate';
 
 export const TEASER_COPY = {
   finishTitle: 'Finish your profile',
@@ -66,3 +62,12 @@ export const nightDate = (date: string | null): string | null => {
   const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
   return `${WEEKDAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 };
+
+/** Home greeting: the first name from auth user metadata (no member RPC), else "Hi there". */
+export const greetingFor = (meta: Record<string, unknown> | null | undefined): string => {
+  const n = meta && typeof meta.first_name === 'string' ? meta.first_name.trim() : '';
+  return n ? `Hi ${n}` : 'Hi there';
+};
+
+/** Where Continue returns to after onboarding: the dancer home (same value as DANCER_HOME; kept here so the lazy teaser chunk imports nothing from the shell). */
+export const TEASER_HOME = '/app/home';

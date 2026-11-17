@@ -10,14 +10,12 @@ Brief: `docs/briefs/ticket-buyer-teaser.md` on branch `brief/ticket-buyer`. Flag
 - Tests: `screens/teaser/__tests__/teaserModel.test.ts`.
 - Screenshots 390x844: `docs/handover/ticket-teaser-walk/` (home, nights, me, options, sheet), rendered in a throwaway harness (Vite, no auth), not the live shell.
 
-## Left / next
-- Walk the real signed-in shell with a prod-shaped view-only buyer (no ticket, pending order, failed order, 2+ tickets).
-- Continue goes to `/app/welcome`; for a view-only buyer the gate sends that to `/account` (existing behaviour, onboarding is out of scope). Decide whether the gate should admit welcome when the teaser is on.
-- Home greeting is "Hi there" (no name is read for a view-only buyer).
-- Me tab lock mark is a visual only (as in the mockup).
+## Fix round 1 (done)
+- bundle-budget: teaser twins + TicketsScreen are lazy chunks. They imported the dancer-app entry chunk (shared `tickets/model`, `teaserModel`), which dropped its manifest entry. Split pure shell-shared parts into `tickets/profileIncomplete.ts`, `tickets/roleChips.ts`, `teaser/teaserGate.ts` (old modules re-export); `TeaserOptions` gets `SignOutControl` as a prop. Result: /app/* 376.5 KB / 47 chunks (main 379.8 / 48); allowance tightened 48 -> 47 in `perf-budgets.json`. `check:bundle-budget` and `check:first-load-requests` pass locally. Main was not checked for red (no CI read access here).
+- Gate admits `/app/welcome` for a view-only buyer only with the teaser flag on (test added). Onboarding untouched.
+- Home greeting uses `user_metadata.first_name` (`greetingFor`), else "Hi there".
 
-## Open: bundle-budget (blocks CI, needs an owner decision)
-- First CI run failed because `TeaserScreens` imported `tickets/cardKit` (lazy-TicketCard-only), which dropped the `/app/*` manifest entry. Fixed in `01f3191`+1 (own `nightDate` in `teaserModel.ts`, same words as `doorDate`, pinned by a test).
-- With the entry back, local build (CI env): `/app/*` is 389.6 KB / 52 chunks vs main 379.8 KB / 48 (budget 381 / allowance 48). New first-load chunks vs main: `model`, `myTicketsApi`, `myTicketsModel`, `orderStorage`, `ticketCheckoutApi`.
-- Tried making the four twins one lazy chunk (`lazyWithRetry` in `DancerAppRoutes`): the manifest entry is lost again (the lazy chunk shares `useTicketCard` and friends with the dancer-app chunk). Reverted.
-- Next: either raise the `/app/*` row with a measured note in `perf-budgets.json` (as #1664 did), or find why the tickets modules left the dancer-app chunk (candidate: `TeaserScreens` importing `useTicketCard` + `tickets/model` statically alongside `TicketsScreen`).
+## Left / next
+- Walk the real signed-in shell with a prod-shaped view-only buyer (no ticket, pending, failed, 2+ tickets): not reachable read-only here. Welcome for a view-only buyer then reaches onboarding, whose saves were never tested for this person: check on a phone before turning the flag on.
+- Me tab lock mark is a visual only (as in the mockup).
+- tsc: 2 pre-existing errors in `screens/tickets/__tests__/ticketsScreen.test.tsx` (VitestUtils typing), untouched. eslint errors only in untouched files.

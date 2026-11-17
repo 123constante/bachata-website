@@ -1,4 +1,5 @@
-import type { ComponentType } from 'react';
+import { Suspense, type ComponentType } from 'react';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { useAuth } from '@/hooks/useAuth';
@@ -14,13 +15,19 @@ import MeScreen from '../screens/me/MeScreen';
 import EditScreen from '../screens/edit/EditScreen';
 import PhotoScreen from '../screens/photo/PhotoScreen';
 import PageScreen from '../screens/page/PageScreen';
+import SignOutControl from '../screens/options/SignOutControl';
 import OptionsScreen from '../screens/options/OptionsScreen';
-import TicketsScreen from '../screens/tickets/TicketsScreen';
+// Lazy (with the teaser twins below): the tickets modules they share then sit in their own chunk, off the /app first load.
+const TicketsScreen = lazyWithRetry(() => import('../screens/tickets/TicketsScreen'));
 import { flags } from '@/lib/featureFlags';
 import { TICKET_TEASER_ENABLED } from '../screens/teaser/teaserFlag';
 import { useViewOnly } from '../gate/viewOnly';
-import { TeaserHome, TeaserMe, TeaserNights, TeaserOptions } from '../screens/teaser/TeaserScreens';
-import { teaserActive } from '../screens/teaser/teaserModel';
+const TeaserHome = lazyWithRetry(() => import('../screens/teaser/TeaserScreens').then((m) => ({ default: m.TeaserHome })));
+const TeaserNights = lazyWithRetry(() => import('../screens/teaser/TeaserScreens').then((m) => ({ default: m.TeaserNights })));
+const TeaserMe = lazyWithRetry(() => import('../screens/teaser/TeaserScreens').then((m) => ({ default: m.TeaserMe })));
+const TeaserOptionsLazy = lazyWithRetry(() => import('../screens/teaser/TeaserScreens').then((m) => ({ default: m.TeaserOptions })));
+const TeaserOptions = () => <TeaserOptionsLazy signOut={<SignOutControl testId="teaser-sign-out" />} />;
+import { teaserActive } from '../screens/teaser/teaserGate';
 
 /** Route id -> screen. One entry per DANCER_ROUTES row (TypeScript refuses a missing one). */
 export const DANCER_SCREENS: Record<DancerRouteId, ComponentType> = {
@@ -42,8 +49,8 @@ const TEASER_SCREENS: Partial<Record<DancerRouteId, ComponentType>> = { home: Te
 const ScreenOrTeaser = ({ id, Screen }: { id: DancerRouteId; Screen: ComponentType }) => {
   const viewOnly = useViewOnly();
   const Twin = TEASER_SCREENS[id];
-  if (Twin && teaserActive({ teaserFlag: TICKET_TEASER_ENABLED, ticketingFlag: flags.publicTicketing, viewOnly })) return <Twin />;
-  return <Screen />;
+  const Shown = Twin && teaserActive({ teaserFlag: TICKET_TEASER_ENABLED, ticketingFlag: flags.publicTicketing, viewOnly }) ? Twin : Screen;
+  return <Suspense fallback={null}><Shown /></Suspense>;
 };
 
 /** Signed in by now (AuthGuard): publish the person for the funnel events. */

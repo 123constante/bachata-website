@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { admitsViewOnly } from '../../../gate/viewOnly';
-import { LOCKED_ROWS, TEASER_PATHS, nightDate, teaserActive, ticketLine } from '../teaserModel';
+import { LOCKED_ROWS, TEASER_PATHS, greetingFor, nightDate, teaserActive, ticketLine } from '../teaserModel';
 
 describe('teaserActive', () => {
   const cases: [boolean, boolean, boolean, boolean][] = [
@@ -18,12 +18,26 @@ describe('admitsViewOnly with the teaser flag', () => {
     for (const p of TEASER_PATHS) expect(admitsViewOnly(p, true, false)).toBe(false);
     expect(admitsViewOnly('/app/tickets', true)).toBe(true);
   });
-  it('flag on: the four tabs too, never edit / photo / page / welcome', () => {
+  it('welcome is admitted only with the teaser on (Continue reaches onboarding)', () => {
+    expect(admitsViewOnly('/app/welcome', true, true)).toBe(true);
+    expect(admitsViewOnly('/app/Welcome/', true, true)).toBe(true);
+    expect(admitsViewOnly('/app/welcome', true, false)).toBe(false);
+  });
+  it('flag on: the four tabs too, never edit / photo / page', () => {
     for (const p of TEASER_PATHS) expect(admitsViewOnly(p + '/', true, true)).toBe(true);
-    for (const p of ['/app/me/edit', '/app/me/photo', '/app/page', '/app/welcome']) expect(admitsViewOnly(p, true, true)).toBe(false);
+    for (const p of ['/app/me/edit', '/app/me/photo', '/app/page']) expect(admitsViewOnly(p, true, true)).toBe(false);
   });
   it('ticketing off: nothing, whatever the teaser flag says', () => {
-    for (const p of ['/app/tickets', ...TEASER_PATHS]) expect(admitsViewOnly(p, false, true)).toBe(false);
+    for (const p of ['/app/tickets', '/app/welcome', ...TEASER_PATHS]) expect(admitsViewOnly(p, false, true)).toBe(false);
+  });
+});
+
+describe('greeting', () => {
+  it('uses the first name from auth metadata, else Hi there', () => {
+    expect(greetingFor({ first_name: ' Ana ' })).toBe('Hi Ana');
+    expect(greetingFor({ first_name: '' })).toBe('Hi there');
+    expect(greetingFor({ first_name: 42 })).toBe('Hi there');
+    expect(greetingFor(undefined)).toBe('Hi there');
   });
 });
 
