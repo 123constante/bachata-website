@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import '../theme/p3.css';
 import './door.css';
+import { useEventWorkspace } from '@/modules/organiser/shared/runCommands';
 import { P3_PATHS } from '../shell/paths';
 import { ticketDoorCode } from './doorFlags';
 import {
@@ -51,10 +52,12 @@ const RECHECK_OK_NOTE = 'You can check tickets now. Scan or type the code again.
 
 export function DoorScreen() {
   const { seriesId = '' } = useParams();
-  return <Door seriesId={seriesId} />;
+  // The night name is a nicety: door-only staff may not be allowed this read, and then the header says just "Door".
+  const ws = useEventWorkspace(seriesId);
+  return <Door seriesId={seriesId} nightName={ws.data?.series.name} />;
 }
 
-export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode }: { seriesId: string; deps?: ScannerDeps; shortCodes?: boolean }) {
+export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode, nightName = null }: { seriesId: string; deps?: ScannerDeps; shortCodes?: boolean; nightName?: string | null }) {
   const { user } = useAuth();
   const uid = user?.id;
   const qc = useQueryClient();
@@ -177,17 +180,16 @@ export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode
     void run(`id:${ticketId}`, () => checkInById(ticketId, seriesId), 'list');
   };
 
-  const total = list.data?.result === 'ok' ? list.data.totalCount : null;
   return (
     <div className="p3-theme p3-frame p3-door" data-testid="door-screen">
       <header className="p3-top p3-door-top">
         <Link className="p3-link" to={P3_PATHS.event(seriesId)} data-testid="door-back">&larr; Event</Link>
-        <h1>Door</h1>
+        <h1 data-testid="door-title">{nightName?.trim() ? <>{nightName.trim()}<small> &middot; Door</small></> : 'Door'}</h1>
       </header>
       <nav className="p3-door-tabs" aria-label="Door">
         <button type="button" aria-current={tab === 'scan' ? 'page' : undefined} onClick={() => setTab('scan')} data-testid="door-tab-scan">Scan</button>
         <button type="button" aria-current={tab === 'list' ? 'page' : undefined} onClick={() => setTab('list')} data-testid="door-tab-list">
-          Tonight&rsquo;s list{total != null ? ` (${total})` : ''}
+          Search
         </button>
       </nav>
       <main className="p3-door-main">
@@ -465,7 +467,7 @@ function ListTab({ list, shown, cam, busy, codeInput, onCode, act, seriesId, sho
     <>
       {top}
       <div className="p3-door-pad p3-door-stack">
-        <label htmlFor={searchId} className="p3-door-label">Search first name</label>
+        <label htmlFor={searchId} className="p3-door-label">Search first name{d.totalCount != null ? ` (${d.totalCount} tickets tonight)` : ''}</label>
         <input id={searchId} className="p3-in" type="search" value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off" data-testid="door-search" />
         <p className="p3-note" data-testid="door-list-note">
           {counterText(d.inCount, d.totalCount)} &middot; A&ndash;Z &middot; first name only. One row per ticket; &times;2 means an order of 2.
@@ -498,6 +500,7 @@ function ListTab({ list, shown, cam, busy, codeInput, onCode, act, seriesId, sho
       ) : (
         <div className="p3-door-pad"><div className="p3-card" data-testid="door-no-match">
           <strong>No one called &ldquo;{q.trim()}&rdquo; on the list</strong>
+          <p className="p3-note" data-testid="door-no-match-next">Check the spelling, or search just the first letters. If they have a ticket code, scan it or type it on the Scan tab.</p>
           <button type="button" className="p3-btn p3-btn-line p3-door-wide" onClick={() => setQ('')}>Clear search</button>
         </div></div>
       )}

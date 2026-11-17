@@ -6,11 +6,12 @@
 .p3-theme.p3-door { overflow: hidden; }
 .p3-theme .p3-door-top { display: flex; align-items: center; gap: 12px; padding: 0 16px; min-height: var(--top-h); }
 .p3-theme .p3-door-top h1 { font-size: var(--fs-title); }
+.p3-theme .p3-door-top h1 small { font-size: 14px; font-weight: 500; color: var(--mut); }
 .p3-theme .p3-door-tabs { display: grid; grid-template-columns: 1fr 1fr; background: var(--tab); border-bottom: 1px solid var(--line); flex: none; }
 .p3-theme .p3-door-tabs button {
   min-height: 52px; border: 0; background: none; font: inherit; font-size: 16px; font-weight: 700; color: var(--mut); cursor: pointer;
 }
-.p3-theme .p3-door-tabs button[aria-current="page"] { color: var(--gold-fg); box-shadow: inset 0 -3px 0 var(--gold-fg); }
+.p3-theme .p3-door-tabs button[aria-current="page"] { color: var(--door-active); box-shadow: inset 0 -2px 0 var(--door-active); }
 .p3-theme .p3-door-tabs button:focus-visible { outline: 2px solid var(--gold-fg); outline-offset: -2px; }
 .p3-theme .p3-door-main { flex: 1; overflow-y: auto; overflow-x: hidden; background: var(--bg); }
 .p3-theme .p3-door-pad { padding: 12px; }
