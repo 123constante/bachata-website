@@ -13,7 +13,7 @@ import { youGetPaidRoute } from './youTickets';
 import { P3_PATHS } from './paths';
 import { P3RouteBoundary, type P3RouteBack, type P3RouteFrame } from './P3RouteBoundary';
 import { V2Shell } from '../v2/V2Shell';
-import { V2EventsTab, V2GuestsTab, V2RaffleTab, V2TicketsTab } from '../v2/V2Tabs';
+import { V2EventsTab, V2Home, V2GuestsTab, V2RaffleTab, V2TicketsTab } from '../v2/V2Tabs';
 
 /** Organiser shell V2 (brief organiser-v1-shell): on only with organiserShellV2 AND organiserP3 AND organiserDash. OFF = the P3 shell exactly as before. */
 export const shellV2On = (f: Pick<typeof flags, 'organiserShellV2' | 'organiserP3' | 'organiserDash'>): boolean => f.organiserShellV2 && f.organiserP3 && f.organiserDash;
@@ -87,13 +87,6 @@ function lazyScreen(el: ReactNode, frame: P3RouteFrame, back: (p: Readonly<Param
 /** The area's frame: the V2 shell behind organiserShellV2, else the P3 shell exactly as before. */
 function P3Shell() {
   return v2Live() ? <V2Shell /> : <P3ShellV1 />;
-}
-
-/** V2 has no Home tab: the area's bare URL opens Events, the page and event choice kept. */
-function V2Home() {
-  const [params] = useSearchParams();
-  const q = params.toString();
-  return <Navigate to={`${P3_PATHS.events}${q ? `?${q}` : ''}`} replace />;
 }
 
 export default function P3Routes() {
