@@ -10,7 +10,7 @@ import { ticketDoorCode } from '@/modules/organiser/p3/door/doorFlags';
 import { fetchMyTickets, type MyTicketsResult } from './myTicketsApi';
 import DoorCodeLine from './DoorCodeLine';
 import { BUYER_ONBOARDING_ENABLED } from '@/lib/buyerOnboardingFlag';
-import { ticketQrShown, ticketStatus, ticketStatusLine } from './ticketCardStatus';
+import { ticketQrShown, ticketStatusAt, ticketStatusLine } from './ticketCardStatus';
 import { MY_TICKETS_PATH } from './myTicketsModel';
 import {
   QR_MISSING,
@@ -47,7 +47,7 @@ function TicketCard({ t, position, today, defaultOpen }: { t: MyTicket; position
   const [open, setOpen] = useState(defaultOpen);
   const show = open && qrVisible(t, anyway);
   // Buyer onboarding ON: the one shared status mapping (ticketCardStatus); passed / cancelled / refunded = greyed, no QR, no code.
-  const status = BUYER_ONBOARDING_ENABLED ? ticketStatus({ date: t.date }, today) : 'valid';
+  const status = BUYER_ONBOARDING_ENABLED ? ticketStatusAt({ date: t.date }) : 'valid';
   const reason = ticketStatusLine(status);
   const code = ticketQrShown(status) ? doorCodeText(t.shortCode, ticketDoorCode) : null;
   // Directly under the QR when one is drawn; otherwise in the QR's place, so it shows on every card.

@@ -135,6 +135,8 @@ export const createFakeBackend = (opts: FakeBackendOptions = {}): FakeDancerBack
   const feedbackLimit = opts.feedbackLimit ?? 5;
   const ensureLimit = opts.ensureLimit ?? 5;
   let ensured = 0;
+  // The live function returns created:false whenever a dancer_profiles row with that id exists, archived included.
+  const archivedRow = opts.shape === 'archivedRetiredStub';
 
   const consumeFailure = () => {
     if (failNext) {
@@ -183,7 +185,7 @@ export const createFakeBackend = (opts: FakeBackendOptions = {}): FakeDancerBack
       calls.push({ fn: 'ensureMyDancerProfile' });
       consumeFailure();
       if (!signedIn) throw new DancerApiError('not_signed_in', 'not_signed_in');
-      if (profile) return { created: false };
+      if (profile || archivedRow) return { created: false };
       if (ensured >= ensureLimit) throw new DancerApiError('rate_limited', 'rate_limited');
       ensured += 1;
       profile = DANCER_SHAPES.emptyStub.profile;

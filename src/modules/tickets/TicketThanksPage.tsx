@@ -7,13 +7,13 @@ import { MAX_ORDER_POLLS, isOrderId, pollDelayMs, thanksCopy, type OrderStatusRe
 import { readOrderStatus } from './ticketCheckoutApi';
 import { clearOrderId, readOrderId } from './orderStorage';
 import { MY_TICKETS_PATH } from './myTicketsModel';
+import { BUYER_ONBOARDING_ENABLED } from '@/lib/buyerOnboardingFlag';
 
 // Local copy: the tickets module may not import from dancer-app (check-dancer-area-isolation rule c).
 const DANCER_TICKETS = '/app/tickets';
 // Buyer onboarding ON: the buyer lands on Home (the teaser shows the order card with the QR there;
 // a finished profile is sent on to the Tickets tab by the shell, ?o= kept).
 const DANCER_HOME_PATH = '/app/home';
-import { BUYER_ONBOARDING_ENABLED } from '@/lib/buyerOnboardingFlag';
 import { useAuth } from '@/hooks/useAuth';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 

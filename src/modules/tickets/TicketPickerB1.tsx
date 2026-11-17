@@ -48,6 +48,8 @@ function Trust() {
   );
 }
 
+const NOT_YOU_FAILED = 'We could not sign you out. Try again.';
+
 export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueLine, onClose, now: nowProp }: TicketPickerB1Props) {
   const location = useLocation();
   const { user, signOut } = useAuth();
@@ -75,7 +77,9 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
   const [refusal, setRefusal] = useState('');
   const [held, setHeld] = useState<PickerHeld | null>(null);
   const [verifiedEmail, setVerifiedEmail] = useState('');
-  const knownEmail = user?.email || verifiedEmail;
+  const knownEmail = user?.email ?? verifiedEmail;
+  const [notYouBusy, setNotYouBusy] = useState(false);
+  const [notYouErr, setNotYouErr] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [cancelled] = useState(() => new URLSearchParams(location.search).get(CANCELLED_PARAM) === 'cancelled');
@@ -160,8 +164,14 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
 
   // "Not you?": sign out on this device, keep the basket (it lives in storage, not the session),
   // then the email + code card runs for the new address.
+  // A failed sign-out leaves the old account signed in: say so plainly and stay put.
   async function notYou() {
-    await signOut();
+    if (notYouBusy) return;
+    setNotYouBusy(true); setNotYouErr('');
+    let outcome: Awaited<ReturnType<typeof signOut>>;
+    try { outcome = await signOut(); } catch { outcome = 'failed'; }
+    setNotYouBusy(false);
+    if (outcome === 'failed') { setNotYouErr(NOT_YOU_FAILED); return; }
     setVerifiedEmail(''); setEmail(''); setEmailBad(false); setSendErr(''); setStage('email');
   }
 
@@ -291,9 +301,10 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
           {BUYER_ONBOARDING_ENABLED && knownEmail && (
             <p data-testid="picker-not-you" className="mb-[6px] flex flex-wrap items-center gap-x-1 break-words text-[13px]" style={{ color: SUB }}>
               <span>Tickets go to {knownEmail}.</span>
-              <button type="button" data-testid="picker-not-you-btn" onClick={() => void notYou()} className="min-h-[44px] underline" style={{ color: BRAND }}>Not you?</button>
+              <button type="button" data-testid="picker-not-you-btn" onClick={() => void notYou()} disabled={notYouBusy} className="min-h-[44px] underline" style={{ color: BRAND, opacity: notYouBusy ? 0.5 : 1 }}>Not you?</button>
             </p>
           )}
+          {BUYER_ONBOARDING_ENABLED && notYouErr && <p role="alert" data-testid="picker-not-you-error" className="mb-[6px] text-[13px]" style={{ color: BAD }}>{notYouErr}</p>}
           <button type="button" data-testid="picker-continue" onClick={onContinue} disabled={continueOff} className={btn} style={primary(continueOff)}>{heldNow ? PRICE_CONFIRM_LABEL : 'Continue'}</button>
           <Trust />
         </div>

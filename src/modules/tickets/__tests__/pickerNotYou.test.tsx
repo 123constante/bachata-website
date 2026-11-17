@@ -54,4 +54,50 @@ describe('picker B1 "Not you?" line', () => {
     await waitFor(() => expect(auth.signOut).toHaveBeenCalledTimes(1));
     expect(await screen.findByLabelText('Email address')).toHaveProperty('value', '');
   });
+
+  it('Not you? keeps the basket (N3)', async () => {
+    auth.user = { email: 'ana@example.com' };
+    mount();
+    fireEvent.click(await screen.findByLabelText('Add one Party'));
+    fireEvent.click(screen.getByLabelText('Add one Party'));
+    expect(screen.getByLabelText('Party count').textContent).toBe('2');
+    fireEvent.click(screen.getByTestId('picker-not-you-btn'));
+    await screen.findByLabelText('Email address');
+    expect(screen.getByLabelText('Party count').textContent).toBe('2');
+    fireEvent.click(screen.getByText('Back to tickets'));
+    expect(screen.getByLabelText('Party count').textContent).toBe('2');
+  });
+
+  it("sign-out 'failed': plain line, no email card, still the old address (H3)", async () => {
+    auth.user = { email: 'ana@example.com' };
+    auth.signOut.mockResolvedValue('failed');
+    mount();
+    fireEvent.click(await screen.findByTestId('picker-not-you-btn'));
+    expect((await screen.findByTestId('picker-not-you-error')).textContent).toBe('We could not sign you out. Try again.');
+    expect(screen.queryByLabelText('Email address')).toBeNull();
+    expect(screen.getByTestId('picker-not-you').textContent).toBe('Tickets go to ana@example.com.Not you?');
+  });
+
+  it('sign-out throws: same plain line (H3)', async () => {
+    auth.user = { email: 'ana@example.com' };
+    auth.signOut.mockRejectedValue(new Error('offline'));
+    mount();
+    fireEvent.click(await screen.findByTestId('picker-not-you-btn'));
+    expect((await screen.findByTestId('picker-not-you-error')).textContent).toBe('We could not sign you out. Try again.');
+    expect(screen.queryByLabelText('Email address')).toBeNull();
+  });
+
+  it('button is disabled while signing out; a second tap starts no second sign-out (H3)', async () => {
+    auth.user = { email: 'ana@example.com' };
+    let finish: (v: string) => void = () => {};
+    auth.signOut.mockReturnValue(new Promise((res) => { finish = res; }));
+    mount();
+    const btn = await screen.findByTestId('picker-not-you-btn');
+    fireEvent.click(btn);
+    await waitFor(() => expect(btn).toHaveProperty('disabled', true));
+    fireEvent.click(btn);
+    expect(auth.signOut).toHaveBeenCalledTimes(1);
+    finish('signed-out');
+    expect(await screen.findByLabelText('Email address')).toHaveProperty('value', '');
+  });
 });

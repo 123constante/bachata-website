@@ -30,7 +30,7 @@ type Row = {
 const ROWS: Row[] = [
   { name: 'flag OFF, no persona: unchanged dead end, no create call', flagOn: false, opts: { shape: 'authUserNoPersona' }, expect: 'no_profile', ensureCalls: 0 },
   { name: 'no persona: created silently, read succeeds', flagOn: true, opts: { shape: 'authUserNoPersona' }, expect: 'profile', ensureCalls: 1 },
-  { name: 'archived retired stub: created silently', flagOn: true, opts: { shape: 'archivedRetiredStub' }, expect: 'profile', ensureCalls: 1 },
+  { name: 'archived retired stub: row exists, created false, still no_profile', flagOn: true, opts: { shape: 'archivedRetiredStub' }, expect: 'no_profile', ensureCalls: 1 },
   { name: 'has a profile: no create call', flagOn: true, opts: { shape: 'fourFieldComplete' }, expect: 'profile', ensureCalls: 0 },
   { name: 'rate limited (6th create today): falls back to no_profile', flagOn: true, opts: { shape: 'authUserNoPersona', ensureLimit: 0 }, expect: 'no_profile', ensureCalls: 1 },
   { name: 'create fails (offline): falls back to no_profile', flagOn: true, opts: { shape: 'authUserNoPersona' }, failEnsureWith: 'unknown', expect: 'no_profile', ensureCalls: 1 },

@@ -5,6 +5,7 @@ import { appWelcomeHref } from '@/lib/accountRouting';
 import { useAuth } from '@/hooks/useAuth';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { BUYER_ONBOARDING_ENABLED } from '@/lib/buyerOnboardingFlag';
+import { isOrderId } from '@/modules/tickets/ticketCheckoutModel';
 import { CARD_COPY } from '../tickets/model';
 import { useTicketCard } from '../tickets/useTicketCard';
 import '../tickets/tickets.css';
@@ -69,7 +70,7 @@ export function TeaserHome() {
   const { search } = useLocation();
   // Checkout return (buyer onboarding ON): the order card with the QR, or its plain pending line
   // while the webhook lands (the Tickets tab's own poll, useTicketCard), sits at the top of Home.
-  const orderCard = BUYER_ONBOARDING_ENABLED && new URLSearchParams(search).has('o');
+  const orderCard = BUYER_ONBOARDING_ENABLED && isOrderId(new URLSearchParams(search).get('o'));
   const first = !orderCard && view.kind === 'tickets' ? view.tickets[0] : null;
   return (
     <div className="tz-screen" data-testid="teaser-home">

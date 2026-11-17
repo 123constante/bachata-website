@@ -6,9 +6,8 @@ import QrCode from '@/modules/tickets/TicketQrCode';
 import { doorCodeText } from '@/modules/tickets/myTicketsModel';
 import { ticketDoorCode } from '@/modules/organiser/p3/door/doorFlags';
 import { doorDate, stepTicket, ticketCountLine } from './cardKit';
-import { londonTodayKey } from '@/lib/londonDate';
 import { BUYER_ONBOARDING_ENABLED } from '@/lib/buyerOnboardingFlag';
-import { ticketQrShown, ticketStatus, ticketStatusLine } from '@/modules/tickets/ticketCardStatus';
+import { ticketQrShown, ticketStatusAt, ticketStatusLine } from '@/modules/tickets/ticketCardStatus';
 import type { CARD_COPY as CardCopy, CardTicket, CardView } from './model';
 
 // The copy arrives as a prop (type-only import above): importing the value would pull ./model into this lazy chunk.
@@ -36,9 +35,6 @@ function CardState({ view, retry, copy: CARD_COPY }: { view: Exclude<CardView, {
   return (
     <section className="dt-card dt-card-state" data-testid="tickets-card" data-state={view.kind} aria-busy={view.kind === 'loading' || view.kind === 'pending'}>
       <p className="dt-state-line" role="status">{line}</p>
-      {view.kind === 'paid_email' && view.otherEmail && (
-        <p className="dt-state-line" data-testid="tickets-card-other-email">{CARD_COPY.otherEmail}</p>
-      )}
       {view.kind === 'qr_error' && (
         <button type="button" className="dt-btn" onClick={retry} data-testid="tickets-card-retry">{CARD_COPY.retry}</button>
       )}
@@ -56,7 +52,7 @@ function TicketCarousel({ tickets }: { tickets: CardTicket[] }) {
   const at = Math.min(index, n - 1);
   const t = tickets[at];
   // Buyer onboarding ON: the one shared status mapping; a passed, cancelled or refunded ticket is greyed, no QR, no code.
-  const status = BUYER_ONBOARDING_ENABLED ? ticketStatus({ date: t.eventDate, eventCancelled: t.eventCancelled, refunded: t.refunded }, londonTodayKey()) : 'valid';
+  const status = BUYER_ONBOARDING_ENABLED ? ticketStatusAt({ date: t.eventDate, eventCancelled: t.eventCancelled, refunded: t.refunded }) : 'valid';
   const reason = ticketStatusLine(status);
   const code = ticketQrShown(status) ? doorCodeText(t.shortCode, ticketDoorCode) : null;
   return (
