@@ -1,7 +1,7 @@
 import { useQueries } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { parseDoorList } from '../door/data';
+import { parseDoorList, SignedOutError, type DoorList } from '../door/data';
 import { fetchRaffleNights, raffleNightsQueryKey } from '../events/raffle/raffleApi';
 import type { RaffleNight, ReadResult } from '../events/raffle/raffleModel';
 import { dayWord } from '../model';
@@ -19,10 +19,19 @@ export interface NightCount { cameIn: number | null; ticketsSold: number | null 
 
 type Rpc = { rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: { message: string } | null }> };
 
-export async function fetchNightCount(seriesId: string, occurrenceId: string): Promise<NightCount> {
+/**
+ * Slice 3: the whole v3 door answer for one night (rows with first_name and checked_in_at, plus the
+ * counts). `occurrenceId` null = the server picks the earliest night that has not ended (tonight).
+ * The ONE read behind the counts here and the Who is in / Who came sheets.
+ */
+export async function fetchDoorNight(seriesId: string, occurrenceId: string | null): Promise<DoorList> {
   const { data, error } = await (supabase as unknown as Rpc).rpc('ticket_door_list_v3', { p_event_series_id: seriesId, p_occurrence_id: occurrenceId });
-  if (error) throw new Error(error.message);
-  const d = parseDoorList(data);
+  if (error) throw (error as { code?: string }).code === '42501' ? new SignedOutError() : new Error(error.message);
+  return parseDoorList(data);
+}
+
+export async function fetchNightCount(seriesId: string, occurrenceId: string): Promise<NightCount> {
+  const d = await fetchDoorNight(seriesId, occurrenceId);
   return d.result === 'ok' ? { cameIn: d.inCount, ticketsSold: d.totalCount } : { cameIn: null, ticketsSold: null };
 }
 
@@ -48,7 +57,7 @@ export function pastOf(series: readonly SeriesNights[], today: string, cap: numb
 
 export function pastNightOf(p: { night: RaffleNight; seriesId: string; name: string }, today: string, count: NightCount | undefined): PastNight {
   return {
-    key: `${p.seriesId}:${p.night.date}`, seriesId: p.seriesId, date: p.night.date, name: p.name,
+    key: `${p.seriesId}:${p.night.date}`, seriesId: p.seriesId, occurrenceId: p.night.occurrenceId, date: p.night.date, name: p.name,
     when: dayWord(p.night.date, today, null), cancelled: p.night.chip === 'cancelled',
     cameIn: count?.cameIn ?? null, ticketsSold: count?.ticketsSold ?? null, raffle: raffleWordsOf(p.night), going: null,
   };

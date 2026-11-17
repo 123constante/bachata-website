@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { rowsOf } from '../data/home';
 import { useP3Home } from '../data/useP3Data';
 import { usePageScope } from '../screens/PageScope';
@@ -37,6 +38,7 @@ export function CompareView({ model, failed = false }: { model: CompareModel | n
                 <span className="p3-row-s">{r.when}</span>
               </span>
               <span style={{ fontSize: 16, fontWeight: 600 }}>{r.value.toLocaleString('en-GB')} <span className="p3-row-s">{r.word}</span></span>
+              {r.to && <Link to={r.to} className="p3-link" style={{ minHeight: 44, minWidth: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} aria-label={`Who came, ${r.name}, ${r.when}`} data-testid="dash-compare-who">&rsaquo;</Link>}
             </li>
           ))}
         </ol>

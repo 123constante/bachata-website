@@ -3,6 +3,8 @@
  * screen x shape is table-testable. Design: Option A (hero) + B's date rail. Positive-only: a zero is
  * never drawn, it becomes a suggested action. Where a read does not exist the tile is omitted.
  */
+import { whoCameLinkOf } from '../sheets/sheetsModel';
+
 export type Seat = 'owner' | 'manager' | 'contributor';
 export type DashLoad = 'ready' | 'loading' | 'error';
 
@@ -33,6 +35,8 @@ export type HomeClock = 'before' | 'night' | 'after';
 export interface PastNight {
   key: string;
   seriesId: string;
+  /** Slice 3: the night's occurrence id (the Who came sheet reads it); absent = no sheet link. */
+  occurrenceId?: string;
   date: string;
   name: string;
   when: string;
@@ -258,7 +262,8 @@ export function dayAfterOf(n: PastNight): DayAfter {
   return { night: n, title: `${n.name}, ${n.when}`, big, bigWord: big === 1 ? 'person came' : 'people came', lines };
 }
 
-export interface CompareRow { key: string; name: string; when: string; value: number; word: string }
+/** `to`: slice 3's Who came sheet for this night (null = no night id, no link). */
+export interface CompareRow { key: string; name: string; when: string; value: number; word: string; to: string | null }
 export interface CompareModel { rows: CompareRow[]; empty: string | null }
 
 /** Compare nights (owner decision 3): past, not-cancelled nights ranked by Who came, else Going. Unknown or zero = not ranked. */
@@ -266,8 +271,9 @@ export function compareOf(past: readonly PastNight[]): CompareModel {
   const rows: CompareRow[] = [];
   for (const n of past) {
     if (n.cancelled) continue;
-    if (n.cameIn !== null && n.cameIn > 0) rows.push({ key: n.key, name: n.name, when: n.when, value: n.cameIn, word: 'came' });
-    else if (n.going != null && n.going > 0) rows.push({ key: n.key, name: n.name, when: n.when, value: n.going, word: 'going' });
+    // only a night with a door count links to Who came (a Going-only night would open an empty sheet)
+    if (n.cameIn !== null && n.cameIn > 0) rows.push({ key: n.key, name: n.name, when: n.when, value: n.cameIn, word: 'came', to: whoCameLinkOf(n, 'compare') });
+    else if (n.going != null && n.going > 0) rows.push({ key: n.key, name: n.name, when: n.when, value: n.going, word: 'going', to: null });
   }
   rows.sort((a, b) => b.value - a.value || (a.key < b.key ? -1 : 1));
   return { rows, empty: rows.length ? null : 'No night has a count yet. Scan tickets at the door on the night and each night shows here, best first.' };

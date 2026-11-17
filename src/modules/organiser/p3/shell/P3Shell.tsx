@@ -2,6 +2,7 @@ import { Suspense, useCallback, useContext, useState, type ReactNode } from 'rea
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { QueryClientContext, useQueryClient } from '@tanstack/react-query';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { flags } from '@/lib/featureFlags';
 import { OB_THEME_KEY, readObTheme } from '../onboarding/obEnv';
 import { L } from '../model/labels';
 import { stripOf, switchBadgeOf } from '../model/strip';
@@ -33,6 +34,9 @@ const NEW_PREFIX = P3_PATHS.newWhat.replace(/what$/, '');
 const CREATE = P3_PATHS.create;
 const isCreate = (pathname: string) => pathname === CREATE || pathname.startsWith(`${CREATE}/`) || pathname.startsWith(NEW_PREFIX);
 const ORGANISERS = new RegExp(`^${P3_PATHS.events}/[^/]+/organisers/?$`);
+// Slice 3: the read-only Who is in / Who came sheets are pushed (no tab bar).
+const SHEETS = new RegExp(`^${P3_PATHS.events}/[^/]+/(in|came/[^/]+)/?$`);
+const isSheet = (pathname: string) => flags.organiserDash && SHEETS.test(pathname);
 
 export function tabOf(pathname: string): P3Tab {
   // New event belongs to Events (its way out is Events).
@@ -43,7 +47,7 @@ export function tabOf(pathname: string): P3Tab {
 
 /** An R1 screen in P3's frame (the You hub's pushes, New event, an event's Organisers): it draws its own top bar, with the way back. */
 export function isPushed(pathname: string): boolean {
-  if (isCreate(pathname) || ORGANISERS.test(pathname) || pathname === P3_PATHS.compare) return true;
+  if (isCreate(pathname) || ORGANISERS.test(pathname) || pathname === P3_PATHS.compare || isSheet(pathname)) return true;
   return pathname.startsWith(`${P3_PATHS.you}/`) && pathname !== `${P3_PATHS.you}/`;
 }
 
@@ -181,7 +185,8 @@ export function P3Shell() {
           </main>
         </>
       )}
-      <nav className="p3-tabs" aria-label="Main">
+      {/* slice 3: a read-only sheet is pushed with the tab bar hidden (its back is the way out) */}
+      <nav className="p3-tabs" aria-label="Main" style={isSheet(pathname) ? { display: 'none' } : undefined}>
         {P3_TABS.map((t) => (
           <NavLink key={t} to={P3_PATHS[t]} end={t === 'home'} className="p3-tab" data-tab={t}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">

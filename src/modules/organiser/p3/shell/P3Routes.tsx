@@ -60,6 +60,9 @@ const OnboardingFlow = lazyWithRetry(() => import('../onboarding/OnboardingFlow'
 const DetailsScreen = lazyWithRetry(() => import('../screens/DetailsScreen').then((m) => ({ default: m.DetailsScreen })));
 const PricesScreen = lazyWithRetry(() => import('../screens/PricesScreen').then((m) => ({ default: m.PricesScreen })));
 const HistoryScreen = lazyWithRetry(() => import('../screens/HistoryScreen').then((m) => ({ default: m.HistoryScreen })));
+// Slice 3 (organiserDash): the read-only Who is in / Who came sheets, pushed (no tab bar).
+const WhoIsInRoute = lazyWithRetry(() => import('../sheets/WhoSheets').then((m) => ({ default: m.WhoIsInRoute })));
+const WhoCameRoute = lazyWithRetry(() => import('../sheets/WhoSheets').then((m) => ({ default: m.WhoCameRoute })));
 // The door scanner (ticketing) loads on its own; its QR reader fallback (jsQR) loads only from inside it.
 const GetPaidStart = lazyWithRetry(() => import('../tickets/GetPaid').then((m) => ({ default: m.GetPaidStart })));
 const DoorScreen = lazyWithRetry(() => import('../door/DoorScreen').then((m) => ({ default: m.DoorScreen })));
@@ -123,6 +126,8 @@ export default function P3Routes() {
           {NEW_STEPS.map((step) => <Route key={step} path={step} element={<OldNewStep />} />)}
           <Route path="stats" element={<StatsScreen />} />
           {flags.organiserDash && <Route path="compare" element={<P3PushedSurface back={toHome}><CompareNights /></P3PushedSurface>} />}
+          {flags.organiserDash && <Route path="events/:seriesId/in" element={<P3PushedSurface back={toEvent}><WhoIsInRoute home={toHome()} /></P3PushedSurface>} />}
+          {flags.organiserDash && <Route path="events/:seriesId/came/:occurrenceId" element={<P3PushedSurface back={toEvent}><WhoCameRoute home={toHome()} /></P3PushedSurface>} />}
           <Route path="you" element={<P3YouSurface />}>
             <Route index element={<YouScreen />} />
             <Route path="switch" element={<SwitchPage />} />
