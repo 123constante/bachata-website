@@ -456,6 +456,8 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
               </>
             )}
             {err('opensAt')}
+            {!(!type && coversEveryDate(series)) && (
+              <>
             <p className="p3-field">Sales close</p>
             <div className="p3-chips" role="group" aria-label="Sales close">
               {eventStart && (
@@ -471,6 +473,8 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
               </>
             )}
             {err('closesAt')}
+              </>
+            )}
             {!type && coversEveryDate(series) && <p className="p3-note" data-testid="tix-every-date">{EVERY_DATE_NOTE}</p>}
           </>
         )}
