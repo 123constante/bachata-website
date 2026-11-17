@@ -181,7 +181,7 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
         </nav>
         <div className="min-h-0 flex-1 overflow-y-auto px-[18px] pb-3">
           <header className="pb-[14px] pt-1">
-            <h1 className="break-words text-[19px] font-semibold leading-tight">{title}</h1>
+            <h1 className="break-words text-[19px] font-semibold leading-tight" style={{ color: INK }}>{title}</h1>
             {date && <p className="mt-[2px] text-[14px]" style={{ color: SUB }}>{date}</p>}
             {venueLine && <p data-testid="tickets-venue" className="break-words text-[14px]" style={{ color: SUB }}>{venueLine}</p>}
           </header>
@@ -241,7 +241,7 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
           <div role="dialog" aria-modal="true" aria-labelledby="picker-card-title" className="w-full max-w-[394px] rounded-2xl bg-white px-[18px] pb-4 pt-5" style={{ boxShadow: '0 10px 30px rgba(0,0,0,.3)' }}>
             {stage === 'email' ? (
               <form noValidate onSubmit={(e) => { e.preventDefault(); void sendCode(); }}>
-                <h2 id="picker-card-title" className="mb-1 text-[17px] font-semibold">Where should we send your tickets?</h2>
+                <h2 id="picker-card-title" className="mb-1 text-[17px] font-semibold" style={{ color: INK }}>Where should we send your tickets?</h2>
                 <p className="mb-[14px] text-[14px]" style={{ color: SUB }}>We email you a code to confirm it is you.</p>
                 <div className="mb-3 flex justify-between rounded-[10px] px-3 py-[10px] text-[14px]" style={{ background: '#f4f6f5' }}><span>{countLabel(sum.count)}</span><b className="tabular-nums">{formatPence(sum.totalPence)}</b></div>
                 <input type="email" inputMode="email" autoComplete="email" aria-label="Email address" placeholder="you@example.com" value={email} autoFocus
@@ -255,7 +255,7 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
               </form>
             ) : (
               <div>
-                <h2 id="picker-card-title" className="mb-1 text-[17px] font-semibold">Enter the 6-digit code</h2>
+                <h2 id="picker-card-title" className="mb-1 text-[17px] font-semibold" style={{ color: INK }}>Enter the 6-digit code</h2>
                 <p className="mb-[14px] break-words text-[14px]" style={{ color: SUB }}>We sent it to {email.trim()}.</p>
                 <div data-testid="code-boxes" className={`flex justify-between gap-2 `} style={shake ? { animation: 'pickerBuzz .28s' } : undefined}>
                   {digits.map((d, i) => (
