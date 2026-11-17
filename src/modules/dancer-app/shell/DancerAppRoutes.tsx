@@ -16,6 +16,10 @@ import PhotoScreen from '../screens/photo/PhotoScreen';
 import PageScreen from '../screens/page/PageScreen';
 import OptionsScreen from '../screens/options/OptionsScreen';
 import TicketsScreen from '../screens/tickets/TicketsScreen';
+import { flags } from '@/lib/featureFlags';
+import { useViewOnly } from '../gate/viewOnly';
+import { TeaserHome, TeaserMe, TeaserNights, TeaserOptions } from '../screens/teaser/TeaserScreens';
+import { teaserActive } from '../screens/teaser/teaserModel';
 
 /** Route id -> screen. One entry per DANCER_ROUTES row (TypeScript refuses a missing one). */
 export const DANCER_SCREENS: Record<DancerRouteId, ComponentType> = {
@@ -28,6 +32,17 @@ export const DANCER_SCREENS: Record<DancerRouteId, ComponentType> = {
   page: PageScreen,
   options: OptionsScreen,
   tickets: TicketsScreen,
+};
+
+/** The read-only twins the post-pay teaser shows in place of these four screens (flags.ticketTeaser). */
+const TEASER_SCREENS: Partial<Record<DancerRouteId, ComponentType>> = { home: TeaserHome, nights: TeaserNights, me: TeaserMe, options: TeaserOptions };
+
+/** The real screen, or its read-only twin for a view-only buyer with the teaser flag on. Flag off = always the real one. */
+const ScreenOrTeaser = ({ id, Screen }: { id: DancerRouteId; Screen: ComponentType }) => {
+  const viewOnly = useViewOnly();
+  const Twin = TEASER_SCREENS[id];
+  if (Twin && teaserActive({ teaserFlag: flags.ticketTeaser, ticketingFlag: flags.publicTicketing, viewOnly })) return <Twin />;
+  return <Screen />;
 };
 
 /** Signed in by now (AuthGuard): publish the person for the funnel events. */
@@ -54,7 +69,7 @@ export const DancerAppRoutes = () => {
             <Route index element={<Navigate to={DANCER_HOME} replace />} />
             {DANCER_ROUTES.map((r) => {
               const Screen = DANCER_SCREENS[r.id];
-              return <Route key={r.id} path={r.path.slice('/app/'.length)} element={<Screen />} />;
+              return <Route key={r.id} path={r.path.slice('/app/'.length)} element={<ScreenOrTeaser id={r.id} Screen={Screen} />} />;
             })}
             <Route path="*" element={<Navigate to={DANCER_HOME} replace />} />
           </Route>

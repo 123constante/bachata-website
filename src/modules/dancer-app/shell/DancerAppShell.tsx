@@ -16,6 +16,8 @@ import { DancerApiError } from '../api/errors';
 import { useViewOnly } from '../gate/viewOnly';
 import { profileIncomplete } from '../screens/tickets/model';
 import '../screens/tickets/tickets.css';
+import { teaserActive } from '../screens/teaser/teaserModel';
+import '../screens/teaser/teaser.css';
 import { mayBeFocus, requiredDone, shellChrome } from './focusChrome';
 import { ProfileSheetProvider, useProfileSheet } from './profileSheet';
 import { activeTabFor, shellTabs, type DancerTab } from './routes';
@@ -79,7 +81,10 @@ export const DancerAppShell = () => {
     });
   // Locked tabs: only for a person with no dancer profile to show (view-only, or no_profile).
   // A dancer mid-setup keeps their tabs and sees only the bar.
-  const tabsLocked = ticketsOn && (viewOnly || noProfile);
+  // Post-pay teaser (flags.ticketTeaser): a view-only buyer gets the four real tabs, each a read-only twin
+  // (DancerAppRoutes), so no tab is locked out; the Me tab keeps a small lock mark. Flag off = unchanged.
+  const teaser = teaserActive({ teaserFlag: flags.ticketTeaser, ticketingFlag: ticketsOn, viewOnly });
+  const tabsLocked = ticketsOn && !teaser && (viewOnly || noProfile);
   const { focus, notNowTo } = shellChrome(pathname, search, candidate ? profile.data : null);
   const active = activeTabFor(pathname);
   const guardRef = useRef<LeaveGuard | null>(null);
@@ -128,9 +133,9 @@ export const DancerAppShell = () => {
         <Outlet />
       </div>
       {!focus && (
-        <nav className={ticketsOn ? 'da-tabs dt-tabs-5' : 'da-tabs'} aria-label="Dancer app" data-testid="dancer-app-tabs">
-          {shellTabs(ticketsOn).map((tab) => (
-            <ShellTab key={tab.id} tab={tab} isActive={active === tab.id} locked={tabsLocked && tab.id !== 'tickets'} guardRef={guardRef} />
+        <nav className={ticketsOn && !teaser ? 'da-tabs dt-tabs-5' : 'da-tabs'} aria-label="Dancer app" data-testid="dancer-app-tabs">
+          {shellTabs(ticketsOn && !teaser).map((tab) => (
+            <ShellTab key={tab.id} tab={tab} isActive={active === tab.id} locked={tabsLocked && tab.id !== 'tickets'} marked={teaser && tab.id === 'me'} guardRef={guardRef} />
           ))}
         </nav>
       )}
@@ -145,7 +150,7 @@ export const DancerAppShell = () => {
  * One bottom tab. Locked (Option A: unfinished profile, ticketing on) = the lock mark, and the
  * tap opens the "What are you?" sheet instead of the screen, so it is never a dead control.
  */
-const ShellTab = ({ tab, isActive, locked, guardRef }: { tab: DancerTab; isActive: boolean; locked: boolean; guardRef: { current: LeaveGuard | null } }) => {
+const ShellTab = ({ tab, isActive, locked, marked = false, guardRef }: { tab: DancerTab; isActive: boolean; locked: boolean; marked?: boolean; guardRef: { current: LeaveGuard | null } }) => {
   const sheet = useProfileSheet();
   const Icon = TAB_ICON[tab.id];
   if (locked) {
@@ -177,6 +182,7 @@ const ShellTab = ({ tab, isActive, locked, guardRef }: { tab: DancerTab; isActiv
       data-testid={`dancer-app-tab-${tab.id}`}
     >
       <Icon aria-hidden="true" style={{ width: 20, height: 20 }} />
+      {marked && <Lock aria-hidden="true" className="tz-tab-lock" style={{ width: 11, height: 11 }} />}
       <span>{tab.label}</span>
     </Link>
   );
