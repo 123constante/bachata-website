@@ -61,8 +61,11 @@ export function isDocsOnly(paths, rules = RULES) {
 // cannot see (it runs vite + Playwright route mocks; no DB, no edge functions, no
 // workflows other than its own). Allowlist, not blocklist: any unknown path
 // (scripts/, tests/, package.json, vite/playwright config...) runs the suite.
-const E2E_BLIND = ['supabase/', '.claude/', '.github/'];
-const E2E_OWN = ['.github/workflows/e2e-smoke.yml', '.github/workflows/typecheck.yml'];
+// Only .github/workflows/ (not .github/actions/: a local composite action could be used by e2e-smoke).
+// The real-Supabase specs in tests/e2e are outside test:e2e / test:e2e:p3, so supabase/ is blind to this gate.
+// typecheck.yml is kept running as a conservative extra: the suite shares its build inputs.
+const E2E_BLIND = ['supabase/', '.claude/', '.github/workflows/'];
+const E2E_OWN =['.github/workflows/e2e-smoke.yml', '.github/workflows/typecheck.yml'];
 export function isE2eSkippable(paths) {
   if (isDocsOnly(paths)) return true;
   if (!Array.isArray(paths) || paths.length === 0) return false;
@@ -143,6 +146,8 @@ function selfTest() {
   const fails = runCases();
   for (const [n, paths, want] of E2E_CASES) if (isE2eSkippable(paths) !== want) { console.error(`FAIL e2e case: ${n}`); bad++; }
   for (const n of fails) { console.error(`FAIL case: ${n}`); bad++; }
+  if (emitLines(false, true).join() !== 'docs_only=false,e2e_skip=true' || emitLines(true, undefined).join() !== 'docs_only=true,e2e_skip=false') { console.error('FAIL emit does not write both outputs'); bad++; }
+  if (isE2eSkippable(['.github/actions/x/action.yml'])) { console.error('FAIL .github/actions must not be skippable'); bad++; }
   for (const r of RULES) {
     const mutant = RULES.filter((x) => x !== r);
     if (runCases(mutant).length === 0) { console.error(`FAIL mutant survived: rule "${r.name}" removed, table still green`); bad++; }
@@ -175,10 +180,14 @@ function changedPaths(argv) {
   return git(['diff', '--name-only', '--no-renames', ...range]).split('\n').filter((l) => l !== '');
 }
 
-function emit(v) {
-  const line = `docs_only=${v}`;
-  console.log(line);
-  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, line + '\n');
+export function emitLines(v, e2eSkip) {
+  return [`docs_only=${v}`, `e2e_skip=${e2eSkip === true}`];
+}
+
+function emit(v, e2eSkip) {
+  const lines = emitLines(v, e2eSkip);
+  for (const line of lines) console.log(line);
+  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, lines.join('\n') + '\n');
 }
 
 if (isEntryPoint(import.meta.url)) {
