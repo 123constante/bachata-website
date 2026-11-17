@@ -4,7 +4,7 @@ import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
 import { flags } from '@/lib/featureFlags';
-import { P3Shell } from './P3Shell';
+import { P3Shell as P3ShellV1 } from './P3Shell';
 import { EventsScreen } from '../screens/EventsScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { StatsScreen } from '../screens/StatsScreen';
@@ -78,6 +78,11 @@ function lazyScreen(el: ReactNode, frame: P3RouteFrame, back: (p: Readonly<Param
  * The P3 organiser area (lazy chunk, mounted by AnimatedRoutes ONLY while
  * flags.organiserP3 and flags.organiserSelfServe are on). W1: Home, Events and Stats read screens; W2a: one event's page and its Status sheet; W2b: its date sheets and All dates; W4a: the You hub and the screens it pushes (Team, Switch page, Organiser page, Welcome), the R1 screens in P3's frame.
  */
+/** The area's frame: the V2 shell behind organiserShellV2, else the P3 shell exactly as before. */
+function P3Shell() {
+  return shellV2On(flags) ? <V2Shell /> : <P3ShellV1 />;
+}
+
 /** V2 has no Home tab: the area's bare URL opens Events, the page and event choice kept. */
 function V2Home() {
   const [params] = useSearchParams();
@@ -95,7 +100,7 @@ export default function P3Routes() {
         <Route path="start" element={lazyScreen(<OnboardingFlow />, 'own', toHome)} />
         {flags.organiserTicketing && <Route path="get-paid" element={lazyScreen(<GetPaidStart />, 'own', toHome)} />}
         {flags.organiserTicketing && <Route path="events/:seriesId/door" element={lazyScreen(<DoorScreen />, 'own', toEvent)} />}
-        <Route element={v2 ? <V2Shell /> : <P3Shell />}>
+        <Route element={<P3Shell />}>
           <Route index element={v2 ? <V2Home /> : <HomeScreen />} />
           <Route path="events" element={v2 ? <V2EventsTab /> : <EventsScreen />} />
           {v2 && <Route path="tickets" element={<V2TicketsTab />} />}
