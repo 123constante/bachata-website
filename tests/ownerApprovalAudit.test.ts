@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error -- plain .mjs script, no types
-import { decideAudit, decideRecordAudit, worstCode, recordLine } from '../scripts/owner-approval-audit.mjs';
+import { decideAudit, decideRecordAudit, worstCode, recordLine, reviewerDocAtHead } from '../scripts/owner-approval-audit.mjs';
 
 const OWNER = '123constante';
 const approve = (commit_id: string, login = OWNER) => ({ user: { login }, state: 'APPROVED', commit_id });
@@ -168,5 +168,51 @@ describe('owner-approval audit -- decideRecordAudit (class C review record)', ()
       expect(worstCode(vs)).toBe(want[i]);
       expect(worstCode(vs.map((v) => ({ ...v, records: [missing] })))).toBe(want[i]);
     });
+  });
+});
+
+describe('owner-approval audit -- reviewer doc evidence', () => {
+  const HEAD = 'a'.repeat(7) + 'b'.repeat(33);
+  const doc = (verdict: string, hard: string, at = '2026-11-17T10:00:00Z', sha = HEAD.slice(0, 9), name = 'b:review-5.md') => ({
+    name, committedAt: at, text: `# Review 5: PR #5 at ${sha}, hard tier\n\n## Verdict: ${verdict}\n\nbody\n\n## Hard-tier: ${hard}\n`,
+  });
+  const good = (over: Partial<ReturnType<typeof doc>> = {}) => ({ ...doc('PASS - ok', 'PASS'), ...over });
+  const pr = (reviewDocs: unknown[], extra = {}) => ({ number: 5, headSha: HEAD, mergedAt: '2026-11-17T11:00:00Z', reviews: [], statuses: [], reviewDocs, ...extra });
+  const files = ['scripts/x.mjs'];
+
+  it('passes hard-tier and guard paths with a reviewer PASS doc naming the head (short or full sha)', () => {
+    expect(decideAudit({ files, prs: [pr([good()])] }).code).toBe(0);
+    expect(decideAudit({ files, prs: [pr([doc('PASS', 'PASS', undefined, HEAD)])] }).code).toBe(0);
+    expect(decideAudit({ files: ['.github/workflows/phone-qa.yml'], prs: [pr([good()])] }).code).toBe(0);
+    expect(decideAudit({ files: ['.github/workflows/phone-qa.yml'], prs: [pr([good()])], escalation: true }).escalate).toBe(false);
+  });
+  it('REDS with no evidence, doc for an older sha, FAIL, no hard-tier heading, committed after merge, no merged_at', () => {
+    for (const docs of [[], [doc('PASS', 'PASS', undefined, '1234567')], [doc('BLOCK', 'PASS')], [doc('PASS', 'FAIL')], [doc('PASS', 'PASS-pending')], [good({ committedAt: '2026-11-17T12:00:00Z' })], [good({ committedAt: 'x' })]]) {
+      expect(decideAudit({ files, prs: [pr(docs)] }).code).toBe(1);
+    }
+    expect(decideAudit({ files, prs: [pr([good()], { mergedAt: undefined })] }).code).toBe(1);
+    expect(reviewerDocAtHead(pr([good()], { headSha: 'short' }))).toBe(false);
+  });
+  it('the NEWEST doc for the head decides: a later FAIL voids an earlier PASS, a later PASS clears a FAIL', () => {
+    const early = good({ committedAt: '2026-11-17T09:00:00Z' });
+    const lateFail = doc('BLOCK', 'FAIL', '2026-11-17T10:00:00Z', undefined, 'b2:review-5b.md');
+    expect(decideAudit({ files, prs: [pr([early, lateFail])] }).code).toBe(1);
+    expect(decideAudit({ files, prs: [pr([lateFail, good({ committedAt: '2026-11-17T10:30:00Z' })])] }).code).toBe(0);
+  });
+  it('ignores a PASS heading inside a code fence and a sha only deep in the body', () => {
+    const fenced = { name: 'b:review-5.md', committedAt: '2026-11-17T10:00:00Z', text: `# Review at ${HEAD.slice(0, 9)}\n\n## Verdict: PASS\n\n\`\`\`\n## Hard-tier: PASS\n\`\`\`\n` };
+    const deep = { name: 'b:review-5.md', committedAt: '2026-11-17T10:00:00Z', text: `# Review\n\n\n\n\n\nsee ${HEAD.slice(0, 9)}\n## Verdict: PASS\n## Hard-tier: PASS\n` };
+    expect(decideAudit({ files, prs: [pr([fenced])] }).code).toBe(1);
+    expect(decideAudit({ files, prs: [pr([deep])] }).code).toBe(1);
+  });
+  it('never covers money, SQL or secret paths', () => {
+    for (const f of ['supabase/migrations/1.sql', '.env.production', 'supabase/functions/stripe-webhook/index.ts']) {
+      expect(decideAudit({ files: [f, 'scripts/x.mjs'], prs: [pr([good()])] }).code).toBe(1);
+    }
+  });
+  it('skips the class C record line when the reviewer PASS doc stands', () => {
+    const r = decideRecordAudit({ files: ['tests/a.test.ts'], pr: pr([good()]), record: null });
+    expect(r.skipped).toBe(true);
+    expect(recordLine('0123456789', r)).toContain('RECORD-SKIP');
   });
 });
