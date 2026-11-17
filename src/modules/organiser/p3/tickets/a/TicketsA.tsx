@@ -80,10 +80,10 @@ function Body({ orgId, role, seriesId, startIso, now }: { orgId: string; role: s
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }} data-testid="tixa" data-clock={clock}>
       <section style={{ background: '#fff', border: '1px solid #E9E9E9', borderRadius: 11, boxShadow: '0 1px 2px rgba(0,0,0,0.05)', padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
         <span style={META}>{clock === 'before' ? 'Before the night' : clock === 'door' ? 'Tonight' : 'After the night'}</span>
-        <span style={{ fontSize: 56, lineHeight: 1.1, fontWeight: 600, letterSpacing: '-0.025em' }} data-testid="tixa-big">{big === null ? (types.isPending ? '…' : '—') : formatCount(big)}</span>
+        <span style={{ fontSize: 56, lineHeight: 1.1, fontWeight: 600, letterSpacing: '-0.025em' }} data-testid="tixa-big">{big === null ? (types.isPending ? '\u2026' : '\u2014') : formatCount(big)}</span>
         <span style={{ fontSize: 15, color: '#464646' }}>
           {CLOCK_CAPTION[clock]}
-          {clock === 'before' && types.isSuccess ? ` · ${formatCount(left)} left` : ''}
+          {clock === 'before' && types.isSuccess ? ` \u00b7 ${formatCount(left)} left` : ''}
           {clock !== 'before' && total !== null ? ` of ${formatCount(total)}` : ''}
         </span>
       </section>
