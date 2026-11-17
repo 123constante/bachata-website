@@ -15,3 +15,5 @@ Checks:
 - `npm run lint` lint chain
 - `npm run check:mojibake`
 - Use HTML entities (`&mdash;`) in JSX, never raw Unicode punctuation.
+
+<!-- ci proof: docs-only PR, Phone QA heavy steps must skip. Closed unmerged. -->
