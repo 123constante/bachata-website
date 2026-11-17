@@ -1,16 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Lock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { fetchPublicTicketTypes, postTicketCheckout, publicTicketKeys } from './ticketCheckoutApi';
-import { CANCELLED_PARAM, THANKS_PATH, formatPence, maxQuantity, reasonCopy, typesForNight, availability } from './ticketCheckoutModel';
+import {
+  CANCELLED_PARAM, MAX_PER_ORDER, PREVIEW_ORIGIN_REASON, TERMS_REASON, THANKS_PATH, availability, checkoutOriginOk, formatPence, maxQuantity, reasonCopy, typesForNight,
+} from './ticketCheckoutModel';
+import { PRICE_CONFIRM_LABEL, parsePriceChanged, priceChangedText, stepReasonCopy } from './priceSteps';
+import { PRIVACY_PARAGRAPH, PRIVACY_POLICY_LINE, TERMS_CHECKBOX_LABEL, TERMS_OF_SALE } from './legalCopy';
 import { saveOrderId } from './orderStorage';
 import {
-  CANCELLED_NOTE, CODE_LENGTH, TRUST_LINE_BOLD, TRUST_LINE_REST, basketTotals, buildPickerBody, cleanBasket, countLabel,
-  dateOnly, isEmail, loadBasket, perLine, saveBasket, type Basket,
+  CANCELLED_NOTE, CODE_LENGTH, ORDER_CAP_NOTE, RESEND_SECONDS, TRUST_LINE_BOLD, TRUST_LINE_REST, basketKey, basketTotals, buildPickerBody,
+  cleanBasket, countLabel, dateOnly, heldFrom, isEmail, loadBasket, perLine, roomFor, saveBasket, sendCodeError, verifyCodeError,
+  type Basket, type PickerHeld,
 } from './pickerModel';
 
 /**
@@ -45,6 +50,7 @@ function Trust() {
 export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueLine, onClose, now: nowProp }: TicketPickerB1Props) {
   const location = useLocation();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const now = useMemo(() => nowProp ?? new Date(), [nowProp]);
   const { data } = useQuery({
     queryKey: publicTicketKeys.types(seriesId, occurrenceId),
@@ -66,12 +72,24 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
   const [promoMsg, setPromoMsg] = useState('');
   const [promoChecking, setPromoChecking] = useState(false);
   const [refusal, setRefusal] = useState('');
+  const [held, setHeld] = useState<PickerHeld | null>(null);
+  const [verifiedEmail, setVerifiedEmail] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
   const [cancelled] = useState(() => new URLSearchParams(location.search).get(CANCELLED_PARAM) === 'cancelled');
   const inFlight = useRef(false);
   const boxes = useRef<Array<HTMLInputElement | null>>([]);
 
   const clean = useMemo(() => cleanBasket(basket, types, now), [basket, types, now]);
   const sum = basketTotals(clean, types);
+  // A price_changed holds only for the basket it was priced for.
+  const heldNow = held && held.key === basketKey(clean) ? held : null;
+  const payPence = heldNow ? heldNow.totalPence : sum.totalPence;
+  const priceNote = heldNow ? priceChangedText(heldNow.totalPence) : '';
+  const atCap = sum.count >= MAX_PER_ORDER;
+  // Before any field: a preview can never complete checkout (same guard as the classic page).
+  const blocked = sum.count === 0 ? null : !checkoutOriginOk(window.location.origin) ? PREVIEW_ORIGIN_REASON : !termsAccepted ? TERMS_REASON : null;
+  const continueOff = sum.count === 0 || blocked !== null;
   useEffect(() => { saveBasket(seriesId, occurrenceId, clean); }, [seriesId, occurrenceId, clean]);
 
   // The phone's Back closes the page, as the classic page does.
@@ -100,26 +118,42 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
   const step = (id: string, d: number) => {
     const t = types.find((x) => x.id === id);
     if (!t) return;
-    setRefusal('');
-    setBasket({ ...clean, [id]: Math.max(0, Math.min(maxQuantity(t, now), (clean[id] ?? 0) + d)) });
+    setRefusal(''); setHeld(null); // any basket change spends a held price_changed
+    const n = clean[id] ?? 0;
+    setBasket({ ...clean, [id]: Math.max(0, d > 0 ? n + Math.min(d, roomFor(t, clean, now)) : n + d) });
   };
 
   async function startPayment(buyerEmail: string) {
     if (inFlight.current) return;
     inFlight.current = true;
     setStage('open');
-    const body = buildPickerBody({ basket: clean, types, email: buyerEmail, occurrenceId, origin: window.location.origin, pathname: location.pathname, search: location.search });
+    const body = buildPickerBody({ basket: clean, types, email: buyerEmail, occurrenceId, origin: window.location.origin, pathname: location.pathname, search: location.search, held: heldNow });
+    setRefusal(''); setHeld(null);
     const r = await postTicketCheckout(body);
     if (r.kind === 'redirect') { saveOrderId(r.orderId); window.location.assign(r.url); return; }
     inFlight.current = false;
     if (r.kind === 'free') { saveOrderId(r.orderId); window.location.assign(`${THANKS_PATH}?o=${encodeURIComponent(r.orderId)}&free=1`); return; }
-    setRefusal(reasonCopy(r.reason, r.message).text);
     setStage('pick');
+    const reread = () => { void queryClient.invalidateQueries({ queryKey: publicTicketKeys.types(seriesId, occurrenceId) }); };
+    // Nothing was charged: re-price the basket from the reply and wait for the buyer's confirm tap.
+    if (r.reason === 'price_changed') {
+      const pc = parsePriceChanged(r.raw);
+      if (pc) setHeld(heldFrom(pc, clean, types));
+      else setRefusal(reasonCopy('price_changed_unreadable').text);
+      reread();
+      return;
+    }
+    const copy = stepReasonCopy(r.reason, null) ?? reasonCopy(r.reason, r.message);
+    // The picker has no night list: a night refusal points at the Back control that IS on screen.
+    setRefusal(copy.way === 'pick_night' ? 'Tickets for this night cannot be booked now. Go Back to pick another night.' : copy.text);
+    // A refusal about stock or status means the list on screen is stale: re-read it.
+    if (copy.way === 'pick_another' || copy.way === 'pick_night') reread();
   }
 
   function onContinue() {
-    if (sum.count === 0) return;
-    if (user?.email) { void startPayment(user.email); return; }
+    if (continueOff) return;
+    const known = user?.email ?? verifiedEmail;
+    if (known) { void startPayment(known); return; }
     setEmailBad(false); setSendErr(''); setStage('email');
   }
 
@@ -129,8 +163,8 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
     setEmailBad(false); setBusy(true); setSendErr('');
     const { error } = await supabase.auth.signInWithOtp({ email: v, options: { shouldCreateUser: true } });
     setBusy(false);
-    if (error) { setSendErr('We could not send the code. Check the address and try again.'); return; }
-    setDigits(Array(CODE_LENGTH).fill('')); setCodeErr(''); setSecs(30); setStage('code');
+    if (error) { setSendErr(sendCodeError(error)); return; }
+    setDigits(Array(CODE_LENGTH).fill('')); setCodeErr(''); setSecs(RESEND_SECONDS); setStage('code');
   }
 
   async function checkCode(code: string) {
@@ -138,9 +172,8 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
     setBusy(true);
     const { error } = await supabase.auth.verifyOtp({ email: email.trim(), token: code, type: 'email' });
     setBusy(false);
-    if (!error) { setCodeErr(''); void startPayment(email.trim()); return; }
-    const expired = /expired/i.test(error.message);
-    setCodeErr(expired ? 'This code has expired. Send a new code.' : 'That code is wrong. Check your email and try again.');
+    if (!error) { setCodeErr(''); setVerifiedEmail(email.trim()); void startPayment(email.trim()); return; }
+    setCodeErr(verifyCodeError(error));
     setShake(true); setTimeout(() => setShake(false), 300); buzz([40, 60, 40]);
     setDigits(Array(CODE_LENGTH).fill(''));
     boxes.current[0]?.focus();
@@ -186,11 +219,12 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
             {venueLine && <p data-testid="tickets-venue" className="break-words text-[14px]" style={{ color: SUB }}>{venueLine}</p>}
           </header>
           {cancelled && <p role="status" data-testid="picker-cancelled" className="mb-[10px] rounded-[10px] px-3 py-[10px] text-[14px]" style={{ background: '#f4f6f5' }}>{CANCELLED_NOTE}</p>}
-          {refusal && <p role="alert" data-testid="picker-refusal" className="mb-[10px] rounded-[10px] px-3 py-[10px] text-[14px]" style={{ background: '#f4f6f5', color: BAD }}>{refusal}</p>}
+          {(refusal || priceNote) && <p role="alert" data-testid="picker-refusal" className="mb-[10px] rounded-[10px] px-3 py-[10px] text-[14px]" style={{ background: '#f4f6f5', color: BAD }}>{priceNote || refusal}</p>}
           {data && types.length === 0 && <p className="text-[14px]" style={{ color: SUB }}>No tickets are on sale for this night. Check the event page for other ways in.</p>}
           {types.map((t, ix) => {
             const max = maxQuantity(t, now);
             const n = clean[t.id] ?? 0;
+            const room = roomFor(t, clean, now);
             const a = availability(t, now);
             const per = perLine(t);
             return (
@@ -206,13 +240,14 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
                     <div className="flex items-center gap-[2px]">
                       <button type="button" aria-label={`Remove one ${t.name}`} disabled={n === 0} onClick={() => step(t.id, -1)} className="h-[40px] w-[40px] rounded-full text-[20px] disabled:text-[#c3cdc8]" style={outline}>&minus;</button>
                       <output aria-label={`${t.name} count`} className="w-[28px] text-center text-[15px] font-semibold tabular-nums">{n}</output>
-                      <button type="button" aria-label={`Add one ${t.name}`} disabled={n >= max} onClick={() => step(t.id, 1)} className="h-[40px] w-[40px] rounded-full text-[20px] disabled:text-[#c3cdc8]" style={{ ...outline, borderColor: BRAND, color: BRAND }}>+</button>
+                      <button type="button" aria-label={`Add one ${t.name}`} disabled={room === 0} onClick={() => step(t.id, 1)} className="h-[40px] w-[40px] rounded-full text-[20px] disabled:text-[#c3cdc8]" style={{ ...outline, borderColor: BRAND, color: BRAND }}>+</button>
                     </div>
                   )}
                 </div>
               </div>
             );
           })}
+          {atCap && <p role="status" data-testid="picker-cap" className="mt-[10px] text-[13px]" style={{ color: SUB }}>{ORDER_CAP_NOTE}</p>}
           {types.length > 0 && (
             <div className="mt-4">
               <label htmlFor="picker-promo" className="mb-[6px] block text-[13px] font-semibold">Promo code</label>
@@ -223,15 +258,29 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
                 <button type="button" onClick={() => void applyPromo()} disabled={promoChecking} className="h-[44px] rounded-[10px] px-4 text-[14px] font-semibold" style={{ border: `1px solid ${BRAND}`, color: BRAND, background: '#fff' }}>{promoChecking ? <>Checking&hellip;</> : 'Apply'}</button>
               </div>
               <div role="status" data-testid="picker-promo-msg" className="mt-[6px] min-h-[16px] text-[13px]" style={{ color: BAD }}>{promoMsg}</div>
+              <button type="button" aria-expanded={showTerms} onClick={() => setShowTerms((v) => !v)} className="min-h-[44px] text-[13px] underline" style={{ color: SUB }}>
+                {showTerms ? 'Hide the terms of sale' : 'Read the terms of sale'}
+              </button>
+              {showTerms && (
+                <div data-testid="terms-text" className="space-y-1 text-[12px]" style={{ color: SUB }}>
+                  <ul className="list-disc space-y-1 pl-4">{TERMS_OF_SALE.map((line) => <li key={line}>{line}</li>)}</ul>
+                  <p>{PRIVACY_PARAGRAPH} {PRIVACY_POLICY_LINE.lead}{' '}<a href={PRIVACY_POLICY_LINE.path} target="_blank" rel="noopener noreferrer" className="underline">{PRIVACY_POLICY_LINE.linkText}</a>{' '}{PRIVACY_POLICY_LINE.tail}</p>
+                </div>
+              )}
             </div>
           )}
         </div>
         <div className="shrink-0 px-[18px] pb-[14px] pt-3" style={{ borderTop: `1px solid ${LINE}` }}>
           <div className="mb-[10px] flex items-baseline justify-between" style={{ color: SUB }}>
             <span data-testid="picker-count">{countLabel(sum.count)}</span>
-            <b data-testid="picker-total" className="text-[17px] tabular-nums" style={{ color: INK }}>{formatPence(sum.totalPence)}</b>
+            <b data-testid="picker-total" className="text-[17px] tabular-nums" style={{ color: INK }}>{formatPence(payPence)}</b>
           </div>
-          <button type="button" data-testid="picker-continue" onClick={onContinue} disabled={sum.count === 0} className={btn} style={primary(sum.count === 0)}>Continue</button>
+          <label className="mb-[6px] flex min-h-[44px] items-center gap-3">
+            <input type="checkbox" data-testid="picker-terms" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} className="h-[22px] w-[22px] shrink-0" style={{ accentColor: BRAND }} />
+            <span className="text-[13px]" style={{ color: INK }}>{TERMS_CHECKBOX_LABEL}</span>
+          </label>
+          {blocked && <p data-testid="picker-blocked" className="mb-[6px] text-[13px]" style={{ color: SUB }}>{blocked}</p>}
+          <button type="button" data-testid="picker-continue" onClick={onContinue} disabled={continueOff} className={btn} style={primary(continueOff)}>{heldNow ? PRICE_CONFIRM_LABEL : 'Continue'}</button>
           <Trust />
         </div>
       </div>
@@ -243,7 +292,7 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
               <form noValidate onSubmit={(e) => { e.preventDefault(); void sendCode(); }}>
                 <h2 id="picker-card-title" className="mb-1 text-[17px] font-semibold" style={{ color: INK }}>Where should we send your tickets?</h2>
                 <p className="mb-[14px] text-[14px]" style={{ color: SUB }}>We email you a code to confirm it is you.</p>
-                <div className="mb-3 flex justify-between rounded-[10px] px-3 py-[10px] text-[14px]" style={{ background: '#f4f6f5' }}><span>{countLabel(sum.count)}</span><b className="tabular-nums">{formatPence(sum.totalPence)}</b></div>
+                <div className="mb-3 flex justify-between rounded-[10px] px-3 py-[10px] text-[14px]" style={{ background: '#f4f6f5' }}><span>{countLabel(sum.count)}</span><b className="tabular-nums">{formatPence(payPence)}</b></div>
                 <input type="email" inputMode="email" autoComplete="email" aria-label="Email address" placeholder="you@example.com" value={email} autoFocus
                   onChange={(e) => { setEmail(e.target.value); setEmailBad(false); }}
                   className="h-[46px] w-full rounded-[10px] px-3 text-[16px]" style={{ border: `1px solid ${emailBad ? BAD : LINE}`, color: INK, background: '#fff' }} />
