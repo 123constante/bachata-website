@@ -118,6 +118,10 @@ export const flags = {
   // (edge v5 path), "Price rises on <date>" on the card, price_changed confirm. OFF = the old body
   // and the v2 read, exactly as before. Turn on with VITE_ENABLE_TICKET_PRICE_STEPS=true.
   ticketPriceSteps:    import.meta.env.VITE_ENABLE_TICKET_PRICE_STEPS === 'true',
+  // Ticket picker B1 (docs/briefs/ticket-buyer-picker.md): the white checkout (pick, email, 6-digit code,
+  // Stripe) behind "Get tickets". Needs publicTicketing. OFF = the Tickets page is exactly as before.
+  // Turn on with VITE_ENABLE_TICKET_PICKER_B1=true (Vercel env) -- no code change.
+  ticketPickerB1:      import.meta.env.VITE_ENABLE_TICKET_PICKER_B1 === 'true',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the
