@@ -53,7 +53,7 @@ name: Autopilot
 
 on:
   schedule:
-    - cron: "17 * * * *"
+    - cron: "17 */2 * * *"
   workflow_dispatch:
     inputs:
       repos:

@@ -1,11 +1,11 @@
 name: Queue watchdog
 
-# No LLM. Every 15 minutes: stalled queue work goes back to the queue once, then to the owner
+# No LLM. Hourly: stalled queue work goes back to the queue once, then to the owner
 # (scripts/queue-watchdog.mjs). INERT unless QUEUE_ENABLED == 'true'. docs/queue.md.
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "7 * * * *"
   workflow_dispatch:
 
 permissions:
