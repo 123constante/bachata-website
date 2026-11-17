@@ -482,18 +482,14 @@ export interface SeriesDates {
 export const coversEveryDate = (s: SeriesDates | null | undefined): boolean => (s?.upcoming_count ?? 0) > 1;
 
 export const EVERY_DATE_NOTE =
-  'This ticket is for every date of this event, and its numbers are shared across them. To stop selling after one night, set Sales close.';
+  'This ticket is for every date of this event. Each night has its own places, and sales close when that night ends.';
 
 /**
- * The default "Sales close" for a NEW ticket on a series with several dates: the next date's start,
- * as the London wall-clock text the form holds (same reading as eventStartOf). Null when the series
- * has fewer than two upcoming dates or the next start is missing.
+ * The default "Sales close" for a NEW ticket. Always null: a ticket on a series with several dates is
+ * per night in the database (own places, closes when that night ends), so a stored close date would
+ * freeze every later night (Coco Loco, 2026-11-17). Kept as a function so callers stay unchanged.
  */
-export const defaultCloseFor = (s: SeriesDates | null | undefined): string | null => {
-  if (!coversEveryDate(s)) return null;
-  const start = s?.next_dates?.[0]?.materialised_start_utc;
-  return start ? isoToLondonInput(start) || null : null;
-};
+export const defaultCloseFor = (_s: SeriesDates | null | undefined): string | null => null;
 
 export const formOf = (t: TicketType | null, series?: SeriesDates | null): TypeForm =>
   t

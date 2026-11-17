@@ -32,11 +32,8 @@ const SERIES_SHAPES: Record<string, SeriesShape> = {
   missingStart: { count: 3, dates: [date(null)] },
   pastStart: { count: 3, dates: [date('2026-10-01T19:00:00+00:00')] },
 };
-/** The ONE mapping: the note shows for 2+ upcoming dates; the prefill is the next start (London) when it is there. */
-const EXPECT = (s: SeriesShape) => ({
-  note: s.count >= 2,
-  prefill: s.count >= 2 && s.dates[0]?.materialised_start_utc ? isoToLondonInput(s.dates[0].materialised_start_utc) : '',
-});
+/** The ONE mapping: 2+ upcoming dates = note shown, Sales close control hidden, never a prefilled close (it would freeze every later night). */
+const EXPECT = (s: SeriesShape) => ({ note: s.count >= 2, prefill: '' });
 
 const setup = (shape: SeriesShape, role: 'owner' | 'contributor', types = [] as ReturnType<typeof type>[]) => {
   load(SHAPES.bare);
@@ -69,12 +66,10 @@ describe.each(Object.keys(SERIES_SHAPES))('series %s', (k) => {
     if (shape.count === 1 && shape.dates[0].materialised_start_utc) {
       // a one-date series keeps today's behaviour: the Event start chip, no note
       expect(screen.getByTestId('tix-close-event').getAttribute('aria-pressed')).toBe('true');
-    } else if (want.prefill) {
-      expect((screen.getByTestId('tix-form-closesAt') as HTMLInputElement).value).toBe(want.prefill);
-      input('tix-form-closesAt', '2026-12-01T10:00');
-      expect((screen.getByTestId('tix-form-closesAt') as HTMLInputElement).value).toBe('2026-12-01T10:00');
-      fireEvent.click(screen.getByTestId('tix-close-never'));
+    } else if (want.note) {
       expect(screen.queryByTestId('tix-form-closesAt')).toBeNull();
+      expect(screen.queryByTestId('tix-close-never')).toBeNull();
+      expect(screen.queryByTestId('tix-close-pick')).toBeNull();
     } else {
       expect(screen.queryByTestId('tix-form-closesAt')).toBeNull();
       expect(screen.getByTestId('tix-close-never').getAttribute('aria-pressed')).toBe('true');
