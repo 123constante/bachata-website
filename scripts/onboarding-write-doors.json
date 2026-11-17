@@ -167,6 +167,10 @@
     {
       "name": "submit_organiser_profile_v1",
       "reason": "Submits the organiser page for review."
+    },
+    {
+      "name": "set_my_buyer_roles_v1",
+      "reason": "Buyer onboarding B (admin 20261117214202): the signed-in person's own 'What are you?' answer on their dancer row (private, signed-in only); not an event edit."
     }
   ]
 }
