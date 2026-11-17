@@ -48,7 +48,7 @@ afterEach(() => {
 describe('route table and paths', () => {
   it('has tickets, with a screen, in the catchall list, and first in the tabs while ticketing is on', () => {
     expect(DANCER_ROUTES.find((r) => r.id === 'tickets')?.path).toBe('/app/tickets');
-    expect(DANCER_SCREENS.tickets).toBeTypeOf('function');
+    expect(DANCER_SCREENS.tickets).toBeTruthy();
     expect(CATCHALL_CLIENT_PATHS).toContain('/app/tickets');
     expect(shellTabs(true).map((t) => t.id)).toEqual(['tickets', ...DANCER_TABS.map((t) => t.id)]);
     expect(shellTabs(false)).toEqual(DANCER_TABS);

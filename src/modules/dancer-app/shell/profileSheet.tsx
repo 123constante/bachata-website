@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { ORGANISER_HOME_PATH, appWelcomeHref } from '@/lib/accountRouting';
 import { AREA_PATHS } from '@/lib/areaPaths';
-import { ROLE_CHIPS, ROLE_SOON, roleTarget, type RoleId } from '../screens/tickets/model';
+import { ROLE_CHIPS, ROLE_SOON, roleTarget, type RoleId } from '../screens/tickets/roleChips';
 import { DANCER_TICKETS } from './routes';
 
 /**
