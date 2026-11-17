@@ -253,14 +253,19 @@ async function paginate(path) {
   return out;
 }
 
-/** Review docs for PR n: docs/review/<n>*.md (or review-<n>*.md) on branches claude/review-<n>[a-z]|-...
+/** File names accepted as a review doc for PR n: <n>*.md, review-<n>*.md or pr-<n>*.md (reviewers use all three). */
+export function reviewDocNameRe(n) {
+  return new RegExp(`^(review-|pr-)?${n}([a-z]|-.+)?\\.md$`);
+}
+
+/** Review docs for PR n: docs/review/<n>*.md (or review-<n>*.md, pr-<n>*.md) on branches claude/review-<n>[a-z]|-...
  *  -> [{ name, text, committedAt }]. Never throws: ANY failed read returns [] for the whole PR (fails closed: no evidence). */
 async function readReviewDocs(repo, n) {
   const out = [];
   try {
     const refs = await gh(`/repos/${repo}/git/matching-refs/heads/claude/review-${n}`);
     const okRef = new RegExp(`^refs/heads/claude/review-${n}([a-z]|-.+)?$`);
-    const nameRe = new RegExp(`^(review-)?${n}([a-z]|-.+)?\\.md$`);
+    const nameRe = reviewDocNameRe(n);
     for (const r of (Array.isArray(refs) ? refs : []).filter((x) => okRef.test(x.ref))) {
       const branch = r.ref.replace("refs/heads/", "");
       try {
