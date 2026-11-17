@@ -7,6 +7,8 @@ import { GateHost } from '../onboarding/GateHost';
 import type { HomeOrganiser } from '../../shared/selfServeApi';
 import { isPushed } from '../shell/P3Shell';
 import { EVENT_PARAM, readStoredEvent, resolveEventId, storeEvent } from './eventChoice';
+import { flags } from '@/lib/featureFlags';
+import { EXIT_TO, EXIT_WORD } from '../tickets/a/clockState';
 import { vibrate } from './feedback';
 import { V2_TABS, V2_TAB_WORD, v2TabOf, type V2Tab } from './paths';
 import '../theme/p3.css';
@@ -100,9 +102,9 @@ export function V2Shell() {
     <div className="p3-theme v2-look p3-frame" data-testid="v2-shell">
       <EventChoiceProvider>
         <header className="v2-top" data-testid="v2-top">
-          <a href={BACK_TO} className="v2-back" data-testid="v2-back">
+          <a href={flags.organiserTicketsA ? EXIT_TO : BACK_TO} className="v2-back" data-testid="v2-back">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path d="M15 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            {BACK_WORD}
+            {flags.organiserTicketsA ? EXIT_WORD : BACK_WORD}
           </a>
           <EventSwitcher />
         </header>
