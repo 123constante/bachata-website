@@ -11,3 +11,6 @@ Brief: `brief/onboard-a:docs/briefs/onboard-a-slice-a.md`. Flag: `VITE_ENABLE_BU
 - Item 4 (checkout return lands on teaser Home with the QR): NOT built. `TicketThanksPage` still redirects a signed-in buyer to `/app/tickets?o=`, which polls the order. Teaser Home (`TeaserScreens.tsx` TeaserHome) reads tickets via `useTicketCard()` and has no `?o=` polling, so a straight redirect would show no QR until the webhook lands. Next: behind the flag, redirect to `/app/home?o=` and give TeaserHome the same order poll the Tickets tab uses (or show the Tickets-tab order block on Home while pending).
 - Owner clicks not yet built: passed/cancelled/refunded ticket card states, "Your ticket is under another email" note, daily funnel status line.
 - 390x844 browser walk with the flag ON and a signed-in no-profile account (none done here).
+
+## Status
+- PR: #1763. Head before this commit: 6e6f69a. tsc run on 6e6f69a: 0 errors in branch files.
