@@ -95,8 +95,6 @@ test('door face (clock at the night)', async ({ page }) => {
   await open(page, 'owner', '2026-10-09T19:30:00Z');
   await page.waitForTimeout(800);
   console.log('door big', (await page.getByTestId('tixa-big').innerText()).replace(/\n/g, ' | '));
-  console.log('NOW', await page.evaluate(() => new Date().toISOString()));
-  console.log('BODY', (await page.locator('body').innerText()).replace(/\n/g, ' | ').slice(0, 700));
   await expect(page.getByTestId('tixa-sell')).toBeVisible();
   await geometry(page, '[data-testid="v2-shell"]');
   await page.screenshot({ path: `${OUT}/a2-door.png` });
