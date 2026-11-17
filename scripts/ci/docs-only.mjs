@@ -75,6 +75,44 @@ export function isE2eSkippable(paths) {
     : false);
 }
 
+// CI-light = a PR that changes CI machinery (workflows, scripts/ci/, guard scripts,
+// ci-*.json budgets) and otherwise only paths the browser suites cannot see. Phone QA
+// skips its full shards for it but still runs ONE phone spec and the production-build
+// smoke, so a broken workflow edit goes red in its own PR (owner 2026-11-17, ci-speed
+// decision 5). Docs-only is never CI-light: it skips outright. None of these paths is
+// imported by vite, the dev server or the phone/build Playwright configs.
+const CI_PATHS = [
+  (p) => p.startsWith('.github/workflows/'),
+  (p) => p.startsWith('scripts/ci/'),
+  (p) => /^scripts\/check-[\w.-]+\.mjs$/.test(p),
+  (p) => /^ci-[\w.-]+\.json$/.test(p),
+];
+const isCiPath = (p) => typeof p === 'string' && p !== '' && !p.includes('..') && !p.startsWith('/')
+  && !p.startsWith('"') && CI_PATHS.some((f) => f(p));
+export function isCiLight(paths) {
+  if (!Array.isArray(paths) || paths.length === 0 || isDocsOnly(paths)) return false;
+  return paths.some(isCiPath) && paths.every((p) => isCiPath(p) || isE2eSkippable([p]));
+}
+
+const CI_LIGHT_CASES = [
+  ['empty', [], false],
+  ['docs only', ['docs/a.md'], false],
+  ['own workflow', ['.github/workflows/phone-qa.yml'], true],
+  ['other workflow', ['.github/workflows/seo-check.yml'], true],
+  ['workflow + docs', ['.github/workflows/unit-tests.yml', 'docs/a.md'], true],
+  ['scripts/ci', ['scripts/ci/docs-only.mjs'], true],
+  ['guard script + budget json', ['scripts/check-ci-wallclock.mjs', 'ci-wallclock-budgets.json'], true],
+  ['supabase only (no CI path)', ['supabase/a.sql'], false],
+  ['workflow + src', ['.github/workflows/phone-qa.yml', 'src/a.tsx'], false],
+  ['workflow + playwright config', ['.github/workflows/phone-qa.yml', 'playwright.phone.config.ts'], false],
+  ['workflow + phone spec', ['.github/workflows/phone-qa.yml', 'tests/e2e-phone/a.phone.spec.ts'], false],
+  ['scripts lib', ['scripts/lib/entry-point.mjs'], false],
+  ['serve-build script', ['scripts/_serve-build.mjs'], false],
+  ['package.json', ['.github/workflows/x.yml', 'package.json'], false],
+  ['composite action', ['.github/actions/x/action.yml'], false],
+  ['traversal', ['.github/workflows/../../src/a.ts'], false],
+];
+
 const E2E_CASES = [
   ['empty', [], false],
   ['docs', ['docs/a.md'], true],
@@ -147,13 +185,14 @@ function selfTest() {
   const fails = runCases();
   for (const [n, paths, want] of E2E_CASES) if (isE2eSkippable(paths) !== want) { console.error(`FAIL e2e case: ${n}`); bad++; }
   for (const n of fails) { console.error(`FAIL case: ${n}`); bad++; }
-  if (emitLines(false, true).join() !== 'docs_only=false,e2e_skip=true' || emitLines(true, undefined).join() !== 'docs_only=true,e2e_skip=false') { console.error('FAIL emit does not write both outputs'); bad++; }
+  for (const [n, paths, want] of CI_LIGHT_CASES) if (isCiLight(paths) !== want) { console.error(`FAIL ci-light case: ${n}`); bad++; }
+  if (emitLines(false, true, true).join() !== 'docs_only=false,e2e_skip=true,ci_light=true' || emitLines(true, undefined).join() !== 'docs_only=true,e2e_skip=false,ci_light=false') { console.error('FAIL emit does not write all three outputs'); bad++; }
   if (isE2eSkippable(['.github/actions/x/action.yml'])) { console.error('FAIL .github/actions must not be skippable'); bad++; }
   for (const r of RULES) {
     const mutant = RULES.filter((x) => x !== r);
     if (runCases(mutant).length === 0) { console.error(`FAIL mutant survived: rule "${r.name}" removed, table still green`); bad++; }
   }
-  console.log(`docs-only self-test: ${CASES.length + E2E_CASES.length} cases, ${RULES.length} mutants, ${bad ? bad + ' FAILURES' : 'ok'}`);
+  console.log(`docs-only self-test: ${CASES.length + E2E_CASES.length + CI_LIGHT_CASES.length} cases, ${RULES.length} mutants, ${bad ? bad + ' FAILURES' : 'ok'}`);
   return bad === 0;
 }
 
@@ -181,12 +220,12 @@ function changedPaths(argv) {
   return git(['diff', '--name-only', '--no-renames', ...range]).split('\n').filter((l) => l !== '');
 }
 
-export function emitLines(v, e2eSkip) {
-  return [`docs_only=${v}`, `e2e_skip=${e2eSkip === true}`];
+export function emitLines(v, e2eSkip, ciLight) {
+  return [`docs_only=${v}`, `e2e_skip=${e2eSkip === true}`, `ci_light=${ciLight === true}`];
 }
 
-function emit(v, e2eSkip) {
-  const lines = emitLines(v, e2eSkip);
+function emit(v, e2eSkip, ciLight) {
+  const lines = emitLines(v, e2eSkip, ciLight);
   for (const line of lines) console.log(line);
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, lines.join('\n') + '\n');
 }
@@ -196,6 +235,7 @@ if (isEntryPoint(import.meta.url)) {
   if (argv.includes('--self-test')) process.exit(selfTest() ? 0 : 1);
   let result = false;
   let e2eSkip = false;
+  let ciLight = false;
   try {
     const ev = process.env.EVENT_NAME;
     // Any other event: docs_only=false without touching git.
@@ -203,9 +243,11 @@ if (isEntryPoint(import.meta.url)) {
       const paths = changedPaths(argv);
       result = isDocsOnly(paths);
       e2eSkip = isE2eSkippable(paths);
+      ciLight = isCiLight(paths);
     }
   } catch (e) {
     console.error(`docs-only: could not compute changed files (${e.message}); running everything`);
+    ciLight = false;
   }
-  emit(result, e2eSkip);
+  emit(result, e2eSkip, ciLight);
 }
