@@ -382,6 +382,11 @@ export const LIB_EVENT_RULES_MODULES = [
   // a chunk the route already loads.
   "/src/lib/claimMyDancerProfile.ts",
   "/src/lib/myPersona.ts",
+  // Booking fee constant (organiser V1 shell, #1731): one exported number read by the public
+  // checkout model and the organiser ticket model. The V2 shell's Tickets tab imports the
+  // organiser model statically, so the two importers landed in different chunks and rollup cut
+  // this leaf into its own chunk: +1 first-load request on /app/* (chunk ratchet 49 vs 48).
+  "/src/lib/ticketBookingFee.ts",
 ];
 
 // The SECOND first-party group (2026-10-16, dancer journey fixes): the ONE avatar

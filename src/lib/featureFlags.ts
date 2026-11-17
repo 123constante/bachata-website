@@ -78,6 +78,10 @@ export const flags = {
   // Organiser dashboard slice 1 (admin #1535): hero + date rail Home. OFF = the current Home.
   // Turn on with VITE_ENABLE_ORGANISER_DASH=true (Vercel env) -- no code change.
   organiserDash:       import.meta.env.VITE_ENABLE_ORGANISER_DASH === 'true',
+  // Organiser shell V2 (docs/briefs/BRIEF-organiser-v1-shell.md): slim top bar with Back to Bachata Calendar and an event
+  // switcher, tabs Events + Team / Tickets / Guest list / Raffle, the V2 look. Needs organiserP3 and organiserDash.
+  // OFF = today's P3 shell exactly as is. Turn on with VITE_ENABLE_ORGANISER_SHELL_V2=true (Vercel env) -- no code change.
+  organiserShellV2:    import.meta.env.VITE_ENABLE_ORGANISER_SHELL_V2 === 'true',
   // Claim-first organiser invite (docs/briefs/claim-first-organiser-invite.md): /invite shows the
   // organisation to take over FIRST, then a separate "Now about you" step. OFF = /invite exactly as before.
   // Turn on with VITE_ENABLE_CLAIM_FIRST_INVITE=true (Vercel env) -- no code change.
