@@ -1,5 +1,5 @@
 import { Suspense, useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ChevronRight, Lock, Ticket } from 'lucide-react';
 import { appWelcomeHref } from '@/lib/accountRouting';
 import { useAuth } from '@/hooks/useAuth';
@@ -8,7 +8,7 @@ import { CARD_COPY } from '../tickets/model';
 import { useTicketCard } from '../tickets/useTicketCard';
 import '../tickets/tickets.css';
 import './teaser.css';
-import { LOCKED_ROWS, TEASER_COPY, TEASER_HOME, greetingFor, nightDate, ticketLine } from './teaserModel';
+import { LOCKED_ROWS, TEASER_COPY, TEASER_HOME, finishLineFor, greetingFor, nightDate, nightsHref, ticketLine } from './teaserModel';
 
 // Lazy, as on the Tickets tab: the QR generator never lands on a first load.
 const TicketCard = lazyWithRetry(() => import('../tickets/TicketCard'));
@@ -65,6 +65,7 @@ export function TeaserHome() {
   const sheet = useLockSheet();
   const { view } = useTicketCard();
   const { user } = useAuth();
+  const { search } = useLocation();
   const first = view.kind === 'tickets' ? view.tickets[0] : null;
   return (
     <div className="tz-screen" data-testid="teaser-home">
@@ -75,13 +76,13 @@ export function TeaserHome() {
           <span className="tz-muted" style={{ fontWeight: 600 }}>{TEASER_COPY.stepSuffix}</span>
         </div>
         <div className="tz-bar" aria-hidden="true"><i className="on" /><i /><i /><i /></div>
-        <p className="tz-muted" style={{ margin: '0 0 14px', fontSize: 15 }}>{TEASER_COPY.finishLine}</p>
+        <p className="tz-muted" style={{ margin: '0 0 14px', fontSize: 15 }} data-testid="teaser-finish-line">{finishLineFor(view.kind)}</p>
         <button type="button" className="tz-btn" onClick={sheet.open} data-testid="teaser-next-step">{TEASER_COPY.finishCta}</button>
       </section>
       {first && (
         <section className="tz-card" data-testid="teaser-ticket-card">
           <span className="tz-notch tz-notch-l" aria-hidden="true" /><span className="tz-notch tz-notch-r" aria-hidden="true" />
-          <Link to="/app/nights" className="tz-tkt" data-testid="teaser-ticket-link">
+          <Link to={nightsHref(search)} className="tz-tkt" data-testid="teaser-ticket-link">
             <span className="tz-tkt-ic"><Ticket aria-hidden="true" style={{ width: 22, height: 22 }} /></span>
             <span style={{ flex: 1, minWidth: 0 }}>
               <b>{TEASER_COPY.ticketTitle}</b>

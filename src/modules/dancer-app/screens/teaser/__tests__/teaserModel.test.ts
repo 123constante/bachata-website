@@ -1,34 +1,67 @@
 import { describe, expect, it } from 'vitest';
 import { admitsViewOnly } from '../../../gate/viewOnly';
-import { LOCKED_ROWS, TEASER_PATHS, greetingFor, nightDate, teaserActive, ticketLine } from '../teaserModel';
+import type { ProfileRead } from '../../tickets/profileIncomplete';
+import { LOCKED_ROWS, TEASER_COPY, TEASER_PATHS, finishLineFor, greetingFor, nightDate, nightsHref, teaserState, ticketLine } from '../teaserModel';
 
-describe('teaserActive', () => {
-  const cases: [boolean, boolean, boolean, boolean][] = [
-    [false, false, false, false], [false, true, true, false], [true, false, true, false],
-    [true, true, false, false], [true, true, true, true],
-  ];
-  it.each(cases)('teaser=%s ticketing=%s viewOnly=%s -> %s', (teaserFlag, ticketingFlag, viewOnly, want) => {
-    expect(teaserActive({ teaserFlag, ticketingFlag, viewOnly })).toBe(want);
+const NO_PROFILE: ProfileRead = { status: 'no_profile', requiredDone: false };
+const MID_SETUP: ProfileRead = { status: 'success', requiredDone: false };
+const DONE: ProfileRead = { status: 'success', requiredDone: true };
+const PENDING: ProfileRead = { status: 'pending', requiredDone: false };
+const ERROR: ProfileRead = { status: 'error', requiredDone: false };
+const on = { teaserFlag: true, ticketingFlag: true, viewOnly: false };
+
+describe('teaserState', () => {
+  it('on for an allowed person with an unfinished profile (prod: dancer_area_open = true, everyone allowed)', () => {
+    expect(teaserState({ ...on, read: NO_PROFILE })).toBe('on');
+    expect(teaserState({ ...on, read: MID_SETUP })).toBe('on');
+  });
+  it('off for a finished profile, and for a failed read (the real screens, as today)', () => {
+    expect(teaserState({ ...on, read: DONE })).toBe('off');
+    expect(teaserState({ ...on, read: ERROR })).toBe('off');
+  });
+  it('pending while the profile read is out', () => {
+    expect(teaserState({ ...on, read: PENDING })).toBe('pending');
+  });
+  it('never for a view-only person: their onboarding calls raise 42501 area_closed', () => {
+    for (const read of [NO_PROFILE, MID_SETUP, PENDING, DONE, ERROR]) expect(teaserState({ ...on, viewOnly: true, read })).toBe('off');
+  });
+  it('off with either flag off, whatever the profile', () => {
+    for (const read of [NO_PROFILE, MID_SETUP, PENDING]) {
+      expect(teaserState({ ...on, teaserFlag: false, read })).toBe('off');
+      expect(teaserState({ ...on, ticketingFlag: false, read })).toBe('off');
+    }
   });
 });
 
-describe('admitsViewOnly with the teaser flag', () => {
-  it('flag off: only /app/tickets, exactly as before', () => {
-    expect(admitsViewOnly('/app/tickets', true, false)).toBe(true);
-    for (const p of TEASER_PATHS) expect(admitsViewOnly(p, true, false)).toBe(false);
+describe('the teaser never widens the dancer-area gate', () => {
+  it('a not-allowed person is still admitted to /app/tickets only (never the tabs, never welcome)', () => {
     expect(admitsViewOnly('/app/tickets', true)).toBe(true);
+    for (const p of ['/app/welcome', ...TEASER_PATHS]) expect(admitsViewOnly(p, true)).toBe(false);
   });
-  it('welcome is admitted only with the teaser on (Continue reaches onboarding)', () => {
-    expect(admitsViewOnly('/app/welcome', true, true)).toBe(true);
-    expect(admitsViewOnly('/app/Welcome/', true, true)).toBe(true);
-    expect(admitsViewOnly('/app/welcome', true, false)).toBe(false);
+});
+
+describe('Finish card line', () => {
+  it('says the ticket is booked only when real tickets are on the card', () => {
+    expect(finishLineFor('tickets')).toBe(TEASER_COPY.finishLine);
+    for (const k of ['none', 'loading', 'pending', 'processing', 'failed', 'qr_error', 'paid_email']) {
+      expect(finishLineFor(k)).toBe(TEASER_COPY.finishLineNoTicket);
+    }
   });
-  it('flag on: the four tabs too, never edit / photo / page', () => {
-    for (const p of TEASER_PATHS) expect(admitsViewOnly(p + '/', true, true)).toBe(true);
-    for (const p of ['/app/me/edit', '/app/me/photo', '/app/page']) expect(admitsViewOnly(p, true, true)).toBe(false);
+  it('never says bought or paid', () => {
+    for (const s of [TEASER_COPY.finishLine, TEASER_COPY.finishLineNoTicket]) expect(s).not.toMatch(/bought|paid/i);
+    expect(TEASER_COPY.finishLineNoTicket).not.toMatch(/ticket/i);
   });
-  it('ticketing off: nothing, whatever the teaser flag says', () => {
-    for (const p of ['/app/tickets', '/app/welcome', ...TEASER_PATHS]) expect(admitsViewOnly(p, false, true)).toBe(false);
+});
+
+describe('Home ticket link keeps the order', () => {
+  const id = '0f8c3c1e-2b4a-4d6e-9f10-1a2b3c4d5e6f';
+  it('carries ?o= (and free=1 with it) to Nights', () => {
+    expect(nightsHref(`?o=${id}`)).toBe(`/app/nights?o=${id}`);
+    expect(nightsHref(`?o=${id}&free=1&x=2`)).toBe(`/app/nights?o=${id}&free=1`);
+  });
+  it('plain Nights without a real order id', () => {
+    expect(nightsHref('')).toBe('/app/nights');
+    expect(nightsHref('?o=nope&free=1')).toBe('/app/nights');
   });
 });
 

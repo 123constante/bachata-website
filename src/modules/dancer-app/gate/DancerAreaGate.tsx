@@ -2,7 +2,6 @@ import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { ACCOUNT_HOME_PATH } from '@/lib/accountRouting';
 import { flags } from '@/lib/featureFlags';
-import { TICKET_TEASER_ENABLED } from '../screens/teaser/teaserFlag';
 import { useDancerArea } from './useDancerArea';
 import { ViewOnlyContext, admitsViewOnly } from './viewOnly';
 
@@ -25,7 +24,7 @@ export const DancerAreaGate = ({ children }: { children: ReactNode }) => {
     );
   }
   if (area.status === 'error' || !area.allowed) {
-    if (admitsViewOnly(pathname, flags.publicTicketing, TICKET_TEASER_ENABLED)) {
+    if (admitsViewOnly(pathname, flags.publicTicketing)) {
       // A failed gate read is not a 'no': the person is admitted to the tickets route only, but not
       // marked view-only, so a finished dancer is never shown as locked out by a network blip.
       return <ViewOnlyContext.Provider value={area.status !== 'error'}>{children}</ViewOnlyContext.Provider>;

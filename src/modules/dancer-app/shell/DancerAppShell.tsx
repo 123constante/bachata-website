@@ -17,7 +17,7 @@ import { DancerApiError } from '../api/errors';
 import { useViewOnly } from '../gate/viewOnly';
 import { profileIncomplete } from '../screens/tickets/profileIncomplete';
 import '../screens/tickets/tickets.css';
-import { teaserActive } from '../screens/teaser/teaserGate';
+import { TeaserContext, teaserState } from '../screens/teaser/teaserGate';
 import '../screens/teaser/teaser.css';
 import { mayBeFocus, requiredDone, shellChrome } from './focusChrome';
 import { ProfileSheetProvider, useProfileSheet } from './profileSheet';
@@ -74,17 +74,18 @@ export const DancerAppShell = () => {
     enabled: Boolean(user?.id) && (candidate || (ticketsOn && !viewOnly)),
   });
   const noProfile = profile.error instanceof DancerApiError && profile.error.code === 'no_profile';
-  const incomplete =
-    ticketsOn &&
-    profileIncomplete(viewOnly, {
-      status: profile.data ? 'success' : noProfile ? 'no_profile' : profile.isError ? 'error' : 'pending',
-      requiredDone: requiredDone(profile.data),
-    });
+  const read = {
+    status: profile.data ? 'success' : noProfile ? 'no_profile' : profile.isError ? 'error' : 'pending',
+    requiredDone: requiredDone(profile.data),
+  } as const;
+  const incomplete = ticketsOn && profileIncomplete(viewOnly, read);
   // Locked tabs: only for a person with no dancer profile to show (view-only, or no_profile).
   // A dancer mid-setup keeps their tabs and sees only the bar.
-  // Post-pay teaser (TICKET_TEASER_ENABLED): a view-only buyer gets the four real tabs, each a read-only twin
-  // (DancerAppRoutes), so no tab is locked out; the Me tab keeps a small lock mark. Flag off = unchanged.
-  const teaser = teaserActive({ teaserFlag: TICKET_TEASER_ENABLED, ticketingFlag: ticketsOn, viewOnly });
+  // Post-pay teaser (TICKET_TEASER_ENABLED): an ALLOWED person with an unfinished profile gets the four real
+  // tabs, each a read-only twin (DancerAppRoutes), so no tab is locked out; the Me tab keeps a small lock mark.
+  // Never a view-only person (their onboarding raises area_closed). Flag off = unchanged.
+  const teaserNow = teaserState({ teaserFlag: TICKET_TEASER_ENABLED, ticketingFlag: ticketsOn, viewOnly, read });
+  const teaser = teaserNow === 'on';
   const tabsLocked = ticketsOn && !teaser && (viewOnly || noProfile);
   const { focus, notNowTo } = shellChrome(pathname, search, candidate ? profile.data : null);
   const active = activeTabFor(pathname);
@@ -131,7 +132,9 @@ export const DancerAppShell = () => {
         data-testid="dancer-app-content"
         style={focus ? { paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' } : undefined}
       >
-        <Outlet />
+        <TeaserContext.Provider value={teaserNow}>
+          <Outlet />
+        </TeaserContext.Provider>
       </div>
       {!focus && (
         <nav className={ticketsOn && !teaser ? 'da-tabs dt-tabs-5' : 'da-tabs'} aria-label="Dancer app" data-testid="dancer-app-tabs">

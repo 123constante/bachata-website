@@ -5,11 +5,14 @@
  */
 
 // The gate parts live in ./teaserGate (shell + gate import them without pulling this copy module into the dancer-app entry chunk).
-export { TEASER_PATHS, teaserActive } from './teaserGate';
+export { TEASER_PATHS, teaserState } from './teaserGate';
+import { isOrderId } from '@/modules/tickets/ticketCheckoutModel';
 
 export const TEASER_COPY = {
   finishTitle: 'Finish your profile',
-  finishLine: 'Your ticket is bought. Next step: tell us what you are.',
+  // Only with a ticket to show (finishLineFor). "Booked", not "bought": a free ticket is one too.
+  finishLine: 'Your ticket is booked. Next step: tell us what you are.',
+  finishLineNoTicket: 'Next step: tell us what you are.',
   finishCta: 'What are you?',
   step: '1 of 4',
   stepSuffix: 'to finish your profile',
@@ -71,3 +74,26 @@ export const greetingFor = (meta: Record<string, unknown> | null | undefined): s
 
 /** Where Continue returns to after onboarding: the dancer home (same value as DANCER_HOME; kept here so the lazy teaser chunk imports nothing from the shell). */
 export const TEASER_HOME = '/app/home';
+
+/**
+ * The Finish card line. "Your ticket is booked" ONLY when the card has real tickets to show (issued, with a QR):
+ * never for no ticket, an order still checking / processing, a failed order or a read error.
+ */
+export const finishLineFor = (viewKind: string): string =>
+  viewKind === 'tickets' ? TEASER_COPY.finishLine : TEASER_COPY.finishLineNoTicket;
+
+/**
+ * Home's "Your ticket" link: Nights, carrying the order id (?o=) and free=1 from Home's URL. Home's card read
+ * moves the stored order id into ?o= and clears the store, so without this Nights would lose the order just paid.
+ */
+export const nightsHref = (search: string): string => {
+  const from = new URLSearchParams(search);
+  const to = new URLSearchParams();
+  const o = from.get('o');
+  if (isOrderId(o)) {
+    to.set('o', o);
+    if (from.get('free') === '1') to.set('free', '1');
+  }
+  const q = to.toString();
+  return q ? `/app/nights?${q}` : '/app/nights';
+};

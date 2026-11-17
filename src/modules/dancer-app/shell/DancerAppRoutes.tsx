@@ -19,15 +19,13 @@ import SignOutControl from '../screens/options/SignOutControl';
 import OptionsScreen from '../screens/options/OptionsScreen';
 // Lazy (with the teaser twins below): the tickets modules they share then sit in their own chunk, off the /app first load.
 const TicketsScreen = lazyWithRetry(() => import('../screens/tickets/TicketsScreen'));
-import { flags } from '@/lib/featureFlags';
-import { TICKET_TEASER_ENABLED } from '../screens/teaser/teaserFlag';
-import { useViewOnly } from '../gate/viewOnly';
+
 const TeaserHome = lazyWithRetry(() => import('../screens/teaser/TeaserScreens').then((m) => ({ default: m.TeaserHome })));
 const TeaserNights = lazyWithRetry(() => import('../screens/teaser/TeaserScreens').then((m) => ({ default: m.TeaserNights })));
 const TeaserMe = lazyWithRetry(() => import('../screens/teaser/TeaserScreens').then((m) => ({ default: m.TeaserMe })));
 const TeaserOptionsLazy = lazyWithRetry(() => import('../screens/teaser/TeaserScreens').then((m) => ({ default: m.TeaserOptions })));
 const TeaserOptions = () => <TeaserOptionsLazy signOut={<SignOutControl testId="teaser-sign-out" />} />;
-import { teaserActive } from '../screens/teaser/teaserGate';
+import { useTeaserState } from '../screens/teaser/teaserGate';
 
 /** Route id -> screen. One entry per DANCER_ROUTES row (TypeScript refuses a missing one). */
 export const DANCER_SCREENS: Record<DancerRouteId, ComponentType> = {
@@ -45,11 +43,16 @@ export const DANCER_SCREENS: Record<DancerRouteId, ComponentType> = {
 /** The read-only twins the post-pay teaser shows in place of these four screens (TICKET_TEASER_ENABLED). */
 const TEASER_SCREENS: Partial<Record<DancerRouteId, ComponentType>> = { home: TeaserHome, nights: TeaserNights, me: TeaserMe, options: TeaserOptions };
 
-/** The real screen, or its read-only twin for a view-only buyer with the teaser flag on. Flag off = always the real one. */
+/**
+ * The real screen, or its read-only twin for an allowed person with an unfinished profile and the teaser
+ * flag on (the shell decides: teaserGate teaserState). While that read is out, a tab with a twin draws
+ * nothing, so the real screen never flashes first. Flag off = always the real one.
+ */
 const ScreenOrTeaser = ({ id, Screen }: { id: DancerRouteId; Screen: ComponentType }) => {
-  const viewOnly = useViewOnly();
+  const teaser = useTeaserState();
   const Twin = TEASER_SCREENS[id];
-  const Shown = Twin && teaserActive({ teaserFlag: TICKET_TEASER_ENABLED, ticketingFlag: flags.publicTicketing, viewOnly }) ? Twin : Screen;
+  if (Twin && teaser === 'pending') return null;
+  const Shown = Twin && teaser === 'on' ? Twin : Screen;
   return <Suspense fallback={null}><Shown /></Suspense>;
 };
 
