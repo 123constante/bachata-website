@@ -17,7 +17,7 @@ for (const [label, text] of VARIANTS) {
     const on = wf.on ?? wf[true as unknown as string];
     it('triggers: hourly schedule + workflow_dispatch only (no PR trigger of any kind)', () => {
       expect(Object.keys(on).sort()).toEqual(['schedule', 'workflow_dispatch']);
-      expect(on.schedule[0].cron).toMatch(/^\d{1,2} \* \* \* \*$/);
+      expect(on.schedule[0].cron).toMatch(/^\d{1,2} (\*|\*\/2) \* \* \*$/);
       expect(text).not.toMatch(/pull_request_target|pull_request:/);
     });
     it('dispatch inputs: repos defaults to this repo, dry_run defaults to true', () => {

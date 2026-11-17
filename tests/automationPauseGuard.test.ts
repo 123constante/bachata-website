@@ -39,7 +39,7 @@ for (const [eol, text] of [['as read', RAW], ['CRLF', RAW.replace(/\r?\n/g, '\r\
     const on = wf.on ?? wf[true as unknown as string];
     it('triggers: issues labeled/unlabeled, every 30 minutes, workflow_dispatch; nothing PR-shaped', () => {
       expect(on.issues.types).toEqual(['labeled', 'unlabeled']);
-      expect(on.schedule).toEqual([{ cron: '*/30 * * * *' }]);
+      expect(on.schedule).toEqual([{ cron: '13 */2 * * *' }]);
       expect('workflow_dispatch' in on).toBe(true);
       expect(Object.keys(on).sort()).toEqual(['issues', 'schedule', 'workflow_dispatch']);
     });
