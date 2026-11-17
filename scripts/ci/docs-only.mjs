@@ -65,7 +65,7 @@ export function isDocsOnly(paths, rules = RULES) {
 // The real-Supabase specs in tests/e2e are outside test:e2e / test:e2e:p3, so supabase/ is blind to this gate.
 // typecheck.yml is kept running as a conservative extra: the suite shares its build inputs.
 const E2E_BLIND = ['supabase/', '.claude/', '.github/workflows/'];
-const E2E_OWN =['.github/workflows/e2e-smoke.yml', '.github/workflows/typecheck.yml'];
+const E2E_OWN =['.github/workflows/e2e-smoke.yml', '.github/workflows/typecheck.yml', '.github/workflows/phone-qa.yml'];
 export function isE2eSkippable(paths) {
   if (isDocsOnly(paths)) return true;
   if (!Array.isArray(paths) || paths.length === 0) return false;
@@ -83,6 +83,7 @@ const E2E_CASES = [
   ['claude config', ['.claude/settings.json'], true],
   ['other workflow', ['.github/workflows/seo-check.yml'], true],
   ['own workflow', ['.github/workflows/e2e-smoke.yml'], false],
+  ['phone-qa own workflow', ['.github/workflows/phone-qa.yml'], false],
   ['src', ['src/a.tsx'], false],
   ['migration + src', ['supabase/a.sql', 'src/a.tsx'], false],
   ['scripts unknown', ['scripts/x.mjs'], false],
