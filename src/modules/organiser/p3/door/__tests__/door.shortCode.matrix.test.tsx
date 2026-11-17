@@ -9,8 +9,8 @@ import type { DoorList, DoorRow } from '../data';
 import type { ScannerDeps } from '../camera';
 
 /*
- * Door short code (ticket_check_in_by_code_v1) and Tonight-list check-in by id
- * (ticket_check_in_by_id_v1), brief docs/briefs/ticket-door-code-screen.md.
+ * Door short code (ticket_check_in_by_code_v3) and Tonight-list check-in by id
+ * (ticket_check_in_by_id_v3), brief docs/briefs/ticket-door-code-screen.md.
  * Matrix: every result x staff role x list shape. The role is the DATABASE's call
  * (_ticket_door_orgs_v1): a person off the team gets not_allowed whatever the code; the
  * screen never checks a role itself, so the role enters only through the RPC answer.
@@ -47,7 +47,7 @@ type Role = (typeof ROLES)[number];
 
 /** Every answer the code path can show: the by-code RPC's six + too_many_attempts, plus no_signal (network). */
 const CODE_RESULTS: DoorResult[] = ['ok', 'already_in', 'wrong_event', 'not_valid', 'unknown_code', 'not_allowed', 'too_many_attempts', 'no_signal'];
-/** ticket_check_in_by_id_v1 never rate-limits. */
+/** ticket_check_in_by_id_v3 never rate-limits. */
 const ID_RESULTS: DoorResult[] = CODE_RESULTS.filter((r) => r !== 'too_many_attempts');
 
 const reply = (result: Exclude<DoorResult, 'no_signal'>): CheckIn => {

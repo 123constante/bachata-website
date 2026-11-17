@@ -37,8 +37,8 @@ import { browserDeps, buzz, useScanner, type ScannerDeps } from './camera';
  * The door scanner (layout C): a Scan tab (camera, the one answer, the code box) and a
  * Tonight's list tab (first name, quantity, In / Not in). Flag ticketDoorCode OFF: the list is
  * read-only and the code box takes the QR token only, exactly as v1. ON: the code box also takes
- * the 6-character short code (ticket_check_in_by_code_v1, rate-limited) and every Not in row has
- * a Check in button (ticket_check_in_by_id_v1, never rate-limited), so too_many_attempts always
+ * the 6-character short code (ticket_check_in_by_code_v3, rate-limited) and every Not in row has
+ * a Check in button (ticket_check_in_by_id_v3, never rate-limited), so too_many_attempts always
  * has a way forward.
  */
 
@@ -454,6 +454,11 @@ function ListTab({ list, shown, cam, busy, codeInput, onCode, act, seriesId, sho
   const d = list.data!;
   if (d.result === 'not_allowed' || notAllowed) {
     return <div className="p3-door-pad"><ResultCard shown={{ kind: 'not_allowed', c: null }} act={act} recheck={recheck} rechecking={rechecking} recheckNote={recheckNote} /></div>;
+  }
+  if (d.result === 'wrong_night') {
+    return <>{top}<div className="p3-door-pad"><div className="p3-card" data-testid="door-list-no-night"><strong>No night of this event is on now</strong>
+      <p className="p3-note">Every night of this event has ended, so there is no list to check.</p>
+      <button type="button" className="p3-btn p3-btn-line p3-door-wide" onClick={() => act('scan')}>Back to scanning</button></div></div></>;
   }
   if (!rows?.length) return <>{top}<EmptySold seriesId={seriesId} /></>;
   return (

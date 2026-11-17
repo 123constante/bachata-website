@@ -31,7 +31,7 @@ async function open(page: Page, steps: Step[], opts: { refuse?: string; price?: 
   });
   // The summary lists every type with its reserved_count (as ticket_sales_summary_v1 does): `reserved` is read from it, never the table.
   await page.route('**/rest/v1/rpc/ticket_sales_summary_v1*', (r) => json(r, { ok: true, ticket_types: [typeRow] }));
-  await page.route('**/rest/v1/rpc/ticket_door_list_v1*', (r) => json(r, { result: 'not_allowed', rows: [], in_count: null, total_count: null }));
+  await page.route('**/rest/v1/rpc/ticket_door_list_v3*', (r) => json(r, { result: 'not_allowed', rows: [], in_count: null, total_count: null }));
   await page.route('**/rest/v1/rpc/ticket_promo_list_v1*', (r) => json(r, { ok: true, rows: [] }));
   const price = opts.price ?? 6000;
   await page.route('**/rest/v1/ticket_types*', (r) => {

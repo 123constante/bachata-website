@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { FRIDAY, NOW, OrganiserFake, PHONE, expectNoHorizontalScroll, json } from './helpers/organiserFake';
 
 // The ticket door scanner (layout C) at 390x844 against the route-mocked organiser fake, with
-// ticket_check_in_v1 and ticket_door_list_v1 answered in their live shapes (admin migration
+// ticket_check_in_v3 and ticket_door_list_v3 answered in their live shapes (admin migration
 // 20270308040000). The camera is Chromium's fake device (no QR in it), so every answer comes
 // through the code box, the path a guest without a scannable QR takes. Dark set (door rooms are dark). Mounts only with
 // organiserP3 AND organiserTicketing on:
@@ -40,8 +40,8 @@ async function open(page: Page, answer: string, list: unknown = LIST) {
   const fake = new OrganiserFake();
   await fake.install(page);
   // registered after the fake's own rest route, so these answer the door reads
-  await page.route('**/rest/v1/rpc/ticket_door_list_v1*', (route: Route) => json(route, list));
-  await page.route('**/rest/v1/rpc/ticket_check_in_v1*', (route: Route) => {
+  await page.route('**/rest/v1/rpc/ticket_door_list_v3*', (route: Route) => json(route, list));
+  await page.route('**/rest/v1/rpc/ticket_check_in_v3*', (route: Route) => {
     const a = route.request().postDataJSON() as { p_qr_token: string; p_event_series_id: string };
     expect(a).toEqual({ p_qr_token: TOKEN, p_event_series_id: FRIDAY });
     if (answer === 'offline') return route.abort('internetdisconnected');

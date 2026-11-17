@@ -17488,6 +17488,14 @@ export type Database = {
         }
         Returns: Json
       }
+      ticket_check_in_by_code_v3: {
+        Args: {
+          p_code: string
+          p_event_series_id: string
+          p_occurrence_id: string
+        }
+        Returns: Json
+      }
       ticket_check_in_by_id_v1: {
         Args: { p_event_series_id: string; p_ticket_id: string }
         Returns: Json
@@ -17500,11 +17508,27 @@ export type Database = {
         }
         Returns: Json
       }
+      ticket_check_in_by_id_v3: {
+        Args: {
+          p_event_series_id: string
+          p_occurrence_id: string
+          p_ticket_id: string
+        }
+        Returns: Json
+      }
       ticket_check_in_v1: {
         Args: { p_event_series_id: string; p_qr_token: string }
         Returns: Json
       }
       ticket_check_in_v2: {
+        Args: {
+          p_event_series_id: string
+          p_occurrence_id: string
+          p_qr_token: string
+        }
+        Returns: Json
+      }
+      ticket_check_in_v3: {
         Args: {
           p_event_series_id: string
           p_occurrence_id: string
@@ -17599,6 +17623,10 @@ export type Database = {
         Returns: Json
       }
       ticket_door_list_v2: {
+        Args: { p_event_series_id: string; p_occurrence_id: string }
+        Returns: Json
+      }
+      ticket_door_list_v3: {
         Args: { p_event_series_id: string; p_occurrence_id: string }
         Returns: Json
       }

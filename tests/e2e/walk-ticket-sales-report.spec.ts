@@ -82,7 +82,7 @@ async function open(page: Page, fx: Fixture, role?: string) {
   // client fails closed to counts only (showMoney is the one gate), so the money lines would never render.
   // The summary lists every type with its reserved_count (as ticket_sales_summary_v1 does): `reserved` is read from it, never the table.
   await page.route('**/rest/v1/rpc/ticket_sales_summary_v1*', (r) => json(r, { ok: true, ticket_types: state.current.types, money_visible: (role ?? 'owner') === 'owner' }));
-  await page.route('**/rest/v1/rpc/ticket_door_list_v1*', (r) => json(r, { result: 'not_allowed', rows: [], in_count: null, total_count: null }));
+  await page.route('**/rest/v1/rpc/ticket_door_list_v3*', (r) => json(r, { result: 'not_allowed', rows: [], in_count: null, total_count: null }));
   await page.route('**/rest/v1/rpc/ticket_promo_list_v1*', (r) => json(r, { ok: true, rows: [] }));
   await page.route('**/rest/v1/ticket_types*', (r) => json(r, state.current.types));
   await page.route('**/rest/v1/ticket_orders*', (r) => json(r, state.current.orders));

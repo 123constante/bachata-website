@@ -1,21 +1,24 @@
-# Handover: festival-day-tickets-slice2b (BLOCKED, no code change)
+# Handover: festival-day-tickets-slice2b
 
-Done: read the brief and the LIVE prod bodies (pg_get_functiondef, read-only) of
-ticket_check_in_v3, ticket_check_in_by_code_v3, ticket_check_in_by_id_v3, ticket_door_list_v3.
+Status: DONE (code), PR open against main. Supersedes the earlier BLOCKED note: on
+2026-11-17 the live v3 door functions gained a NULL-occurrence branch (server picks the
+series' earliest night that has not ended), so the screen sends `p_occurrence_id: null`.
 
-BLOCKER: all four begin with
-  IF NOT EXISTS (SELECT 1 FROM event_occurrence_p5 n WHERE n.id = p_occurrence_id AND n.series_id = p_event_series_id)
-  THEN RETURN wrong_night
-With p_occurrence_id = NULL that is always true, so every call returns `wrong_night`.
-The brief says "pass null, the server picks the door day": the live functions do NOT do that.
-DoorScreen has no occurrence/night today (only seriesId from the route), so a straight
-contract swap would make the door refuse every ticket and show an empty list.
+## What changed
+- `src/modules/organiser/p3/door/data.ts`: ticket_check_in_v3 / _by_code_v3 / _by_id_v3 and
+  ticket_door_list_v3, all with `p_occurrence_id: null` (no night picker added).
+  parseCheckIn knows wrong_night, wrong_day, add_on_not_admission, unclassified_festival_type;
+  v3's `refunded` / `void` show as NOT VALID; any other unknown value -> CODE NOT RECOGNISED
+  (the existing generic refusal, never LET IN). parseDoorList accepts list `wrong_night`.
+- `model.ts`: four new RESULT_TABLE rows (brief copy; wrong_night had no door wording before,
+  so it uses "This ticket is for a different night", same idea as the guest-list scan copy).
+  Festival pass already used on this door day: v3 answers `already_in` -> existing ALREADY IN.
+- `DoorScreen.tsx`: list answer wrong_night (series has no night left) -> "No night of this
+  event is on now" card with Back to scanning, instead of a load error.
+- `types.ts`: v3 entries added only. door_scan_v1 is not called by the Website (types only).
+- e2e route mocks renamed v1 -> v3; tests: door.v3.matrix (names+args, every refusal,
+  refunded/void, unknown fallback), door.listShape wrong_night shape.
 
-Needs owner/admin decision, either:
- (a) admin-repo fix: v3 treats NULL occurrence as "pick the door day" (what the brief assumes), or
- (b) Website resolves an occurrence id (needs a read of event_occurrence_p5 for the series and a rule for which night), which contradicts "do not add a night picker".
-
-Left: mapping edits in data.ts (v1->v3 names + p_occurrence_id), model.ts/DoorScreen results
-wrong_day / add_on_not_admission / unclassified_festival_type, tests, types.ts v3 entries, e2e route mocks (tests/e2e/*door*).
-Next: once (a) or (b) is decided, apply the brief as written.
-Not verified: everything (no code changed); tsc not run.
+## Not verified
+- No live walk against prod data (no festival door session); e2e specs not run locally.
+- door_day / valid_day are parsed by nothing yet (no UI asked for them).
