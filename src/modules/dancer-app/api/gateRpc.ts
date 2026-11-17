@@ -11,6 +11,8 @@ import type { DancerDelta, DancerGate, FeatureKey, FeedbackKind, FeedbackReceipt
 export type DancerBackend = {
   fetchGate(): Promise<DancerGate>;
   fetchMyDancerEdit(): Promise<MyDancerEdit>;
+  /** ensure_my_dancer_profile_v1: create the signed-in person's auto_stub profile if missing (idempotent). */
+  ensureMyDancerProfile(): Promise<{ created: boolean }>;
   saveMyDancerProfile(delta: DancerDelta): Promise<MyDancerEdit>;
   fetchPublicExtras(profileId: string): Promise<PublicDancerExtras>;
   fetchMyStats(): Promise<MyDancerStats>;
