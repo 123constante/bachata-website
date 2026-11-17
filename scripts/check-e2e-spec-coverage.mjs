@@ -159,6 +159,7 @@ export function findSpecs(root, deps = {}) {
  * workflow path to its text; `specs` is findSpecs' output; `manual` is MANUAL.
  * Returns { code, lines, counts }.
  */
+const SHARD_ARGS = String.raw`\s+--\s+--shard=\$\{\{\s*matrix\.shard\s*\}\}/(?:\d+|\$\{\{\s*matrix\.total\s*\}\})`;
 export function runCheck({ scripts, workflows, specs, manual = MANUAL, ciLists = CI_LISTS }) {
   const lines = [];
   const problems = [];
@@ -168,7 +169,7 @@ export function runCheck({ scripts, workflows, specs, manual = MANUAL, ciLists =
     if (typeof cmd !== 'string') {
       return { code: 2, lines: [`CANNOT MEASURE: package.json has no "${name}" script (a CI list this guard reads).`], counts: null };
     }
-    const runsIt = new RegExp(`^\\s*(?:-\\s*)?run:\\s*npm run ${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:\\s+--\\s.*)?\\s*$`, 'm'); // a trailing `-- --shard=N/M` still runs the whole list across its shards
+    const runsIt = new RegExp(`^\\s*(?:-\\s*)?run:\\s*npm run ${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:${SHARD_ARGS})?\\s*$`, 'm'); // ONLY a `-- --shard=${{ matrix.shard }}/N` tail counts (N = digits or ${{ matrix.total }}): it still runs the whole list across its shards; `-- --grep`, `-- --list` or a pinned shard must NOT pass
     if (!runsIt.test(workflows?.[wf] ?? '')) {
       problems.push(`${wf} no longer runs \`npm run ${name}\`: the specs it lists are not running in CI. Fix the workflow or CI_LISTS.`);
     }
@@ -266,6 +267,9 @@ async function selfTest() {
     ['manual entry without run -> 1', { manual: { 'tests/e2e/m.spec.ts': { reason: 'walk', run: '' } } }, 1, 'needs both a reason and a run command'],
     ['CI list names a missing file -> 1', { specs: OK_SPECS.filter((s) => !s.endsWith('/c.spec.ts')) }, 1, 'names tests/e2e/c.spec.ts, which does not exist'],
     ['workflow stopped running a list -> 1', { workflows: { '.github/workflows/e2e-smoke.yml': '        run: npm run test:e2e\n' } }, 1, 'no longer runs `npm run test:e2e:p3`'],
+    ['a sharded run line still counts -> 0', { workflows: { '.github/workflows/e2e-smoke.yml': '        run: npm run test:e2e -- --shard=${{ matrix.shard }}/${{ matrix.total }}\n        run: npm run test:e2e:p3 -- --shard=${{ matrix.shard }}/2\n', '.github/workflows/live-qa.yml': '        run: npm run test:e2e:prod-ssr\n' } }, 0, 'OK'],
+    ['run line with -- --grep does not count -> 1', { workflows: { '.github/workflows/e2e-smoke.yml': '        run: npm run test:e2e -- --grep foo\n        run: npm run test:e2e:p3\n' } }, 1, 'no longer runs `npm run test:e2e`:'],
+    ['run line pinned to one shard does not count -> 1', { workflows: { '.github/workflows/e2e-smoke.yml': '        run: npm run test:e2e -- --shard=1/2\n        run: npm run test:e2e:p3\n' } }, 1, 'no longer runs `npm run test:e2e`:'],
     ['test:e2e:p3 line does not satisfy test:e2e -> 1', { workflows: { '.github/workflows/e2e-smoke.yml': '        run: npm run test:e2e:p3\n' } }, 1, 'no longer runs `npm run test:e2e`:'],
     ['CI list script missing -> 2', { scripts: { 'test:e2e': OK_SCRIPTS['test:e2e'] } }, 2, 'no "test:e2e:p3" script'],
     ['zero specs -> 2, never green', { specs: [] }, 2, 'ZERO *.spec.ts'],

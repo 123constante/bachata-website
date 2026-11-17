@@ -68,13 +68,13 @@ export function decideAudit({ files, prs, owner = OWNER_LOGIN, escalation = fals
     const pr = (prs || []).find((p) => p && p.mergeCommitSha === sha);
     if (pr && pr.author === BOT_LOGIN && hasSelfReview(pr.body)) return { code: 0, reason: `merge tier B (MERGE_TIERS_ENABLED): PR #${pr.number} records a self-review; owner approval not required` };
   }
-  if (escalation !== true) return verdictOf({ files, prs, owner, isHard: (f) => riskTier(f) === "hard" });
-  const v = verdictOf({ files, prs, owner, isHard: (f) => riskTier(f) === "hard" || isGuardPath(f) });
+  if (escalation !== true) return verdictOf({ files, prs, owner, tierFiles, isHard: (f) => riskTier(f) === "hard" });
+  const v = verdictOf({ files, prs, owner, tierFiles, isHard: (f) => riskTier(f) === "hard" || isGuardPath(f) });
   const guard = (files || []).filter((f) => isGuardPath(f));
   return { ...v, escalate: v.code === 1 && guard.length > 0, guard, prs: (prs || []).map((p) => p.number) };
 }
 
-function verdictOf({ files, prs, owner, isHard }) {
+function verdictOf({ files, prs, owner, isHard, tierFiles = null }) {
   const hard = (files || []).filter(isHard);
   if (hard.length === 0) return { code: 0, reason: "no hard-tier path touched" };
   if (!prs || prs.length === 0) {
@@ -87,6 +87,11 @@ function verdictOf({ files, prs, owner, isHard }) {
     // Guard paths stay owner-only: the bot status never covers them (reviewer finding 1).
     if (reviewerPassAtHead(pr) && !(files || []).some((f) => isGuardPath(f))) {
       return { code: 0, reason: `PR #${pr.number} reviewer-passed at head ${pr.headSha.slice(0, 8)}` };
+    }
+    // Review evidence = the reviewer worker's docs/review doc on claude/review-<n>* (AUTHORITY merge_website).
+    // Covers guard paths too, but never money / SQL / secret paths (those keep the owner's approval).
+    if (reviewerDocAtHead(pr) && !touchesMoneySqlSecret(tierFiles || files)) {
+      return { code: 0, reason: `PR #${pr.number} reviewer PASS doc names head ${pr.headSha.slice(0, 8)}, committed before merge` };
     }
   }
   const nums = prs.map((p) => "#" + p.number).join(", ");
@@ -106,6 +111,51 @@ export function reviewerPassAtHead(pr) {
     .filter((x) => x && x.context === REVIEWER_STATUS_CONTEXT)
     .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")) || (b.id || 0) - (a.id || 0))[0];
   return Boolean(newest && newest.state === "success" && newest.creator && newest.creator.id === REVIEWER_ID);
+}
+
+/** True when any file is money, SQL or a secret path (merge-tier class A once guard paths are ignored). */
+export function touchesMoneySqlSecret(files) {
+  return classifyTier(files, { isGuardPath: () => false }) === "A";
+}
+
+/**
+ * Review DOC evidence (owner click 2026-11-17): docs/review/<n>*.md on a branch claude/review-<n>*
+ * written by a separate reviewer worker. A doc counts when it names the PR head sha (7+ hex prefix,
+ * in its first 5 lines), has a line `## Verdict: PASS...` and exactly `## Hard-tier: PASS`, no
+ * Verdict/Hard-tier line saying FAIL or BLOCK (code fences ignored), and was committed at or before
+ * merged_at. Among docs naming this head the NEWEST decides, so a later FAIL voids an earlier PASS;
+ * a push changes the head and voids every older doc. pr.reviewDocs = [{ name, text, committedAt }].
+ */
+export function reviewDocVerdict(text, head) {
+  const lines = String(text || "").split("\n");
+  const body = [];
+  let fenced = false;
+  for (const l of lines) {
+    if (/^\s*(```|~~~)/.test(l)) { fenced = !fenced; continue; }
+    if (!fenced) body.push(l);
+  }
+  const named = body.slice(0, 5).join("\n").toLowerCase().match(/\b[0-9a-f]{7,40}\b/g) || [];
+  if (!named.some((t) => head.startsWith(t))) return "other-head";
+  const verdictLines = body.filter((l) => /^##\s*(Verdict|Hard-tier)\b/i.test(l));
+  if (verdictLines.some((l) => /\b(FAIL|BLOCK)\b/i.test(l))) return "fail";
+  const hasVerdict = body.some((l) => /^##\s*Verdict:?\s*PASS\b/i.test(l));
+  const hasHard = body.some((l) => /^##\s*Hard-tier:\s*PASS\s*$/i.test(l));
+  return hasVerdict && hasHard ? "pass" : "fail";
+}
+
+export function reviewerDocAtHead(pr) {
+  const head = pr && typeof pr.headSha === "string" ? pr.headSha.toLowerCase() : "";
+  const mergedMs = Date.parse((pr && pr.mergedAt) || "");
+  if (!/^[0-9a-f]{40}$/.test(head) || Number.isNaN(mergedMs)) return false;
+  const docs = [];
+  for (const d of (pr && pr.reviewDocs) || []) {
+    const at = Date.parse((d && d.committedAt) || "");
+    if (!d || Number.isNaN(at) || at > mergedMs) continue;
+    const v = reviewDocVerdict(d.text, head);
+    if (v !== "other-head") docs.push({ at, name: String(d.name || ""), v });
+  }
+  docs.sort((x, y) => y.at - x.at || y.name.localeCompare(x.name));
+  return docs.length > 0 && docs[0].v === "pass";
 }
 
 /** The owner's LATEST non-COMMENTED review is APPROVED at the PR's head sha. */
@@ -128,6 +178,7 @@ export function decideRecordAudit({ files, pr, record, owner = OWNER_LOGIN }) {
   const applies = (files || []).some((f) => pathClass(f) === "tests");
   if (!applies) return { applies: false, ok: true, problems: [], skipped: false };
   if (ownerApprovedAtHead(pr, owner)) return { applies: true, ok: true, problems: [], skipped: true, pr: pr.number };
+  if (reviewerDocAtHead(pr)) return { applies: true, ok: true, problems: [], skipped: true, reviewer: true, pr: pr.number };
   const problems = reviewRecordVerdict({ headSha: pr && pr.headSha, labels: (pr && pr.labels) || [], record });
   return { applies: true, ok: problems.length === 0, problems, skipped: false, pr: pr && pr.number };
 }
@@ -136,7 +187,7 @@ export function decideRecordAudit({ files, pr, record, owner = OWNER_LOGIN }) {
 export function recordLine(sha, r) {
   if (!r || !r.applies) return null;
   const s8 = String(sha).slice(0, 8);
-  if (r.skipped) return `RECORD-SKIP ${s8}: PR #${r.pr} owner-approved at head (no review record needed)`;
+  if (r.skipped) return `RECORD-SKIP ${s8}: PR #${r.pr} ${r.reviewer ? "reviewer PASS doc at head" : "owner-approved at head"} (no review record needed)`;
   if (!r.ok) return `RECORD-MISSING ${s8}: PR #${r.pr} ${r.problems[0]}`;
   return null;
 }
@@ -202,6 +253,30 @@ async function paginate(path) {
   return out;
 }
 
+/** Review docs for PR n: docs/review/<n>*.md (or review-<n>*.md) on branches claude/review-<n>[a-z]|-...
+ *  -> [{ name, text, committedAt }]. Never throws: ANY failed read returns [] for the whole PR (fails closed: no evidence). */
+async function readReviewDocs(repo, n) {
+  const out = [];
+  try {
+    const refs = await gh(`/repos/${repo}/git/matching-refs/heads/claude/review-${n}`);
+    const okRef = new RegExp(`^refs/heads/claude/review-${n}([a-z]|-.+)?$`);
+    const nameRe = new RegExp(`^(review-)?${n}([a-z]|-.+)?\\.md$`);
+    for (const r of (Array.isArray(refs) ? refs : []).filter((x) => okRef.test(x.ref))) {
+      const branch = r.ref.replace("refs/heads/", "");
+      try {
+        const list = await gh(`/repos/${repo}/contents/docs/review?ref=${encodeURIComponent(branch)}`);
+        for (const f of list.filter((x) => x.type === "file" && nameRe.test(x.name))) {
+          const file = await gh(`/repos/${repo}/contents/${f.path}?ref=${encodeURIComponent(branch)}`);
+          const commits = await gh(`/repos/${repo}/commits?sha=${encodeURIComponent(branch)}&path=${encodeURIComponent(f.path)}&per_page=1`);
+          const committedAt = commits[0] && commits[0].commit && commits[0].commit.committer && commits[0].commit.committer.date;
+          out.push({ name: `${branch}:${f.name}`, text: Buffer.from(file.content || "", "base64").toString("utf8"), committedAt });
+        }
+      } catch { return []; /* any partial read: no evidence at all (a dropped newer FAIL doc must not leave an older PASS) */ }
+    }
+  } catch { return []; /* no refs: no evidence */ }
+  return out;
+}
+
 /** Audit ONE commit: its own files, the merged PRs it belongs to. */
 async function auditCommit(repo, sha, escalation, mergeTiers = false) {
   const commit = await gh(`/repos/${repo}/commits/${sha}`);
@@ -220,10 +295,12 @@ async function auditCommit(repo, sha, escalation, mergeTiers = false) {
     if (needStatuses) {
       try { statuses = await paginate(`/repos/${repo}/commits/${p.head.sha}/statuses`); } catch { statuses = []; }
     }
-    prs.push({ number: p.number, headSha: p.head.sha, reviews, statuses, labels: (p.labels || []).map((l) => l && l.name), body: p.body || "", author: (p.user && p.user.login) || "", mergeCommitSha: p.merge_commit_sha || "" });
+    let reviewDocs = [];
+    if (needStatuses || files.some((f) => pathClass(f) === "tests")) reviewDocs = await readReviewDocs(repo, p.number);
+    prs.push({ number: p.number, headSha: p.head.sha, mergedAt: p.merged_at, reviews, statuses, reviewDocs, labels: (p.labels || []).map((l) => l && l.name), body: p.body || "", author: (p.user && p.user.login) || "", mergeCommitSha: p.merge_commit_sha || "" });
   }
   // Tier from the full file objects so the money check scans changed lines too, not only paths.
-  const v = mergeTiers ? decideAudit({ files, prs, escalation, mergeTiers, tierFiles: commit.files, sha }) : decideAudit({ files, prs, escalation });
+  const v = mergeTiers ? decideAudit({ files, prs, escalation, mergeTiers, tierFiles: commit.files, sha }) : decideAudit({ files, prs, escalation, tierFiles: commit.files });
   return { ...v, records: await recordAudits(repo, files, prs) };
 }
 

@@ -13,6 +13,7 @@ import type { HomeOrganiser } from '../../shared/selfServeApi';
 import { buildDash, type DashNight, type ProfileStep } from './dashModel';
 import type { AnalyticsTotals } from '../data/analyticsV2';
 import { DashView } from './DashView';
+import { whoCameLinkOf, whoIsInLinkOf } from '../sheets/sheetsModel';
 import { captionOf, nightLinkOf, pageLinkOf, shareText, type ShareOutcome } from './shareLinks';
 
 const SAID: Record<ShareOutcome, string | null> = { shared: null, copied: 'Link copied. Paste it wherever your group chats.', whatsapp: null };
@@ -81,6 +82,8 @@ export function DashHome({ rows, today, page, seriesIds }: { rows: readonly P3Ro
     clock, lastNight, canDoor: flags.organiserTicketing, hasPastNights: past.nights.length > 0,
   });
   const heroNight = model.hero?.night ?? null;
+  const whoIsInTo = model.hero?.kind === 'night' ? whoIsInLinkOf(heroNight, 'home') : null;
+  const whoCameTo = model.dayAfter ? whoCameLinkOf(model.dayAfter.night, 'home') : null;
   const going = heroNight?.seriesId && !heroNight.draft
     ? <P3NightGoing seriesId={heroNight.seriesId} seriesName={heroNight.name} nightKey={{ date: heroNight.date }} testId="dash-hero-going" />
     : null;
@@ -90,6 +93,6 @@ export function DashHome({ rows, today, page, seriesIds }: { rows: readonly P3Ro
   };
   return (
     <DashView model={model} pageName={page.name} pageLink={pageLink} notice={notice} onRetry={() => void analytics.refetch()} analyticsFailed={analytics.isError}
-      onShareNight={onShareNight} going={going} doorTo={heroNight?.seriesId ? P3_PATHS.eventDoor(heroNight.seriesId) : null} compareTo={P3_PATHS.compare} onSharePage={() => void run(page.name, `${page.name} on Bachata Calendar`, pageLink)} />
+      onShareNight={onShareNight} going={going} doorTo={heroNight?.seriesId ? P3_PATHS.eventDoor(heroNight.seriesId) : null} compareTo={P3_PATHS.compare} whoIsInTo={whoIsInTo} whoCameTo={whoCameTo} onSharePage={() => void run(page.name, `${page.name} on Bachata Calendar`, pageLink)} />
   );
 }
