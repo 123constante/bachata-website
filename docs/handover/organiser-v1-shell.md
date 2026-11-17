@@ -20,3 +20,10 @@ Brief: `docs/briefs/BRIEF-organiser-v1-shell.md` (branch brief/organiser-v1-shel
 - `ConfirmSheet` and `V2Toast` have no caller yet. The next slice should adopt them (e.g. for the cancel-night flows when they move into V2).
 - Walk the live guest list and raffle (flags ON) and the contributor seat under the V2 look; walk at 360x640.
 - Owner phone test, with the flag on in a Vercel preview env.
+
+## Bundle-budget fix (dispatch dt_a8abf8b52521, brief BRIEF-organiser-v1-bundle-fix)
+- Cause 1 (/event/:id +1 file, +3.2 KB gz): `shellV2On(flags)` passed the WHOLE `flags` object to a function. Rollup then stops constant-folding every flag in the bundle, so flag-gated dead code comes back on every route (about +1.3 KB on all of them). One piece was the raffle board code, which became its own `useRaffleBoard` chunk in /event's first load. Fix: `v2Live()` in `P3Routes.tsx` reads each flag by name. `shellV2On` keeps its signature for the test.
+- Cause 2 (/app/* chunk ratchet 49 vs 48): `src/lib/ticketBookingFee.ts` (one constant) was cut into its own chunk, because the V2 Tickets tab's static `ticketModel` import put its two importers in different chunks. Fix: it is now pinned in `LIB_EVENT_RULES_MODULES` (vite.chunks.ts), the same way as paymentMethods/paths.
+- Tried, did not help: lazy-loading V2Shell/V2Tabs (dancer-app stayed at 49). It was reverted.
+- Measured with the perf-budget.yml env on `npm run build` + `npm run check:bundle-budget`: every budgeted route is back to main fffedcc's local numbers (event 379.8 KB / 39 files, dancer-app 379.9 KB / 48, home 209.6 / 35). Every ratchet is green, and `perf-budgets.json` is unchanged.
+- Lesson: never pass `flags` as a value. Read `flags.x` by name.

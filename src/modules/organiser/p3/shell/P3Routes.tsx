@@ -17,6 +17,12 @@ import { V2EventsTab, V2GuestsTab, V2RaffleTab, V2TicketsTab } from '../v2/V2Tab
 
 /** Organiser shell V2 (brief organiser-v1-shell): on only with organiserShellV2 AND organiserP3 AND organiserDash. OFF = the P3 shell exactly as before. */
 export const shellV2On = (f: Pick<typeof flags, 'organiserShellV2' | 'organiserP3' | 'organiserDash'>): boolean => f.organiserShellV2 && f.organiserP3 && f.organiserDash;
+/**
+ * The live check. It reads each flag by name and never passes `flags` itself: handing the whole object
+ * to a function makes rollup stop constant-folding EVERY flag in the bundle, so flag-gated dead code
+ * comes back on every route (bundle-budget red on #1731: /event/:id +1 file, +3.2 KB gz).
+ */
+const v2Live = (): boolean => shellV2On({ organiserShellV2: flags.organiserShellV2, organiserP3: flags.organiserP3, organiserDash: flags.organiserDash });
 
 // The You hub and the R1 screens it pushes: lazy, as in OrganiserRoutes. Static imports here put
 // every one of their chunks in AnimatedRoutes' preload list for this area, which /app/* loads first.
@@ -56,7 +62,7 @@ const toEvent = (p: Readonly<Params>) => ({ to: P3_PATHS.event(p.seriesId ?? '')
 const toEvents = () => ({ to: P3_PATHS.events, label: 'Events' });
 const toYou = () => ({ to: P3_PATHS.you, label: 'You' });
 // With the V2 shell on there is no Home tab: the way back is Events (flag off: Home, as before).
-const toHome = () => (shellV2On(flags) ? { to: P3_PATHS.events, label: 'Events' } : { to: P3_PATHS.home, label: 'Home' });
+const toHome = () => (v2Live() ? { to: P3_PATHS.events, label: 'Events' } : { to: P3_PATHS.home, label: 'Home' });
 /**
  * The interim bridge's URLs (#1202: R1's New event steps in P3's frame). They redirect now: the
  * first two to P3's New event (the page kept), any step of a draft to that draft's event page
@@ -80,7 +86,7 @@ function lazyScreen(el: ReactNode, frame: P3RouteFrame, back: (p: Readonly<Param
  */
 /** The area's frame: the V2 shell behind organiserShellV2, else the P3 shell exactly as before. */
 function P3Shell() {
-  return shellV2On(flags) ? <V2Shell /> : <P3ShellV1 />;
+  return v2Live() ? <V2Shell /> : <P3ShellV1 />;
 }
 
 /** V2 has no Home tab: the area's bare URL opens Events, the page and event choice kept. */
@@ -92,7 +98,7 @@ function V2Home() {
 
 export default function P3Routes() {
   useNoindexMeta(true);
-  const v2 = shellV2On(flags);
+  const v2 = v2Live();
   return (
     <AuthGuard>
       <Routes>
