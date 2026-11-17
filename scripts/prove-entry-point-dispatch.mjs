@@ -179,6 +179,7 @@ const TARGETS = [
   { rel: 'scripts/ci-live-db-gate.mjs' },
   { rel: 'scripts/ci/route-runner.mjs' },
   { rel: 'scripts/check-ci-budget.mjs' },
+  { rel: 'scripts/check-ci-wallclock.mjs' },
   { rel: 'scripts/check-deployment-storage.mjs' },
   { rel: 'scripts/check-drill-records.mjs' },
   { rel: 'scripts/check-e2e-spec-coverage.mjs' },
