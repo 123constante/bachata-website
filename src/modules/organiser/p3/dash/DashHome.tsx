@@ -58,12 +58,13 @@ export function DashHome({ rows, today, page, seriesIds }: { rows: readonly P3Ro
     return nightsOf(rows, today, taps, window.location.origin);
   }, [rows, today, analytics.data, ids]);
   const home = useP3Home();
+  const [now] = useState(() => Date.now());
   const series = useMemo(() => rows.map((r) => ({ id: r.id, name: r.name })), [rows]);
   const past = usePastNights(series, today, 1, true, true);
   const nextLive = nights.find((n) => !n.cancelled) ?? null;
   const nextStartIso = nextLive?.seriesId ? organiserOfSeries(home.data, nextLive.seriesId)?.series.next_dates?.[0]?.materialised_start_utc ?? null : null;
   const lastNight = past.nights.find((n) => !n.cancelled) ?? null;
-  const clock = homeClockOf(nextStartIso, nextLive?.date ?? null, lastNight?.date ?? null, today, Date.now());
+  const clock = homeClockOf(nextStartIso, nextLive?.date ?? null, lastNight?.date ?? null, today, now);
   const pageLink = pageLinkOf(window.location.origin, page.id);
   const [notice, setNotice] = useState<string | null>(null);
   const run = useCallback(async (title: string, text: string, url: string) => {
