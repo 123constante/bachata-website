@@ -101,11 +101,21 @@ export function V2Shell() {
   return (
     <div className="p3-theme v2-look p3-frame" data-testid="v2-shell">
       <EventChoiceProvider>
+        {flags.organiserTicketsA && (
+          <div className="v2-exit" data-testid="v2-exit">
+            <a href={EXIT_TO} className="v2-exit-link" data-testid="v2-back">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path d="M15 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              {EXIT_WORD}
+            </a>
+          </div>
+        )}
         <header className="v2-top" data-testid="v2-top">
-          <a href={flags.organiserTicketsA ? EXIT_TO : BACK_TO} className="v2-back" data-testid="v2-back">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path d="M15 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            {flags.organiserTicketsA ? EXIT_WORD : BACK_WORD}
-          </a>
+          {!flags.organiserTicketsA && (
+            <a href={BACK_TO} className="v2-back" data-testid="v2-back">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path d="M15 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              {BACK_WORD}
+            </a>
+          )}
           <EventSwitcher />
         </header>
         {isPushed(pathname) ? <Outlet /> : (

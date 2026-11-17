@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { canRefund, formatCount, formatPence, leftOf, priceLabel, totalsOf, STATUS_LABEL, type Order } from '../../../tickets/ticketModel';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { setTicketStatus, ticketKeys } from '../../../tickets/ticketsApi';
+import { canManage, canRefund, formatCount, formatPence, leftOf, priceLabel, totalsOf, STATUS_LABEL, type Order } from '../../../tickets/ticketModel';
 import { organiserOfSeries, useP3Home, useSeriesOrders, useSeriesTypes, useSummary } from '../data';
 import { doorKeys, fetchDoorList } from '../../door/data';
 import { TicketsEntry } from '../TicketsEntry';
@@ -47,6 +48,30 @@ function Body({ orgId, role, seriesId, startIso, now }: { orgId: string; role: s
   const left = list.reduce((n, t) => n + leftOf(t), 0);
   const buyers: Order[] = shownOrders(orders.data ?? []);
   const close = () => setSheet(null);
+  const qc = useQueryClient();
+  const [opening, setOpening] = useState(false);
+  const [openMsg, setOpenMsg] = useState<string | null>(null);
+  const nextBatch = list.find((t) => t.status === 'draft' || t.status === 'paused') ?? null;
+  const canOpen = canManage(role) && nextBatch !== null;
+  const openNow = async () => {
+    if (!nextBatch || opening) return;
+    setOpening(true);
+    setOpenMsg(null);
+    try {
+      const out = await setTicketStatus(nextBatch.id, 'on_sale');
+      if (!out.ok) setOpenMsg('We couldn\u2019t open it. Try again in a moment.');
+      else {
+        await Promise.all([
+          qc.invalidateQueries({ queryKey: ticketKeys.types(orgId, seriesId) }),
+          qc.invalidateQueries({ queryKey: ticketKeys.summary(orgId) }),
+        ]);
+      }
+    } catch {
+      setOpenMsg('We couldn\u2019t open it. Try again in a moment.');
+    } finally {
+      setOpening(false);
+    }
+  };
 
   if (types.isError || summary.isError) {
     return <p className="p3-note" role="alert" data-testid="tixa-error">We couldn&rsquo;t load your tickets. Check your connection, then try again.</p>;
@@ -87,7 +112,7 @@ function Body({ orgId, role, seriesId, startIso, now }: { orgId: string; role: s
             <li>Refunded: <strong style={{ fontWeight: 600 }}>{formatPence(totals.refundedPence)}</strong></li>
             <li>Booking fees: <strong style={{ fontWeight: 600 }}>{formatPence(totals.bookingFeesPence)}</strong></li>
           </ul>
-          <Soon>Payout amount and date.</Soon>
+          <Soon>Payout date and amount.</Soon>
         </StackSheet>
       )}
       {sheet === 'who' && (
@@ -118,7 +143,11 @@ function Body({ orgId, role, seriesId, startIso, now }: { orgId: string; role: s
           </ul>
           <button type="button" style={{ ...BTN, background: '#fff', borderRadius: 10, border: 0, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.10)', fontSize: 15, fontWeight: 500 }} onClick={() => setSheet('edit')} data-testid="tixa-change-price">Change a price</button>
           <p style={{ margin: 0, fontSize: 13, color: '#696969' }}>A new price only counts for tickets sold from now on.</p>
-          <Soon>The next batch opening by itself.</Soon>
+          <p style={{ margin: 0, fontSize: 13, color: '#464646' }} data-testid="tixa-opens-by-itself">The next batch opens by itself when the one before it sells out. <span style={{ color: '#696969' }}>Coming soon.</span></p>
+          {nextBatch ? (
+            <button type="button" disabled={!canOpen || opening} style={{ ...BTN, background: '#fff', borderRadius: 10, border: 0, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.10)', fontSize: 15, fontWeight: 500, opacity: canOpen && !opening ? 1 : 0.5 }} onClick={() => void openNow()} data-testid="tixa-open-now">{opening ? 'Opening\u2026' : `Open ${nextBatch.name} now`}</button>
+          ) : null}
+          {openMsg ? <p role="alert" style={{ margin: 0, fontSize: 13, color: '#464646' }}>{openMsg}</p> : null}
         </StackSheet>
       )}
       {sheet === 'sell' && (
