@@ -13,5 +13,6 @@
   "unit-tests.yml",
   "pr-mergeable-guard.yml",
   "autopilot.yml",
-  "automation-pause-guard.yml"
+  "automation-pause-guard.yml",
+  "ci-budget-guard.yml"
 ]
