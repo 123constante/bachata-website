@@ -46,11 +46,11 @@ const deps: ScannerDeps = {
   every: 5,
 };
 
-function show() {
+function show(nightName?: string | null) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter><Door seriesId="ser-1" deps={deps} /></MemoryRouter>
+      <MemoryRouter><Door seriesId="ser-1" deps={deps} nightName={nightName} /></MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -209,7 +209,7 @@ describe("tonight's list states, each with an action", () => {
     const rows = await screen.findAllByTestId('door-row');
     expect(rows.map((r) => r.textContent)).toEqual(['AishaStandard\u00d73Not in', 'MariaEarly bird\u00d72In', 'No name givenStandard\u00d71Not in']);
     expect(within(rows[0]).queryByRole('button')).toBeNull();
-    expect(screen.getByTestId('door-tab-list').textContent).toBe('Tonight\u2019s list (3)');
+    expect(screen.getByTestId('door-tab-list').textContent).toBe('Search');
   });
   it('search, and a no-match state with Clear search', async () => {
     show();
@@ -262,4 +262,28 @@ describe("tonight's list states, each with an action", () => {
 
 describe('the no_signal row is the client-side one', () => {
   it('is in the table', () => { expect(RESULT_TABLE['no_signal' as DoorResult].headline).toBe('NO SIGNAL'); });
+});
+
+describe('slice 4: Scan | Search and the night name', () => {
+  beforeEach(() => { api.list.mockResolvedValue(LIST); });
+  it('header shows the night name next to Door, and plain Door without one', async () => {
+    show('Friday Social');
+    expect((await screen.findByTestId('door-title')).textContent).toBe('Friday Social \u00b7 Door');
+    cleanup();
+    show(null);
+    expect((await screen.findByTestId('door-title')).textContent).toBe('Door');
+  });
+  it('tabs read Scan and Search, with no count in the label', async () => {
+    show();
+    expect((await screen.findByTestId('door-tab-scan')).textContent).toBe('Scan');
+    expect(screen.getByTestId('door-tab-list').textContent).toBe('Search');
+  });
+  it('empty search shows every row; no match offers a next step', async () => {
+    show();
+    fireEvent.click(await screen.findByTestId('door-tab-list'));
+    expect((await screen.findAllByTestId('door-row')).length).toBe(3);
+    fireEvent.change(screen.getByTestId('door-search'), { target: { value: 'zzz' } });
+    expect(screen.getByTestId('door-no-match')).toBeTruthy();
+    expect(screen.getByTestId('door-no-match-next').textContent).toMatch(/Scan tab/);
+  });
 });
