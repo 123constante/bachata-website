@@ -14,7 +14,7 @@
 .p3-theme {
   --bg: #f7f3ef; --card: #ffffff; --card2: #f1ebe5; --sheet: #ffffff; --tab: #ffffff;
   --line: #e4dbd2; --line-strong: #8a7d71; --fg: #1d0a03; --mut: #5f5248;
-  --gold: #f0703a; --gold-fg: #a8461a; --btn: #f0703a; --btnfg: #1d0a03;
+  --gold: #f0703a; --gold-fg: #a8461a; --door-active: #C2410C; --btn: #f0703a; --btnfg: #1d0a03;
   --danger: #b3261e; --danger-fg: #ffffff; --cancel-bg: #fbe4e1; --cancel-fg: #b3261e;
   --ok-bg: #e2f4ea; --ok-fg: #17663f; --warn-bg: #fde8dc; --warn-fg: #8a3510;
   /* Door scanner: ALREADY IN (owner-approved #ffc061 in dark); the camera box is dark in both sets. */
