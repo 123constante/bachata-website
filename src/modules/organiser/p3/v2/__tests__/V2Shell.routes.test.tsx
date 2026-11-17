@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -13,10 +13,25 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 const h = vi.hoisted(() => ({
   f: { organiserShellV2: false, organiserP3: true, organiserDash: true, organiserSelfServe: true } as Record<string, boolean>,
   rows: [] as unknown[],
+  preload: [] as Promise<unknown>[],
   home: { isPending: false, isError: false, data: { today: '2026-11-17', organisers: [] }, refetch: () => undefined } as Record<string, unknown>,
 }));
 vi.mock('@/lib/featureFlags', async (orig) => ({ ...(await orig<object>()), flags: new Proxy({}, { get: (_t, k) => h.f[k as string] ?? false }) }));
 vi.mock('@/components/auth/AuthGuard', () => ({ AuthGuard: ({ children }: { children: ReactNode }) => <>{children}</> }));
+// P3Routes loads the V2 shell and tabs lazily (bundle budget). Here the V2 modules are preloaded, so the
+// tests below read the rendered shell at once; every other lazy screen keeps its own behaviour.
+vi.mock('@/lib/lazyWithRetry', async () => {
+  const React = await import('react');
+  return {
+    lazyWithRetry: (loader: () => Promise<{ default: React.ComponentType<object> }>) => {
+      if (!String(loader).includes('/v2/')) return React.lazy(loader);
+      let Comp: React.ComponentType<object> | null = null;
+      const ready = loader().then((m) => { Comp = m.default; });
+      h.preload.push(ready);
+      return (props: object) => { if (!Comp) throw ready; return React.createElement(Comp, props); };
+    },
+  };
+});
 vi.mock('@/hooks/useNoindexMeta', () => ({ useNoindexMeta: () => undefined }));
 vi.mock('../../data/useP3Data', async (orig) => ({ ...(await orig<object>()), useP3Home: () => h.home }));
 vi.mock('../../data/home', async (orig) => ({ ...(await orig<object>()), rowsOf: () => h.rows }));
@@ -49,6 +64,7 @@ const row = (id: string, name: string, next: string) => ({
   id, name, lifecycle: 'live', next: { date: next }, event: { dates: [] }, status: { past: false, key: 'ok', label: 'Live' }, upcoming: 0, sub: '',
 });
 
+beforeAll(async () => { await Promise.all(h.preload); });
 beforeEach(() => { h.rows = []; window.sessionStorage.clear(); });
 afterEach(() => { cleanup(); h.f.organiserShellV2 = false; h.f.organiserGuestListLive = false; h.f.organiserRaffleLive = false; });
 
@@ -88,13 +104,13 @@ describe('flag ON: the V2 shell', () => {
     expect(container.querySelector('.p3-tab[aria-current="page"]')?.getAttribute('data-tab')).toBe('tickets');
   });
   it('the bare area URL opens Events, query kept', () => {
-    h.home = { ...h.home, data: { today: '2026-11-17', organisers: [{ id: 'org1' }] } };
+    h.home = { ...h.home, data: { today: '2026-11-17', organisers: [{ id: 'org1', series: [] }] } };
     at(`${P3_BASE}?o=org1`);
     expect(screen.getByTestId('where').textContent).toBe(`${P3_BASE}/events?o=org1`);
   });
   describe('F1/F2: no page lands on Welcome; state and notices survive', () => {
     const withPages = (n: number, extra: Record<string, unknown> = {}) => {
-      h.home = { ...h.home, ...extra, data: { today: '2026-11-17', organisers: Array.from({ length: n }, (_, i) => ({ id: `org${i}` })) } };
+      h.home = { ...h.home, ...extra, data: { today: '2026-11-17', organisers: Array.from({ length: n }, (_, i) => ({ id: `org${i}`, series: [] })) } };
     };
     afterEach(() => { h.home = { isPending: false, isError: false, data: { today: '2026-11-17', organisers: [] }, refetch: () => undefined }; });
     it('zero pages at the bare URL -> Welcome', () => {
@@ -175,6 +191,11 @@ describe('flag ON: the V2 shell', () => {
     at(`${P3_BASE}/${tab}`);
     const box = screen.getByTestId(testId);
     expect(box.querySelectorAll('h2').length).toBe(headings);
+    if (on && headings === 0) {
+      expect(box.textContent).toMatch(/Add a date to this event to use (Guest list|Raffle)/);
+      expect(box.textContent).toContain(`to use ${tab === 'guests' ? 'Guest list' : 'Raffle'}`);
+      expect(screen.getByTestId(`v2-${tab}-add-night`).textContent).toBe('Add or edit a night');
+    }
     // Coming soon is ONE card, never one per night; and no copy sends the person to add dates
     if (!on) {
       expect(box.textContent).toMatch(/coming soon/i);
@@ -196,5 +217,54 @@ describe('flag ON: the V2 shell', () => {
     at(`${P3_BASE}/${tab}`);
     expect(screen.getByTestId(`v2-${tab}-error`).querySelector('button')?.textContent).toBe('Try again');
     h.home = { ...h.home, isError: false };
+  });
+});
+
+describe('slice 1 nav fixes (V2 on)', () => {
+  const onePage = () => { h.home = { ...h.home, data: { today: '2026-11-17', organisers: [{ id: 'org1', series: [] }] } }; };
+  beforeEach(() => { h.f.organiserShellV2 = true; onePage(); h.rows = [row('a', 'Alpha', '2026-11-30')]; });
+  it.each(['events', 'tickets', 'guests', 'raffle'])('%s: the role strip and Switch page link are there, keeping the page', (tab) => {
+    at(`${P3_BASE}/${tab}`);
+    expect(screen.getByTestId('p3-role-strip-role').textContent).toBe('Owner');
+    expect(screen.getByTestId('p3-switch-control').getAttribute('href')).toBe(`${P3_BASE}/you/switch?o=org1`);
+  });
+  it('Back is a router link: it navigates without a page load', async () => {
+    at(`${P3_BASE}/tickets`);
+    const back = screen.getByTestId('v2-back');
+    // fireEvent returns false when the click was preventDefault-ed: the router took it, the browser did not load a page
+    expect(fireEvent.click(back, { button: 0 })).toBe(false);
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe(BACK_TO));
+  });
+  it.each([`${P3_BASE}/create`, `${P3_BASE}/you/team`])('%s is a pushed screen: no V2 top bar, strip or tabs over its own Back', (path) => {
+    const { container } = at(path);
+    expect(screen.getByTestId('v2-shell')).toBeTruthy();
+    expect(screen.queryByTestId('v2-top')).toBeNull();
+    expect(screen.queryByTestId('v2-back')).toBeNull();
+    expect(screen.queryByTestId('p3-role-strip')).toBeNull();
+    expect(container.querySelectorAll('.p3-tab').length).toBe(0);
+  });
+  it('tab links keep only ?e= and ?o=', () => {
+    const { container } = at(`${P3_BASE}/tickets?e=a&o=org1&q=zzz&filter=live`);
+    for (const t of ['events', 'tickets', 'guests', 'raffle']) {
+      expect(container.querySelector(`.p3-tab[data-tab="${t}"]`)?.getAttribute('href')).toBe(`${P3_BASE}/${t}?e=a&o=org1`);
+    }
+  });
+  it('an unknown area URL falls back to Events, not Home', () => {
+    at(`${P3_BASE}/nonsense`);
+    expect(screen.getByTestId('where').textContent).toBe(`${P3_BASE}/events`);
+  });
+  it('the switcher says more than the name when there are several events', () => {
+    h.rows = [{ ...row('a', 'Alpha', '2026-11-30'), upcoming: 3 }, { ...row('b', 'Beta', '2026-11-20'), lifecycle: 'draft', upcoming: 0 }, { ...row('c', 'Gamma', '2026-01-01'), upcoming: 0 }];
+    at(`${P3_BASE}/tickets`);
+    const labels = [...screen.getByTestId('v2-event-switch').querySelectorAll('option')].map((o) => o.textContent);
+    expect(labels).toEqual(['Alpha · 3 coming', 'Beta · Draft', 'Gamma · No dates coming']);
+  });
+});
+
+describe('slice 1 nav fixes (V2 off): Home stays Home', () => {
+  beforeEach(() => { h.home = { ...h.home, data: { today: '2026-11-17', organisers: [{ id: 'org1', series: [] }] } }; });
+  it('an unknown area URL falls back to Home', () => {
+    at(`${P3_BASE}/nonsense`);
+    expect(screen.getByTestId('where').textContent).toBe(P3_BASE);
   });
 });

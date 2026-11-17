@@ -5,6 +5,7 @@ import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { OB_THEME_KEY, readObTheme } from '../onboarding/obEnv';
 import { L } from '../model/labels';
 import { stripOf, switchBadgeOf } from '../model/strip';
+import type { OrganiserHome } from '../../shared/selfServeApi';
 import { usePageScope } from '../screens/PageScope';
 import { GateHost } from '../onboarding/GateHost';
 import { P3_PATHS, P3_TABS, type P3Tab } from './paths';
@@ -42,7 +43,7 @@ export function tabOf(pathname: string): P3Tab {
 
 /** An R1 screen in P3's frame (the You hub's pushes, New event, an event's Organisers): it draws its own top bar, with the way back. */
 export function isPushed(pathname: string): boolean {
-  if (isCreate(pathname) || ORGANISERS.test(pathname)) return true;
+  if (isCreate(pathname) || ORGANISERS.test(pathname) || pathname === P3_PATHS.compare) return true;
   return pathname.startsWith(`${P3_PATHS.you}/`) && pathname !== `${P3_PATHS.you}/`;
 }
 
@@ -99,6 +100,31 @@ export function AccountEntry({ organiserId, pageName }: { organiserId: string | 
   );
 }
 
+/** The Switch page link and its to-do badge (to-dos on the OTHER pages). One component for the P3 strip and the V2 strip. */
+export function SwitchControl({ home, pageId }: { home: OrganiserHome | undefined; pageId: string | null | undefined }) {
+  const badge = switchBadgeOf(home, pageId);
+  const to = pageId ? `${P3_PATHS.youSwitch}?o=${encodeURIComponent(pageId)}` : P3_PATHS.youSwitch;
+  return (
+    <Link
+      to={to}
+      className="relative inline-flex min-h-[44px] min-w-[44px] flex-none items-center justify-center gap-[6px] px-[8px] text-[14px] font-semibold underline"
+      data-testid="p3-switch-control"
+      aria-label={badge > 0 ? `${L.strip.switchName}, ${L.strip.todos(badge)}` : L.strip.switchName}
+    >
+      {L.strip.switchWord}
+      {badge > 0 && (
+        <span
+          className="inline-flex min-w-[20px] items-center justify-center rounded-[999px] bg-[var(--btn)] px-[6px] text-[12px] font-bold leading-[20px] text-[var(--btnfg)] no-underline"
+          data-testid="switch-todo-badge"
+          aria-hidden="true"
+        >
+          {badge}
+        </span>
+      )}
+    </Link>
+  );
+}
+
 function RoleStripInner() {
   const scope = usePageScope();
   const strip = stripOf(scope.selected);
@@ -111,8 +137,6 @@ function RoleStripInner() {
       </div>
     );
   }
-  const badge = switchBadgeOf(scope.home.data, scope.pageId);
-  const to = scope.pageId ? `${P3_PATHS.youSwitch}?o=${encodeURIComponent(scope.pageId)}` : P3_PATHS.youSwitch;
   return (
     <div
       className={`flex min-h-[44px] w-full min-w-0 items-center gap-[8px] px-[16px] text-[14px] ${STRIP_TONE[strip.role]}`}
@@ -121,23 +145,7 @@ function RoleStripInner() {
     >
       <span className="flex-none font-bold" data-testid="p3-role-strip-role">{strip.roleWord}</span>
       <span className="min-w-0 flex-1 truncate" data-testid="p3-role-strip-page">{strip.page}</span>
-      <Link
-        to={to}
-        className="relative inline-flex min-h-[44px] min-w-[44px] flex-none items-center justify-center gap-[6px] px-[8px] text-[14px] font-semibold underline"
-        data-testid="p3-switch-control"
-        aria-label={badge > 0 ? `${L.strip.switchName}, ${L.strip.todos(badge)}` : L.strip.switchName}
-      >
-        {L.strip.switchWord}
-        {badge > 0 && (
-          <span
-            className="inline-flex min-w-[20px] items-center justify-center rounded-[999px] bg-[var(--btn)] px-[6px] text-[12px] font-bold leading-[20px] text-[var(--btnfg)] no-underline"
-            data-testid="switch-todo-badge"
-            aria-hidden="true"
-          >
-            {badge}
-          </span>
-        )}
-      </Link>
+      <SwitchControl home={scope.home.data} pageId={scope.pageId} />
       <AccountEntry organiserId={scope.pageId} pageName={scope.selected?.name ?? ''} />
     </div>
   );

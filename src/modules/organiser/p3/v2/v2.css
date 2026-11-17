@@ -51,3 +51,9 @@
 .p3-theme.v2-look .v2-exit { display: flex; align-items: center; min-height: 44px; padding: 0 16px; background: #FFFFFF; border-bottom: 1px solid #E9E9E9; }
 .p3-theme.v2-look .v2-exit-link { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; font-size: 12px; font-weight: 500; color: #464646; text-decoration: none; }
 .p3-theme.v2-look .v2-exit-link:focus-visible { outline: 2px solid var(--gold-fg); outline-offset: 2px; }
+.p3-theme.v2-look .v2-switch-empty { display: block; min-height: 44px; min-width: 0; }
+/* The role strip, back on every tab (same look as the P3 strip: seat word, page, Switch page + badge). */
+.p3-theme.v2-look .v2-strip { display: flex; align-items: center; gap: 8px; min-height: 44px; min-width: 0; padding: 0 16px; font-size: 14px; background: var(--card); border-bottom: 1px solid var(--line); color: var(--fg); }
+.p3-theme.v2-look .v2-strip-role { flex: none; font-weight: 700; }
+.p3-theme.v2-look .v2-strip-page { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p3-theme.v2-look .v2-strip a:focus-visible { outline: 2px solid var(--gold-fg); outline-offset: 2px; }

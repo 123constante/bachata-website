@@ -79,10 +79,14 @@ export function confirmFrom(pc: PriceChanged, typeId: string, quantity: number, 
 
 export const PRICE_CONFIRM_LABEL = 'Price changed, confirm';
 
+/** The price_changed note: shared by the classic page and the ticket picker B1. */
+export const priceChangedText = (totalPence: number): string =>
+  `The price changed while this page was open. New total: ${formatPence(totalPence)}. Check and pay again.`;
+
 /** Copy for the two T4 reasons. Old tabs reach expected_price_required only after T2b. */
 export function stepReasonCopy(reason: string, confirm: PriceConfirm | null): ReasonCopy | null {
   if (reason === 'price_changed' && confirm) {
-    return { text: `The price changed while this page was open. New total: ${formatPence(confirm.totalPence)}. Check and pay again.`, way: 'retry' };
+    return { text: priceChangedText(confirm.totalPence), way: 'retry' };
   }
   if (reason === 'expected_price_required') return { text: 'Please reload the page and try again.', way: 'retry' };
   return null;

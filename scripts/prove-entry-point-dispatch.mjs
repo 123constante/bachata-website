@@ -176,6 +176,7 @@ const TARGETS = [
   { rel: 'scripts/check-bundle-budget.mjs' },
   { rel: 'scripts/check-chunk-cycles.mjs' },
   { rel: 'scripts/check-dancer-area-isolation.mjs' },
+  { rel: 'scripts/check-phone-qa-skip.mjs' },
   { rel: 'scripts/ci-live-db-gate.mjs' },
   { rel: 'scripts/ci/route-runner.mjs' },
   { rel: 'scripts/check-ci-budget.mjs' },

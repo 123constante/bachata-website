@@ -35,7 +35,7 @@ function Gate({ c, what, children }: { c: EventChoice; what: string; children: (
   if (c.loading) {
     return (
       <V2State testId={`v2-${what}-loading`} sentence={<>Loading your events&hellip;</>}>
-        <a className={linkBtn} style={TAP} href={BACK_TO}>{BACK_WORD}</a>
+        <Link className={linkBtn} style={TAP} to={BACK_TO}>{BACK_WORD}</Link>
       </V2State>
     );
   }
@@ -81,7 +81,7 @@ export function V2Home() {
   const { search, state } = useLocation();
   const r = useNoPageRedirect();
   if (r.loading) {
-    return <V2State testId="v2-home-loading" sentence={<>Loading your events&hellip;</>}><a className={linkBtn} style={TAP} href={BACK_TO}>{BACK_WORD}</a></V2State>;
+    return <V2State testId="v2-home-loading" sentence={<>Loading your events&hellip;</>}><Link className={linkBtn} style={TAP} to={BACK_TO}>{BACK_WORD}</Link></V2State>;
   }
   return <Navigate to={r.to ?? `${P3_PATHS.events}${search}`} state={state} replace />;
 }
@@ -124,11 +124,11 @@ export function V2TicketsTab() {
 
 const seatOf = (page: EventChoice['page']): Seat => (page?.role === 'owner' || page?.role === 'manager' ? page.role : 'contributor');
 
-/** The chosen event's coming dated nights (soonest first), as the Events tab builds them. */
+/** The chosen event's coming dated nights (soonest first), as the Events tab builds them. A draft or hidden series with a date counts: it still has a night to work on. */
 export function nightsOfChoice(c: Pick<EventChoice, 'event' | 'today' | 'page'>): Night[] {
   if (!c.event) return [];
   const m = buildEvents({ rows: [c.event], today: c.today, seat: seatOf(c.page), query: '', filter: 'all', shown: 1000, showPast: false });
-  return m.nights.filter((n) => n.date && (n.status === 'live' || n.status === 'cancelled'));
+  return m.nights.filter((n) => n.date && (n.status === 'live' || n.status === 'cancelled' || n.status === 'draft' || n.status === 'hidden'));
 }
 
 function NightsTab({ what, live, soon, row, sheet, extra }: {
@@ -151,8 +151,8 @@ function NightsTab({ what, live, soon, row, sheet, extra }: {
   return (
     <Gate c={c} what={what}>
       {() => !live ? <div className="p3-stack" data-testid={`v2-${what}-soon`}>{soon}</div> : nights.length === 0 ? (
-        <V2State testId={`v2-${what}-nonights`} sentence={`${c.event!.name} has no coming dates.`}>
-          <Link className={linkBtn} style={TAP} to={P3_PATHS.eventDates(c.event!.id)}>Add dates</Link>
+        <V2State testId={`v2-${what}-nonights`} sentence={`Add a date to this event to use ${what === 'guests' ? 'Guest list' : 'Raffle'}.`}>
+          <Link className={linkBtn} style={TAP} to={P3_PATHS.eventDates(c.event!.id)} data-testid={`v2-${what}-add-night`}>Add or edit a night</Link>
         </V2State>
       ) : (
         <div className="p3-stack" data-testid={`v2-${what}-tab`}>

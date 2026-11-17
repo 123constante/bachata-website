@@ -143,6 +143,12 @@ jobs:
           echo "mode=$mode run=$run (shard $SHARD)"
           { echo "mode=$mode"; echo "run=$run"; } >> "$GITHUB_OUTPUT"
 
+      # Keeps the skip above from being dropped by a later edit (static, node builtins only).
+      - name: Phone QA skip condition guard (canary, then the guard)
+        run: |
+          node scripts/check-phone-qa-skip.mjs --self-test
+          node scripts/check-phone-qa-skip.mjs
+
       - name: Setup Node
         if: steps.mode.outputs.run == 'true'
         uses: actions/setup-node@v7

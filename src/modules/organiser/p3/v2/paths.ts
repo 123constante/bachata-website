@@ -1,4 +1,21 @@
 import { P3_BASE, P3_PATHS } from '../shell/paths';
+import { flags } from '@/lib/featureFlags';
+
+/**
+ * Where "Home" goes. With the V2 shell live there is no Home tab, so it is Events; else P3's Home as before.
+ * Reads each flag by name (never hands `flags` over) so rollup keeps folding them.
+ */
+export const homeWordOf = (): 'Home' | 'Events' => (flags.organiserShellV2 && flags.organiserP3 && flags.organiserDash ? 'Events' : 'Home');
+export const homePathOf = (): string => (homeWordOf() === 'Events' ? P3_PATHS.events : P3_PATHS.home);
+
+/** Tab links carry only the page (`o`) and the chosen event (`e`), never the rest of the search string. */
+export function tabSearchOf(search: string): string {
+  const src = new URLSearchParams(search);
+  const out = new URLSearchParams();
+  for (const k of ['e', 'o']) { const v = src.get(k); if (v) out.set(k, v); }
+  const s = out.toString();
+  return s ? `?${s}` : '';
+}
 
 /** Organiser shell V2's tabs (flag organiserShellV2). Events also holds Team; the rest act on the chosen event. */
 export type V2Tab = 'events' | 'tickets' | 'guests' | 'raffle';

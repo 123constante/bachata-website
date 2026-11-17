@@ -20,6 +20,8 @@ export const P3_PATHS = {
   home: P3_BASE,
   events: `${P3_BASE}/events`,
   stats: `${P3_BASE}/stats`,
+  /** Slice 2 (flag organiserDash): Compare nights, pushed from Home (no tab bar). */
+  compare: `${P3_BASE}/compare`,
   you: `${P3_BASE}/you`,
   /** One event's page (W2a). */
   event: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}`,

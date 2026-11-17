@@ -21,6 +21,7 @@ import type { HomeOrganiser } from '../../shared/selfServeApi';
 import { isListedSeries } from '../../shared/homeModel';
 import { teamOf } from '../../shared/selfServeApi';
 import { P3_PATHS } from '../shell/paths';
+import { homePathOf, homeWordOf } from '../v2/paths';
 import { P3PushedShell } from '../you/surface';
 import { P3Link, RetryButton, StateCard } from '../screens/parts';
 import { hasLiveEvent, payingOrganiser, useP3Home, useStartOnboarding, useStripe, useSummary } from './data';
@@ -342,7 +343,7 @@ function StartFrame({ children }: { children: React.ReactNode }) {
   return (
     <div className="p3-theme p3-frame" data-testid="getpaid-start">
       <header className="p3-top">
-        <Link className="p3-link" to={P3_PATHS.home} data-testid="getpaid-start-home" style={{ minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>&larr; Home</Link>
+        <Link className="p3-link" to={homePathOf()} data-testid="getpaid-start-home" style={{ minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>&larr; {homeWordOf()}</Link>
       </header>
       <main className="p3-main"><div className="p3-stack">{children}</div></main>
     </div>
@@ -438,8 +439,8 @@ export function GetPaidStart() {
     return (
       <StartFrame>
         <StateCard title="This link is for a page that is not on your account" testId="getpaid-start-wrong">
-          <p>You may be signed in with a different email. Go to your own pages from Home.</p>
-          <P3Link to={P3_PATHS.home} testId="getpaid-start-wrong-home">Go to Home</P3Link>
+          <p>You may be signed in with a different email. Go to your own pages from {homeWordOf()}.</p>
+          <P3Link to={homePathOf()} testId="getpaid-start-wrong-home">Go to {homeWordOf()}</P3Link>
         </StateCard>
       </StartFrame>
     );
