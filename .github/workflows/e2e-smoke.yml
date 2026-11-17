@@ -18,7 +18,7 @@ concurrency:
 jobs:
   e2e-smoke:
     # Draft PRs skip this heavy job; it runs on ready_for_review and on push to main.
-    # Merging still waits: a draft cannot merge, and the matrix check names appear only after ready_for_review.
+    # Merging still waits: a draft cannot merge.
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     # Browsers and their system libraries come baked into the Playwright image, so no
