@@ -97,7 +97,7 @@ describe('organiser dash model x shape', () => {
 
   it('6: healthy night hero carries its headline and a share button', () => {
     view(SHAPES.upcoming);
-    expect(screen.getByTestId('dash-headline').textContent).toBe('12 going, 248 opens this month');
+    expect(screen.getByTestId('dash-headline').textContent).toBe('12 going') // slice 2: no page-view numbers on Home (owner decision 5);
     expect(screen.getByTestId('dash-hero-action').textContent).toBe('Share this night');
   });
 
@@ -180,8 +180,8 @@ describe('review fixes round', () => {
     expect(buildDash({ ...base, nights: [night(1, { going: 3, opens: null })], upcomingDates: 1 }).hero?.headline).toBe('3 going');
   });
 
-  it('3: opens are labelled as a month figure', () => {
-    expect(buildDash({ ...base, nights: [night(1, { opens: 9 })], upcomingDates: 1 }).hero?.headline).toBe('9 opens this month');
+  it('3: opens are never drawn on Home (slice 2, owner decision 5)', () => {
+    expect(buildDash({ ...base, nights: [night(1, { opens: 9 })], upcomingDates: 1 }).hero?.headline).toBeNull();
   });
 
   it('4: analytics failure keeps hero and rail, adds an inline retry', () => {

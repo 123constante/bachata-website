@@ -8,7 +8,8 @@ const h = vi.hoisted(() => ({
   analytics: { isLoading: false, isError: false, data: undefined as unknown, refetch: () => undefined },
   progress: { data: undefined as unknown },
 }));
-vi.mock('../../data/useP3Data', () => ({ useP3Analytics: () => h.analytics }));
+vi.mock('../../data/useP3Data', () => ({ useP3Analytics: () => h.analytics, useP3Home: () => ({ data: undefined }) }));
+vi.mock('../pastNights', () => ({ usePastNights: () => ({ loading: false, nights: [] }) }));
 vi.mock('../../../shared/profileProgress', () => ({ useProfileProgress: () => h.progress }));
 
 import { DashHome } from '../DashHome';
