@@ -93,34 +93,68 @@ jobs:
           MERGE_SHA: ${{ github.sha }}
         run: node scripts/ci/docs-only.mjs --merge "$MERGE_SHA"
 
+      # full  = the whole suite, sharded.
+      # light = a CI-only PR (workflows, scripts/ci/, guard scripts, ci-*.json; ci_light in
+      #         scripts/ci/docs-only.mjs): shard 1 runs ONE phone spec so a broken edit to
+      #         this workflow still goes red in its own PR; shards 2-3 skip. Owner
+      #         2026-11-17, docs/briefs/ci-speed-profile-and-trim.md decision 5.
+      # skip  = docs / supabase / .claude only: nothing the suite can see.
+      # ci_light wins over e2e_skip (other-workflow PRs are both). Fail-safe: a missing
+      # output means full.
+      - name: Decide the phone-suite mode
+        id: mode
+        env:
+          E2E_SKIP: ${{ steps.changes.outputs.e2e_skip }}
+          CI_LIGHT: ${{ steps.changes.outputs.ci_light }}
+          SHARD: ${{ matrix.shard }}
+        run: |
+          if [ "$CI_LIGHT" = "true" ]; then mode=light
+          elif [ "$E2E_SKIP" = "true" ]; then mode=skip
+          else mode=full; fi
+          if [ "$mode" = "full" ] || { [ "$mode" = "light" ] && [ "$SHARD" = "1" ]; }; then run=true; else run=false; fi
+          echo "mode=$mode run=$run (shard $SHARD)"
+          { echo "mode=$mode"; echo "run=$run"; } >> "$GITHUB_OUTPUT"
+
       - name: Setup Node
-        if: steps.changes.outputs.e2e_skip != 'true'
+        if: steps.mode.outputs.run == 'true'
         uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
 
       - name: Upgrade npm to 11 (Node 22 ships with npm 10)
-        if: steps.changes.outputs.e2e_skip != 'true'
+        if: steps.mode.outputs.run == 'true'
         run: npm install -g npm@11
 
       - name: Install dependencies
-        if: steps.changes.outputs.e2e_skip != 'true'
+        if: steps.mode.outputs.run == 'true'
         run: npm ci
 
       # A failure prints each assertion with its measured px; reproduce locally for
       # screenshots and traces (test-results/phone-qa/). The auto-walk pictures below
       # are the one upload here; check-workflow-artifact-policy.mjs records the count.
       - name: Run the phone suite (390x844 and 360x640)
-        if: steps.changes.outputs.e2e_skip != 'true'
+        if: steps.mode.outputs.mode == 'full'
+        env:
+          # Shards are contiguous slices of the test list (project-major, file order) and
+          # Playwright sizes them by test COUNT, so equal counts gave unequal times (shard 1
+          # 606 s, shard 3 347 s on run 44096622262). Per-test profile 2026-11-17 (534 tests,
+          # 2489 test-seconds): 1:1:1 slices = 1262/784/442 s, 5:6:12 = 831/835/823 s. The
+          # profile and the simulator are in docs/handovers/ci-speed.md; re-profile when a
+          # spec is added, since every later test shifts between shards.
+          PWTEST_SHARD_WEIGHTS: '5:6:12'
         run: npx playwright test --config playwright.phone.config.ts --shard=${{ matrix.shard }}/3
+
+      - name: Run one phone spec (CI-only PR)
+        if: steps.mode.outputs.mode == 'light' && matrix.shard == 1
+        run: npx playwright test --config playwright.phone.config.ts --project=phone-390x844 tests/e2e-phone/organiser-save-bar.phone.spec.ts
 
       # Auto-walk pictures for the review pack (scripts/auto-walk-manifest.mjs).
       # Runs even when the suite is red, so a failing PR still gets its pictures.
       # Reports only: NOT covered lines never fail the job. Shard 1 only: the pictures
       # do not depend on the shard, and three uploads named auto-walk would collide.
       - name: Auto-walk pictures (390x844)
-        if: ${{ !cancelled() && github.event_name == 'pull_request' && matrix.shard == 1 && steps.changes.outputs.e2e_skip != 'true' }}
+        if: ${{ !cancelled() && github.event_name == 'pull_request' && matrix.shard == 1 && steps.mode.outputs.mode == 'full' }}
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
@@ -128,7 +162,7 @@ jobs:
           node scripts/auto-walk-manifest.mjs --summary >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload auto-walk pictures
-        if: ${{ !cancelled() && github.event_name == 'pull_request' && matrix.shard == 1 && steps.changes.outputs.e2e_skip != 'true' }}
+        if: ${{ !cancelled() && github.event_name == 'pull_request' && matrix.shard == 1 && steps.mode.outputs.mode == 'full' }}
         uses: actions/upload-artifact@v7
         with:
           name: auto-walk
@@ -178,8 +212,9 @@ jobs:
       - name: Trust the workspace for git (container job)
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      # PRs touching only docs, supabase/, .claude/ or other workflows cannot move a
-      # pixel the phone suite sees, so the heavy steps below skip; the job still runs
+      # PRs touching only docs, supabase/ or .claude/ cannot move a pixel the build
+      # serves, so the heavy steps below skip. A CI-only PR (ci_light: workflows, scripts/ci/,
+      # guard scripts) still builds: it is the "one build" of ci-speed decision 5; the job still runs
       # and reports, so the check keeps its name (scripts/ci/docs-only.mjs e2e_skip,
       # same classifier as E2E Smoke). Fail-safe: any error means e2e_skip=false.
       - name: Detect PRs the phone suite cannot see
@@ -190,22 +225,22 @@ jobs:
         run: node scripts/ci/docs-only.mjs --merge "$MERGE_SHA"
 
       - name: Setup Node
-        if: steps.changes.outputs.e2e_skip != 'true'
+        if: steps.changes.outputs.e2e_skip != 'true' || steps.changes.outputs.ci_light == 'true'
         uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
 
       - name: Upgrade npm to 11 (Node 22 ships with npm 10)
-        if: steps.changes.outputs.e2e_skip != 'true'
+        if: steps.changes.outputs.e2e_skip != 'true' || steps.changes.outputs.ci_light == 'true'
         run: npm install -g npm@11
 
       - name: Install dependencies
-        if: steps.changes.outputs.e2e_skip != 'true'
+        if: steps.changes.outputs.e2e_skip != 'true' || steps.changes.outputs.ci_light == 'true'
         run: npm ci
 
       - name: Production build against the fake Supabase
-        if: steps.changes.outputs.e2e_skip != 'true'
+        if: steps.changes.outputs.e2e_skip != 'true' || steps.changes.outputs.ci_light == 'true'
         env:
           VITE_SUPABASE_URL: https://phoneqafakenotaproject.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIn0.e2e-test-placeholder-not-a-real-key
@@ -215,5 +250,5 @@ jobs:
         run: npm run build
 
       - name: Run the production-build smoke
-        if: steps.changes.outputs.e2e_skip != 'true'
+        if: steps.changes.outputs.e2e_skip != 'true' || steps.changes.outputs.ci_light == 'true'
         run: npx playwright test --config playwright.build.config.ts

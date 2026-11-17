@@ -1,7 +1,7 @@
 // scripts/ci/route-runner.mjs -- CI offload routing + fallback (docs/handover/ci-offload-stage3.md).
 // Owner rule: a side machine that is off, busy or broken never reds a PR. Every row below
 // that is not a real code failure must end on GitHub-hosted, never red, never pending.
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -210,15 +210,35 @@ describe('runner hooks (shell test)', () => {
     expect(r.stdout).toMatch(/PASS \d+ cases/);
     expect(r.status).toBe(0);
   }, 70000);
-  it.skipIf(!tools || process.platform !== 'linux')('...and FAILS on a hook mutant without the identity compare', () => {
+  // Stops at the first FAIL MUTANT line. The mutant leaves the run lock held, so every
+  // later case in the shell test waits on it and the run used to sit out the whole 60 s
+  // spawnSync timeout (84 s file, the slowest in the unit suite; ci-speed profile
+  // 2026-11-17). The line appears within seconds; the 60 s cap still bounds a hang, and
+  // the process GROUP is killed so the script's background `sleep 600` does not linger.
+  it.skipIf(!tools || process.platform !== 'linux')('...and FAILS on a hook mutant without the identity compare', async () => {
     const src = readFileSync(path.join(dir, 'gate-job-started.sh'), 'utf8');
     const mut = src.split('\n').filter((l) => !l.includes('refuse "IDENTITY')).join('\n');
     expect(mut).not.toBe(src);
     const f = path.join(mkdtempSync(path.join(tmpdir(), 'gate-mut-')), 'started.sh');
     writeFileSync(f, mut);
-    const r = spawnSync('bash', [path.join(dir, 'test-gate-hooks.sh')], { encoding: 'utf8', timeout: 60000, env: { ...process.env, HOOK_STARTED: f } });
-    expect(r.stdout).toMatch(/FAIL MUTANT altered workflow: refused/);
-    expect(r.status).not.toBe(0);
+    const want = /FAIL MUTANT altered workflow: refused/;
+    const { stdout, status } = await new Promise<{ stdout: string; status: number | null }>((resolve) => {
+      const p = spawn('bash', [path.join(dir, 'test-gate-hooks.sh')], { detached: true, env: { ...process.env, HOOK_STARTED: f } });
+      let out = '';
+      let done = false;
+      const finish = (status: number | null) => {
+        if (done) return;
+        done = true;
+        clearTimeout(cap);
+        try { process.kill(-p.pid!, 'SIGKILL'); } catch { /* group already gone */ }
+        resolve({ stdout: out, status });
+      };
+      const cap = setTimeout(() => finish(null), 60000);
+      p.stdout.on('data', (b) => { out += String(b); if (want.test(out)) finish(1); });
+      p.on('close', (code) => finish(code));
+    });
+    expect(stdout).toMatch(want);
+    expect(status).not.toBe(0);
   }, 70000);
 });
 
