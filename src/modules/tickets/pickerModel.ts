@@ -7,7 +7,7 @@ import type { BasketCheckoutBody, PriceChanged } from './priceSteps';
 
 export type Basket = Record<string, number>;
 
-export const CANCELLED_NOTE = 'Payment cancelled. You weren’t charged.';
+export const CANCELLED_NOTE = 'Payment cancelled. You weren\u2019t charged.';
 export const TRUST_LINE_BOLD = 'Secure payment by Stripe.';
 export const TRUST_LINE_REST = 'We never see your card.';
 export const CODE_LENGTH = 6;
