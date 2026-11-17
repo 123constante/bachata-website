@@ -66,21 +66,22 @@ export function check(text) {
   return problems;
 }
 
+// The canary drives main() itself, so its exit code is the one under test.
 function selfTest(text) {
-  const good = check(text);
-  if (good.length) { process.stdout.write(`self-test: real file already red: ${good.join('; ')}\n`); return 1; }
+  const quiet = { write() {} };
+  if (main([], text, quiet) !== 0) { process.stdout.write('self-test: real file already red\n'); return 1; }
   const mutant = text.replace(/ {8}if: steps\.changes\.outputs\.e2e_skip != 'true'\r?\n( {8}run: npm ci)/, '$1');
   if (mutant === text) { process.stdout.write('self-test: mutant did not apply (npm ci step shape changed)\n'); return 1; }
-  if (check(mutant).length === 0) { process.stdout.write('self-test: mutant NOT refused: guard is blind\n'); return 1; }
+  if (main([], mutant, quiet) !== 1) { process.stdout.write('self-test: mutant NOT refused: guard is blind\n'); return 1; }
   process.stdout.write('self-test ok: real file clean, mutant refused\n');
   return 0;
 }
 
 // main() owns the exit code: its return value becomes process.exitCode.
-export function main(argv = [], text = readFileSync(FILE, 'utf8')) {
+export function main(argv = [], text = readFileSync(FILE, 'utf8'), out = process.stdout) {
   if (argv.includes('--self-test')) return selfTest(text);
   const p = check(text);
-  process.stdout.write(p.length ? ['FAIL', ...p, ''].join('\n') : 'phone-qa skip guard ok\n');
+  out.write(p.length ? ['FAIL', ...p, ''].join('\n') : 'phone-qa skip guard ok\n');
   return p.length ? 1 : 0;
 }
 
