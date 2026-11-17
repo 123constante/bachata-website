@@ -19,7 +19,7 @@ const SHAPES: Array<[string, GuestListView, { banner: RegExp | null; block: RegE
   ['closed', view({}, { closed: true, cutoff_time: '22:00' }), { banner: /Sign-up is closed/, block: null, status: /closed/ }],
   ['past', view({ can_edit: false, read_only_reason: 'past' }, { past: true }), { banner: /This night is over/, block: /This night is over/, status: /^On/ }],
   ['cancelled', view({ can_edit: false, read_only_reason: 'cancelled' }, { cancelled: true }), { banner: /cancelled/, block: /cancelled/, status: /^On/ }],
-  ['contributor', view({ role: 'contributor', can_edit: false, can_check_in: false, read_only_reason: 'view_only' }), { banner: null, block: /Contributors can look/, status: /^On/ }],
+  ['contributor', view({ role: 'contributor', can_edit: false, can_check_in: true, read_only_reason: 'view_only' }), { banner: null, block: /Contributors can check people in/, status: /^On/ }],
 ];
 
 describe('guest list model, screen x shape', () => {

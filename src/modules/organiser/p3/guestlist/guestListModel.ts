@@ -84,7 +84,7 @@ const REASON_WORDS: Record<string, string> = {
   not_signed_in: 'Sign in again, then try. Nothing was changed.',
   night_not_found: 'This night is not on the list any more. Nothing was changed.',
   not_on_team: 'You are not on this page\u2019s team. Nothing was changed.',
-  view_only: 'Contributors can look at the list but cannot change it. Ask an owner to make you a manager.',
+  view_only: 'Contributors can check people in at the door. Only managers and owners can change names or settings.',
   cancelled: 'This night is cancelled. The names are kept, and nothing can be changed.',
   past: 'This night is over. The list is kept as it was, and nothing can be changed.',
   bad_capacity: 'Places must be a number from 0 to 100000 (0 means no limit). Nothing was changed.',
@@ -174,3 +174,6 @@ export function scanWords(r: { ok: boolean; reason?: string; firstName?: string;
 export type GuestTab = 'names' | 'door' | 'settings';
 export const GUEST_VIEWS: readonly GuestTab[] = ['names', 'door', 'settings'];
 export const TAB_WORD: Record<GuestTab, string> = { names: 'Names', door: 'Door', settings: 'Settings' };
+/** A contributor sees Names (to read) and Door (to check in); Settings and name editing are for managers and owners. */
+export const isContributorView = (v: GuestListView): boolean => v.readOnly === 'view_only';
+export const viewsFor = (v: GuestListView): readonly GuestTab[] => (isContributorView(v) ? GUEST_VIEWS.filter((t) => t !== 'settings') : GUEST_VIEWS);
