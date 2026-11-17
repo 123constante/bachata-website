@@ -44,7 +44,7 @@ export function WhoIsInRoute({ home }: { home: Back }) {
   const model = q.data ? whoIsInOf(q.data, { doorOnScreen: !!doorTo }) : null;
   return (
     <P3PushedShell title="Who is in" back={f.back} testId="sheet-who-in">
-      <SheetView model={model} name={f.name} sub={null} failed={q.isError} signedOut={isSignedOut(q.error)} onRetry={() => void q.refetch()} />
+      <WhoListView model={model} name={f.name} sub={null} failed={q.isError} signedOut={isSignedOut(q.error)} onRetry={() => void q.refetch()} />
       {doorTo && model?.state === 'ok' && (
         <Link className="p3-btn p3-btn-line" style={{ ...TAP, display: 'inline-flex', alignItems: 'center' }} to={doorTo} data-testid="sheet-open-door">Open Door</Link>
       )}
@@ -63,13 +63,13 @@ export function WhoCameRoute({ home }: { home: Back }) {
   const sub = night && f.today ? dayWord(night.date, f.today, null) : null;
   return (
     <P3PushedShell title="Who came" back={f.back} testId="sheet-who-came">
-      <SheetView model={q.data ? whoCameOf(q.data) : null} name={f.name} sub={sub} failed={q.isError} signedOut={isSignedOut(q.error)} onRetry={() => void q.refetch()} />
+      <WhoListView model={q.data ? whoCameOf(q.data) : null} name={f.name} sub={sub} failed={q.isError} signedOut={isSignedOut(q.error)} onRetry={() => void q.refetch()} />
     </P3PushedShell>
   );
 }
 
 /** Presentational, read only: no control here changes anything. */
-export function SheetView({ model, name, sub, failed = false, signedOut = false, onRetry }: { model: SheetModel | null; name: string | null; sub: string | null; failed?: boolean; signedOut?: boolean; onRetry?: () => void }) {
+export function WhoListView({ model, name, sub, failed = false, signedOut = false, onRetry }: { model: SheetModel | null; name: string | null; sub: string | null; failed?: boolean; signedOut?: boolean; onRetry?: () => void }) {
   return (
     <div className="p3-stack" data-testid="sheet">
       {(name || sub) && <p className="p3-row-s" data-testid="sheet-night">{name}{name && sub ? ', ' : ''}{sub}</p>}

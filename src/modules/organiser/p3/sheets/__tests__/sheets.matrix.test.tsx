@@ -10,7 +10,7 @@ import { pastNightOf, pastOf } from '../../dash/pastNights';
 import { isPushed } from '../../shell/P3Shell';
 import { P3_PATHS } from '../../shell/paths';
 import { GUEST, NO_NAMES, ROW_CAP_NOTE, eventWhoIsInLinkOf, fromOf, sheetBackOf, whoCameLinkOf, whoCameOf, whoIsInLinkOf, whoIsInOf } from '../sheetsModel';
-import { SheetView } from '../WhoSheets';
+import { WhoListView } from '../WhoSheets';
 
 /**
  * Slice 3 matrix: sheet (night / after) x size (zero / some / many, over 100 rows) x null name x seat
@@ -40,7 +40,7 @@ describe('slice 3: Who is in (night) x size x seat', () => {
         const m = whoIsInOf(SIZES[size], { doorOnScreen: true });
         expect(m.big).toBe(EXPECT.in[size].big);
         expect(m.lists[0].people).toHaveLength(EXPECT.in[size].people);
-        drawn(<SheetView model={m} name="Salsa Fridays" sub={null} />);
+        drawn(<WhoListView model={m} name="Salsa Fridays" sub={null} />);
         // positive only: a zero headline is never drawn
         if (EXPECT.in[size].big > 0) expect(screen.getByTestId('sheet-big').textContent).toBe(String(EXPECT.in[size].big));
         else expect(screen.queryByTestId('sheet-big')).toBeNull();
@@ -72,7 +72,7 @@ describe('slice 3: Who came / did not come (after) x size x seat', () => {
         const m = whoCameOf(SIZES[size]);
         const e = EXPECT.came[size];
         expect(m.big).toBe(e.big);
-        drawn(<SheetView model={m} name="Salsa Fridays" sub="Friday 13 November" />);
+        drawn(<WhoListView model={m} name="Salsa Fridays" sub="Friday 13 November" />);
         if (size === 'zero') {
           expect(m.lists).toHaveLength(0);
           expect(screen.queryByTestId('sheet-big')).toBeNull();
