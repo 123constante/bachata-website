@@ -110,9 +110,12 @@ function NightsTab({ what, live, soon, row, sheet }: {
   sheet: (night: Night, close: () => void) => ReactNode;
 }) {
   const c = useEventChoice();
-  const [open, setOpen] = useState<Night | null>(null);
+  const [openKey, setOpenKey] = useState<string | null>(null);
   const { event, today, page } = c;
   const nights = useMemo(() => nightsOfChoice({ event, today, page }), [event, today, page]);
+  // Held by key and looked up in the live list: a refetch shows fresh data, a changed event closes the sheet.
+  const open = nights.find((n) => n.key === openKey) ?? null;
+  const setOpen = (n: Night | null) => setOpenKey(n ? n.key : null);
   return (
     <Gate c={c} what={what}>
       {() => !live ? <div className="p3-stack" data-testid={`v2-${what}-soon`}>{soon}</div> : nights.length === 0 ? (

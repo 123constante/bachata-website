@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { Link, Outlet, useLocation, useSearchParams } from 'react-router-dom';
 import { rowsOf, type P3Row } from '../data/home';
 import { useP3Home } from '../data/useP3Data';
@@ -45,9 +45,8 @@ export function EventChoiceProvider({ children }: { children: ReactNode }) {
   const today = home.data?.today ?? '';
   const urlId = params.get(EVENT_PARAM);
   const eventId = resolveEventId({ urlId, storedId: readStoredEvent(), rows, today });
-  useEffect(() => {
-    if (eventId) storeEvent(eventId);
-  }, [eventId]);
+  // Only an explicit pick (choose) is kept for the visit; the computed default is never stored,
+  // so "next event" keeps moving on as dates pass.
   const loading = !!home.isPending || scope.loading;
   const error = !!home.isError;
   const refetch = home.refetch;
