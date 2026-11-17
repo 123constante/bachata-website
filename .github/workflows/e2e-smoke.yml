@@ -16,7 +16,18 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  e2e-smoke:
+  # Four parallel shards (2026-11-17, cut the PR wait): the legacy list and the P3 list each
+  # split in two. Measured on run 44126574508: legacy 471 s + P3 586 s ran back to back in ONE
+  # job (about 1000 s). The required check stays named `e2e-smoke`: the aggregator job at the
+  # bottom keeps that name (.github/automation/required-jobs.json) and fails unless every shard
+  # succeeded.
+  e2e-shard:
+    name: e2e-shard (${{ matrix.suite }} ${{ matrix.shard }}/2)
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [legacy, p3]
+        shard: [1, 2]
     # Draft PRs skip this heavy job; it runs on ready_for_review and on push to main.
     # Merging still waits: a draft cannot merge.
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
@@ -73,7 +84,7 @@ jobs:
         run: npm ci
 
       - name: Run E2E smoke suite
-        if: steps.changes.outputs.e2e_skip != 'true'
+        if: steps.changes.outputs.e2e_skip != 'true' && matrix.suite == 'legacy'
         env:
           # E2E smoke tests do NOT use real Supabase — Playwright route mocks
           # intercept every **/auth/v1/** and **/rest/v1/** call. We only need
@@ -101,7 +112,7 @@ jobs:
           # turns it on so the tests/e2e/organiser-*.spec.ts smoke specs can reach /account/o
           # (the old /account URLs redirect there; organiser-legacy-redirects.spec.ts).
           VITE_ENABLE_ORGANISER_SELF_SERVE: 'true'
-        run: npm run test:e2e
+        run: npm run test:e2e -- --shard=${{ matrix.shard }}/2
 
       # The P3 walk specs skip themselves unless VITE_ENABLE_ORGANISER_P3 (and, for the door
       # scanner, _TICKETING) is 'true'. Review of #1208, F4: they sat in test:e2e above, which
@@ -114,7 +125,7 @@ jobs:
       # missing here or a P3 spec gains a skip the flags do not control.
       - name: Run E2E P3 walk specs (P3 flags on)
         # !cancelled(): a legacy failure above must not hide the P3 result on the same commit.
-        if: ${{ !cancelled() && steps.changes.outputs.e2e_skip != 'true' }}
+        if: ${{ !cancelled() && steps.changes.outputs.e2e_skip != 'true' && matrix.suite == 'p3' }}
         env:
           VITE_SUPABASE_URL: https://stsdtacfauprzrdebmzg.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIn0.e2e-test-placeholder-not-a-real-key
@@ -125,15 +136,30 @@ jobs:
           VITE_ENABLE_ORGANISER_PHOTO_ORDER: 'true'
           # walk-p3-create-kinds (fix-1208 r4): turns its missing-mount skip into a failure.
           P3_GEOMETRY_REQUIRED: '1'
-        run: npm run test:e2e:p3
+        run: npm run test:e2e:p3 -- --shard=${{ matrix.shard }}/2
 
       - name: Upload Playwright artifacts on failure
         if: ${{ (failure()) && steps.changes.outputs.e2e_skip != 'true' }}
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-test-results
+          name: playwright-test-results-${{ matrix.suite }}-${{ matrix.shard }}
           path: |
             test-results/
             playwright-report/
           retention-days: 7
           if-no-files-found: ignore
+
+  # The required check. Branch protection and required-jobs.json still say `e2e-smoke`, so
+  # this job keeps the name. Skipped on a draft PR, like the shards.
+  e2e-smoke:
+    needs: e2e-shard
+    if: ${{ always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: All E2E shards passed
+        env:
+          RESULT: ${{ needs.e2e-shard.result }}
+        run: |
+          echo "e2e-shard result: $RESULT"
+          test "$RESULT" = "success"
