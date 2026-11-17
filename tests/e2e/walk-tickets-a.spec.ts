@@ -24,9 +24,10 @@ const orders = Array.from({ length: 20 }, (_, i) => ({
   subtotal_pence: 800, booking_fee_pence: 0, total_pence: 800, refunded_pence: 0, status: 'paid', paid_at: '2026-10-05T10:00:00Z',
 }));
 
-async function open(page: Page, role = 'owner') {
+async function open(page: Page, role = 'owner', at?: string) {
   const fake = new OrganiserFake({});
   await fake.install(page);
+  if (at) await page.clock.setFixedTime(new Date(at));
   (fake.organisers[0] as { role: string }).role = role;
   await page.route('**/rest/v1/rpc/organiser_onboarding_status_v1*', (r) =>
     json(r, { v: 1, gate_on: false, is_admin: false, complete: true, person: { complete: true, missing: [] },
@@ -91,8 +92,7 @@ test('batches: Open now calls the status RPC once', async ({ page }) => {
 });
 
 test('door face (clock at the night)', async ({ page }) => {
-  await page.clock.install({ time: new Date('2026-10-09T19:30:00Z') });
-  await open(page);
+  await open(page, 'owner', '2026-10-09T19:30:00Z');
   await page.waitForTimeout(800);
   console.log('door big', (await page.getByTestId('tixa-big').innerText()).replace(/\n/g, ' | '));
   console.log('NOW', await page.evaluate(() => new Date().toISOString()));
@@ -106,8 +106,7 @@ test('door face (clock at the night)', async ({ page }) => {
 });
 
 test('after face', async ({ page }) => {
-  await page.clock.install({ time: new Date('2026-10-10T12:00:00Z') });
-  await open(page);
+  await open(page, 'owner', '2026-10-10T12:00:00Z');
   await page.waitForTimeout(800);
   console.log('after big', (await page.getByTestId('tixa-big').innerText()).replace(/\n/g, ' | '));
   await geometry(page, '[data-testid="v2-shell"]');
