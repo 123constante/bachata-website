@@ -9,5 +9,9 @@
   "queue-worker.yml",
   "auto-merge-on-open.yml",
   "revert-on-red.yml",
-  "weekly-digest.yml"
+  "weekly-digest.yml",
+  "unit-tests.yml",
+  "pr-mergeable-guard.yml",
+  "autopilot.yml",
+  "automation-pause-guard.yml"
 ]
