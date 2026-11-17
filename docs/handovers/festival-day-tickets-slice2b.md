@@ -1,6 +1,6 @@
 # Handover: festival-day-tickets-slice2b
 
-Status: DONE (code), PR open against main. Supersedes the earlier BLOCKED note: on
+Status: DONE (code), PR #1741 open against main (title/body updated). Supersedes the earlier BLOCKED note: on
 2026-11-17 the live v3 door functions gained a NULL-occurrence branch (server picks the
 series' earliest night that has not ended), so the screen sends `p_occurrence_id: null`.
 
@@ -22,3 +22,8 @@ series' earliest night that has not ended), so the screen sends `p_occurrence_id
 ## Not verified
 - No live walk against prod data (no festival door session); e2e specs not run locally.
 - door_day / valid_day are parsed by nothing yet (no UI asked for them).
+
+## Checks
+- tsc 0 errors; door vitest 429/429; check:mojibake clean; e2e ticket-door-scanner 13/13,
+  ticket-door-code pass (door code flag on). npm run lint red on main already (check:no-social-word,
+  priceSteps.matrix.test.tsx, untouched). CI per job: not read here (no gh api); see PR #1741.
