@@ -21,7 +21,10 @@ const FILE = '.github/workflows/phone-qa.yml';
 const HEAVY = /(npm ci|npm install|npm run build|playwright|actions\/setup-node)/;
 // A heavy step is gated by the e2e_skip output directly, or by the "mode" step that folds it in
 // (ci-speed: "Decide the phone-suite mode", rule S3 pins that fold).
-const SKIP_IF = /if:[^\n]*steps\.(changes\.outputs\.e2e_skip|mode\.outputs\.(run|mode))/;
+// Jobs that never run the phone suite and have no docs-only classifier step (ci-speed wall-clock
+// budget: setup-node + one node script, advisory). Named, not inferred: a new job still gets S1.
+const EXEMPT_JOBS = new Set(['wallclock-budget']);
+const SKIP_IF = /if:[^\n#]*steps\.(changes\.outputs\.e2e_skip|mode\.outputs\.(run|mode))/;
 
 export function splitSteps(text) {
   // Steps start at a "- name:" or "- uses:" or "- run:" list item inside a steps: block.
@@ -54,6 +57,7 @@ export function check(text) {
   const jobs = splitSteps(text);
   if (jobs.length === 0) problems.push('no jobs parsed: parser is blind');
   for (const job of jobs) {
+    if (EXEMPT_JOBS.has(job.name)) continue;
     const idx = job.steps.findIndex((s) => /id:\s*changes/.test(s.text) && /docs-only\.mjs/.test(s.text));
     if (idx < 0) {
       if (job.steps.some((s) => HEAVY.test(s.text))) problems.push(`${job.name}: S1 no "id: changes" step running docs-only.mjs`);
