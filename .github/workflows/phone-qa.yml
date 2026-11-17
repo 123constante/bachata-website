@@ -93,6 +93,12 @@ jobs:
           MERGE_SHA: ${{ github.sha }}
         run: node scripts/ci/docs-only.mjs --merge "$MERGE_SHA"
 
+      # Keeps the skip above from being dropped by a later edit (static, node builtins only).
+      - name: Phone QA skip condition guard (canary, then the guard)
+        run: |
+          node scripts/check-phone-qa-skip.mjs --self-test
+          node scripts/check-phone-qa-skip.mjs
+
       - name: Setup Node
         if: steps.changes.outputs.e2e_skip != 'true'
         uses: actions/setup-node@v7

@@ -163,14 +163,6 @@ jobs:
           npm run check:workflow-artifact-policy:self-test
           npm run check:workflow-artifact-policy
 
-      # Phone QA must keep skipping its heavy steps on PRs it cannot see (#1746): one new
-      # step without the e2e_skip condition brings the 8 min wait back. Static; canary first.
-      - name: Phone QA skip condition (canary, then the guard)
-        if: steps.changes.outputs.docs_only != 'true'
-        run: |
-          npm run check:phone-qa-skip:self-test
-          npm run check:phone-qa-skip
-
       # P3 walk specs must RUN in the e2e gate, not skip (review of #1208, F4). Static:
       # reads package.json test:e2e, e2e-smoke.yml and the specs. Canary first.
       - name: P3 specs not skipped in e2e-smoke (canary, then the guard)
