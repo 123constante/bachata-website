@@ -19,6 +19,12 @@ import { isEntryPoint } from './lib/entry-point.mjs';
 
 const FILE = '.github/workflows/phone-qa.yml';
 const HEAVY = /(npm ci|npm install|npm run build|playwright|actions\/setup-node)/;
+// A heavy step is gated by the e2e_skip output directly, or by the "mode" step that folds it in
+// (ci-speed: "Decide the phone-suite mode", rule S3 pins that fold).
+// Jobs that never run the phone suite and have no docs-only classifier step (ci-speed wall-clock
+// budget: setup-node + one node script, advisory). Named, not inferred: a new job still gets S1.
+const EXEMPT_JOBS = new Set(['wallclock-budget']);
+const SKIP_IF = /if:[^\n#]*steps\.(changes\.outputs\.e2e_skip|mode\.outputs\.(run|mode))/;
 
 export function splitSteps(text) {
   // Steps start at a "- name:" or "- uses:" or "- run:" list item inside a steps: block.
@@ -51,13 +57,18 @@ export function check(text) {
   const jobs = splitSteps(text);
   if (jobs.length === 0) problems.push('no jobs parsed: parser is blind');
   for (const job of jobs) {
+    if (EXEMPT_JOBS.has(job.name)) continue;
     const idx = job.steps.findIndex((s) => /id:\s*changes/.test(s.text) && /docs-only\.mjs/.test(s.text));
     if (idx < 0) {
       if (job.steps.some((s) => HEAVY.test(s.text))) problems.push(`${job.name}: S1 no "id: changes" step running docs-only.mjs`);
       continue;
     }
+    const gate = job.steps.slice(idx + 1).find((s) => /id:\s*mode/.test(s.text));
+    if (job.steps.slice(idx + 1).some((s) => /steps\.mode\./.test(s.text)) && !(gate && /steps\.changes\.outputs\.e2e_skip/.test(gate.text))) {
+      problems.push(`${job.name}: S3 steps gate on steps.mode but the "id: mode" step does not read steps.changes.outputs.e2e_skip`);
+    }
     for (const s of job.steps.slice(idx + 1)) {
-      if (HEAVY.test(s.text) && !/if:[^\n]*steps\.changes\.outputs\.e2e_skip/.test(s.text)) {
+      if (HEAVY.test(s.text) && !SKIP_IF.test(s.text)) {
         const label = (s.text.match(/name:\s*(.+)/) || [, s.text.split('\n')[0]])[1].trim();
         problems.push(`${job.name}: S2 heavy step "${label}" has no e2e_skip condition`);
       }
@@ -70,7 +81,7 @@ export function check(text) {
 function selfTest(text) {
   const quiet = { write() {} };
   if (main([], text, quiet) !== 0) { process.stdout.write('self-test: real file already red\n'); return 1; }
-  const mutant = text.replace(/ {8}if: steps\.changes\.outputs\.e2e_skip != 'true'\r?\n( {8}run: npm ci)/, '$1');
+  const mutant = text.replace(/ {8}if: steps\.mode\.outputs\.run == 'true'\r?\n( {8}run: npm ci)/, '$1');
   if (mutant === text) { process.stdout.write('self-test: mutant did not apply (npm ci step shape changed)\n'); return 1; }
   if (main([], mutant, quiet) !== 1) { process.stdout.write('self-test: mutant NOT refused: guard is blind\n'); return 1; }
   process.stdout.write('self-test ok: real file clean, mutant refused\n');
