@@ -151,8 +151,8 @@ function NightsTab({ what, live, soon, row, sheet, extra }: {
   return (
     <Gate c={c} what={what}>
       {() => !live ? <div className="p3-stack" data-testid={`v2-${what}-soon`}>{soon}</div> : nights.length === 0 ? (
-        <V2State testId={`v2-${what}-nonights`} sentence={`${c.event!.name} has no coming dates.`}>
-          <Link className={linkBtn} style={TAP} to={P3_PATHS.eventDates(c.event!.id)}>Add dates</Link>
+        <V2State testId={`v2-${what}-nonights`} sentence={`Add a date to this event to use ${what === 'guests' ? 'Guest list' : 'Raffle'}.`}>
+          <Link className={linkBtn} style={TAP} to={P3_PATHS.eventDates(c.event!.id)} data-testid={`v2-${what}-add-night`}>Add or edit a night</Link>
         </V2State>
       ) : (
         <div className="p3-stack" data-testid={`v2-${what}-tab`}>

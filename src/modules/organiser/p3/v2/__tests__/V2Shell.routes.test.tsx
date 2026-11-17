@@ -191,6 +191,11 @@ describe('flag ON: the V2 shell', () => {
     at(`${P3_BASE}/${tab}`);
     const box = screen.getByTestId(testId);
     expect(box.querySelectorAll('h2').length).toBe(headings);
+    if (on && headings === 0) {
+      expect(box.textContent).toMatch(/Add a date to this event to use (Guest list|Raffle)/);
+      expect(box.textContent).toContain(`to use ${tab === 'guests' ? 'Guest list' : 'Raffle'}`);
+      expect(screen.getByTestId(`v2-${tab}-add-night`).textContent).toBe('Add or edit a night');
+    }
     // Coming soon is ONE card, never one per night; and no copy sends the person to add dates
     if (!on) {
       expect(box.textContent).toMatch(/coming soon/i);
