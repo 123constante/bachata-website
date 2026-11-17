@@ -7,13 +7,13 @@ import type { OrderQrTicket } from '@/modules/tickets/myTicketsModel';
 import { thanksCopy, type ThanksOrderState } from '@/modules/tickets/ticketCheckoutModel';
 
 /** One ticket in the card: the order QR row, plus what only the full-screen door view shows. */
-export type CardTicket = OrderQrTicket & { eventTitle: string | null; eventDate: string | null };
+export type CardTicket = OrderQrTicket & { eventTitle: string | null; eventDate: string | null; eventCancelled?: boolean; refunded?: boolean };
 
 export type CardView =
   | { kind: 'loading' }
   | { kind: 'pending'; free: boolean }
   | { kind: 'processing' }
-  | { kind: 'paid_email' }
+  | { kind: 'paid_email'; otherEmail?: boolean }
   | { kind: 'failed'; eventId: string | null; free: boolean }
   | { kind: 'qr_error' }
   | { kind: 'none' }
@@ -27,6 +27,8 @@ export const CARD_COPY = {
   // The thank-you page's own words (thanksCopy): one copy of what processing and paid-by-email say.
   processing: thanksCopy(false, 'processing').body,
   paidEmail: thanksCopy(false, 'paid').title,
+  // Buyer onboarding ON: a paid order with no door codes for this account was bought under another email (no linking yet).
+  otherEmail: 'Your ticket is under another email',
   failed: 'Your payment didn\u2019t go through, so no tickets were issued.',
   failedFree: 'This order didn\u2019t go through, so no tickets were issued.',
   failedLink: 'Back to the event to try again',

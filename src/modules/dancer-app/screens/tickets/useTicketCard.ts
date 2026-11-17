@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { londonTodayKey } from '@/lib/londonDate';
+import { BUYER_ONBOARDING_ENABLED } from '@/lib/buyerOnboardingFlag';
 import { fetchMyTickets, fetchOrderQr } from '@/modules/tickets/myTicketsApi';
 import { groupTickets, type MyTicket } from '@/modules/tickets/myTicketsModel';
 import { clearOrderId, readOrderId } from '@/modules/tickets/orderStorage';
@@ -67,7 +68,9 @@ export function useTicketCard(): { view: CardView; retry: () => void } {
       void fetchOrderQr(orderId).then((r) => {
         if (!live) return;
         // Paid but no QR rows for this account (a guest order, or tickets not issued yet): the email is certain.
-        if (r.kind === 'ok') setLoaded(r.tickets.length ? { kind: 'tickets', tickets: r.tickets.map((t) => ({ ...t, eventTitle: title, eventDate: date })) } : { kind: 'paid_email' });
+        // The server reads only the signed-in buyer's own paid order inside 2 hours, so ok-but-empty on a
+        // just-returned paid order = bought under another email (buyer onboarding ON says so in plain words).
+        if (r.kind === 'ok') setLoaded(r.tickets.length ? { kind: 'tickets', tickets: r.tickets.map((t) => ({ ...t, eventTitle: title, eventDate: date })) } : BUYER_ONBOARDING_ENABLED ? { kind: 'paid_email', otherEmail: true } : { kind: 'paid_email' });
         else setLoaded(r.kind === 'signed_out' ? { kind: 'paid_email' } : { kind: 'qr_error' });
       });
     } else {

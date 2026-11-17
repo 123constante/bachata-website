@@ -6,6 +6,9 @@ import QrCode from '@/modules/tickets/TicketQrCode';
 import { doorCodeText } from '@/modules/tickets/myTicketsModel';
 import { ticketDoorCode } from '@/modules/organiser/p3/door/doorFlags';
 import { doorDate, stepTicket, ticketCountLine } from './cardKit';
+import { londonTodayKey } from '@/lib/londonDate';
+import { BUYER_ONBOARDING_ENABLED } from '@/lib/buyerOnboardingFlag';
+import { ticketQrShown, ticketStatus, ticketStatusLine } from '@/modules/tickets/ticketCardStatus';
 import type { CARD_COPY as CardCopy, CardTicket, CardView } from './model';
 
 // The copy arrives as a prop (type-only import above): importing the value would pull ./model into this lazy chunk.
@@ -33,6 +36,9 @@ function CardState({ view, retry, copy: CARD_COPY }: { view: Exclude<CardView, {
   return (
     <section className="dt-card dt-card-state" data-testid="tickets-card" data-state={view.kind} aria-busy={view.kind === 'loading' || view.kind === 'pending'}>
       <p className="dt-state-line" role="status">{line}</p>
+      {view.kind === 'paid_email' && view.otherEmail && (
+        <p className="dt-state-line" data-testid="tickets-card-other-email">{CARD_COPY.otherEmail}</p>
+      )}
       {view.kind === 'qr_error' && (
         <button type="button" className="dt-btn" onClick={retry} data-testid="tickets-card-retry">{CARD_COPY.retry}</button>
       )}
@@ -49,16 +55,23 @@ function TicketCarousel({ tickets }: { tickets: CardTicket[] }) {
   const n = tickets.length;
   const at = Math.min(index, n - 1);
   const t = tickets[at];
-  const code = doorCodeText(t.shortCode, ticketDoorCode);
+  // Buyer onboarding ON: the one shared status mapping; a passed, cancelled or refunded ticket is greyed, no QR, no code.
+  const status = BUYER_ONBOARDING_ENABLED ? ticketStatus({ date: t.eventDate, eventCancelled: t.eventCancelled, refunded: t.refunded }, londonTodayKey()) : 'valid';
+  const reason = ticketStatusLine(status);
+  const code = ticketQrShown(status) ? doorCodeText(t.shortCode, ticketDoorCode) : null;
   return (
-    <section className="dt-card" data-testid="tickets-card" data-state="tickets">
+    <section className="dt-card" data-testid="tickets-card" data-state="tickets" data-ticket-status={status} style={reason ? { opacity: 0.6 } : undefined}>
       <div className="dt-card-top">
         <span className="dt-type" data-testid="tickets-card-type">{t.typeName}</span>
         {t.checkedIn && <span className="dt-checked">Checked in</span>}
       </div>
-      <button type="button" className="dt-qr" onClick={() => setDoor(true)} aria-label="Open the full-screen door view" data-testid="tickets-card-qr">
-        <QrCode token={t.qrToken} />
-      </button>
+      {reason ? (
+        <p className="dt-state-line" role="status" data-testid="tickets-card-status">{reason}</p>
+      ) : (
+        <button type="button" className="dt-qr" onClick={() => setDoor(true)} aria-label="Open the full-screen door view" data-testid="tickets-card-qr">
+          <QrCode token={t.qrToken} />
+        </button>
+      )}
       {code && <DoorCodeLine code={code} checkedIn={t.checkedIn} testId="tickets-card-code" />}
       {n > 1 && (
         <div className="dt-steps">
@@ -71,7 +84,7 @@ function TicketCarousel({ tickets }: { tickets: CardTicket[] }) {
           </button>
         </div>
       )}
-      {door && <DoorView ticket={t} code={code} onClose={() => setDoor(false)} />}
+      {door && !reason && <DoorView ticket={t} code={code} onClose={() => setDoor(false)} />}
     </section>
   );
 }

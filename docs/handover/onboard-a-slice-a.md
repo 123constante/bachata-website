@@ -7,10 +7,19 @@ Brief: `brief/onboard-a:docs/briefs/onboard-a-slice-a.md`. Flag: `VITE_ENABLE_BU
 - Item 3: no new strings; the RPC's `not_signed_in` / `rate_limited` / permission-denied / network paths map through `codeFromMessage` to the existing COPY list. Table test: `src/modules/dancer-app/__tests__/ensureProfile.matrix.test.ts` (7 shapes + 5 error paths). Fake backend gained `ensureMyDancerProfile` (5/day limit like the server).
 - Item 5: `TicketPickerB1.tsx` shows "Tickets go to {email}. Not you?" above Continue for a signed-in buyer (flag ON). Not you? = `signOut()` (this device), basket kept (storage), email + code card opens empty. Test: `src/modules/tickets/__tests__/pickerNotYou.test.tsx`.
 
+## Done (continuation, dt_7836ae652970)
+- Item 4: `TicketThanksPage` (flag ON) redirects a signed-in buyer to `/app/home?o=` (free=1 kept). Teaser Home draws the Tickets tab's own card (`useTicketCard` poll + `TicketCard`, reused, not copied) at the top while `?o=` is in the URL: plain pending line, then the QR. A person who is NOT on the teaser (finished profile, teaser flag off) is sent on from Home to `/app/tickets?o=` by `ScreenOrTeaser` (DancerAppRoutes), so nobody lands on a Home without the QR.
+- Ticket card states: ONE mapping `src/modules/tickets/ticketCardStatus.ts` (refunded > cancelled > passed > valid; copy exact per owner). Used by the dancer `TicketCard` and `/account/my-tickets` (`MyTicketsPage`): greyed, QR and door code hidden, plain reason. Flag OFF = untouched.
+- Different-email note: paid order whose QR read is ok-but-empty for this account (server reads only the signed-in buyer's own paid order inside 2 h) shows "Your ticket is under another email" under the paid line (flag ON).
+- Test: `src/modules/tickets/__tests__/onboardTicketStates.matrix.test.tsx` (10 status shapes, 4 card renders + flag OFF, note on/off, 4 redirect cases).
+
 ## Left / next steps
-- Item 4 (checkout return lands on teaser Home with the QR): NOT built. `TicketThanksPage` still redirects a signed-in buyer to `/app/tickets?o=`, which polls the order. Teaser Home (`TeaserScreens.tsx` TeaserHome) reads tickets via `useTicketCard()` and has no `?o=` polling, so a straight redirect would show no QR until the webhook lands. Next: behind the flag, redirect to `/app/home?o=` and give TeaserHome the same order poll the Tickets tab uses (or show the Tickets-tab order block on Home while pending).
-- Owner clicks not yet built: passed/cancelled/refunded ticket card states, "Your ticket is under another email" note, daily funnel status line.
-- 390x844 browser walk with the flag ON and a signed-in no-profile account (none done here).
+- NEEDS ADMIN (DB): `my_tickets_v1` and `my_ticket_order_qr_v1` return only `o.status = 'paid'` and `t.status <> 'void'` rows and no night lifecycle, so 'refunded' and 'cancelled' can never reach the Website today. The mapping and screens take `refunded` / `eventCancelled` inputs already; an admin RPC change (return refunded orders with a voided flag, and the occurrence `lifecycle_status`) plus a parse line in `parseMyTickets` turns them on. Prod shapes 2026-11-17: orders paid 2 / refunded 1 / expired 6; tickets used 3 / void 1; none of the 4 tickets resolves to an occurrence row.
+- Different-email note: a guest order (buyer_user_id null, 2 in prod) opened while signed in would also read as "another email". Rare (the stored order id is cleared on the thank-you page); exact needs the RPC to say why it is empty.
+- Funnel daily status line: SKIPPED. It needs a scheduled job / report sink this repo does not have (no cron, no admin report table here). Next: an admin-side daily SELECT (counts of ensure_my_dancer_profile_v1 creations, paid orders, teaser Home order-card views) posted as one line.
+- Home -> Tickets forward for non-teaser people has no unit test (covered by reading; walk it).
+- 390x844 walk with the flag ON (orchestrator).
 
 ## Status
-- PR: #1763. Head before this commit: 6e6f69a. tsc run on 6e6f69a: 0 errors in branch files.
+- PR: #1763. Continuation head: see the last commit on claude/onboard-a.
+- Earlier: Head before this commit: 6e6f69a. tsc run on 6e6f69a: 0 errors in branch files.

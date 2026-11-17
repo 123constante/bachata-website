@@ -4,6 +4,7 @@ import { ChevronRight, Lock, Ticket } from 'lucide-react';
 import { appWelcomeHref } from '@/lib/accountRouting';
 import { useAuth } from '@/hooks/useAuth';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { BUYER_ONBOARDING_ENABLED } from '@/lib/buyerOnboardingFlag';
 import { CARD_COPY } from '../tickets/model';
 import { useTicketCard } from '../tickets/useTicketCard';
 import '../tickets/tickets.css';
@@ -63,13 +64,21 @@ const useLockSheet = () => {
 
 export function TeaserHome() {
   const sheet = useLockSheet();
-  const { view } = useTicketCard();
+  const { view, retry } = useTicketCard();
   const { user } = useAuth();
   const { search } = useLocation();
-  const first = view.kind === 'tickets' ? view.tickets[0] : null;
+  // Checkout return (buyer onboarding ON): the order card with the QR, or its plain pending line
+  // while the webhook lands (the Tickets tab's own poll, useTicketCard), sits at the top of Home.
+  const orderCard = BUYER_ONBOARDING_ENABLED && new URLSearchParams(search).has('o');
+  const first = !orderCard && view.kind === 'tickets' ? view.tickets[0] : null;
   return (
     <div className="tz-screen" data-testid="teaser-home">
       <h1 className="tz-h1">{greetingFor(user?.user_metadata)}</h1>
+      {orderCard && (
+        <Suspense fallback={<section className="dt-card dt-card-state" data-testid="tickets-card" data-state="loading"><p className="dt-state-line">{CARD_COPY.loading}</p></section>}>
+          <TicketCard view={view} retry={retry} copy={CARD_COPY} />
+        </Suspense>
+      )}
       <section className="tz-card tz-pad" data-testid="teaser-finish-card">
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
           <span className="tz-big">{TEASER_COPY.step}</span>
