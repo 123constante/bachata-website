@@ -2,6 +2,7 @@
 // can end with "Back to your event". Only ever an in-app P3 event page: anything else (missing, off-site, another
 // area, a malformed id) is null and the checklist ends with "Go to Home". The refused edit is never replayed.
 import { P3_BASE, P3_PATHS } from '../shell/paths';
+import { homeWordOf } from '../v2/paths';
 
 const EVENT_PATH = new RegExp(`^${P3_BASE}/events/([A-Za-z0-9_-]{1,64})(?:/[a-z]+)?/?$`);
 
@@ -39,7 +40,7 @@ export const GO_TO_HOME = 'Go to Home';
  * "Back to your event" (left or not: the refused edit is waiting there, kept by keptDraft.ts); "Go to Home" only
  * when there is no valid event. `left` is kept for the call sites; the rule no longer depends on it.
  */
-export const finishLabel = (back: string | null, _left?: number): string => (back ? BACK_TO_EVENT : GO_TO_HOME);
+export const finishLabel = (back: string | null, _left?: number): string => (back ? BACK_TO_EVENT : homeWordOf() === 'Events' ? 'Go to Events' : GO_TO_HOME);
 
 /**
  * Whether the checklist shows "Back to your event" as a SECOND button: things are still left, there is a valid
