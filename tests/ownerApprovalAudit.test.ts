@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error -- plain .mjs script, no types
-import { decideAudit, decideRecordAudit, worstCode, recordLine, reviewerDocAtHead } from '../scripts/owner-approval-audit.mjs';
+import { decideAudit, decideRecordAudit, worstCode, recordLine, reviewerDocAtHead, reviewDocNameRe } from '../scripts/owner-approval-audit.mjs';
 
 const OWNER = '123constante';
 const approve = (commit_id: string, login = OWNER) => ({ user: { login }, state: 'APPROVED', commit_id });
@@ -214,5 +214,15 @@ describe('owner-approval audit -- reviewer doc evidence', () => {
     const r = decideRecordAudit({ files: ['tests/a.test.ts'], pr: pr([good()]), record: null });
     expect(r.skipped).toBe(true);
     expect(recordLine('0123456789', r)).toContain('RECORD-SKIP');
+  });
+});
+
+describe('owner-approval audit -- review doc file names', () => {
+  it.each(['1747.md', 'review-1748.md', 'review-1748b.md', 'pr-1747-review.md', 'pr-1741.md', '1741-round2.md'])('accepts %s for its own PR', (name) => {
+    const n = name.match(/\d{4}/)![0];
+    expect(reviewDocNameRe(n).test(name)).toBe(true);
+  });
+  it.each([['review-17470.md', '1747'], ['pr-11747.md', '1747'], ['pr-1747.txt', '1747'], ['onboard-a-1763.md', '1763'], ['review-1748.md', '1747']])('rejects %s for PR %s', (name, n) => {
+    expect(reviewDocNameRe(n).test(name)).toBe(false);
   });
 });
