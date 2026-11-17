@@ -18,12 +18,14 @@ Brief: `docs/briefs/ci-speed-profile-and-trim.md` (branch `brief/ci-speed`). Bra
 4. **Wall-clock budget**: `scripts/check-ci-wallclock.mjs` + `ci-wallclock-budgets.json`,
    canary + measure steps in `ci-budget-guard.yml` (no new workflow). p90 of the last 40
    completed pull_request runs per workflow; red over failSeconds, warning over
-   warnSeconds, exit 2 under 10 runs. Budgets are ceilings, set loose on purpose.
+   warnSeconds, exit 2 under 10 runs; runs under 180 s (skip-mode) are not counted. Budgets are ceilings, set loose on purpose.
 5. **CI-only PRs** (`ci_light` output of `scripts/ci/docs-only.mjs`: workflows,
    `scripts/ci/`, `scripts/check-*.mjs`, `ci-*.json`, plus paths the suites cannot see):
    Phone QA shard 1 runs ONE spec (`organiser-save-bar.phone.spec.ts`, 390x844, ~2 min
    with warm-up), shards 2-3 skip, and `build-smoke` runs in full. Before: other-workflow
-   PRs skipped both entirely; own-workflow and scripts/ci PRs ran everything.
+   PRs skipped both entirely; scripts/ci and guard-script PRs ran everything. The suites'
+   OWN workflows (`phone-qa.yml`, `e2e-smoke.yml`, `typecheck.yml`) stay FULL (review
+   finding: a shard-weight edit is only proven by the sharded run), so this PR runs full.
 
 ## Not done, on purpose
 
@@ -110,6 +112,12 @@ CI=1 npx playwright test --config playwright.phone.config.ts --list | grep '›'
 Then sum per-test durations (`results[].duration`) in `order.txt` order and pick weights
 that minimise the largest slice (`floor(w_i * n / sum(w))` tests per shard, remainder
 to the first shards).
+
+## Needs owner
+
+- `ci-budget-guard.yml` is not in `scripts/data/automation-workflow-allowlist.json`, so the
+  `workflow-lint` allow-list step goes red on this `claude/` branch BY DESIGN. Owner: add
+  the name (owner-only) or push the workflow hunk from a non-loop branch.
 
 ## Next steps
 

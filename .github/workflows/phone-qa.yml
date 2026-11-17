@@ -82,10 +82,10 @@ jobs:
       - name: Trust the workspace for git (container job)
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      # PRs touching only docs, supabase/, .claude/ or other workflows cannot move a
-      # pixel the phone suite sees, so the heavy steps below skip; the job still runs
-      # and reports, so the check keeps its name (scripts/ci/docs-only.mjs e2e_skip,
-      # same classifier as E2E Smoke). Fail-safe: any error means e2e_skip=false.
+      # PRs touching only docs, supabase/ or .claude/ cannot move a pixel the phone suite
+      # sees, so the heavy steps below skip; a CI-only PR (ci_light) runs one spec on shard 1
+      # (see "Decide the phone-suite mode"). The job still runs and reports either way, so
+      # the check keeps its name (scripts/ci/docs-only.mjs, same classifier as E2E Smoke).
       - name: Detect PRs the phone suite cannot see
         id: changes
         env:

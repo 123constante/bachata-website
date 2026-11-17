@@ -87,8 +87,10 @@ const CI_PATHS = [
   (p) => /^scripts\/check-[\w.-]+\.mjs$/.test(p),
   (p) => /^ci-[\w.-]+\.json$/.test(p),
 ];
+// The suites' OWN workflows (E2E_OWN) are not CI-light: a change to phone-qa.yml's shard
+// weights or commands is only proven by the full sharded run.
 const isCiPath = (p) => typeof p === 'string' && p !== '' && !p.includes('..') && !p.startsWith('/')
-  && !p.startsWith('"') && CI_PATHS.some((f) => f(p));
+  && !p.startsWith('"') && !E2E_OWN.includes(p) && CI_PATHS.some((f) => f(p));
 export function isCiLight(paths) {
   if (!Array.isArray(paths) || paths.length === 0 || isDocsOnly(paths)) return false;
   return paths.some(isCiPath) && paths.every((p) => isCiPath(p) || isE2eSkippable([p]));
@@ -97,7 +99,9 @@ export function isCiLight(paths) {
 const CI_LIGHT_CASES = [
   ['empty', [], false],
   ['docs only', ['docs/a.md'], false],
-  ['own workflow', ['.github/workflows/phone-qa.yml'], true],
+  ['own workflow is full, not light', ['.github/workflows/phone-qa.yml'], false],
+  ['own e2e workflow is full', ['.github/workflows/e2e-smoke.yml'], false],
+  ['own + other workflow', ['.github/workflows/phone-qa.yml', '.github/workflows/seo-check.yml'], false],
   ['other workflow', ['.github/workflows/seo-check.yml'], true],
   ['workflow + docs', ['.github/workflows/unit-tests.yml', 'docs/a.md'], true],
   ['scripts/ci', ['scripts/ci/docs-only.mjs'], true],
@@ -247,7 +251,6 @@ if (isEntryPoint(import.meta.url)) {
     }
   } catch (e) {
     console.error(`docs-only: could not compute changed files (${e.message}); running everything`);
-    ciLight = false;
   }
   emit(result, e2eSkip, ciLight);
 }

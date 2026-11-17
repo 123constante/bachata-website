@@ -1,10 +1,10 @@
 {
-  "_comment": "Wall-clock budgets (seconds, p90 of run_started_at -> updated_at over the last sampleRuns completed pull_request runs) for the PR checks people wait on. Enforced by scripts/check-ci-wallclock.mjs in ci-budget-guard.yml. Ceilings, not targets: tighten after the ci-speed PR's numbers settle.",
+  "_comment": "Wall-clock budgets (seconds, p90 of run_started_at -> updated_at over the last sampleRuns completed pull_request runs) for the PR checks people wait on. Enforced by scripts/check-ci-wallclock.mjs in ci-budget-guard.yml. Ceilings, not targets: tighten after the ci-speed PR's numbers settle. ignoreBelowSeconds drops the skip-mode runs (docs-only / e2e_skip / ci_light finish in about a minute) so they do not dilute the p90.",
   "sampleRuns": 40,
   "minRuns": 10,
   "workflows": [
-    { "file": "phone-qa.yml", "warnSeconds": 840, "failSeconds": 1200 },
-    { "file": "e2e-smoke.yml", "warnSeconds": 720, "failSeconds": 1200 },
-    { "file": "unit-tests.yml", "warnSeconds": 720, "failSeconds": 1080 }
+    {"file": "phone-qa.yml", "warnSeconds": 840, "failSeconds": 1200, "ignoreBelowSeconds": 180},
+    {"file": "e2e-smoke.yml", "warnSeconds": 720, "failSeconds": 1200, "ignoreBelowSeconds": 180},
+    {"file": "unit-tests.yml", "warnSeconds": 720, "failSeconds": 1080, "ignoreBelowSeconds": 180}
   ]
 }

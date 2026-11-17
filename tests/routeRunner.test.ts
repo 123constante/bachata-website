@@ -221,24 +221,31 @@ describe('runner hooks (shell test)', () => {
     expect(mut).not.toBe(src);
     const f = path.join(mkdtempSync(path.join(tmpdir(), 'gate-mut-')), 'started.sh');
     writeFileSync(f, mut);
+    // TRADE-OFF, named: the script's own exit code is no longer awaited (it arrives only
+    // after the lock waits), so this case proves the shell test SEES the mutant (its FAIL
+    // line), not that the script then exits non-zero. A clean exit before the line, a
+    // spawn error, or the 60 s cap without the line all fail the case.
     const want = /FAIL MUTANT altered workflow: refused/;
-    const { stdout, status } = await new Promise<{ stdout: string; status: number | null }>((resolve) => {
+    const r = await new Promise<{ stdout: string; how: 'saw-fail-line' | 'exited' | 'cap' | 'spawn-error'; code?: number | null }>((resolve) => {
       const p = spawn('bash', [path.join(dir, 'test-gate-hooks.sh')], { detached: true, env: { ...process.env, HOOK_STARTED: f } });
       let out = '';
       let done = false;
-      const finish = (status: number | null) => {
+      const finish = (how: 'saw-fail-line' | 'exited' | 'cap' | 'spawn-error', code?: number | null) => {
         if (done) return;
         done = true;
         clearTimeout(cap);
-        try { process.kill(-p.pid!, 'SIGKILL'); } catch { /* group already gone */ }
-        resolve({ stdout: out, status });
+        if (p.pid !== undefined) {
+          try { process.kill(-p.pid, 'SIGKILL'); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ESRCH') throw e; }
+        }
+        resolve({ stdout: out, how, code });
       };
-      const cap = setTimeout(() => finish(null), 60000);
-      p.stdout.on('data', (b) => { out += String(b); if (want.test(out)) finish(1); });
-      p.on('close', (code) => finish(code));
+      const cap = setTimeout(() => finish('cap'), 60000);
+      p.on('error', () => finish('spawn-error'));
+      p.stdout.on('data', (b) => { out += String(b); if (want.test(out)) finish('saw-fail-line'); });
+      p.on('close', (code) => finish('exited', code));
     });
-    expect(stdout).toMatch(want);
-    expect(status).not.toBe(0);
+    expect(r.stdout).toMatch(want);
+    expect(r.how).toBe('saw-fail-line');
   }, 70000);
 });
 

@@ -41,6 +41,9 @@ export function assertConfig(cfg) {
     if (!(w.warnSeconds > 0) || !(w.failSeconds > w.warnSeconds)) {
       throw new Error(`${w.file}: need 0 < warnSeconds < failSeconds`);
     }
+    if (!(w.ignoreBelowSeconds >= 0) || !(w.ignoreBelowSeconds < w.warnSeconds)) {
+      throw new Error(`${w.file}: need 0 <= ignoreBelowSeconds < warnSeconds`);
+    }
   }
   return cfg;
 }
@@ -52,12 +55,18 @@ export function percentile(values, p) {
   return s[Math.min(s.length, Math.max(1, rank)) - 1];
 }
 
-/** Wall-clock seconds of each completed, non-cancelled run. */
-export function runSeconds(runs) {
+/**
+ * Wall-clock seconds of each completed, non-cancelled run of at least ignoreBelow seconds.
+ * The floor drops the skip-mode runs (docs-only, e2e_skip, ci_light) that finish in well
+ * under a minute with conclusion success: counted, they would drag the p90 down and hide a
+ * slow full suite. updated_at is the run record's last touch, normally its completion; a
+ * late metadata touch can only overstate a run, so the guard errs toward red, not green.
+ */
+export function runSeconds(runs, ignoreBelow = 0) {
   return runs
     .filter((r) => r.status === 'completed' && r.conclusion !== 'cancelled' && r.conclusion !== 'skipped')
     .map((r) => (Date.parse(r.updated_at) - Date.parse(r.run_started_at)) / 1000)
-    .filter((s) => Number.isFinite(s) && s >= 0);
+    .filter((s) => Number.isFinite(s) && s >= ignoreBelow);
 }
 
 export function verdict(p90, w) {
@@ -106,7 +115,7 @@ export async function main(argv = [], deps = {}) {
   for (const w of cfg.workflows) {
     let secs;
     try {
-      secs = runSeconds(await fetchRuns(w.file, cfg.sampleRuns)).slice(0, cfg.sampleRuns);
+      secs = runSeconds(await fetchRuns(w.file, cfg.sampleRuns), w.ignoreBelowSeconds).slice(0, cfg.sampleRuns);
       assertMeasured(secs.length, cfg.minRuns, `${w.file} completed PR runs`);
     } catch (e) {
       err(`CANNOT MEASURE ${w.file} -- ${e.message}`);
@@ -137,7 +146,7 @@ const run = (start, secs, conclusion = 'success') => ({
   run_started_at: new Date(start).toISOString(),
   updated_at: new Date(start + secs * 1000).toISOString(),
 });
-const FIX_CFG = { sampleRuns: 10, minRuns: 3, workflows: [{ file: 'a.yml', warnSeconds: 600, failSeconds: 900 }] };
+const FIX_CFG = { sampleRuns: 10, minRuns: 3, workflows: [{ file: 'a.yml', warnSeconds: 600, failSeconds: 900, ignoreBelowSeconds: 60 }] };
 const runsOf = (...secs) => secs.map((s, i) => run(Date.UTC(2026, 10, 1, 0, i), s));
 const quiet = { log: () => {}, err: () => {} };
 
@@ -146,6 +155,11 @@ export const CASES = [
   ['p90 between warn and fail -> 0', { cfg: FIX_CFG, fetchRuns: async () => runsOf(100, 200, 700, 700) }, 0],
   ['p90 over fail -> 1', { cfg: FIX_CFG, fetchRuns: async () => runsOf(100, 200, 950, 1000) }, 1],
   ['cancelled runs do not count', { cfg: FIX_CFG, fetchRuns: async () => [...runsOf(100, 200, 300), run(0, 5000, 'cancelled')] }, 0],
+  // Counted: 100, 100, 950 -> p90 950, over fail. With the seven 30 s skip-mode runs
+  // counted too, p90 of the ten would be 100 and the slow run would hide.
+  ['skip-mode runs under the floor do not dilute p90 -> 1', { cfg: FIX_CFG, fetchRuns: async () => runsOf(100, 100, 950, 30, 30, 30, 30, 30, 30, 30) }, 1],
+  ['only skip-mode runs -> 2 (floor)', { cfg: FIX_CFG, fetchRuns: async () => runsOf(30, 30, 30, 30) }, 2],
+  ['ignoreBelow >= warn config -> 2', { cfg: { ...FIX_CFG, workflows: [{ file: 'a.yml', warnSeconds: 600, failSeconds: 900, ignoreBelowSeconds: 600 }] }, fetchRuns: async () => runsOf(700, 700, 700) }, 2],
   ['too few runs -> 2 (floor)', { cfg: FIX_CFG, fetchRuns: async () => runsOf(100, 200) }, 2],
   ['only cancelled runs -> 2', { cfg: FIX_CFG, fetchRuns: async () => [run(0, 50, 'cancelled'), run(0, 50, 'cancelled'), run(0, 50, 'cancelled')] }, 2],
   ['empty list -> 2', { cfg: FIX_CFG, fetchRuns: async () => [] }, 2],
@@ -155,8 +169,8 @@ export const CASES = [
   ['malformed config -> 2', { cfg: { sampleRuns: 10, minRuns: 3, workflows: [] }, fetchRuns: async () => runsOf(1, 2, 3) }, 2],
   ['warn >= fail config -> 2', { cfg: { ...FIX_CFG, workflows: [{ file: 'a.yml', warnSeconds: 900, failSeconds: 900 }] }, fetchRuns: async () => runsOf(1, 2, 3) }, 2],
   ['second workflow over fail -> 1', {
-    cfg: { ...FIX_CFG, workflows: [...FIX_CFG.workflows, { file: 'b.yml', warnSeconds: 60, failSeconds: 120 }] },
-    fetchRuns: async (f) => (f === 'b.yml' ? runsOf(200, 200, 200) : runsOf(10, 10, 10)),
+    cfg: { ...FIX_CFG, workflows: [...FIX_CFG.workflows, { file: 'b.yml', warnSeconds: 60, failSeconds: 120, ignoreBelowSeconds: 0 }] },
+    fetchRuns: async (f) => (f === 'b.yml' ? runsOf(200, 200, 200) : runsOf(100, 100, 100)),
   }, 1],
   ['live fetch: HTTP 500 -> 2', {
     cfg: FIX_CFG,
@@ -174,6 +188,13 @@ async function selfTest() {
     const got = await main([], { ...quiet, ...deps });
     if (got !== want) { console.error(`FAIL case: ${name} -- exit ${got}, want ${want}`); bad++; }
   }
+  // The WARN band exits 0, so the exit code alone cannot prove the warning is printed.
+  const lines = [];
+  const warnExit = await main([], { cfg: FIX_CFG, fetchRuns: async () => runsOf(100, 200, 700, 700), log: (l) => lines.push(l), err: () => {} });
+  if (warnExit !== 0 || !lines.some((l) => l.startsWith('::warning::a.yml'))) { console.error('FAIL warn band prints no ::warning::'); bad++; }
+  const okLines = [];
+  await main([], { cfg: FIX_CFG, fetchRuns: async () => runsOf(100, 200, 300), log: (l) => okLines.push(l), err: () => {} });
+  if (okLines.some((l) => l.startsWith('::warning::'))) { console.error('FAIL OK band prints a ::warning::'); bad++; }
   if (percentile([5, 1, 3, 2, 4], 90) !== 5 || percentile([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 50) !== 5) {
     console.error('FAIL percentile'); bad++;
   }
