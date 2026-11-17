@@ -1,0 +1,47 @@
+{"row":"W-31/132","text":"model 132 dates 2026-02-17..2028-08-22; first read: before=null limit=null -> 100 rows, has_more=true"}
+{"row":"W-31/132","text":"Coming tab: rows=98, partial=\"This page lists the newest 100 of 132 dates.\", older button=\"Show 32 older dates\""}
+{"row":"W-31/132","pic":"w31-132-0-coming.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-31/132","pic":"w31-132-1-older-button.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-31/132","text":"after click: reads=2, last read: before=2026-09-29 limit=100 -> 32 rows, has_more=false; older button=0, partial line=0"}
+{"row":"W-31/132","pic":"w31-132-2-after-older.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-31/132","text":"filter tabs: Coming 98 | Past 34 | Cancelled 3 | Breaks 0 | Own changes 0"}
+{"row":"W-31/132","text":"Past tab rows=34"}
+{"row":"W-31/132","pic":"w31-132-3-past.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-31/132","text":"oldest row text: Tuesday 17 February | Done | › (model oldest 2026-02-17)"}
+{"row":"W-31/132","pic":"w31-132-4-past-bottom.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-31/132","text":"oldest date sheet: Tuesday 17 February, 8pm | Close | Same as usual | Cancel this date | This date has already happened, so it can’t be changed. | Move to another day | This date has already happened, so it can’t be changed. | Change the time on this date | This date has already happened, so it can’t be changed. | Different details this date | This date has already happened, so it can’t be changed. | Skip this week "}
+{"row":"W-31/132","pic":"w31-132-5-oldest-open.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-31/100","text":"model 100 dates 2026-04-14..2028-03-07; first read: before=null limit=null -> 100 rows, has_more=false"}
+{"row":"W-31/100","text":"Coming tab: rows=74, partial=\"none\", older button=\"none\""}
+{"row":"W-31/100","pic":"w31-100-0-coming.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-31/100","text":"no older-dates control expected: older button count=0; text has \"newest\"=false"}
+{"row":"W-31/100","pic":"w31-100-1-past.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-31/99","text":"model 99 dates 2026-04-21..2028-03-07; first read: before=null limit=null -> 99 rows, has_more=false"}
+{"row":"W-31/99","text":"Coming tab: rows=74, partial=\"none\", older button=\"none\""}
+{"row":"W-31/99","pic":"w31-99-0-coming.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-31/99","text":"no older-dates control expected: older button count=0; text has \"newest\"=false"}
+{"row":"W-31/99","pic":"w31-99-1-past.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-35/put","pic":"w35-put-0-date-sheet.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-35","text":"no own-name row"}
+{"row":"W-35/put","pic":"w35-put-0-date-sheet.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-35/put","pic":"w35-put-0b-details.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-35/put","pic":"w35-put-1-typed.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-35/put","text":"after conflict: save disabled=true, why=\"Someone else saved a change to this date, so yours was not saved. Start again to see it; what you typed is kept until you choose.\", start again present=1, typed value kept=\"Spring Special\""}
+{"row":"W-35/put","pic":"w35-put-2-conflict.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-35/put","text":"after Start again: field=\"Friday Bachata\", kept-offer=\"This is the date as it is now. Your changes are not saved.\n\nPut my changes back\nDrop my changes\""}
+{"row":"W-35/put","pic":"w35-put-3-start-again.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-35/put","text":"after put: field=\"Spring Special\", save disabled=false"}
+{"row":"W-35/put","pic":"w35-put-4-after-choice.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-35/put","text":"save: commands sent 1 -> 2; dialog now=\"closed\""}
+{"row":"W-35/put","pic":"w35-put-5-saved.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-35/drop","pic":"w35-drop-0-date-sheet.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-35/drop","pic":"w35-drop-0b-details.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-35/drop","pic":"w35-drop-1-typed.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-35/drop","text":"after conflict: save disabled=true, why=\"Someone else saved a change to this date, so yours was not saved. Start again to see it; what you typed is kept until you choose.\", start again present=1, typed value kept=\"Spring Special\""}
+{"row":"W-35/drop","pic":"w35-drop-2-conflict.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-35/drop","text":"after Start again: field=\"Friday Bachata\", kept-offer=\"This is the date as it is now. Your changes are not saved.\n\nPut my changes back\nDrop my changes\""}
+{"row":"W-35/drop","pic":"w35-drop-3-start-again.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-35/drop","text":"after drop: field=\"Friday Bachata\", save disabled=true"}
+{"row":"W-35/drop","pic":"w35-drop-4-after-choice.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-35/drop","text":"save: commands sent 1 -> 1; dialog now=\"Name | Close | ← Back | Name | Dancers see this name on this date only: the event page and the calendar. | Nothing changed yet\""}
+{"row":"W-35/drop","pic":"w35-drop-5-saved.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}

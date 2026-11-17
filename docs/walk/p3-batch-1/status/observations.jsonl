@@ -1,0 +1,29 @@
+{"row":"nopage/events","text":"path=/account/p3/events; card=\"You don’t have a page yet\n\nYour events show here once you run a page. Find your page or create one to get started.\n\nFind or create a page\"; link href=/account/p3/start; body=Skip to content | Search events, venues, people… | 🎪 | Organisers | 🏛️ | Venues | Community | Events | You don’t have a page yet | Your events show here once you run a page. Find your page or create one to get started. | Find or create a page | Home | Events | Stats | You | Find events | Parties | Classes | Festivals | Tonight | Venues | London Bachata Guide | Beginners | FAQ | By day | Monday | Tuesday | Wednesday | Thursday | Friday | Saturday | Sunday | Organisers | Get listed↗ | (opens in "}
+{"row":"nopage/events","pic":"nopage-events.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"nopage/stats","text":"path=/account/p3/stats; card=\"You don’t have a page yet\n\nYour views show here once you run a page. Find your page or create one to get started.\n\nFind or create a page\"; link href=/account/p3/start; body=Skip to content | Search events, venues, people… | 🎪 | Organisers | 🏛️ | Venues | Community | Stats | Today | 7 days | 30 days | You don’t have a page yet | Your views show here once you run a page. Find your page or create one to get started. | Find or create a page | Home | Events | Stats | You | Find events | Parties | Classes | Festivals | Tonight | Venues | London Bachata Guide | Beginners | FAQ | By day | Monday | Tuesday | Wednesday | Thursday | Friday | Saturday | Sunday | Organisers |"}
+{"row":"nopage/stats","pic":"nopage-stats.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"switch/home","pic":"switch-home-0-closed.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"switch/home","text":"ticks=1, tick row=\"Ritmo Bachata London\n✓\", aria-current=1, rows=2"}
+{"row":"switch/home","pic":"switch-home-1-open.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"switch/events","pic":"switch-events-0-closed.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"switch/events","text":"ticks=1, tick row=\"Ritmo Bachata London\n✓\", aria-current=1, rows=2"}
+{"row":"switch/events","pic":"switch-events-1-open.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"switch/events","text":"after pick: path=/account/p3/events, page name=\"Salsa y Bachata Leeds\""}
+{"row":"switch/events","pic":"switch-events-2-picked.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"switch/events","text":"tick after pick on row=\"Salsa y Bachata Leeds\n✓\""}
+{"row":"switch/events","pic":"switch-events-3-reopened.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"switch/stats","pic":"switch-stats-0-closed.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"switch/stats","text":"ticks=1, tick row=\"Salsa y Bachata Leeds\n✓\", aria-current=1, rows=2"}
+{"row":"switch/stats","pic":"switch-stats-1-open.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"loading/home","text":"at 1.5s: body=Skip to content | Search events, venues, people… | 🎪 | Organisers | 🏛️ | Venues | Community | Home | Loading your events… | This takes a second. Your tabs below work while it loads. | Home | Events | Stats | You | Find events | Parties | Classes | Festivals | Tonight | Venues | London Bachata Guide | Beginners | FAQ | By day | Monday | Tuesday | Wednesday | Thursday | Friday | Saturday | Sunday | Organisers | Get listed↗ | (opens in a new tab) | Connect | WhatsApp↗ | (opens in a new tab) | Ins; page-name shown=0; rows=0"}
+{"row":"loading/home","pic":"loading-home.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"loading/home","text":"after load: page-name=\"Ritmo Bachata London\""}
+{"row":"loading/home","pic":"loaded-home.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"loading/events","text":"at 1.5s: body=Skip to content | Search events, venues, people… | 🎪 | Organisers | 🏛️ | Venues | Community | Events | Loading your events… | This takes a second. | Home | Events | Stats | You | Find events | Parties | Classes | Festivals | Tonight | Venues | London Bachata Guide | Beginners | FAQ | By day | Monday | Tuesday | Wednesday | Thursday | Friday | Saturday | Sunday | Organisers | Get listed↗ | (opens in a new tab) | Connect | WhatsApp↗ | (opens in a new tab) | Instagram↗ | (opens in a new tab) | Pr; page-name shown=0; rows=0"}
+{"row":"loading/events","pic":"loading-events.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"loading/events","text":"after load: page-name=\"Ritmo Bachata London\""}
+{"row":"loading/events","pic":"loaded-events.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"loading/stats","text":"at 1.5s: body=Skip to content | Search events, venues, people… | 🎪 | Organisers | 🏛️ | Venues | Community | Stats | Today | 7 days | 30 days | Loading views… | Counting your views. | Home | Events | Stats | You | Find events | Parties | Classes | Festivals | Tonight | Venues | London Bachata Guide | Beginners | FAQ | By day | Monday | Tuesday | Wednesday | Thursday | Friday | Saturday | Sunday | Organisers | Get listed↗ | (opens in a new tab) | Connect | WhatsApp↗ | (opens in a new tab) | Instagram↗ | (open; page-name shown=0; rows=0"}
+{"row":"loading/stats","pic":"loading-stats.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"loading/stats","text":"after load: page-name=\"Ritmo Bachata London\""}
+{"row":"loading/stats","pic":"loaded-stats.png","w19":{"small":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
