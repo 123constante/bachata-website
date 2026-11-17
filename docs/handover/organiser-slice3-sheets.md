@@ -27,3 +27,10 @@ Ticket dt_dc05a97e1418.
   event page row. That is slice 1/2 behaviour, unchanged here.
 - The sheet and Door screen keep separate caches of the same RPC (sheet stale up to 30s after a Door scan).
 - Rows are per ticket: a 3-ticket order shows the buyer's name 3 times (the server sends no order id).
+
+## Status
+- PR: #1759 (bot-opened from the first push; title and body updated, both body checkers exit 0).
+- tsc run on 003030b: 0 errors in branch files (`tsc --noEmit -p .` 0 total; `tsconfig.app.json` 136 = origin/main's 136).
+- pre-ship: every gate PASS except test:unit (sandbox-only network contract + integrityCouldNotRun, same on main)
+  and the typecheck ratchet (stale baseline 106; main is 136 too). e2e was skipped by pre-ship as a result.
+- Not verified: live signed-in walk (needs a laptop walk with the flags), PR CI checks (no gh access here).
