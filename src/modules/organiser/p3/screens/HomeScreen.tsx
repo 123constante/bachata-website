@@ -25,9 +25,20 @@ function NoNextUp({ rows }: { rows: readonly P3Row[] }) {
 }
 
 /** Welcome's claim / create line, carried in the router state (P3 W4b). */
-function confirmationOf(state: unknown): string | null {
+export function confirmationOf(state: unknown): string | null {
   const c = (state as { confirmation?: unknown } | null)?.confirmation;
   return typeof c === 'string' && c.trim() ? c : null;
+}
+
+/** The claim / create line, ClaimNotice and GraceBanner: shared by Home and the V2 Events tab. */
+export function HomeNotices({ confirmation }: { confirmation: string | null }) {
+  return (
+    <>
+      {confirmation && <p className="p3-ok" role="status" data-testid="p3-home-confirmation">{confirmation}</p>}
+      <ClaimNotice />
+      <GraceBanner />
+    </>
+  );
 }
 
 /** C3 Home: Next up, Needs you, the last 30 days' views, the first four events. Reads only. */
@@ -66,9 +77,7 @@ export function HomeScreen() {
   // A claim or a create that just landed here says so (W4b), and so do pages claimed at sign-in.
   const said = (
     <>
-      {confirmation && <p className="p3-ok" role="status" data-testid="p3-home-confirmation">{confirmation}</p>}
-      <ClaimNotice />
-      <GraceBanner />
+      <HomeNotices confirmation={confirmation} />
       <PageHeader selected={scope.selected} organisers={scope.organisers} onChoose={scope.choose} />
     </>
   );

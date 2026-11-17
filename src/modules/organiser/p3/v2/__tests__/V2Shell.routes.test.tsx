@@ -88,8 +88,53 @@ describe('flag ON: the V2 shell', () => {
     expect(container.querySelector('.p3-tab[aria-current="page"]')?.getAttribute('data-tab')).toBe('tickets');
   });
   it('the bare area URL opens Events, query kept', () => {
+    h.home = { ...h.home, data: { today: '2026-11-17', organisers: [{ id: 'org1' }] } };
     at(`${P3_BASE}?o=org1`);
     expect(screen.getByTestId('where').textContent).toBe(`${P3_BASE}/events?o=org1`);
+  });
+  describe('F1/F2: no page lands on Welcome; state and notices survive', () => {
+    const withPages = (n: number, extra: Record<string, unknown> = {}) => {
+      h.home = { ...h.home, ...extra, data: { today: '2026-11-17', organisers: Array.from({ length: n }, (_, i) => ({ id: `org${i}` })) } };
+    };
+    afterEach(() => { h.home = { isPending: false, isError: false, data: { today: '2026-11-17', organisers: [] }, refetch: () => undefined }; });
+    it('zero pages at the bare URL -> Welcome', () => {
+      withPages(0);
+      at(P3_BASE);
+      expect(screen.getByTestId('where').textContent).toBe(`${P3_BASE}/start`);
+    });
+    it('zero pages on the Events tab -> Welcome', () => {
+      withPages(0);
+      at(`${P3_BASE}/events`);
+      expect(screen.getByTestId('where').textContent).toBe(`${P3_BASE}/start`);
+    });
+    it('a claim that just landed waits for the refetch instead of bouncing to Welcome', () => {
+      withPages(0, { isFetching: true });
+      const qc = new QueryClient();
+      render(
+        <QueryClientProvider client={qc}>
+          <MemoryRouter initialEntries={[{ pathname: P3_BASE, state: { confirmation: 'Page claimed.' } }]}>
+            <Routes><Route path={`${P3_BASE}/*`} element={<P3Routes />} /></Routes>
+            <Where />
+          </MemoryRouter>
+        </QueryClientProvider>,
+      );
+      expect(screen.getByTestId('where').textContent).toBe(P3_BASE);
+      expect(screen.getByTestId('v2-home-loading')).toBeTruthy();
+    });
+    it('the bare URL forwards location.state and the Events tab shows the confirmation', () => {
+      withPages(1);
+      const qc = new QueryClient({ defaultOptions: { queries: { enabled: false, retry: false } } });
+      render(
+        <QueryClientProvider client={qc}>
+          <MemoryRouter initialEntries={[{ pathname: P3_BASE, state: { confirmation: 'Page created.' } }]}>
+            <Routes><Route path={`${P3_BASE}/*`} element={<P3Routes />} /></Routes>
+            <Where />
+          </MemoryRouter>
+        </QueryClientProvider>,
+      );
+      expect(screen.getByTestId('where').textContent).toBe(`${P3_BASE}/events`);
+      expect(screen.getByTestId('p3-home-confirmation').textContent).toBe('Page created.');
+    });
   });
   it('the switcher defaults to the next event', () => {
     h.rows = [row('a', 'Alpha', '2026-11-30'), row('b', 'Beta', '2026-11-20')];

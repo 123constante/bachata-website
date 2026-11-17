@@ -1,5 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate, useLocation } from 'react-router-dom';
+import { confirmationOf, HomeNotices } from '../screens/HomeScreen';
+import { useP3Home } from '../data/useP3Data';
 import { EventsScreen } from '../screens/EventsScreen';
 import { AccountEntry } from '../shell/P3Shell';
 import { P3_PATHS } from '../shell/paths';
@@ -60,11 +62,38 @@ function Gate({ c, what, children }: { c: EventChoice; what: string; children: (
   return <>{children()}</>;
 }
 
+/**
+ * A signed-in user with no organiser page lands on Welcome, as Home does. A claim or create that just
+ * landed waits for the refetch, or the stale "no page" answer would send them straight back.
+ */
+export function useNoPageRedirect(): { loading: boolean; to: string | null } {
+  const home = useP3Home();
+  const confirmation = confirmationOf(useLocation().state);
+  if (home.isPending) return { loading: true, to: null };
+  if (home.isError || home.data.organisers.length > 0) return { loading: false, to: null };
+  if (confirmation && home.isFetching) return { loading: true, to: null };
+  return { loading: false, to: P3_PATHS.start };
+}
+
+/** The area's bare URL: no Home tab in V2, so Events (state, page and event choice kept); no page = Welcome. */
+export function V2Home() {
+  const { search, state } = useLocation();
+  const r = useNoPageRedirect();
+  if (r.loading) {
+    return <V2State testId="v2-home-loading" sentence={<>Loading your events&hellip;</>}><a className={linkBtn} style={TAP} href={BACK_TO}>{BACK_WORD}</a></V2State>;
+  }
+  return <Navigate to={r.to ?? `${P3_PATHS.events}${search}`} state={state} replace />;
+}
+
 /** Events + Team: today's Events screen, then the way to Team and to Account. */
 export function V2EventsTab() {
   const c = useEventChoice();
+  const r = useNoPageRedirect();
+  const confirmation = confirmationOf(useLocation().state);
+  if (r.to) return <Navigate to={r.to} replace />;
   return (
     <div className="p3-stack" data-testid="v2-events-tab">
+      <HomeNotices confirmation={confirmation} />
       <EventsScreen />
       <section className="p3-card p3-stack-s" aria-label="Team" data-testid="v2-team">
         <strong>Team</strong>
@@ -101,7 +130,9 @@ export function nightsOfChoice(c: Pick<EventChoice, 'event' | 'today' | 'page'>)
   return m.nights.filter((n) => n.date && (n.status === 'live' || n.status === 'cancelled'));
 }
 
-function NightsTab({ what, live, soon, row, sheet }: {
+function NightsTab({ what, live, soon, row, sheet, extra }: {
+  /** Shown under the nights of a live tab (Guest list: the way to the Door). */
+  extra?: (eventId: string) => ReactNode;
   what: 'guests' | 'raffle';
   /** Off = the feature is Coming soon: ONE card (`soon`) for the event, whatever its dates. */
   live: boolean;
@@ -130,6 +161,7 @@ function NightsTab({ what, live, soon, row, sheet }: {
               {row(n, () => { vibrate('tap'); setOpen(n); })}
             </section>
           ))}
+          {extra?.(c.event!.id)}
           {open && sheet(open, () => setOpen(null))}
         </div>
       )}
@@ -151,7 +183,7 @@ function GuestsSoon() {
 
 /** Guest list: the chosen event's nights, each opening the existing guest list sheet. */
 export function V2GuestsTab() {
-  return <NightsTab what="guests" live={flags.organiserGuestListLive} soon={<GuestsSoon />} row={(n, o) => <GuestListRow night={n} onOpen={o} />} sheet={(n, x) => <GuestListSheet night={n} onClose={x} />} />;
+  return <NightsTab what="guests" extra={(id) => flags.organiserTicketing ? <Link className={linkBtn} style={TAP} to={P3_PATHS.eventDoor(id)} data-testid="v2-guests-door">Scan tickets at the door</Link> : null} live={flags.organiserGuestListLive} soon={<GuestsSoon />} row={(n, o) => <GuestListRow night={n} onOpen={o} />} sheet={(n, x) => <GuestListSheet night={n} onClose={x} />} />;
 }
 
 /** Raffle: the chosen event's nights, each opening the existing raffle sheet (open / close stays its own confirm). */
