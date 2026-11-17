@@ -42,9 +42,10 @@ jobs:
       - name: Trust the workspace for git (container job)
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      # Docs-only PRs skip the heavy steps below; the job still runs, so the
-      # required check keeps its name and reports success. Fail-safe: any error
-      # means docs_only=false (scripts/ci/docs-only.mjs).
+      # Docs-only PRs, and PRs touching only trees the browser suite cannot see
+      # (supabase/, .claude/, other workflows), skip the heavy steps below; the job
+      # still runs, so the required check keeps its name and reports success.
+      # Fail-safe: any error means e2e_skip=false (scripts/ci/docs-only.mjs).
       - name: Detect docs-only PR
         id: changes
         env:
@@ -53,22 +54,22 @@ jobs:
         run: node scripts/ci/docs-only.mjs --merge "$MERGE_SHA"
 
       - name: Setup Node
-        if: steps.changes.outputs.docs_only != 'true'
+        if: steps.changes.outputs.e2e_skip != 'true'
         uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
 
       - name: Upgrade npm to 11 (Node 22 ships with npm 10)
-        if: steps.changes.outputs.docs_only != 'true'
+        if: steps.changes.outputs.e2e_skip != 'true'
         run: npm install -g npm@11
 
       - name: Install dependencies
-        if: steps.changes.outputs.docs_only != 'true'
+        if: steps.changes.outputs.e2e_skip != 'true'
         run: npm ci
 
       - name: Run E2E smoke suite
-        if: steps.changes.outputs.docs_only != 'true'
+        if: steps.changes.outputs.e2e_skip != 'true'
         env:
           # E2E smoke tests do NOT use real Supabase — Playwright route mocks
           # intercept every **/auth/v1/** and **/rest/v1/** call. We only need
@@ -109,7 +110,7 @@ jobs:
       # missing here or a P3 spec gains a skip the flags do not control.
       - name: Run E2E P3 walk specs (P3 flags on)
         # !cancelled(): a legacy failure above must not hide the P3 result on the same commit.
-        if: ${{ !cancelled() && steps.changes.outputs.docs_only != 'true' }}
+        if: ${{ !cancelled() && steps.changes.outputs.e2e_skip != 'true' }}
         env:
           VITE_SUPABASE_URL: https://stsdtacfauprzrdebmzg.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIn0.e2e-test-placeholder-not-a-real-key
@@ -123,7 +124,7 @@ jobs:
         run: npm run test:e2e:p3
 
       - name: Upload Playwright artifacts on failure
-        if: ${{ (failure()) && steps.changes.outputs.docs_only != 'true' }}
+        if: ${{ (failure()) && steps.changes.outputs.e2e_skip != 'true' }}
         uses: actions/upload-artifact@v7
         with:
           name: playwright-test-results
