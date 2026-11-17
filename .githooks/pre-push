@@ -135,7 +135,9 @@ fi
 # unscoped ref let through by SHIP_GATE_ALLOW_UNSCOPED_REF and at least one branch
 # ref -- so that commit is the whole push. Helper exit 0 = green there; exit 3 = it
 # could not test there, so the suite runs HERE exactly as before (3 never means
-# pass); any other exit = red there, push refused. REMOTE_TEST=off forces local.
+# pass); exit 4 = Dell busy/offline or the 25 min queue wait ran out, nothing ran and
+# it will NOT run on this PC (refused, not retried); any other exit = red there, push
+# refused. REMOTE_TEST=off forces local.
 heads_pushed=$((branch_refs + to_main))
 unit_where="here"
 # `npm run pre-ship` stamps a green test:unit with the TREE sha. Same tree, under 60 min old:
@@ -170,6 +172,9 @@ else
         unit_where="laptop"
     elif [ "$rc" -eq 3 ]; then
         unit_reason="laptop off/unreachable"
+    elif [ "$rc" -eq 4 ]; then
+        echo "x Dell busy or offline: nothing ran, and it will not run on this PC. Retry the push later, or let CI prove it."
+        exit 1
     else
         echo "x Unit gate failed -- not pushing. Fix the tests (or push --no-verify to bypass)."
         exit 1
