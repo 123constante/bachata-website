@@ -19,3 +19,7 @@ Brief: `brief/onboard-b:docs/briefs/onboard-b-slice-b.md` (sha 8fd468c6). Flag: 
 - Slice C (reminder email) waits for its prototype round (brief).
 - If the owner wants roles on the organiser's attendee list, a small follow-up reads them from the organiser order RPCs.
 - 390x844 walk on a real phone with the flag ON (orchestrator / owner).
+
+## Status
+- PR: #1769 (body has Verified on real data + Phone QA; both body checks exit 0).
+- Code head 4d629fd; tsc run on 4d629fd: 0 errors in branch files (tsc -p tsconfig.app.json, 157 repo-wide, none in branch files).
