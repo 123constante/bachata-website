@@ -1,0 +1,49 @@
+/*
+ * Organiser shell V2 look (flag organiserShellV2). Scoped to .p3-theme.v2-look: the organiser
+ * area only, never :root or the public site. Loaded after ../theme/p3.css, so these tokens win.
+ * White ground, ONE accent (light #c2410c, its dark twin #fb923c), soft grey cards and dividers.
+ * Dark follows the phone; there is no toggle. Every size is px (13.5px html trap).
+ * Contrast is COMPUTED from this file in __tests__/v2Theme.contrast.test.ts.
+ */
+.p3-theme.v2-look {
+  --bg: #ffffff; --card: #f4f4f5; --card2: #e9e9ec; --sheet: #ffffff; --tab: #ffffff;
+  --line: #e4e4e7; --line-strong: #8a8a93; --fg: #18181b; --mut: #52525b;
+  --gold: #c2410c; --gold-fg: #c2410c; --btn: #c2410c; --btnfg: #ffffff;
+  --shadow: none; --r-card: 16px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  .p3-theme.v2-look {
+    --bg: #111113; --card: #1f1f23; --card2: #2a2a2f; --sheet: #1f1f23; --tab: #111113;
+    --line: #2f2f35; --line-strong: #7c7c86; --fg: #f4f4f5; --mut: #a1a1aa;
+    --gold: #fb923c; --gold-fg: #fb923c; --btn: #fb923c; --btnfg: #18181b;
+    --shadow: none;
+    color-scheme: dark;
+  }
+}
+.p3-theme.v2-look .p3-card { border: 1px solid var(--line); }
+.p3-theme.v2-look .v2-top {
+  display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 4px 12px;
+  background: var(--bg); border-bottom: 1px solid var(--line);
+}
+.p3-theme.v2-look .v2-back {
+  flex: none; display: inline-flex; align-items: center; gap: 4px; min-height: 44px; min-width: 44px; padding: 0 4px;
+  font-size: 14px; font-weight: 600; color: var(--gold-fg); text-decoration: none;
+}
+.p3-theme.v2-look .v2-back:focus-visible, .p3-theme.v2-look .v2-switch select:focus-visible { outline: 2px solid var(--gold-fg); outline-offset: 2px; }
+.p3-theme.v2-look .v2-switch { display: block; min-width: 0; }
+.p3-theme.v2-look .v2-switch select {
+  width: 100%; min-height: 44px; padding: 0 8px; border-radius: 12px; border: 1px solid var(--line-strong);
+  background: var(--card); color: var(--fg); font: inherit; font-size: 14px; font-weight: 600; text-overflow: ellipsis;
+}
+.p3-theme.v2-look .v2-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.p3-theme.v2-look .v2-inline { display: inline; font-size: 14px; }
+.p3-theme.v2-look .v2-state-line { color: var(--fg); }
+.p3-theme.v2-look .v2-account-row { display: flex; justify-content: flex-start; }
+.p3-theme.v2-look .p3-btn-link { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; box-sizing: border-box; }
+.p3-theme.v2-look .v2-toast {
+  position: fixed; left: 12px; right: 12px; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); z-index: 80;
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 12px;
+  background: var(--fg); color: var(--bg); font-size: 14px;
+}
+.p3-theme.v2-look .v2-toast-x { min-height: 44px; min-width: 44px; background: none; border: 0; color: inherit; font: inherit; font-weight: 600; text-decoration: underline; }
