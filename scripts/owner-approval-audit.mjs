@@ -68,13 +68,13 @@ export function decideAudit({ files, prs, owner = OWNER_LOGIN, escalation = fals
     const pr = (prs || []).find((p) => p && p.mergeCommitSha === sha);
     if (pr && pr.author === BOT_LOGIN && hasSelfReview(pr.body)) return { code: 0, reason: `merge tier B (MERGE_TIERS_ENABLED): PR #${pr.number} records a self-review; owner approval not required` };
   }
-  if (escalation !== true) return verdictOf({ files, prs, owner, isHard: (f) => riskTier(f) === "hard" });
-  const v = verdictOf({ files, prs, owner, isHard: (f) => riskTier(f) === "hard" || isGuardPath(f) });
+  if (escalation !== true) return verdictOf({ files, prs, owner, tierFiles, isHard: (f) => riskTier(f) === "hard" });
+  const v = verdictOf({ files, prs, owner, tierFiles, isHard: (f) => riskTier(f) === "hard" || isGuardPath(f) });
   const guard = (files || []).filter((f) => isGuardPath(f));
   return { ...v, escalate: v.code === 1 && guard.length > 0, guard, prs: (prs || []).map((p) => p.number) };
 }
 
-function verdictOf({ files, prs, owner, isHard }) {
+function verdictOf({ files, prs, owner, isHard, tierFiles = null }) {
   const hard = (files || []).filter(isHard);
   if (hard.length === 0) return { code: 0, reason: "no hard-tier path touched" };
   if (!prs || prs.length === 0) {
@@ -87,6 +87,11 @@ function verdictOf({ files, prs, owner, isHard }) {
     // Guard paths stay owner-only: the bot status never covers them (reviewer finding 1).
     if (reviewerPassAtHead(pr) && !(files || []).some((f) => isGuardPath(f))) {
       return { code: 0, reason: `PR #${pr.number} reviewer-passed at head ${pr.headSha.slice(0, 8)}` };
+    }
+    // Review evidence as a PR comment (the flow no longer lands docs(review) PRs): AUTHORITY merge_website.
+    // Covers guard paths too, but never money / SQL / secret paths (those keep the owner's approval).
+    if (reviewerCommentAtHead(pr) && !touchesMoneySqlSecret(tierFiles || files)) {
+      return { code: 0, reason: `PR #${pr.number} reviewer PASS comment names head ${pr.headSha.slice(0, 8)}, posted before merge` };
     }
   }
   const nums = prs.map((p) => "#" + p.number).join(", ");
@@ -106,6 +111,30 @@ export function reviewerPassAtHead(pr) {
     .filter((x) => x && x.context === REVIEWER_STATUS_CONTEXT)
     .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")) || (b.id || 0) - (a.id || 0))[0];
   return Boolean(newest && newest.state === "success" && newest.creator && newest.creator.id === REVIEWER_ID);
+}
+
+/** True when any file is money, SQL or a secret path (merge-tier class A once guard paths are ignored). */
+export function touchesMoneySqlSecret(files) {
+  return classifyTier(files, { isGuardPath: () => false }) === "A";
+}
+
+/**
+ * A comment on the PR by the reviewer account whose body has the heading `## Hard-tier: PASS` and
+ * names the PR head sha (full 40-hex, or a 7+ char prefix), created at or before the merge time.
+ * A later push changes the head sha, so an older PASS never matches. pr.comments = issue comments,
+ * pr.mergedAt = ISO merge time (missing = no evidence: fails closed).
+ */
+export function reviewerCommentAtHead(pr) {
+  const head = pr && typeof pr.headSha === "string" ? pr.headSha.toLowerCase() : "";
+  const mergedMs = Date.parse((pr && pr.mergedAt) || "");
+  if (!/^[0-9a-f]{40}$/.test(head) || Number.isNaN(mergedMs)) return false;
+  return ((pr && pr.comments) || []).some((c) => {
+    if (!c || !c.user || c.user.id !== REVIEWER_ID || typeof c.body !== "string") return false;
+    const at = Date.parse(c.created_at || "");
+    if (Number.isNaN(at) || at > mergedMs) return false;
+    if (!/^##\s*Hard-tier:\s*PASS\b/im.test(c.body)) return false;
+    return (c.body.toLowerCase().match(/\b[0-9a-f]{7,40}\b/g) || []).some((t) => head.startsWith(t));
+  });
 }
 
 /** The owner's LATEST non-COMMENTED review is APPROVED at the PR's head sha. */
@@ -128,6 +157,7 @@ export function decideRecordAudit({ files, pr, record, owner = OWNER_LOGIN }) {
   const applies = (files || []).some((f) => pathClass(f) === "tests");
   if (!applies) return { applies: false, ok: true, problems: [], skipped: false };
   if (ownerApprovedAtHead(pr, owner)) return { applies: true, ok: true, problems: [], skipped: true, pr: pr.number };
+  if (reviewerCommentAtHead(pr)) return { applies: true, ok: true, problems: [], skipped: true, reviewer: true, pr: pr.number };
   const problems = reviewRecordVerdict({ headSha: pr && pr.headSha, labels: (pr && pr.labels) || [], record });
   return { applies: true, ok: problems.length === 0, problems, skipped: false, pr: pr && pr.number };
 }
@@ -136,7 +166,7 @@ export function decideRecordAudit({ files, pr, record, owner = OWNER_LOGIN }) {
 export function recordLine(sha, r) {
   if (!r || !r.applies) return null;
   const s8 = String(sha).slice(0, 8);
-  if (r.skipped) return `RECORD-SKIP ${s8}: PR #${r.pr} owner-approved at head (no review record needed)`;
+  if (r.skipped) return `RECORD-SKIP ${s8}: PR #${r.pr} ${r.reviewer ? "reviewer PASS comment at head" : "owner-approved at head"} (no review record needed)`;
   if (!r.ok) return `RECORD-MISSING ${s8}: PR #${r.pr} ${r.problems[0]}`;
   return null;
 }
@@ -220,10 +250,14 @@ async function auditCommit(repo, sha, escalation, mergeTiers = false) {
     if (needStatuses) {
       try { statuses = await paginate(`/repos/${repo}/commits/${p.head.sha}/statuses`); } catch { statuses = []; }
     }
-    prs.push({ number: p.number, headSha: p.head.sha, reviews, statuses, labels: (p.labels || []).map((l) => l && l.name), body: p.body || "", author: (p.user && p.user.login) || "", mergeCommitSha: p.merge_commit_sha || "" });
+    let comments = [];
+    if (needStatuses) {
+      try { comments = await paginate(`/repos/${repo}/issues/${p.number}/comments`); } catch { comments = []; }
+    }
+    prs.push({ number: p.number, headSha: p.head.sha, mergedAt: p.merged_at, reviews, statuses, comments, labels: (p.labels || []).map((l) => l && l.name), body: p.body || "", author: (p.user && p.user.login) || "", mergeCommitSha: p.merge_commit_sha || "" });
   }
   // Tier from the full file objects so the money check scans changed lines too, not only paths.
-  const v = mergeTiers ? decideAudit({ files, prs, escalation, mergeTiers, tierFiles: commit.files, sha }) : decideAudit({ files, prs, escalation });
+  const v = mergeTiers ? decideAudit({ files, prs, escalation, mergeTiers, tierFiles: commit.files, sha }) : decideAudit({ files, prs, escalation, tierFiles: commit.files });
   return { ...v, records: await recordAudits(repo, files, prs) };
 }
 

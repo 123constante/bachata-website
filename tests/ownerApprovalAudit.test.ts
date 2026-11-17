@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error -- plain .mjs script, no types
-import { decideAudit, decideRecordAudit, worstCode, recordLine } from '../scripts/owner-approval-audit.mjs';
+import { decideAudit, decideRecordAudit, worstCode, recordLine, reviewerCommentAtHead } from '../scripts/owner-approval-audit.mjs';
 
 const OWNER = '123constante';
 const approve = (commit_id: string, login = OWNER) => ({ user: { login }, state: 'APPROVED', commit_id });
@@ -168,5 +168,40 @@ describe('owner-approval audit -- decideRecordAudit (class C review record)', ()
       expect(worstCode(vs)).toBe(want[i]);
       expect(worstCode(vs.map((v) => ({ ...v, records: [missing] })))).toBe(want[i]);
     });
+  });
+});
+
+describe('owner-approval audit -- reviewer PASS comment evidence', () => {
+  const HEAD = 'a'.repeat(7) + 'b'.repeat(33);
+  const cm = (body: string, at = '2026-11-17T10:00:00Z', id = 336045711) => ({ user: { id }, created_at: at, body });
+  const pass = (sha = HEAD.slice(0, 8)) => cm(`## Verdict
+OK
+
+## Hard-tier: PASS
+reviewed ${sha}`);
+  const pr = (comments: unknown[], extra = {}) => ({ number: 5, headSha: HEAD, mergedAt: '2026-11-17T11:00:00Z', reviews: [], statuses: [], comments, ...extra });
+  const files = ['scripts/x.mjs'];
+
+  it('passes hard-tier and guard paths with a reviewer PASS comment naming the head (short or full sha)', () => {
+    expect(decideAudit({ files, prs: [pr([pass()])] }).code).toBe(0);
+    expect(decideAudit({ files, prs: [pr([pass(HEAD)])] }).code).toBe(0);
+    expect(decideAudit({ files: ['.github/workflows/phone-qa.yml'], prs: [pr([pass()])] }).code).toBe(0);
+  });
+  it('REDS with no evidence, PASS for an older sha, wrong author, no heading, or posted after the merge', () => {
+    for (const comments of [[], [pass('1234567')], [cm(`## Hard-tier: PASS ${HEAD}`, undefined, 1)], [cm(`looks fine ${HEAD}`)], [cm(`## Hard-tier: PASS ${HEAD}`, '2026-11-17T12:00:00Z')]]) {
+      expect(decideAudit({ files, prs: [pr(comments)] }).code).toBe(1);
+    }
+    expect(decideAudit({ files, prs: [pr([pass()], { mergedAt: undefined })] }).code).toBe(1);
+    expect(reviewerCommentAtHead(pr([pass()], { headSha: 'short' }))).toBe(false);
+  });
+  it('never covers money, SQL or secret paths', () => {
+    for (const f of ['supabase/migrations/1.sql', '.env.production']) {
+      expect(decideAudit({ files: [f, 'scripts/x.mjs'], prs: [pr([pass()])] }).code).toBe(1);
+    }
+  });
+  it('skips the class C record line when the reviewer PASS comment stands', () => {
+    const r = decideRecordAudit({ files: ['tests/a.test.ts'], pr: pr([pass()]), record: null });
+    expect(r.skipped).toBe(true);
+    expect(recordLine('0123456789', r)).toContain('RECORD-SKIP');
   });
 });
