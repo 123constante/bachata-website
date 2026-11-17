@@ -1,0 +1,8 @@
+# Review round 2: PR #1752 (ci-speed) at head ce2a99df5, hard tier (.github/, scripts/)
+Branch for your report: claude/review-1752b (docs only, doc `docs/review/review-1752b.md`, a line `## Verdict:` and a last line `## Hard-tier: PASS` or `## Hard-tier: BLOCK`). Review only; do not push to claude/ci-speed.
+Round 1 (docs/review/review-1752.md on origin/claude/review-1752) passed d239b93ff. Delta since: ce2a99df5 merges origin/main (adds #1751 `scripts/check-phone-qa-skip.mjs`, which wanted `steps.changes.outputs.e2e_skip` on every heavy step) and edits that guard because this PR gates heavy steps on `steps.mode.outputs.run|mode`. Earlier red "no merge base" in phone-qa (1) was a CONFLICTING PR (main moved), not a flake.
+Review `git diff d239b93ff ce2a99df5 -- .github scripts/check-phone-qa-skip.mjs` plus the conflict resolution in .github/workflows/phone-qa.yml. Check with evidence (run the commands, name mutants):
+1. Resolution keeps both blocks: the "Decide the phone-suite mode" step AND the skip-guard step; step order valid.
+2. check-phone-qa-skip.mjs: passes on the real file (`node scripts/check-phone-qa-skip.mjs`, and `--self-test`); refuses (a) a heavy step with no gate, (b) a heavy step gated on something else, (c) steps.mode gating while the `id: mode` step no longer reads steps.changes.outputs.e2e_skip (rule S3). Name any mutant that survives.
+3. Mode step still fail-safe (missing classifier output = full) and `git diff` tail check: no other change to the round-1 verdict items.
+Report under 40 lines. Say which CI checks were green at the head when you looked (`gh pr checks 1752`).
