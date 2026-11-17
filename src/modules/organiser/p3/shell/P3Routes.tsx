@@ -12,8 +12,6 @@ import { P3PushedSurface, P3YouSurface } from '../you/surface';
 import { youGetPaidRoute } from './youTickets';
 import { P3_PATHS } from './paths';
 import { P3RouteBoundary, type P3RouteBack, type P3RouteFrame } from './P3RouteBoundary';
-import { V2Shell } from '../v2/V2Shell';
-import { V2EventsTab, V2Home, V2GuestsTab, V2RaffleTab, V2TicketsTab } from '../v2/V2Tabs';
 
 /** Organiser shell V2 (brief organiser-v1-shell): on only with organiserShellV2 AND organiserP3 AND organiserDash. OFF = the P3 shell exactly as before. */
 export const shellV2On = (f: Pick<typeof flags, 'organiserShellV2' | 'organiserP3' | 'organiserDash'>): boolean => f.organiserShellV2 && f.organiserP3 && f.organiserDash;
@@ -23,6 +21,15 @@ export const shellV2On = (f: Pick<typeof flags, 'organiserShellV2' | 'organiserP
  * comes back on every route (bundle-budget red on #1731: /event/:id +1 file, +3.2 KB gz).
  */
 const v2Live = (): boolean => shellV2On({ organiserShellV2: flags.organiserShellV2, organiserP3: flags.organiserP3, organiserDash: flags.organiserDash });
+
+// Organiser shell V2 (behind organiserShellV2): lazy, so neither it nor its tabs land in the app's first load.
+const V2Shell = lazyWithRetry(() => import('../v2/V2Shell').then((m) => ({ default: m.V2Shell })));
+const V2EventsTab = lazyWithRetry(() => import('../v2/V2Tabs').then((m) => ({ default: m.V2EventsTab })));
+const V2Home = lazyWithRetry(() => import('../v2/V2Tabs').then((m) => ({ default: m.V2Home })));
+const V2GuestsTab = lazyWithRetry(() => import('../v2/V2Tabs').then((m) => ({ default: m.V2GuestsTab })));
+const V2RaffleTab = lazyWithRetry(() => import('../v2/V2Tabs').then((m) => ({ default: m.V2RaffleTab })));
+const V2TicketsTab = lazyWithRetry(() => import('../v2/V2Tabs').then((m) => ({ default: m.V2TicketsTab })));
+const inSuspense = (el: ReactNode) => <Suspense fallback={null}>{el}</Suspense>;
 
 // The You hub and the R1 screens it pushes: lazy, as in OrganiserRoutes. Static imports here put
 // every one of their chunks in AnimatedRoutes' preload list for this area, which /app/* loads first.
@@ -86,7 +93,7 @@ function lazyScreen(el: ReactNode, frame: P3RouteFrame, back: (p: Readonly<Param
  */
 /** The area's frame: the V2 shell behind organiserShellV2, else the P3 shell exactly as before. */
 function P3Shell() {
-  return v2Live() ? <V2Shell /> : <P3ShellV1 />;
+  return v2Live() ? inSuspense(<V2Shell />) : <P3ShellV1 />;
 }
 
 export default function P3Routes() {
@@ -100,11 +107,11 @@ export default function P3Routes() {
         {flags.organiserTicketing && <Route path="get-paid" element={lazyScreen(<GetPaidStart />, 'own', toHome)} />}
         {flags.organiserTicketing && <Route path="events/:seriesId/door" element={lazyScreen(<DoorScreen />, 'own', toEvent)} />}
         <Route element={<P3Shell />}>
-          <Route index element={v2 ? <V2Home /> : <HomeScreen />} />
-          <Route path="events" element={v2 ? <V2EventsTab /> : <EventsScreen />} />
-          {v2 && <Route path="tickets" element={<V2TicketsTab />} />}
-          {v2 && <Route path="guests" element={<V2GuestsTab />} />}
-          {v2 && <Route path="raffle" element={<V2RaffleTab />} />}
+          <Route index element={v2 ? inSuspense(<V2Home />) : <HomeScreen />} />
+          <Route path="events" element={v2 ? inSuspense(<V2EventsTab />) : <EventsScreen />} />
+          {v2 && <Route path="tickets" element={inSuspense(<V2TicketsTab />)} />}
+          {v2 && <Route path="guests" element={inSuspense(<V2GuestsTab />)} />}
+          {v2 && <Route path="raffle" element={inSuspense(<V2RaffleTab />)} />}
           <Route path="events/:seriesId" element={lazyScreen(<EventPage />, 'tab', toEvents)} />
           <Route path="events/:seriesId/dates" element={lazyScreen(<AllDatesScreen />, 'tab', toEvent)} />
           <Route path="events/:seriesId/details" element={lazyScreen(<DetailsScreen />, 'tab', toEvent)} />
@@ -130,7 +137,7 @@ export default function P3Routes() {
             <Route path="help" element={<HelpPage />} />
           </Route>
           {youGetPaidRoute()}
-          <Route path="*" element={<Navigate to={P3_PATHS.home} replace />} />
+          <Route path="*" element={<Navigate to={v2 ? P3_PATHS.events : P3_PATHS.home} replace />} />
         </Route>
       </Routes>
     </AuthGuard>

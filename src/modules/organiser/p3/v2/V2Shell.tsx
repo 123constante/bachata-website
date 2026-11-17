@@ -5,17 +5,25 @@ import { useP3Home } from '../data/useP3Data';
 import { usePageScope } from '../screens/PageScope';
 import { GateHost } from '../onboarding/GateHost';
 import type { HomeOrganiser } from '../../shared/selfServeApi';
-import { isPushed } from '../shell/P3Shell';
+import { isPushed, SwitchControl } from '../shell/P3Shell';
+import { stripOf } from '../model/strip';
 import { EVENT_PARAM, readStoredEvent, resolveEventId, storeEvent } from './eventChoice';
 import { flags } from '@/lib/featureFlags';
 import { EXIT_TO, EXIT_WORD } from '../tickets/a/clockState';
 import { vibrate } from './feedback';
-import { V2_TABS, V2_TAB_WORD, v2TabOf, type V2Tab } from './paths';
+import { V2_TABS, V2_TAB_WORD, tabSearchOf, v2TabOf, type V2Tab } from './paths';
 import '../theme/p3.css';
 import './v2.css';
 
 export const BACK_WORD = 'Back to Bachata Calendar';
 export const BACK_TO = '/';
+
+/** The row's one-word state in the switcher: what is coming, or why nothing is. */
+export function switchHintOf(r: Pick<P3Row, 'lifecycle' | 'upcoming'>): string {
+  if (r.lifecycle === 'draft') return 'Draft';
+  if (r.lifecycle === 'paused') return 'Hidden';
+  return r.upcoming > 0 ? `${r.upcoming} coming` : 'No dates coming';
+}
 
 export interface EventChoice {
   loading: boolean;
@@ -77,11 +85,12 @@ export function EventChoiceProvider({ children }: { children: ReactNode }) {
 export function EventSwitcher() {
   const c = useEventChoice();
   if (c.loading || c.error || !c.rows.length) return <span className="v2-switch-empty p3-grow" aria-hidden="true" />;
+  const several = c.rows.length > 1;
   return (
     <label className="v2-switch p3-grow">
       <span className="v2-sr">Event</span>
       <select value={c.eventId ?? ''} onChange={(e) => c.choose(e.target.value)} data-testid="v2-event-switch">
-        {c.rows.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+        {c.rows.map((r) => <option key={r.id} value={r.id}>{several ? `${r.name} \u00b7 ${switchHintOf(r)}` : r.name}</option>)}
       </select>
     </label>
   );
@@ -94,43 +103,61 @@ const ICON: Record<V2Tab, ReactNode> = {
   raffle: (<><rect x="4" y="9" width="16" height="12" rx="2" /><path d="M2 9h20M12 9v12M12 9c-2-4-6-4-6-1s6 1 6 1 6 2 6-1-4-3-6 1" strokeLinejoin="round" /></>),
 };
 
+/** The role strip, back on every tab: your seat, the open page, and Switch page with its to-do badge. */
+function V2Strip() {
+  const c = useEventChoice();
+  const home = useP3Home();
+  const strip = stripOf(c.page);
+  if (c.loading || !strip) return null;
+  return (
+    <div className="v2-strip" data-testid="p3-role-strip" data-role={strip.role}>
+      <span className="v2-strip-role" data-testid="p3-role-strip-role">{strip.roleWord}</span>
+      <span className="v2-strip-page" data-testid="p3-role-strip-page">{strip.page}</span>
+      <SwitchControl home={home.data} pageId={c.page?.id ?? null} />
+    </div>
+  );
+}
+
 /** Organiser shell V2 (flag organiserShellV2): slim top bar, the page, and the four tabs. */
 export function V2Shell() {
   const { pathname, search } = useLocation();
   const tab = v2TabOf(pathname);
+  const pushed = isPushed(pathname);
+  const tabSearch = tabSearchOf(search);
   return (
     <div className="p3-theme v2-look p3-frame" data-testid="v2-shell">
       <EventChoiceProvider>
-        {flags.organiserTicketsA && (
+        {!pushed && flags.organiserTicketsA && (
           <div className="v2-exit" data-testid="v2-exit">
-            <a href={EXIT_TO} className="v2-exit-link" data-testid="v2-back">
+            <Link to={EXIT_TO} className="v2-exit-link" data-testid="v2-back">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path d="M15 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
               {EXIT_WORD}
-            </a>
+            </Link>
           </div>
         )}
-        <header className="v2-top" data-testid="v2-top">
+        {!pushed && <header className="v2-top" data-testid="v2-top">
           {!flags.organiserTicketsA && (
-            <a href={BACK_TO} className="v2-back" data-testid="v2-back">
+            <Link to={BACK_TO} className="v2-back" data-testid="v2-back">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path d="M15 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
               {BACK_WORD}
-            </a>
+            </Link>
           )}
           <EventSwitcher />
-        </header>
-        {isPushed(pathname) ? <Outlet /> : (
+        </header>}
+        {!pushed && <V2Strip />}
+        {pushed ? <Outlet /> : (
           <main className="p3-main" aria-label={V2_TAB_WORD[tab]}>
             <Outlet />
           </main>
         )}
-        <nav className="p3-tabs" aria-label="Main">
+        {!pushed && <nav className="p3-tabs" aria-label="Main">
           {V2_TABS.map((t) => (
-            <Link key={t.id} to={`${t.path}${search}`} className="p3-tab" data-tab={t.id} aria-current={t.id === tab ? 'page' : undefined} onClick={() => vibrate('tap')}>
+            <Link key={t.id} to={`${t.path}${tabSearch}`} className="p3-tab" data-tab={t.id} aria-current={t.id === tab ? 'page' : undefined} onClick={() => vibrate('tap')}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">{ICON[t.id]}</svg>
               {V2_TAB_WORD[t.id]}
             </Link>
           ))}
-        </nav>
+        </nav>}
         <GateHost />
       </EventChoiceProvider>
     </div>
