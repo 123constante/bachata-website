@@ -65,3 +65,9 @@ Reviewed head `3bfe74e2d042aeef642584e3a3159e6a446a8b7c` (`origin/claude/onboard
 - What `my_dancer_edit_v1` returns for a view-only person or an archived profile (N5 rests on the `ensure` function's text, not on a live call).
 - That the query cache clear on sign-out does not empty the picker for a moment on a real phone (N3 is by reading).
 - PR #1763's CI status and PR body were not inspected.
+
+## Handover (review worker, ticket dt_9bd567aa10ac)
+
+- Done: this verdict. Review PR: #1765 (docs only, branch `claude/review-onboard-a-1763`). PR #1763's branch was not touched.
+- Left / next steps: the author of #1763 fixes H1 to H3 (or the owner accepts a flag-OFF merge with the three fixes as a follow-up before the flag goes on), then a 390x844 walk with the flag ON.
+- tsc: not run. This branch holds one `.md` file and no source files, so there are no branch files for tsc to check.
