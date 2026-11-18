@@ -26,8 +26,12 @@ const Plus = () => (
 async function shareSignUp(pageName: string, said: (m: string) => void) {
   const s = inviteShare(pageName, window.location.origin);
   const nav = navigator as Navigator & { share?: (d: ShareData) => Promise<void> };
+  if (typeof nav.share === 'function') {
+    // closing the share sheet throws AbortError: nothing went wrong and nothing was written
+    try { await nav.share(s); } catch { /* cancelled */ }
+    return;
+  }
   try {
-    if (typeof nav.share === 'function') { await nav.share(s); return; }
     await navigator.clipboard.writeText(s.url);
     said(R4_ADD_COPY.inviteCopied);
   } catch {

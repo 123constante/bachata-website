@@ -212,3 +212,57 @@ test('tickets error', async ({ page }) => {
   await expectNoHorizontalScroll(page);
   await page.screenshot({ path: `${OUT}/tickets-error.png` });
 });
+
+// cont5: boards R4Team and R4AddTeammate. The fake's team is a prod shape (2 owners + 1 manager, 2 open join requests).
+test('team grouped', async ({ page }) => {
+  await openOrganiser(page, '/account/p3/you/team');
+  await expect(page.getByTestId('r4-team')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId('r4-team-waiting')).toBeVisible({ timeout: 20_000 });
+  await page.waitForTimeout(800);
+  await expectNoHorizontalScroll(page);
+  await expect(page.locator('.r4-tab[data-tab="team"]')).toHaveAttribute('aria-current', 'page');
+  expect((await page.getByTestId('r4-team-add').boundingBox())!.height).toBeGreaterThanOrEqual(42);
+  await expect(page.getByTestId('r4-team-group-owner')).toBeVisible();
+  await expect(page.getByTestId('r4-team-group-manager')).toBeVisible();
+  await expect(page.getByTestId('r4-team-group-contributor')).toHaveCount(0);
+  await expect(page.getByTestId('r4-team-you')).toHaveText('You');
+  for (const r of await page.locator('[data-testid="r4-team-row"], [data-testid="r4-team-waiting-row"]').all()) expect((await r.boundingBox())!.height).toBeGreaterThanOrEqual(52);
+  await expect(page.getByTestId('r4-team-waiting')).toContainText('Waiting to join (2)');
+  await page.screenshot({ path: `${OUT}/team.png` });
+  await page.screenshot({ path: `${OUT}/team-full.png`, fullPage: true });
+  await page.getByTestId('r4-team-waiting-row').first().click();
+  await expect(page.getByTestId('r4-team-request')).toBeVisible();
+  await page.screenshot({ path: `${OUT}/team-request.png` });
+});
+
+test('add teammate', async ({ page }) => {
+  const sent: Record<string, unknown>[] = [];
+  await openOrganiser(page, '/account/p3/you/team');
+  await page.route('**/rest/v1/rpc/organiser_team_search_people_v1*', (r) => r.fulfill({ json: [
+    { profile_id: '66666666-6666-4666-8666-666666666666', display_name: 'Maya Cole', photo_url: null, city_name: 'London' },
+    { profile_id: '77777777-7777-4777-8777-777777777777', display_name: 'Mayra Lopez', photo_url: null, city_name: null },
+  ] }));
+  await page.route('**/rest/v1/rpc/organiser_team_add_member_by_profile_v1*', (r) => { sent.push(r.request().postDataJSON()); return r.fulfill({ json: { changed: true, member_role: 'contributor' } }); });
+  await expect(page.getByTestId('r4-team')).toBeVisible({ timeout: 20_000 });
+  await page.getByTestId('r4-team-add').click();
+  await expect(page.getByTestId('r4-add')).toBeVisible();
+  await expectNoHorizontalScroll(page);
+  // nothing picked: Add to team is off and says why
+  await expect(page.getByTestId('r4-add-go')).toBeDisabled();
+  await expect(page.getByTestId('r4-add-why')).toHaveText('Pick someone from the list first.');
+  await expect(page.getByTestId('r4-add-role-manager')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('r4-add-role-door')).toHaveCount(0);
+  for (const id of ['r4-add-search', 'r4-add-go']) expect((await page.getByTestId(id).boundingBox())!.height).toBeGreaterThanOrEqual(42);
+  expect((await page.getByTestId('r4-add-invite').boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await page.screenshot({ path: `${OUT}/add-teammate.png` });
+  await page.getByTestId('r4-add-search').fill('May');
+  await expect(page.getByTestId('r4-add-result')).toHaveCount(2);
+  await page.getByTestId('r4-add-result').first().click();
+  await page.getByTestId('r4-add-role-contributor').click();
+  await expect(page.getByTestId('r4-add-go')).toBeEnabled();
+  await page.screenshot({ path: `${OUT}/add-teammate-picked.png` });
+  expect(sent.length).toBe(0);
+  await page.getByTestId('r4-add-go').click();
+  await expect(page.getByTestId('r4-team-said')).toHaveText('Maya C. is now a Contributor.');
+  expect(sent).toEqual([{ p_organiser_id: expect.any(String), p_profile_id: '66666666-6666-4666-8666-666666666666', p_member_role: 'contributor', p_reason: null }]);
+});
