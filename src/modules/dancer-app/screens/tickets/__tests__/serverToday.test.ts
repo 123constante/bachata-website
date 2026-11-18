@@ -18,6 +18,14 @@ describe('serverTodayKey (R2-N1)', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ headers: new Headers({ date: 'Wed, 18 Nov 2026 19:00:00 GMT' }) }));
     expect(await serverTodayKey()).toBe('2026-11-18');
   });
+  it('asks the static /robots.txt with a 3 s timeout', async () => {
+    const f = vi.fn().mockResolvedValue({ headers: new Headers({ date: 'Wed, 18 Nov 2026 19:00:00 GMT' }) });
+    vi.stubGlobal('fetch', f);
+    await serverTodayKey();
+    expect(f.mock.calls[0][0]).toBe('/robots.txt');
+    expect(f.mock.calls[0][1].method).toBe('HEAD');
+    expect(f.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal);
+  });
   it('is read once per load', async () => {
     const f = vi.fn().mockResolvedValue({ headers: new Headers({ date: 'Wed, 18 Nov 2026 19:00:00 GMT' }) });
     vi.stubGlobal('fetch', f);
