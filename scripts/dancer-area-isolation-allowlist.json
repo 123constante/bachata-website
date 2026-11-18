@@ -31,6 +31,7 @@
     "playwright.config.ts",
     "scripts/prove-entry-point-dispatch.mjs",
     "scripts/dancer-area-isolation-allowlist.json",
+    "scripts/onboarding-write-doors.json",
     "src/pages/Auth.tsx",
     "src/pages/AuthCallback.tsx",
     "src/components/auth/AuthStepper.tsx",

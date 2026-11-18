@@ -10,7 +10,7 @@ export const BUYER_ROLE_LABEL: Record<BuyerRole, string> = { dancer: 'Dancer', o
 export const ROLE_STEP_COPY = {
   sub: 'Pick all that fit, or skip. Only organisers you buy tickets from can see this.',
   save: 'Save',
-  saving: 'Saving…',
+  saving: 'Saving\u2026',
   skip: 'Skip',
 } as const;
 
