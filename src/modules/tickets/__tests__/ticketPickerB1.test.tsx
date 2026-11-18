@@ -69,6 +69,10 @@ describe('pickerModel', () => {
   it('date only, email, per class', () => {
     expect(dateOnly('Saturday 14 November, 9pm')).toBe('Saturday 14 November');
     expect(dateOnly('Sat 14 Nov at 9:30pm')).toBe('Sat 14 Nov');
+    // 24-hour times, the shape the live header carries.
+    expect(dateOnly('Wednesday 18 November at 19:15')).toBe('Wednesday 18 November');
+    expect(dateOnly('Wednesday 18 November, 19:15')).toBe('Wednesday 18 November');
+    expect(dateOnly('Wednesday 18 November')).toBe('Wednesday 18 November');
     expect(dateOnly(null)).toBeNull();
     expect(isEmail('a@b.co')).toBe(true);
     expect(isEmail('a@b')).toBe(false);
