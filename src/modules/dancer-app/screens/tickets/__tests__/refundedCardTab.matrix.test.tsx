@@ -82,5 +82,15 @@ describe('Tickets tab card x every shape (flag ON)', () => {
     flag.on = false;
     expect(upcomingCardTickets(parse([row(REFUNDED)]), TODAY)).toEqual([]);
   });
+  it("00:30 London: last night's ticket still shows (rollover), gone after 08:00", () => {
+    vi.useFakeTimers();
+    try {
+      const last = parse([row({ occurrence_date: '2026-11-18' })]);
+      vi.setSystemTime(new Date('2026-11-19T00:30:00Z'));
+      expect(upcomingCardTickets(last, '2026-11-19')).toHaveLength(1);
+      vi.setSystemTime(new Date('2026-11-19T08:30:00Z'));
+      expect(upcomingCardTickets(last, '2026-11-19')).toEqual([]);
+    } finally { vi.useRealTimers(); }
+  });
 });
 
