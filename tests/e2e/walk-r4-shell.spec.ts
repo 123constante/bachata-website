@@ -270,7 +270,7 @@ test('add teammate', async ({ page }) => {
 // cont6: board R4Compare. The nights read and the door counts are mocked in the board's shape (prod has no past
 // night with a ticket yet, 2026-11-18 survey), keyed on the occurrence each door read asks for.
 async function compare(page: import('@playwright/test').Page, came: Record<string, [number, number]>) {
-  const fri = (i: number) => new Date(Date.parse('2026-10-02T12:00:00Z') + i * 7 * 86_400_000).toISOString().slice(0, 10);
+  const fri = (i: number) => new Date(Date.parse('2025-06-06T12:00:00Z') + i * 7 * 86_400_000).toISOString().slice(0, 10);
   await page.route('**/rest/v1/rpc/organiser_raffle_nights_v1', (route) => route.fulfill({ json: {
     ok: true, series_id: 'x', can_edit: true, view_only_reason: null,
     nights: Array.from({ length: 13 }, (_, i) => ({ occurrence_id: `o${i}`, date: fri(i), start_local: null, chip: i === 4 ? 'cancelled' : 'past', raffle_on: false, entries_count: 0, locked: false, winner: null, can_set: false, refuse_reason: null })),
@@ -283,8 +283,9 @@ async function compare(page: import('@playwright/test').Page, came: Record<strin
 }
 
 test('compare', async ({ page }) => {
-  await compare(page, { o6: [47, 35], o5: [54, 41], o3: [38, 28] });
-  await openOrganiser(page, '/account/p3/compare');
+  await openOrganiser(page, '/account/p3');
+  await compare(page, { o11: [47, 35], o10: [54, 41], o8: [38, 28] });
+  await page.goto('/account/p3/compare');
   await expect(page.getByTestId('r4-compare-list')).toBeVisible({ timeout: 20_000 });
   await page.waitForTimeout(800);
   await expectNoHorizontalScroll(page);
@@ -295,12 +296,13 @@ test('compare', async ({ page }) => {
   console.log('compare sub:', await page.getByTestId('r4-compare-sub').textContent(), '| foot:', await page.getByTestId('r4-compare-foot').textContent());
   await page.screenshot({ path: `${OUT}/compare.png` });
   await page.getByTestId('r4-compare-who').first().click();
-  await expect(page).toHaveURL(/\/came\/o5/);
+  await expect(page).toHaveURL(/\/came\/o10/);
 });
 
 test('compare empty', async ({ page }) => {
+  await openOrganiser(page, '/account/p3');
   await compare(page, {});
-  await openOrganiser(page, '/account/p3/compare');
+  await page.goto('/account/p3/compare');
   await expect(page.getByTestId('r4-compare-empty')).toBeVisible({ timeout: 20_000 });
   await expectNoHorizontalScroll(page);
   await page.screenshot({ path: `${OUT}/compare-empty.png` });

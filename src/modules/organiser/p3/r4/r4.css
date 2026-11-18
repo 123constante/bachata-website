@@ -134,3 +134,4 @@
 .r4-rank { flex: none; width: 16px; font-size: 13px; font-weight: 500; color: #696969; }
 .r4-ol { margin: 0; padding: 0; list-style: none; }
 .r4-ol > li + li { border-top: 1px solid #E9E9E9; }
+.r4-look h2.r4-h1 { color: #030303; }

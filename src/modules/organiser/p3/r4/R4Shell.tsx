@@ -63,7 +63,8 @@ function R4Header() {
 export function R4Shell() {
   const { pathname } = useLocation();
   const tab = r4TabOf(pathname);
-  const pushed = isPushed(pathname) && tab !== 'team';
+  // Compare is a pushed surface under P3 / V2; under R4 it is drawn in the frame (board R4Compare).
+  const pushed = isPushed(pathname) && tab !== 'team' && pathname !== P3_PATHS.compare;
   return (
     <div className="p3-theme p3-frame r4-look" data-theme="light" data-testid="r4-shell">
       <EventChoiceProvider>

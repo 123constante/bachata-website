@@ -64,8 +64,10 @@ describe('R4 Compare: every prod shape x counts', () => {
     const nights = weekly('2026-10-30', 4).map((n) => (n.date === '2026-11-06' ? { ...n, chip: 'cancelled' as const } : n));
     expect(pastToReadOf(nights, TODAY).map((n) => n.date)).toEqual(['2026-11-13', '2026-10-30']);
     expect(nightOfWord(nights.filter((n) => n.chip !== 'cancelled'), TODAY)).toBe('night 2 of 3');
-    // the gap left by the cancelled night breaks the 7-day run: no "Every" claim
+    // a cancelled week keeps the cadence; a real gap does not
+    expect(everyWord(nights)).toBe('Every Friday');
     expect(everyWord(nights.filter((n) => n.chip !== 'cancelled'))).toBeNull();
+    expect(r4CompareOf({ nights, today: TODAY, counts: counts({}) }).sub).toBe('Every Friday, night 2 of 3');
     const m = r4CompareOf({ nights, today: TODAY, counts: counts({ '2026-11-06': { cameIn: 99, ticketsSold: 99 }, '2026-11-13': { cameIn: 3, ticketsSold: 3 } }) });
     expect(m.rows.map((r) => r.date)).toEqual(['2026-11-13']);
   });

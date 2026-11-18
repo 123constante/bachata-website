@@ -30,11 +30,11 @@ export function liveNightsOf(nights: readonly RaffleNight[]): RaffleNight[] {
   return nights.filter((n) => n.chip !== 'cancelled').slice().sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }
 
-/** "Every Friday" only when every live night is 7 days after the one before (two nights at least); else null. */
-export function everyWord(live: readonly RaffleNight[]): string | null {
-  if (live.length < 2) return null;
-  for (let i = 1; i < live.length; i++) if (dayMs(live[i].date) - dayMs(live[i - 1].date) !== 7 * 86_400_000) return null;
-  return `Every ${WEEKDAYS[new Date(dayMs(live[0].date)).getUTCDay()]}`;
+/** "Every Friday" only when every night (a cancelled week still keeps the cadence) is 7 days after the one before; else null. */
+export function everyWord(nights: readonly RaffleNight[]): string | null {
+  if (nights.length < 2) return null;
+  for (let i = 1; i < nights.length; i++) if (dayMs(nights[i].date) - dayMs(nights[i - 1].date) !== 7 * 86_400_000) return null;
+  return `Every ${WEEKDAYS[new Date(dayMs(nights[0].date)).getUTCDay()]}`;
 }
 
 /** "night 3 of 13": the latest night that has happened (today counts) of every live night. Null for one night or none yet. */
@@ -58,7 +58,8 @@ export const R4_COMPARE_COPY = {
 
 export function r4CompareOf(i: { nights: readonly RaffleNight[]; today: string; counts: ReadonlyMap<string, NightCount | undefined> }): R4CompareModel {
   const live = liveNightsOf(i.nights);
-  const sub = [everyWord(live), nightOfWord(live, i.today)].filter(Boolean).join(', ') || null;
+  const all = i.nights.slice().sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const sub = [everyWord(all), nightOfWord(live, i.today)].filter(Boolean).join(', ') || null;
   const past = pastToReadOf(i.nights, i.today);
   const rows: R4CompareRow[] = [];
   for (const n of past) {

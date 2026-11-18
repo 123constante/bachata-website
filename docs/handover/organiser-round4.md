@@ -42,10 +42,18 @@ Brief: `docs/briefs/organiser-round4-restyle.md` on `brief/organiser-r4`. Boards
     - R4AddTeammate: DIFFERS. Sheet layout, search field with icon, Role chips, role line, orange Add to team, "Send an invite link instead" link match. Label is "Name", not "Name or email" (the search matches names only). Door staff chip hidden (no door seat on a team). "Works once, lasts 7 days." replaced by the true line "They sign up and make a dancer profile, then you find them here." (the link is the sign-up link). A results pick list is added (the board has no way to choose who). Close is the shared sheet's "Close" text button, not an X.
   - Review (one round, screen with saves): fixed a cancelled share sheet being told "Copy this link". Not changed: the Team page's own full check counts members (as the dashboard does); a server `team_full` shows in the add sheet.
   - tsc run on 8f938f4 (the code is unchanged after it): 0 errors in branch files (tsconfig.app.json and `-p .`).
+- cont6 (brief `organiser-round4-cont6.md`): R4Compare. No DESIGN-REGISTRY file exists on `brief/organiser-r4` or `main` (checked 2026-11-18), so the md board was followed.
+  - `R4Compare.tsx` + `r4CompareModel.ts` at `compare` when R4 is on (P3 / V2 keep CompareNights in its pushed surface; R4Shell now draws `compare` inside its header + main). ONE event's past nights: the event chosen by `?e=` (R4Home's "Compare with other nights" row passes the event the Home face is about, else the last night's), else the shared event choice. "<- Home", "Compare nights", event name (h2), "Every Friday, night 3 of 13" (Every <day> only when every stored night, cancelled weeks included, is 7 days apart; "night N of M" = live nights done of all live nights, from `organiser_raffle_nights_v1`), "RANKED BY PEOPLE WHO CAME", a numbered card list "Fri 20 Nov / 54 came, 41 tickets" (counts from `ticket_door_list_v3` per night, 8 most recent past nights, same query key as Home's), most first, ties to the more recent night; each row opens the existing Who came sheet. Foot: "Cancelled nights are left out." (+ "and nights with no tickets scanned" when some were). Empty faces: no past night yet / no night has a count yet; could not load (Try again); no event; read refused.
+  - Hidden (no read): the People / Money switch and the money column (no per-night money read).
+  - Matrix: `r4/__tests__/r4Compare.matrix.test.ts` (prod survey 2026-11-18, counts only over `event_occurrence_p5` x `tickets`, archived left out: 110 series; 9 no past night (8 one-offs), 38 with 1-3 past, 26 with 4-8, 38 with 9+; 31 have a cancelled night; 8 run on two weekdays; NO past night has a ticket, so every real series meets the empty face today) plus board counts, refused door read (null), sold-but-unscanned (0 came), ties, cap, cancelled week. Walk: `compare`, `compare empty` in `walk-r4-shell.spec.ts` (nights + door counts mocked in the board shape; shots `docs/design/organiser-round4/shots/compare*.png`, not committed).
+  - Board compare (390x844):
+    - R4Compare: DIFFERS. Title block, "night N of M" line, uppercase rank label, numbered white card rows with day + "N came, N tickets", "Cancelled nights are left out." match. People / Money switch and the GBP amount on each row hidden (no per-night money read). Page title is the "<- Home" line + "Compare nights" under the shell header (the shell header carries the page name, as on every R4 screen), not a back arrow in the header. Rows carry a chevron (they open Who came). The day line follows the board's "Every Friday" only when the dates really are weekly.
+  - Review: not run (read-only screen, not a risky class: no saves, money, uploads or new RPC; one-round rule).
+  - tsc (tsconfig.app.json) on the cont6 code: 0 errors in branch files.
 - Tests: `r4/__tests__/r4Model.matrix.test.ts` (10 shapes + tab mapping). Walk: `tests/e2e/walk-r4-shell.spec.ts` (manual list).
 
 ## Left (screens from the 19 boards not yet restyled to their own R4 layout)
-- R4Compare (simple ranked list) - today the existing CompareNights in the R4 colours.
+- R4Compare: the People / Money switch and per-night money (needs a per-night money read).
 - R4Raffle on real data: needs admin #1576 applied and ORGANISER_RAFFLE_LIVE on. "Pick the winner" needs a draw command the Website does not have (the draw is admin's), so it is always off here.
 - R4Cancel: the told / refunded sentence needs a real notify + auto-refund on cancel first.
 - R4EditNight: typing the date / time in place (today they open All dates).
@@ -59,7 +67,7 @@ Brief: `docs/briefs/organiser-round4-restyle.md` on `brief/organiser-r4`. Boards
 - Pill copy: the board says "In 3 days"; the build shows the day word ("Tomorrow", "Friday 20 November").
 
 ## Status
-PARTIAL (cont5): shell + Home + Events list + R4Night + R4EditNight + R4Cancel + R4Raffle + R4Tickets / R4Refund / R4EmptyTickets + R4Team / R4AddTeammate + walk + tests done. Next group: R4Compare, then Door, EmptyHome, waiting list.
+PARTIAL (cont6): shell + Home + Events list + R4Night + R4EditNight + R4Cancel + R4Raffle + R4Tickets / R4Refund / R4EmptyTickets + R4Team / R4AddTeammate + R4Compare + walk + tests done. Next group: Door (R4DoorScan / R4DoorSearch / R4DoorInvite), then EmptyHome, waiting list.
 
 ## Next steps
 1. One PR per screen group above, each reusing `r4.css` classes (`r4-card`, `r4-tile`, `r4-row`, `r4-btn`, `r4-pill-*`).
