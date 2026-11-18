@@ -80,7 +80,7 @@ describe('ticketStatus: the one mapping, every shape', () => {
     expect(ticketNightKey(new Date('2026-11-17T08:00:00Z'))).toBe('2026-11-17');
   });
   it('owner copy, exact', () => {
-    expect(TICKET_STATUS_COPY).toEqual({ passed: 'This night has passed', event_cancelled: 'This night was cancelled', refunded: 'This ticket was refunded' });
+    expect(TICKET_STATUS_COPY).toEqual({ used: 'Already used at the door', passed: 'This night has passed', event_cancelled: 'This night was cancelled', refunded: 'This ticket was refunded' });
   });
 });
 

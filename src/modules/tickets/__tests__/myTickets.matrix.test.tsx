@@ -54,7 +54,7 @@ const NO_CODE_WORDS = /door code/i;
 type Shape = { name: string; reply?: () => unknown; signedOut?: boolean; authStatus?: 'resolving' | 'unavailable'; state: string; check?: () => void };
 
 const SHAPES: Shape[] = [
-  { name: '0 tickets', reply: () => ok([]), state: 'empty', check: () => expect(screen.getByRole('link', { name: 'Find an event' }).getAttribute('href')).toBe('/') },
+  { name: '0 tickets', reply: () => ok([]), state: 'empty', check: () => expect(screen.getByRole('link', { name: 'Browse events' }).getAttribute('href')).toBe('/') },
   { name: '1 ticket upcoming', reply: () => ok([row()]), state: 'ready', check: () => {
     const up = screen.getByTestId('my-tickets-upcoming');
     expect(within(up).getAllByTestId('my-ticket')).toHaveLength(1);
