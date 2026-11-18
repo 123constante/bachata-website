@@ -39,10 +39,10 @@ export function NightReminderRow({ occurrenceId }: { occurrenceId: string }) {
     setRead({ ...read, enabled: next }); // optimistic
     try {
       const p = await setReminder(occurrenceId, next);
-      if (p.ok) setRead(p.read); else { setRead(before); setError('That didn’t save. Try again.'); }
+      if (p.ok) setRead(p.read); else { setRead(before); setError('That didn\u2019t save. Try again.'); }
     } catch {
       setRead(before);
-      setError('That didn’t save. Try again.');
+      setError('That didn\u2019t save. Try again.');
     } finally {
       setBusy(false);
     }

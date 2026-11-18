@@ -63,14 +63,14 @@ export function reminderView(r: ReminderRead): ReminderView {
   if (r.nightCancelled) return { line: 'No reminder will go out.', on: false, disabledWhy: 'This night is cancelled' };
   if (r.sentAt) {
     const sentDay = londonWeekday(r.sentAt) ?? day;
-    return { line: `Sent to ${buyersWord(r.sentCount)} at 18:00 on ${sentDay ?? 'the day before'}.`, on: true, disabledWhy: 'Already sent — it is sent once' };
+    return { line: `Sent to ${buyersWord(r.sentCount)} at 18:00 on ${sentDay ?? 'the day before'}.`, on: true, disabledWhy: 'Already sent \u2014 it is sent once' };
   }
   if (r.windowPassed) {
     return { line: `The send time (${at}) has passed, so nothing will be sent.`, on: r.enabled, disabledWhy: 'The send time has passed' };
   }
   if (!r.nightLive) return { line: 'No reminder goes out until the event is live.', on: r.enabled, disabledWhy: 'The event is not live' };
   const why = r.canEdit ? null : 'Only owners and managers can change this';
-  if (!r.enabled) return { line: 'Off — nothing will be sent for this night.', on: false, disabledWhy: why };
+  if (!r.enabled) return { line: 'Off \u2014 nothing will be sent for this night.', on: false, disabledWhy: why };
   if (r.buyerCount === 0) return { line: `Will send to everyone who has a ticket by ${at}. Sent once.`, on: true, disabledWhy: why };
   return { line: `Sends ${at} to ${buyersWord(r.buyerCount)}. Sent once.`, on: true, disabledWhy: why };
 }
