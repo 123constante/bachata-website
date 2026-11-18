@@ -8,11 +8,9 @@
 
 ## Verdict
 
-**The code is now replay-safe by static evidence, but I cannot sign it as proven yet.** The brief requires the `prove` log at this head, and that job was still `in_progress` when I finished (run 44268931335, job 134680338805, started 08:39:51Z; the log returned HTTP 404 while it ran). The earlier unlabelled run 44268824937 for the same SHA was `skipped`. By the brief's own rule, a skipped or absent `prove` is not proven. Flip to PASS once that job is green and its log shows the file applied (see "What flips this").
+**Hard-tier: PASS** for PR #1991 at head 04d3f4f. The re-version to `20270323090000` fixes the round 2 BLOCK. Static evidence shows the anchor matches at the sorted position, and the `prove` job at this head is green and applied the file there. (This doc first went out as BLOCK while `prove` was still running; the job finished green at 08:43:52Z and this revision records its log.)
 
-## Hard-tier: BLOCK
-
-(Evidence pending, not a defect found. Items 1, 2, 3-static, 4 and 5 all pass. The only open point is the `prove` log.)
+## Hard-tier: PASS
 
 ### 1. Delta since 9de6d77 is only the rename: PASS
 
@@ -43,12 +41,25 @@ Nothing sorts after it: the highest version in the PR tree is `20270323090000` i
 
 Caveat: this holds for the main I read. A PR that lands on main first with a higher version AND a full `CREATE OR REPLACE` of this function would overwrite it. None exists in the tree I read.
 
-### 3. `prove` log and replay jobs at this head: NOT YET PROVEN
+### 3. `prove` log and replay jobs at this head: PASS
 
-- `Migration Proof` run 2279 (id 44268824937): `skipped`. Not evidence.
-- `Migration Proof` run 2280 (id 44268931335), the one that ran after the `run-ci` re-trigger at 08:39:49Z: job `prove` `in_progress`, on step 6 `migration:prove (static, replay + self-verify, fixtures, tests)` since 08:40:20Z. Steps 1 to 5 succeeded. Log not downloadable until it completes.
-- Other jobs at this head: `Migration placeholder gate` success, `Migration Header` success, `Bot auto-merge` success. `Migration Drift Check`, `Caller Census`, `Migration version fresh` and `Unit build` were queued or in progress.
-- `check:replay` / nightly: `replay-drift.yml` runs weekly and on pushes to main that touch a migration, not on PRs, so there is no replay run at this head. Its last runs on main (646 at a5ba550, 644, 643, 642) are `failure`, so a main-side replay is not green evidence either way. I did not read why they fail; that is outside this PR and I did not check whether it relates to this function.
+- `Migration Proof` run 2279 (id 44268824937): `skipped`, not evidence.
+- `Migration Proof` run 2280 (id 44268931335, the `run-ci` re-trigger), job `prove` (134680338805): **completed, success** at 08:43:52Z. Log lines:
+
+```
+08:40:21 > migration:prove vs origin/main: 1 migration file(s) added or modified
+08:40:21     20270323090000_check66_receipt_tables_night_reminder_v1.sql
+08:40:23 > replaying the base (every migration except the files above) into the LOCAL stack...
+08:43:43 Applying migration 20270323080000_organiser_night_reminders_v1.sql...
+08:43:43 ! restored 20270323090000_check66_receipt_tables_night_reminder_v1.sql
+08:43:44 [ok] applied 20270323090000_check66_receipt_tables_night_reminder_v1.sql (self-verify ran)
+08:43:45 ok    check_occurrence_delete_booking_safety_v1: committed fixture equals the replayed body (md5 ba5d736284b90380ac2b6d89dcbb9223)
+08:43:47 PROVEN: static, apply + self-verify, fixtures, tests.
+```
+
+  The base replay ends at `20270323080000`, then the file applies last. That is also its sorted position now, so `prove` exercises the same order a full version-sorted replay would. `prove` replays every other file in version order, with some parked files restored later by its own mechanism; that is `prove`'s design, not a change from round 2.
+- Other jobs at this head: `Migration placeholder gate`, `Migration Header` and `Bot auto-merge` success. I did not re-read `Migration Drift Check`, `Caller Census`, `Migration version fresh` or `Unit build` after they were queued.
+- `check:replay` / nightly: `replay-drift.yml` runs weekly and on pushes to main that touch a migration, not on PRs, so no replay run exists at this head. Its latest runs on main (642 to 646) are `failure`; I did not read why, and it is not caused by this PR (the head is not on main).
 
 ### 4. Fixture equals the live body: PASS
 
@@ -59,11 +70,7 @@ Read-only on prod: `md5(pg_get_functiondef('public.check_occurrence_delete_booki
 
 Last statement: `SELECT public.mark_migration_complete('20270323090000_check66_receipt_tables_night_reminder_v1');`, matching the new filename.
 
-## What flips this to PASS
-
-The `prove` job of run 44268931335 completes green, and its log shows `[ok] applied 20270323090000_check66_receipt_tables_night_reminder_v1.sql (self-verify ran)` and `PROVEN:`, plus "committed fixture equals the replayed body (md5 ba5d7362...)". If it goes red, the log line names why. I would not expect an anchor miss, per item 2.
-
 ## Verified / Not verified
 
-- Verified: the delta 9de6d77 to 04d3f4f; the version-ordered list of `v_receipt_tables` definers and their array literals; absence of any later definer; prod md5, live array and check #66 status; fixture md5 and line; the workflow run list and job status at this head.
-- Not verified: the `prove` log (job still running, log unavailable); a local version-sorted replay (no local Supabase stack); why `replay-drift` on main fails; whether other open admin PRs add a higher-versioned full body of this function.
+- Verified: the `prove` job log lines above; the delta 9de6d77 to 04d3f4f; the version-ordered list of `v_receipt_tables` definers and their array literals; absence of any later definer; prod md5, live array and check #66 status; fixture md5 and line; the workflow run list and job status at this head.
+- Not verified: the final state of `Migration Drift Check`, `Caller Census`, `Migration version fresh`, `Unit build`; a local version-sorted replay (no local Supabase stack); why `replay-drift` on main fails; whether other open admin PRs add a higher-versioned full body of this function.
