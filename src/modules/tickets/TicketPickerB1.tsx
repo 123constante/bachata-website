@@ -80,6 +80,8 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
   const knownEmail = user?.email ?? verifiedEmail;
   const [notYouBusy, setNotYouBusy] = useState(false);
   const [notYouErr, setNotYouErr] = useState('');
+  // The error belongs to one signed-in address: a different (or no) address means it is stale.
+  useEffect(() => { setNotYouErr(''); }, [knownEmail]);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [cancelled] = useState(() => new URLSearchParams(location.search).get(CANCELLED_PARAM) === 'cancelled');
@@ -304,7 +306,7 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
               <button type="button" data-testid="picker-not-you-btn" onClick={() => void notYou()} disabled={notYouBusy} className="min-h-[44px] underline" style={{ color: BRAND, opacity: notYouBusy ? 0.5 : 1 }}>Not you?</button>
             </p>
           )}
-          {BUYER_ONBOARDING_ENABLED && notYouErr && <p role="alert" data-testid="picker-not-you-error" className="mb-[6px] text-[13px]" style={{ color: BAD }}>{notYouErr}</p>}
+          {BUYER_ONBOARDING_ENABLED && knownEmail && notYouErr && <p role="alert" data-testid="picker-not-you-error" className="mb-[6px] text-[13px]" style={{ color: BAD }}>{notYouErr}</p>}
           <button type="button" data-testid="picker-continue" onClick={onContinue} disabled={continueOff} className={btn} style={primary(continueOff)}>{heldNow ? PRICE_CONFIRM_LABEL : 'Continue'}</button>
           <Trust />
         </div>

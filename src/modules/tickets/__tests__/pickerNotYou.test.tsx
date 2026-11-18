@@ -100,4 +100,43 @@ describe('picker B1 "Not you?" line', () => {
     finish('signed-out');
     expect(await screen.findByLabelText('Email address')).toHaveProperty('value', '');
   });
+
+  it('R2-N3: a failed-sign-out error does not outlive the address it was about', async () => {
+    auth.user = { email: 'ana@example.com' };
+    auth.signOut.mockResolvedValue('failed');
+    const view = mount();
+    fireEvent.click(await screen.findByTestId('picker-not-you-btn'));
+    await screen.findByTestId('picker-not-you-error');
+    // signed out elsewhere / switched account: the stale line must go
+    auth.user = null;
+    view.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/event/e1']}>
+          <TicketPickerB1 seriesId="e1" occurrenceId={null} title="Coco Loco" dateLine="Wed 18 Nov, 9pm" onClose={() => {}} now={NOW} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId('picker-not-you-error')).toBeNull());
+    auth.user = { email: 'bo@example.com' };
+    view.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/event/e1']}>
+          <TicketPickerB1 seriesId="e1" occurrenceId={null} title="Coco Loco" dateLine="Wed 18 Nov, 9pm" onClose={() => {}} now={NOW} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await screen.findByTestId('picker-not-you');
+    expect(screen.queryByTestId('picker-not-you-error')).toBeNull();
+  });
+
+  it('R2-N3: a retry after a failure clears the line before the next attempt', async () => {
+    auth.user = { email: 'ana@example.com' };
+    auth.signOut.mockResolvedValueOnce('failed').mockResolvedValueOnce('signed-out');
+    mount();
+    fireEvent.click(await screen.findByTestId('picker-not-you-btn'));
+    await screen.findByTestId('picker-not-you-error');
+    fireEvent.click(screen.getByTestId('picker-not-you-btn'));
+    await screen.findByLabelText('Email address');
+    expect(screen.queryByTestId('picker-not-you-error')).toBeNull();
+  });
 });
