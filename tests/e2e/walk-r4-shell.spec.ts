@@ -26,6 +26,13 @@ for (const [tab, path] of [['home', '/account/p3'], ['events', '/account/p3/even
       expect(btn!.height).toBeGreaterThanOrEqual(48);
       expect(btn!.width).toBeGreaterThan(PHONE.width - 40);
     }
+    if (tab === 'events') {
+      await expect(page.getByTestId('r4-events')).toBeVisible();
+      expect((await page.getByTestId('r4-events-add').boundingBox())!.height).toBeGreaterThanOrEqual(48);
+      for (const r of await page.getByTestId('r4-event-row').all()) expect((await r.boundingBox())!.height).toBeGreaterThanOrEqual(52);
+      const past = page.getByTestId('r4-events-past-toggle');
+      if (await past.count()) { await past.click(); await expect(page.getByTestId('r4-events-past')).toBeVisible(); await expectNoHorizontalScroll(page); }
+    }
     await page.screenshot({ path: `${OUT}/${tab}.png` });
   });
 }

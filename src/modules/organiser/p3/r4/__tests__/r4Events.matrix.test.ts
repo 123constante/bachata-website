@@ -3,7 +3,7 @@ import { rowOf, type HomeSeriesRow } from '../../data/home';
 import { r4EventsOf, shortDay } from '../r4EventsModel';
 
 const TODAY = '2026-11-18';
-type Shape = { lifecycle: string; format: string; venue: string | null; dates: string[]; start?: string | null };
+type Shape = { lifecycle: string; format: string; venue: string | null; dates: readonly string[]; start?: string | null };
 
 /** A home_v1 series row in the prod shapes surveyed 2026-11-18 (lifecycle x format x venue x dates). */
 function series(id: string, s: Shape): HomeSeriesRow {
