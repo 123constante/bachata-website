@@ -15,12 +15,18 @@ export interface PromoLine { typeId: string; quantity: number }
 export const promoLines = (basket: Basket, types: readonly PublicTicketType[]): PromoLine[] =>
   types.filter((t) => t.pricePence > 0 && (basket[t.id] ?? 0) > 0).map((t) => ({ typeId: t.id, quantity: basket[t.id] }));
 
-/** The preview holds only for the basket and night it was priced for. */
-export const pickerPromoKey = (basket: Basket, occurrenceId: string | null): string => `${basketKey(basket)}@${occurrenceId ?? ''}`;
+/**
+ * The preview holds only for the basket, the night and the list prices it was priced for:
+ * a re-read list with a new price re-prices the code too.
+ */
+export const pickerPromoKey = (basket: Basket, occurrenceId: string | null, types: readonly PublicTicketType[] = []): string =>
+  `${basketKey(basket)}@${occurrenceId ?? ''}#${promoLines(basket, types).map((l) => types.find((t) => t.id === l.typeId)?.pricePence).join(',')}`;
 
-/** Refusal when nothing priced is picked (no RPC call). */
+/** Refusal when nothing priced is picked (no RPC call); its copy lives in promo.ts. */
 export const NO_PAID_LINES = 'no_paid_lines';
-export const NO_PAID_LINES_COPY = 'Pick a ticket first, then tap Apply.';
+
+/** A basket change re-prices an applied code after this pause (a run of stepper taps = one check). */
+export const REPRICE_DEBOUNCE_MS = 400;
 
 export type LinePreview = (typeId: string, quantity: number, code: string) => Promise<PromoPreview>;
 

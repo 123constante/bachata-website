@@ -56,6 +56,8 @@ export const PROMO_REASON_COPY: Readonly<Record<string, string>> = {
   timeout: 'Checking the code took too long. Tap Apply again.',
   not_found: 'This ticket is no longer available, so the code could not be checked. Pick another ticket.',
   invalid_quantity: 'Choose between 1 and 20 tickets, then tap Apply again.',
+  // B1 picker basket: nothing picked that a code can take money off (free tickets only, or none).
+  no_paid_lines: 'Codes only take money off paid tickets. Pick one, or remove the code.',
 };
 
 /** Own keys only, so "toString" or "__proto__" from a reply is the safe generic. */

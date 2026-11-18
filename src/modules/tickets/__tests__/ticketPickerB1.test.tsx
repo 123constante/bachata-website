@@ -14,6 +14,7 @@ vi.mock('../ticketCheckoutApi', async (orig) => ({ ...(await orig<typeof import(
 import { TicketPickerB1 } from '../TicketPickerB1';
 import { basketTotals, buildPickerBody, cleanBasket, dateOnly, heldFrom, isEmail, perLine, sendCodeError, verifyCodeError } from '../pickerModel';
 import type { PublicTicketType } from '../ticketCheckoutModel';
+import { pickerPromoKey } from '../pickerPromo';
 
 const NOW = new Date('2026-11-04T12:00:00Z');
 const mk = (id: string, name: string, pricePence: number, extra: Partial<PublicTicketType> = {}): PublicTicketType => ({
@@ -21,8 +22,8 @@ const mk = (id: string, name: string, pricePence: number, extra: Partial<PublicT
 });
 const TYPES = [mk('a', '1 Class + Latin Party', 1000), mk('b', 'Full Experience', 1500), mk('c', '5 Weeks Class', 6500, { remaining: 1 }), mk('d', 'Gone', 500, { status: 'sold_out' })];
 
-function mount(search = '') {
-  api.fetchPublicTicketTypes.mockResolvedValue(TYPES);
+function mount(search = '', types: PublicTicketType[] = TYPES) {
+  api.fetchPublicTicketTypes.mockResolvedValue(types);
   return render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <MemoryRouter initialEntries={[`/event/e1${search}`]}>
@@ -109,7 +110,7 @@ describe('TicketPickerB1', () => {
     mount();
     await screen.findByText('Full Experience');
     applyCode('spring10');
-    await waitFor(() => expect(screen.getByTestId('picker-promo-msg').textContent).toBe('Pick a ticket first, then tap Apply.'));
+    await waitFor(() => expect(screen.getByTestId('picker-promo-msg').textContent).toBe('Codes only take money off paid tickets. Pick one, or remove the code.'));
     expect(api.previewPromo).not.toHaveBeenCalled();
   });
   it('promo valid: stub row with code, minus amount, Remove; old total struck; one buzz', async () => {
@@ -145,9 +146,10 @@ describe('TicketPickerB1', () => {
     expect(screen.queryByTestId('picker-total-was')).toBeNull();
     expect((screen.getByTestId('picker-continue') as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByTestId('picker-blocked').textContent).toBe('Remove the promo code or try a different one.');
-    // Editing the code clears the red line.
-    fireEvent.change(screen.getByLabelText('Promo code'), { target: { value: '' } });
+    // The control the blocked line points at is on screen, and it clears the code.
+    fireEvent.click(screen.getByTestId('picker-promo-clear'));
     expect(screen.getByTestId('picker-promo-msg').textContent).toBe('');
+    expect((screen.getByLabelText('Promo code') as HTMLInputElement).value).toBe('');
     expect((screen.getByTestId('picker-continue') as HTMLButtonElement).disabled).toBe(false);
   });
   it('promo remove: back to the empty box and the full total', async () => {
@@ -179,6 +181,38 @@ describe('TicketPickerB1', () => {
     // 1000 + 3000 - 400
     expect(screen.getByTestId('picker-total').textContent).toBe('\u00a336');
     expect(vibrate).toHaveBeenCalledTimes(1);
+  });
+  it('promo: a run of stepper taps is one re-price (debounced); free tickets only = refused with a way out', async () => {
+    api.previewPromo.mockResolvedValue({ ok: true, discountPence: 150, totalPence: 0, reason: '' });
+    live();
+    mount();
+    await screen.findByText('Full Experience');
+    add('Full Experience');
+    applyCode('save10');
+    await screen.findByTestId('picker-promo-saving');
+    api.previewPromo.mockClear();
+    add('Full Experience'); add('Full Experience'); add('Full Experience');
+    expect(screen.getByTestId('picker-promo-stub').textContent).toContain('Checking');
+    await waitFor(() => expect(screen.queryByText('Checking\u2026')).toBeNull());
+    expect(api.previewPromo).toHaveBeenCalledTimes(1);
+    expect(api.previewPromo).toHaveBeenCalledWith('e1', 'b', 4, 'SAVE10', null);
+  });
+  it('promo: down to free tickets only, the code is refused and Remove the code frees Continue', async () => {
+    api.previewPromo.mockResolvedValue({ ok: true, discountPence: 150, totalPence: 0, reason: '' });
+    live();
+    mount('', [...TYPES, mk('f', 'Guest list', 0)]);
+    await screen.findByText('Guest list');
+    add('Full Experience'); add('Guest list'); tick();
+    applyCode('save10');
+    await screen.findByTestId('picker-promo-saving');
+    fireEvent.click(screen.getByRole('button', { name: 'Remove one Full Experience' }));
+    await waitFor(() => expect(screen.getByTestId('picker-promo-msg').textContent).toBe('Codes only take money off paid tickets. Pick one, or remove the code.'));
+    expect((screen.getByTestId('picker-continue') as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByTestId('picker-promo-clear'));
+    expect((screen.getByTestId('picker-continue') as HTMLButtonElement).disabled).toBe(false);
+  });
+  it('promo: a re-read list with a new price re-prices the applied code', () => {
+    expect(pickerPromoKey({ b: 1 }, null, TYPES)).not.toBe(pickerPromoKey({ b: 1 }, null, [mk('b', 'Full Experience', 1800)]));
   });
   it('promo: the discounted total and the code go into the checkout body; a 409 code refusal lands in the box', async () => {
     auth.user = { email: 'me@x.co' };

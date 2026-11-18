@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { BUYER_ONBOARDING_ENABLED } from '@/lib/buyerOnboardingFlag';
 import { fetchPublicTicketTypes, postTicketCheckout, previewPromo, publicTicketKeys } from './ticketCheckoutApi';
 import { PROMO_MAX_LENGTH, isCodeReason, normaliseCode, promoView, type PromoState } from './promo';
-import { NO_PAID_LINES, NO_PAID_LINES_COPY, discountedTotal, pickerPromoKey, previewBasketPromo, promoLines } from './pickerPromo';
+import { NO_PAID_LINES, REPRICE_DEBOUNCE_MS, discountedTotal, pickerPromoKey, previewBasketPromo, promoLines } from './pickerPromo';
 import {
   CANCELLED_PARAM, MAX_PER_ORDER, PREVIEW_ORIGIN_REASON, TERMS_REASON, THANKS_PATH, availability, checkoutOriginOk, formatPence, maxQuantity, reasonCopy, typesForNight,
 } from './ticketCheckoutModel';
@@ -98,7 +98,7 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
   const sum = basketTotals(clean, types);
   // A price_changed holds only for the basket it was priced for.
   const heldNow = held && held.key === basketKey(clean) ? held : null;
-  const key = pickerPromoKey(clean, occurrenceId);
+  const key = pickerPromoKey(clean, occurrenceId, types);
   const lines = promoLines(clean, types);
   // The one shared promo mapping (promo.ts): what checkout sends, and what holds Continue back.
   const pv = promoView(promo, promoInput, key);
@@ -140,11 +140,24 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
   const liveCode = stubbed && (promo.status === 'applied' || promo.status === 'checking') ? promo.code : null;
   useEffect(() => {
     if (!liveCode || pricedKey.current === key || sum.count === 0) return;
-    // Only free tickets picked: nothing for the code to take off (Pick a ticket first).
-    if (lines.length === 0) { promoSeq.current += 1; pricedKey.current = key; setPromo({ status: 'refused', code: liveCode, key, reason: NO_PAID_LINES }); setStubbed(false); return; }
-    void pricePromo(liveCode, false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-price on a basket change only
-  }, [key]);
+    // One preview per pause, so fast stepper taps cannot trip the limiter (step() already shows Checking).
+    promoSeq.current += 1;
+    const id = setTimeout(() => {
+      // Only free tickets picked: nothing for the code to take off.
+      if (lines.length === 0) { pricedKey.current = key; setPromo({ status: 'refused', code: liveCode, key, reason: NO_PAID_LINES }); setStubbed(false); return; }
+      void pricePromo(liveCode, false);
+    }, lines.length === 0 ? 0 : REPRICE_DEBOUNCE_MS);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-price on a basket (or code) change only
+  }, [key, liveCode]);
+
+  // The answer sits low on a phone: after a tap, bring it above the bottom bar once it has rendered.
+  const scrollToAnswer = useRef(false);
+  useEffect(() => {
+    if (!scrollToAnswer.current || promo.status === 'checking') return;
+    scrollToAnswer.current = false;
+    document.getElementById('picker-promo-box')?.scrollIntoView?.({ block: 'nearest' });
+  }, [promo]);
 
   async function pricePromo(code: string, tapped: boolean) {
     const seq = ++promoSeq.current;
@@ -153,6 +166,7 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
     setPromo({ status: 'checking', code });
     const r = await previewBasketPromo(lines, code, (typeId, quantity, c) => previewPromo(seriesId, typeId, quantity, c, occurrenceId));
     if (seq !== promoSeq.current) return;
+    scrollToAnswer.current = tapped;
     if (r.ok) {
       setPromo({ status: 'applied', code, key: forKey, discountPence: r.discountPence, totalPence: r.totalPence });
       setStubbed(true);
@@ -182,6 +196,7 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
     const t = types.find((x) => x.id === id);
     if (!t) return;
     setRefusal(''); setHeld(null); // any basket change spends a held price_changed
+    if (liveCode) setPromo({ status: 'checking', code: liveCode }); // re-priced by the effect below; Continue waits
     const n = clean[id] ?? 0;
     setBasket({ ...clean, [id]: Math.max(0, d > 0 ? n + Math.min(d, roomFor(t, clean, now)) : n + d) });
   };
@@ -212,6 +227,7 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
     }
     // A code refusal at checkout (HTTP 409) belongs to the promo box, as on the classic page.
     if (sendCode && isCodeReason(r.reason)) {
+      scrollToAnswer.current = true;
       setPromo({ status: 'refused', code: sendCode, key, reason: r.reason }); setStubbed(false);
       buzz([40, 60, 40]);
       return;
@@ -313,6 +329,7 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
           {atCap && <p role="status" data-testid="picker-cap" className="mt-[10px] text-[13px]" style={{ color: SUB }}>{ORDER_CAP_NOTE}</p>}
           {types.length > 0 && (
             <div className="mt-4">
+              <div id="picker-promo-box">
               <label htmlFor="picker-promo" className="mb-[6px] block text-[13px] font-semibold">Promo code</label>
               {stubbed && (promo.status === 'applied' || promo.status === 'checking') ? (
                 <div data-testid="picker-promo-stub" className="flex min-h-[48px] items-center justify-between gap-3 rounded-[10px] px-3" style={{ border: `1px dashed ${BRAND}`, background: '#fff' }}>
@@ -336,7 +353,12 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
                 </div>
               )}
               <div role="status" id="picker-promo-msg" data-testid="picker-promo-msg" className="mt-[6px] min-h-[16px] text-[13px]" style={{ color: BAD }}>
-                {promo.status === 'refused' ? (promo.reason === NO_PAID_LINES ? NO_PAID_LINES_COPY : pv.note ?? '') : ''}
+                {promo.status === 'refused' ? pv.note ?? '' : ''}
+              </div>
+              {/* A typed code that is not applied holds Continue back ("Remove the promo code..."): the control is here. */}
+              {!stubbed && normaliseCode(promoInput) !== '' && promo.status !== 'checking' && (
+                <button type="button" data-testid="picker-promo-clear" onClick={removePromo} className="min-h-[44px] text-[13px] underline" style={{ color: SUB }}>Remove the code</button>
+              )}
               </div>
               <button type="button" aria-expanded={showTerms} onClick={() => setShowTerms((v) => !v)} className="min-h-[44px] text-[13px] underline" style={{ color: SUB }}>
                 {showTerms ? 'Hide the terms of sale' : 'Read the terms of sale'}
