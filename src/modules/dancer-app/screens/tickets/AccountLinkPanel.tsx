@@ -151,8 +151,9 @@ function LinkSheet({ orderInView, onClose, onDisabled, onLinked }: { orderInView
           <form onSubmit={(e) => void send(e)} noValidate>
             <p className="dt-sheet-sub">We&rsquo;ll send a 6-digit code to that email. Enter it here to show its tickets on this account.</p>
             <input type="email" inputMode="email" autoComplete="email" aria-label="Your other email" placeholder="you@example.com" value={email} autoFocus
+              autoCapitalize="none" spellCheck={false} aria-invalid={err ? true : undefined} aria-describedby={err ? 'dt-link-email-err' : undefined}
               onChange={(e) => { setEmail(e.target.value); setErr(''); }} className="dt-link-input" data-testid="account-link-email" />
-            {err && <p className="dt-link-bad" role="alert" data-testid="account-link-error">{err}</p>}
+            {err && <p id="dt-link-email-err" className="dt-link-bad" role="alert" data-testid="account-link-error">{err}</p>}
             <button type="submit" className="dt-btn dt-link-wide" disabled={busy} data-testid="account-link-send">{busy ? <>Sending&hellip;</> : 'Send code'}</button>
           </form>
         )}
