@@ -12,7 +12,6 @@ export function NightReminderRow({ occurrenceId }: { occurrenceId: string }) {
 
   useEffect(() => {
     let live = true;
-    setFailed(false);
     readReminder(occurrenceId).then(
       (p) => { if (live && p.ok) setRead(p.read); else if (live) setFailed(true); },
       () => { if (live) setFailed(true); },
@@ -24,7 +23,7 @@ export function NightReminderRow({ occurrenceId }: { occurrenceId: string }) {
     return (
       <div className="p3-card p3-tight" data-testid="p3-reminder-failed">
         <p className="p3-note">The reminder setting didn&rsquo;t load.</p>
-        <button type="button" className="p3-link min-h-[44px]" onClick={() => setTries((n) => n + 1)}>Try again</button>
+        <button type="button" className="p3-link min-h-[44px]" onClick={() => { setFailed(false); setTries((n) => n + 1); }}>Try again</button>
       </div>
     );
   }
