@@ -57,7 +57,7 @@
 [data-profile="dancer"] .da-tabs.dt-tabs-5 { grid-template-columns: repeat(5, 1fr); }
 /* Duplicate-account linking: a quiet text link, the linked list, and the link sheet's fields. */
 [data-profile="dancer"] .dt-link-panel { display: flex; flex-direction: column; flex-shrink: 0; }
-[data-profile="dancer"] .dt-quiet-link { min-height: 44px; padding: 0 4px; background: transparent; border: 0; color: var(--da-text-muted); font-size: 13px; text-decoration: underline; text-underline-offset: 2px; white-space: nowrap; align-self: flex-start; }
+[data-profile="dancer"] .dt-quiet-link { min-height: 44px; min-width: 44px; padding: 0 4px; background: transparent; border: 0; color: var(--da-text-muted); font-size: 13px; text-decoration: underline; text-underline-offset: 2px; white-space: nowrap; align-self: flex-start; }
 [data-profile="dancer"] .dt-quiet-link:disabled { opacity: 0.6; }
 [data-profile="dancer"] .dt-linked-title { font-size: 13px; font-weight: 600; margin: 0 4px; color: var(--da-text); }
 [data-profile="dancer"] .dt-linked { list-style: none; margin: 0; padding: 0; max-height: 132px; overflow-y: auto; }
