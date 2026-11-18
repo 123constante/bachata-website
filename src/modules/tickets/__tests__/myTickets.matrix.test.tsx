@@ -262,6 +262,13 @@ describe('my tickets model', () => {
     const t = parseMyTickets({ tickets: [row({ start_time: '25:00' })] })!.tickets[0];
     expect(whenLine(t, '2026-11-04')).toBe('Sat 7 Nov');
   });
+  it('night_cancelled: true only on a literal true; absent or odd values are false', () => {
+    const nc = (extra: Record<string, unknown>) => parseMyTickets({ tickets: [row(extra)] })!.tickets[0].nightCancelled;
+    expect(nc({ night_cancelled: true })).toBe(true);
+    expect(nc({ night_cancelled: false })).toBe(false);
+    expect(nc({})).toBe(false);
+    expect(nc({ night_cancelled: 'true' })).toBe(false);
+  });
   it('truncation note at the cap; checked_in_at alone means checked in', () => {
     const r = parseMyTickets({ tickets: [row({ checked_in: false, checked_in_at: '2026-11-04T21:00:00Z' })], truncated: true, total_count: 600 })!;
     expect(r.tickets[0].checkedIn).toBe(true);
