@@ -110,6 +110,9 @@ export const flags = {
   // organiser_raffle_night_set_v1) is NOT applied to prod yet: OFF = the night sheet's Raffle row is a Coming soon
   // card and no raffle RPC is called. Turn on with VITE_ENABLE_ORGANISER_RAFFLE_LIVE=true only after #1576 is applied.
   organiserRaffleLive: import.meta.env.VITE_ENABLE_ORGANISER_RAFFLE_LIVE === 'true',
+  // Organiser Round 4 (docs/briefs/organiser-round4-restyle.md): white + orange shell, Home through the day, tabs
+  // Home / Events / Tickets / Team. Needs organiserP3 and organiserDash. OFF = every screen exactly as before.
+  organiserR4:         import.meta.env.VITE_ENABLE_ORGANISER_R4 === 'true',
   // Buyer ticket checkout (S4, docs/ticketing-buyer-journey.md): the Tickets block on
   // /event/:id and the /tickets/thanks return page. OFF = no block, no route. Turn on with
   // VITE_ENABLE_PUBLIC_TICKETING=true (Vercel env) -- no code change.

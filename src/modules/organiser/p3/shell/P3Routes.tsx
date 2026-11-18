@@ -30,6 +30,11 @@ const V2Home = lazyWithRetry(() => import('../v2/V2Tabs').then((m) => ({ default
 const V2GuestsTab = lazyWithRetry(() => import('../v2/V2Tabs').then((m) => ({ default: m.V2GuestsTab })));
 const V2RaffleTab = lazyWithRetry(() => import('../v2/V2Tabs').then((m) => ({ default: m.V2RaffleTab })));
 const V2TicketsTab = lazyWithRetry(() => import('../v2/V2Tabs').then((m) => ({ default: m.V2TicketsTab })));
+// Organiser Round 4 (flag organiserR4, brief organiser-round4-restyle): white + orange shell and Home. Needs organiserP3 and
+// organiserDash; wins over V2 when both are on. Lazy, like V2. OFF = exactly as before.
+const r4Live = (): boolean => flags.organiserR4 && flags.organiserP3 && flags.organiserDash;
+const R4Shell = lazyWithRetry(() => import('../r4/R4Shell').then((m) => ({ default: m.R4Shell })));
+const R4Home = lazyWithRetry(() => import('../r4/R4Home').then((m) => ({ default: m.R4Home })));
 const inSuspense = (el: ReactNode) => <Suspense fallback={null}>{el}</Suspense>;
 
 // The You hub and the R1 screens it pushes: lazy, as in OrganiserRoutes. Static imports here put
@@ -97,12 +102,14 @@ function lazyScreen(el: ReactNode, frame: P3RouteFrame, back: (p: Readonly<Param
  */
 /** The area's frame: the V2 shell behind organiserShellV2, else the P3 shell exactly as before. */
 function P3Shell() {
+  if (r4Live()) return inSuspense(<R4Shell />);
   return v2Live() ? inSuspense(<V2Shell />) : <P3ShellV1 />;
 }
 
 export default function P3Routes() {
   useNoindexMeta(true);
-  const v2 = v2Live();
+  const r4 = r4Live();
+  const v2 = !r4 && v2Live();
   return (
     <AuthGuard>
       <Routes>
@@ -111,9 +118,9 @@ export default function P3Routes() {
         {flags.organiserTicketing && <Route path="get-paid" element={lazyScreen(<GetPaidStart />, 'own', toHome)} />}
         {flags.organiserTicketing && <Route path="events/:seriesId/door" element={lazyScreen(<DoorScreen />, 'own', toEvent)} />}
         <Route element={<P3Shell />}>
-          <Route index element={v2 ? inSuspense(<V2Home />) : <HomeScreen />} />
+          <Route index element={r4 ? inSuspense(<R4Home />) : v2 ? inSuspense(<V2Home />) : <HomeScreen />} />
           <Route path="events" element={v2 ? inSuspense(<V2EventsTab />) : <EventsScreen />} />
-          {v2 && <Route path="tickets" element={inSuspense(<V2TicketsTab />)} />}
+          {(v2 || r4) && <Route path="tickets" element={inSuspense(<V2TicketsTab />)} />}
           {v2 && <Route path="guests" element={inSuspense(<V2GuestsTab />)} />}
           {v2 && <Route path="raffle" element={inSuspense(<V2RaffleTab />)} />}
           <Route path="events/:seriesId" element={lazyScreen(<EventPage />, 'tab', toEvents)} />
