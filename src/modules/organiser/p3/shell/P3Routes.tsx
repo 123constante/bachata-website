@@ -42,6 +42,7 @@ const R4Raffle = lazyWithRetry(() => import('../r4/R4Raffle').then((m) => ({ def
 const R4Tickets = lazyWithRetry(() => import('../r4/R4Tickets').then((m) => ({ default: m.R4Tickets })));
 const R4Team = lazyWithRetry(() => import('../r4/R4Team').then((m) => ({ default: m.R4Team })));
 const R4Compare = lazyWithRetry(() => import('../r4/R4Compare').then((m) => ({ default: m.R4Compare })));
+const R4DoorInvite = lazyWithRetry(() => import('../r4/R4DoorInvite').then((m) => ({ default: m.R4DoorInvite })));
 const inSuspense = (el: ReactNode) => <Suspense fallback={null}>{el}</Suspense>;
 
 // The You hub and the R1 screens it pushes: lazy, as in OrganiserRoutes. Static imports here put
@@ -123,7 +124,7 @@ export default function P3Routes() {
         <Route path="you/details" element={lazyScreen(<PersonFlow />, 'own', toYou)} />
         <Route path="start" element={lazyScreen(<OnboardingFlow />, 'own', toHome)} />
         {flags.organiserTicketing && <Route path="get-paid" element={lazyScreen(<GetPaidStart />, 'own', toHome)} />}
-        {flags.organiserTicketing && <Route path="events/:seriesId/door" element={lazyScreen(<DoorScreen />, 'own', toEvent)} />}
+        {flags.organiserTicketing && <Route path="events/:seriesId/door" element={lazyScreen(<DoorScreen r4={r4} />, 'own', toEvent)} />}
         <Route element={<P3Shell />}>
           <Route index element={r4 ? inSuspense(<R4Home />) : v2 ? inSuspense(<V2Home />) : <HomeScreen />} />
           <Route path="events" element={r4 ? inSuspense(<R4Events />) : v2 ? inSuspense(<V2EventsTab />) : <EventsScreen />} />
@@ -151,6 +152,7 @@ export default function P3Routes() {
             <Route path="welcome" element={<WelcomePage />} />
             <Route path="page" element={<PageScreen />} />
             <Route path="team" element={r4 ? inSuspense(<R4Team />) : <TeamPage />} />
+            {r4 && <Route path="team/door-invite" element={inSuspense(<R4DoorInvite />)} />}
             <Route path="team/add" element={<TeamFlow step="add" />} />
             <Route path="team/:userId" element={<TeamFlow step="person" />} />
             <Route path="handover" element={<HandoverFlow step="to" />} />

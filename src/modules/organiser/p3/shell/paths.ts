@@ -42,6 +42,7 @@ export const P3_PATHS = {
   youPage: `${P3_BASE}/you/page`,
   youTeam: `${P3_BASE}/you/team`,
   youTeamAdd: `${P3_BASE}/you/team/add`,
+  youTeamDoorInvite: `${P3_BASE}/you/team/door-invite`,
   youTeamAddFor: (name: string) => `${P3_BASE}/you/team/add?q=${encodeURIComponent(name)}`,
   youTeamPerson: (userId: string) => `${P3_BASE}/you/team/${encodeURIComponent(userId)}`,
   youHandover: `${P3_BASE}/you/handover`,

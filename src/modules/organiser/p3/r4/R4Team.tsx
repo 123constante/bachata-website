@@ -234,6 +234,14 @@ export function R4Team() {
         <p className="r4-err" role="alert" data-testid="r4-team-requests-error">We could not load join requests. <button type="button" className="r4-linkbtn" onClick={() => void requests.refetch()}>Try again</button></p>
       )}
       <WaitingSection rows={m.waiting} onOpen={setOpen} />
+      {editor && (
+        <div className="r4-card">
+          <Link to={P3_PATHS.youTeamDoorInvite} className="r4-row" data-testid="r4-team-door-invite">
+            <span className="r4-row-t">Door invite link</span>
+            <span className="r4-mut"><R4Chevron /></span>
+          </Link>
+        </div>
+      )}
       {adding && (
         <AddTeammateSheet organiserId={organiser.id} pageName={organiser.name} memberCount={members.length} memberIds={memberIds}
           onClose={() => setAdding(false)} onAdded={(msg) => { setAdding(false); setSaid(msg); }} />
