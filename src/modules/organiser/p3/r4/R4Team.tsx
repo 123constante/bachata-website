@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ORGANISER_HOME_KEY, fetchIncomingAccessRequests, incomingAccessRequestsQueryKey } from '@/modules/organiser/shared/selfServeApi';
 import { addTeamMemberByProfile, organiserTeamQueryKey, searchTeamPeople } from '@/modules/organiser/shared/teamRpcApi';
@@ -190,6 +190,18 @@ export function R4Team() {
   );
   const memberIds = useMemo(() => new Set(members.flatMap((x) => (x.profileId ? [x.userId, x.profileId] : [x.userId]))), [members]);
   const full = members.length >= TEAM_CAP;
+  // Home's "Answer" (board R4HomeBefore) lands here with ?answer=<request id>: open that request once it is listed.
+  const [params, setParams] = useSearchParams();
+  const answer = params.get('answer');
+  useEffect(() => {
+    if (!answer) return;
+    const hit = m.waiting.find((w) => w.key === answer);
+    if (!hit) return;
+    setOpen(hit);
+    const next = new URLSearchParams(params);
+    next.delete('answer');
+    setParams(next, { replace: true });
+  }, [answer, m.waiting, params, setParams]);
 
   if (m.load === 'loading') return <div className="r4-stack" data-testid="r4-team-loading" aria-busy="true"><div className="r4-skel" /><div className="r4-skel" /></div>;
   if (m.load === 'error') {

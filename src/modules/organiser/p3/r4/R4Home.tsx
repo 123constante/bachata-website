@@ -2,6 +2,10 @@ import { useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { flags } from '@/lib/featureFlags';
+import { fetchIncomingAccessRequests, incomingAccessRequestsQueryKey } from '@/modules/organiser/shared/selfServeApi';
+import { useTeamContext } from '../../team/useTeamContext';
+import { todoSeriesIdsOf } from '../model/strip';
+import type { P3Row } from '../data/home';
 import { dayWord } from '../model';
 import { useP3Home } from '../data/useP3Data';
 import { organiserOfSeries } from '../tickets/data';
@@ -15,7 +19,7 @@ import { EVENT_PARAM } from '../v2/eventChoice';
 import { useEventChoice } from '../v2/V2Shell';
 import { useNoPageRedirect } from '../v2/V2Tabs';
 import { R4Chevron } from './R4Shell';
-import { r4HomeOf, type R4Door, type R4NextNight } from './r4Model';
+import { R4_EMPTY_HOME, r4AloneOf, r4HomeOf, r4WaitingOf, type R4Door, type R4NextNight, type R4WaitItem } from './r4Model';
 
 function Row({ to, label, end, testId }: { to: string; label: string; end?: string; testId: string }) {
   return (
@@ -24,6 +28,95 @@ function Row({ to, label, end, testId }: { to: string; label: string; end?: stri
       {end && <span className="r4-row-end">{end}</span>}
       <span className="r4-mut"><R4Chevron /></span>
     </Link>
+  );
+}
+
+const Plus = () => (
+  <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14" /><path d="M5 12h14" /></svg>
+);
+
+/** "Only you so far" (board R4EmptyHome): only once the team read says the caller is alone. */
+function AloneRow() {
+  const t = useTeamContext();
+  const editor = t.viewerRole === 'owner' || t.viewerRole === 'manager';
+  if (!r4AloneOf({ teamReady: !t.loading && !t.failed && !!t.organiser, members: t.members.length, editor })) return null;
+  return (
+    <div className="r4-card r4-list r4-mt-24">
+      <Link to={P3_PATHS.youTeam} className="r4-row r4-row-tall" data-testid="r4-empty-alone">
+        <span className="r4-row-body">
+          <span className="r4-row-t">{R4_EMPTY_HOME.aloneTitle}</span>
+          <span className="r4-row-line">{R4_EMPTY_HOME.aloneLine}</span>
+        </span>
+        <span className="r4-mut"><R4Chevron /></span>
+      </Link>
+    </div>
+  );
+}
+
+/** Board R4EmptyHome: the page has no events at all. */
+function EmptyHome({ pageId }: { pageId: string | null }) {
+  return (
+    <div className="r4-stack" data-testid="r4-home" data-face="none">
+      <div className="r4-title-block">
+        <h1 className="r4-h1" data-testid="r4-home-title">{R4_EMPTY_HOME.title}</h1>
+        <p className="r4-sub">{R4_EMPTY_HOME.sub}</p>
+      </div>
+      <Link to={P3_PATHS.createFor(pageId)} className="r4-btn r4-btn-42 r4-btn-link" data-testid="r4-home-primary" data-kind="new">
+        <Plus />{R4_EMPTY_HOME.add}
+      </Link>
+      <section className="r4-section r4-mt-24" aria-labelledby="r4-empty-next">
+        <h2 id="r4-empty-next" className="r4-label r4-h2">{R4_EMPTY_HOME.nextLabel}</h2>
+        <ol className="r4-card r4-list r4-steps" data-testid="r4-empty-steps">
+          {R4_EMPTY_HOME.steps.map((s, i) => (
+            <li key={s} className="r4-row r4-row-tall"><span className="r4-step-n" aria-hidden="true">{i + 1}</span><span className="r4-row-t">{s}</span></li>
+          ))}
+        </ol>
+      </section>
+      <AloneRow />
+    </div>
+  );
+}
+
+/** Board R4HomeBefore's "N things waiting for you": events that need something (the To do facts) and join requests. */
+function WaitingList({ rows, pageId }: { rows: readonly P3Row[]; pageId: string }) {
+  const home = useP3Home();
+  const navigate = useNavigate();
+  const requests = useQuery({
+    queryKey: incomingAccessRequestsQueryKey(pageId),
+    queryFn: () => fetchIncomingAccessRequests(pageId),
+  });
+  const todoIds = useMemo(() => todoSeriesIdsOf(home.data, pageId), [home.data, pageId]);
+  // HomeOrganiser.role is owner | manager: every Home viewer may answer a join request.
+  const m = r4WaitingOf({ rows, todoIds, requests: requests.data ?? null, editor: true });
+  const go = (it: R4WaitItem) => {
+    if (it.go === 'answer') navigate(`${P3_PATHS.youTeam}?answer=${encodeURIComponent(it.id)}`);
+    else if (it.go === 'place') navigate(P3_PATHS.eventEdit(it.id));
+    else if (it.go === 'dates') navigate(P3_PATHS.eventAll(it.id));
+    else if (it.go === 'photo') navigate(P3_PATHS.eventDetails(it.id));
+    else navigate(P3_PATHS.event(it.id));
+  };
+  if (m.items.length === 0 && !requests.isError) return null;
+  return (
+    <section className="r4-section" aria-labelledby="r4-wait-h" data-testid="r4-waiting">
+      <h2 id="r4-wait-h" className="r4-label r4-h2" data-testid="r4-waiting-heading">{m.heading}</h2>
+      {m.items.length > 0 && (
+        <div className="r4-card r4-list">
+          {m.items.map((it) => (
+            <div key={it.key} className="r4-order" data-testid="r4-wait-item" data-go={it.go}>
+              <div className="r4-grow">
+                <div className="r4-row-t">{it.title}</div>
+                <div className="r4-row-line">{it.detail}</div>
+              </div>
+              <button type="button" className="r4-btn r4-btn-34 r4-btn-quiet r4-btn-fit" onClick={() => go(it)} data-testid="r4-wait-go">{it.action}</button>
+            </div>
+          ))}
+        </div>
+      )}
+      {m.more > 0 && <Link to={P3_PATHS.events} className="r4-in-link r4-accent" data-testid="r4-wait-more">{m.more} more on Events</Link>}
+      {requests.isError && (
+        <p className="r4-err" role="alert" data-testid="r4-wait-error">We could not load join requests. <button type="button" className="r4-linkbtn" onClick={() => void requests.refetch()}>Try again</button></p>
+      )}
+    </section>
   );
 }
 
@@ -62,6 +155,7 @@ export function R4Home() {
 
   if (r.to) return <Navigate to={r.to} replace />;
   if (r.loading || c.loading) return <div className="r4-stack" data-testid="r4-home-loading" aria-busy="true"><div className="r4-skel" /><div className="r4-skel" /></div>;
+  if (!c.error && c.page && rows.length === 0) return <EmptyHome pageId={c.page.id} />;
 
   const onPrimary = async () => {
     if (m.primary.disabled) return;
@@ -122,6 +216,7 @@ export function R4Home() {
           {flags.organiserDash && past.nights.length > 0 && <Row to={compareTo} label="Compare with other nights" testId="r4-row-compare" />}
         </div>
       )}
+      {(m.face === 'before' || m.face === 'empty') && c.page && <WaitingList rows={rows} pageId={c.page.id} />}
     </div>
   );
 }

@@ -77,3 +77,67 @@ function shareOf(next: R4NextNight): R4HomeModel['primary'] {
   if (!next.link) return { kind: 'share', label: 'Share this night', disabled: true, reason: 'This night has no public link yet.' };
   return { kind: 'share', label: 'Share this night', disabled: false, reason: null };
 }
+
+// ---- cont8: board R4EmptyHome and the "N things waiting for you" list (board R4HomeBefore) ----
+
+/** Board R4EmptyHome: the page has no events at all (not just none coming up). */
+export const R4_EMPTY_HOME = {
+  title: 'No events yet',
+  sub: 'Put your first night on and it shows here.',
+  add: 'Add your first night',
+  nextLabel: 'What happens next',
+  steps: ['Add a night', 'Share the link so dancers can add themselves', 'On the night, tick people in at the door'] as const,
+  aloneTitle: 'Only you so far',
+  aloneLine: 'Add someone to help run your events or work the door.',
+} as const;
+
+/** "Only you so far" shows only when the team read is in and the caller is its one member. */
+export function r4AloneOf(i: { teamReady: boolean; members: number; editor: boolean }): boolean {
+  return i.teamReady && i.editor && i.members === 1;
+}
+
+/** The event facts the waiting list reads (a P3Row slice: the same row Events and the To do badge read). */
+export interface R4WaitRow {
+  id: string;
+  name: string;
+  lifecycle: string;
+  place: string | null;
+  cover: string | null;
+  status: { key: string; past: boolean };
+}
+/** A join request (list_organiser_access_requests_v1). */
+export interface R4WaitRequest { requestId: string; requesterEmail: string | null }
+
+export type R4WaitGo = 'place' | 'event' | 'dates' | 'photo' | 'answer';
+export interface R4WaitItem { key: string; title: string; detail: string; action: string; go: R4WaitGo; id: string }
+export interface R4WaitModel { heading: string; items: R4WaitItem[]; more: number }
+
+/** How many rows Home lists before "N more on Events" (prod 2026-11-18: one page has 11 to-dos). */
+export const R4_WAIT_CAP = 5;
+
+/**
+ * One item per event, the first that applies, in this order: needs a place (draft, no place),
+ * still a draft, live with no dates coming up, no photo. These are the To do badge's own three
+ * facts (data/home needsOf: draft, status warn, no cover on a current event), counted per event
+ * here. `todoIds` = the series the badge counts (strip todoSeriesIdsOf: cancelled left out).
+ * Then join requests (owners and managers only). Refunds are not here: no refund-request read
+ * exists (every refund is the owner's own move on an order).
+ */
+export function r4WaitingOf(i: { rows: readonly R4WaitRow[]; todoIds: ReadonlySet<string>; requests: readonly R4WaitRequest[] | null; editor: boolean }): R4WaitModel {
+  const items: R4WaitItem[] = [];
+  for (const r of i.rows) {
+    if (!i.todoIds.has(r.id)) continue;
+    const base = { key: `e-${r.id}`, title: r.name, id: r.id };
+    if (r.lifecycle === 'draft' && !r.place) items.push({ ...base, detail: 'Needs a place before it can go live.', action: 'Add place', go: 'place' });
+    else if (r.lifecycle === 'draft') items.push({ ...base, detail: 'Still a draft. Only you can see it.', action: 'Open', go: 'event' });
+    else if (r.status.key === 'warn') items.push({ ...base, detail: 'Live, but no dates coming up.', action: 'Add dates', go: 'dates' });
+    else if (!r.cover && !r.status.past) items.push({ ...base, detail: 'No photo yet. It is the first thing dancers see.', action: 'Add photo', go: 'photo' });
+  }
+  if (i.editor) {
+    for (const q of i.requests ?? []) {
+      items.push({ key: `r-${q.requestId}`, title: `${q.requesterEmail?.trim() || 'Someone'} asked to join`, detail: 'Pick a role or say no.', action: 'Answer', go: 'answer', id: q.requestId });
+    }
+  }
+  const n = items.length;
+  return { heading: `${n} ${n === 1 ? 'thing' : 'things'} waiting for you`, items: items.slice(0, R4_WAIT_CAP), more: Math.max(0, n - R4_WAIT_CAP) };
+}

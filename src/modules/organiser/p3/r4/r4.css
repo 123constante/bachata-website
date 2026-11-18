@@ -135,3 +135,10 @@
 .r4-ol { margin: 0; padding: 0; list-style: none; }
 .r4-ol > li + li { border-top: 1px solid #E9E9E9; }
 .r4-look h2.r4-h1 { color: #030303; }
+/* cont8: Home with no events (board R4EmptyHome) and "N things waiting for you" (board R4HomeBefore). */
+.r4-steps { margin: 0; padding: 0; list-style: none; }
+.r4-steps .r4-row { gap: 12px; padding: 16px; }
+.r4-step-n { flex: none; width: 24px; height: 24px; box-sizing: border-box; border: 1px solid #D9D9D9; border-radius: 12px; background: #FFFFFF; color: #464646; font-size: 12px; font-weight: 500; line-height: 1; display: flex; align-items: center; justify-content: center; }
+.r4-mt-24 { margin-top: 24px; }
+.r4-list > .r4-order + .r4-order { border-top: 1px solid #E9E9E9; }
+.r4-order .r4-row-t { overflow-wrap: anywhere; }
