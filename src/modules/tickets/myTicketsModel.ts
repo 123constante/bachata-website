@@ -33,6 +33,10 @@ export interface MyTicket {
   checkedInAt: string | null;
   /** night_cancelled from the read (absent on old replies = false). */
   nightCancelled?: boolean;
+  /** refunded from the read: the whole order was refunded (QR and code are NULL then). Absent = false. */
+  refunded?: boolean;
+  /** order_refunded_pence: money refunded on the order so far (0 when none or absent). */
+  refundedPence?: number;
 }
 
 export interface MyTicketsReply {
@@ -92,6 +96,8 @@ export function parseMyTickets(data: unknown): MyTicketsReply | null {
       checkedIn: r.checked_in === true || str(r.checked_in_at) !== null,
       checkedInAt: str(r.checked_in_at),
       nightCancelled: r.night_cancelled === true,
+      refunded: r.refunded === true,
+      refundedPence: typeof r.order_refunded_pence === 'number' && Number.isInteger(r.order_refunded_pence) && r.order_refunded_pence > 0 ? r.order_refunded_pence : 0,
     });
   }
   const total = typeof o.total_count === 'number' && Number.isFinite(o.total_count) ? Math.max(o.total_count, tickets.length) : tickets.length;
@@ -176,7 +182,7 @@ export function stateCopy(state: Exclude<PageState, 'ready'>, signInHref: string
     case 'error':
       return { title: 'Your tickets could not be loaded', body: 'Check your connection and try again. Your tickets are safe, and the confirmation email has them too.', action: { kind: 'retry', label: 'Try again' } };
     case 'empty':
-      return { title: 'No tickets yet', body: 'Tickets you buy while signed in show here, ready to show at the door.', action: { kind: 'link', label: 'Find an event', to: '/' } };
+      return { title: 'No tickets yet', body: 'Tickets you buy while signed in show here, ready to show at the door.', action: { kind: 'link', label: 'Browse events', to: '/' } };
   }
 }
 
