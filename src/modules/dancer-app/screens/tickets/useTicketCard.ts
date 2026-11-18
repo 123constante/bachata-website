@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { fetchMyTickets, fetchOrderQr } from '@/modules/tickets/myTicketsApi';
 import { groupTickets, type MyTicket } from '@/modules/tickets/myTicketsModel';
-import { serverTodayKey } from '@/modules/tickets/serverToday';
+import { serverTodayKey } from './serverToday';
 import { clearOrderId, readOrderId } from '@/modules/tickets/orderStorage';
 import { isOrderId, type ThanksOrderState } from '@/modules/tickets/ticketCheckoutModel';
 import { useOrderStatus } from './useOrderStatus';

@@ -11,7 +11,7 @@ const today = vi.hoisted(() => ({ key: '2026-11-18' }));
 vi.mock('@/lib/featureFlags', () => ({ flags: { publicTicketing: true } }));
 vi.mock('@/modules/tickets/myTicketsApi', () => ({ fetchMyTickets, fetchOrderQr }));
 vi.mock('@/modules/tickets/ticketCheckoutApi', () => ({ readOrderStatus }));
-vi.mock('@/modules/tickets/serverToday', () => ({ serverTodayKey: async () => today.key }));
+vi.mock('../serverToday', () => ({ serverTodayKey: async () => today.key }));
 vi.mock('@/modules/tickets/TicketQrCode', () => ({ default: () => <svg data-testid="ticket-qr" /> }));
 
 import TicketsScreen from '../TicketsScreen';

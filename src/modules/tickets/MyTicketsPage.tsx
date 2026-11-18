@@ -5,7 +5,7 @@ import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo } from '@/lib/seo';
 import { useAuth } from '@/hooks/useAuth';
 import { buildSignInHref } from '@/lib/authRouting';
-import { useServerToday } from './serverToday';
+import { useServerToday } from '@/modules/dancer-app/screens/tickets/serverToday';
 import { ticketDoorCode } from '@/modules/organiser/p3/door/doorFlags';
 import { fetchMyTickets, type MyTicketsResult } from './myTicketsApi';
 import DoorCodeLine from './DoorCodeLine';
