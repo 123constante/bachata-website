@@ -40,8 +40,7 @@ function contentAlreadyOnMain(cwd, range) {
   if (git(cwd, ['fetch', '--quiet', 'origin', '+refs/heads/main:refs/remotes/origin/main']).code !== 0) return false;
   const list = git(cwd, ['log', '--format=', '--name-only', ...range]);
   if (list.code !== 0) return false;
-  const files = [...new Set(list.out.split(/?
-/).filter(Boolean))];
+  const files = [...new Set(list.out.split(/\r?\n/).filter(Boolean))];
   if (files.length === 0) return true; // only empty commits: nothing to push
   return git(cwd, ['diff', '--quiet', 'refs/remotes/origin/main', 'HEAD', '--', ...files]).code === 0;
 }
