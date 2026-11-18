@@ -37,6 +37,8 @@ const assign = vi.fn();
 /** The live origin (the preview guard passes) and a spy for the Stripe hop. */
 const live = (origin = LIVE) => vi.stubGlobal('location', { ...window.location, assign, origin });
 const tick = () => fireEvent.click(screen.getByTestId('picker-terms'));
+/** Bar Continue opens the card; tick the terms there, then Continue to Stripe (signed in). */
+const pay = () => { fireEvent.click(screen.getByTestId('picker-continue')); tick(); fireEvent.click(screen.getByTestId('picker-pay')); };
 const add = (n: string) => fireEvent.click(screen.getByRole('button', { name: `Add one ${n}` }));
 const applyCode = (c: string) => { fireEvent.change(screen.getByLabelText('Promo code'), { target: { value: c } }); fireEvent.click(screen.getByRole('button', { name: 'Apply' })); };
 const typeCode = (code: string) => code.split('').forEach((d, i) => fireEvent.change(screen.getByLabelText(`Digit ${i + 1}`), { target: { value: d } }));
@@ -137,7 +139,7 @@ describe('TicketPickerB1', () => {
     live();
     mount();
     await screen.findByText('Full Experience');
-    add('Full Experience'); tick();
+    add('Full Experience');
     applyCode('nope');
     await waitFor(() => expect(screen.getByTestId('picker-promo-msg').textContent).toBe("That code isn't recognised. Check the spelling and try again."));
     expect(vibrate).toHaveBeenCalledWith([40, 60, 40]);
@@ -235,7 +237,7 @@ describe('TicketPickerB1', () => {
     live();
     mount('', [...TYPES, mk('f', 'Guest list', 0)]);
     await screen.findByText('Guest list');
-    add('Full Experience'); add('Guest list'); tick();
+    add('Full Experience'); add('Guest list');
     applyCode('save10');
     await screen.findByTestId('picker-promo-saving');
     fireEvent.click(screen.getByRole('button', { name: 'Remove one Full Experience' }));
@@ -254,10 +256,13 @@ describe('TicketPickerB1', () => {
     live();
     mount();
     await screen.findByText('Full Experience');
-    add('Full Experience'); add('Full Experience'); tick();
+    add('Full Experience'); add('Full Experience');
     applyCode('save10');
     await screen.findByTestId('picker-promo-stub');
     fireEvent.click(screen.getByTestId('picker-continue'));
+    // The card summary names the applied code beside the count.
+    expect(screen.getByTestId('picker-card-summary').textContent).toBe('2 tickets \u00b7 SAVE10\u00a327');
+    tick(); fireEvent.click(screen.getByTestId('picker-pay'));
     await waitFor(() => expect(api.postTicketCheckout).toHaveBeenCalledTimes(1));
     expect(api.postTicketCheckout.mock.calls[0][0]).toMatchObject({
       lines: [{ ticket_type_id: 'b', quantity: 2, expected_unit_price_pence: 1500 }],
@@ -274,11 +279,11 @@ describe('TicketPickerB1', () => {
     live();
     mount();
     await screen.findByText('Full Experience');
-    add('1 Class + Latin Party'); tick();
+    add('1 Class + Latin Party');
     applyCode('free100');
     await screen.findByTestId('picker-promo-stub');
     expect(screen.getByTestId('picker-total').textContent).toBe('Free');
-    fireEvent.click(screen.getByTestId('picker-continue'));
+    pay();
     await waitFor(() => expect(assign).toHaveBeenCalledWith('/tickets/thanks?o=11111111-1111-4111-8111-111111111111&free=1'));
     expect(api.postTicketCheckout.mock.calls[0][0]).toMatchObject({ expected_total_pence: 0, promo_code: 'FREE100' });
   });
@@ -291,10 +296,17 @@ describe('TicketPickerB1', () => {
     await screen.findByText('Full Experience');
     add('Full Experience'); add('1 Class + Latin Party'); add('1 Class + Latin Party');
     expect(screen.getByTestId('picker-total').textContent).toBe('£35');
-    expect((screen.getByTestId('picker-continue') as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByTestId('picker-blocked').textContent).toBe('Tick the box to accept the terms of sale.');
-    tick();
+    // The bar's Continue no longer waits for terms: the tick box is in the email card and gates its button.
+    expect((screen.getByTestId('picker-continue') as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.queryByTestId('picker-blocked')).toBeNull();
     fireEvent.click(screen.getByTestId('picker-continue'));
+    expect(screen.getByTestId('picker-card-summary').textContent).toBe('3 tickets\u00a335');
+    const send = () => screen.getAllByRole('button', { name: 'Continue' }).pop() as HTMLButtonElement;
+    expect(send().disabled).toBe(true);
+    expect(screen.getByTestId('picker-terms-reason').textContent).toBe('Tick the box to accept the terms of sale.');
+    tick();
+    expect(send().disabled).toBe(false);
+    expect(screen.queryByTestId('picker-terms-reason')).toBeNull();
     fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'bad' } });
     fireEvent.click(screen.getAllByRole('button', { name: 'Continue' }).pop()!);
     expect(await screen.findByText('Enter a valid email, like you@example.com.')).toBeTruthy();
@@ -329,8 +341,8 @@ describe('TicketPickerB1', () => {
     live();
     mount();
     await screen.findByText('Full Experience');
-    add('Full Experience'); tick();
-    fireEvent.click(screen.getByTestId('picker-continue'));
+    add('Full Experience');
+    fireEvent.click(screen.getByTestId('picker-continue')); tick();
     fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'me@x.co' } });
     fireEvent.click(screen.getAllByRole('button', { name: 'Continue' }).pop()!);
     expect(await screen.findByText('Too many codes were asked for. Wait a minute, then try again.')).toBeTruthy();
@@ -343,13 +355,15 @@ describe('TicketPickerB1', () => {
       .mockResolvedValueOnce({ kind: 'redirect', url: 'https://checkout.stripe.com/y', orderId: '11111111-1111-4111-8111-111111111111' });
     mount();
     await screen.findByText('Full Experience');
-    add('Full Experience'); add('Full Experience'); tick();
-    fireEvent.click(screen.getByTestId('picker-continue'));
+    add('Full Experience'); add('Full Experience');
+    pay();
     expect((await screen.findByTestId('picker-refusal')).textContent).toMatch(/New total: £32/);
     expect(screen.getByTestId('picker-total').textContent).toBe('£32');
     expect(screen.getByTestId('picker-continue').textContent).toBe('Price changed, confirm');
     await waitFor(() => expect(api.fetchPublicTicketTypes).toHaveBeenCalledTimes(2));
+    // The confirm tap reopens the card; the terms stay ticked.
     fireEvent.click(screen.getByTestId('picker-continue'));
+    fireEvent.click(screen.getByTestId('picker-pay'));
     await waitFor(() => expect(assign).toHaveBeenCalledWith('https://checkout.stripe.com/y'));
     const second = api.postTicketCheckout.mock.calls[1][0];
     expect(second.lines).toEqual([{ ticket_type_id: 'b', quantity: 2, expected_unit_price_pence: 1600 }]);
@@ -370,7 +384,7 @@ describe('TicketPickerB1', () => {
     live('https://bachata-website-git-x.vercel.app');
     mount();
     await screen.findByText('Full Experience');
-    add('Full Experience'); tick();
+    add('Full Experience');
     expect((screen.getByTestId('picker-continue') as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByTestId('picker-blocked').textContent).toMatch(/not on this preview/);
     fireEvent.click(screen.getByTestId('picker-continue'));
@@ -382,8 +396,13 @@ describe('TicketPickerB1', () => {
     api.postTicketCheckout.mockResolvedValue({ kind: 'error', reason: 'sold_out', message: null });
     mount();
     await screen.findByText('Full Experience');
-    add('1 Class + Latin Party'); tick();
+    add('1 Class + Latin Party');
     fireEvent.click(screen.getByTestId('picker-continue'));
+    // Signed in: the card shows who the tickets go to; Continue to Stripe waits for the tick.
+    expect(screen.queryByLabelText('Email address')).toBeNull();
+    expect((screen.getByTestId('picker-pay') as HTMLButtonElement).disabled).toBe(true);
+    tick();
+    fireEvent.click(screen.getByTestId('picker-pay'));
     await waitFor(() => expect(api.postTicketCheckout).toHaveBeenCalled());
     expect(api.postTicketCheckout.mock.calls[0][0].buyer_email).toBe('in@x.co');
     expect(sb.signInWithOtp).not.toHaveBeenCalled();
