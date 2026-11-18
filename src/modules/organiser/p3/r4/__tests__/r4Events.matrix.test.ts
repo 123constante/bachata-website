@@ -47,7 +47,7 @@ describe('R4 Events: every prod shape lands in one section with an honest pill',
     const byId = Object.fromEntries(m.week.map((r) => [r.id, r]));
     expect(byId.d.extra).toBe('Needs a place');
     expect(byId.w.extra).toBe('3 dates coming up');
-    expect(byId.w.when).toMatch(/^Fri 20 Nov, (.+, )?Soho$/); // no start on file = no time words
+    expect(byId.w.when).toMatch(/^Friday 20 November, (.+, )?Soho$/); // no start on file = no time words
   });
 
   it('the 7-day edge: today + 6 is this week, today + 7 is later', () => {
@@ -66,7 +66,7 @@ describe('R4 Events: every prod shape lands in one section with an honest pill',
   });
 
   it('shortDay reads the calendar day', () => {
-    expect(shortDay('2026-11-20')).toBe('Fri 20 Nov');
-    expect(shortDay('2027-01-03')).toBe('Sun 3 Jan');
+    expect(shortDay('2026-11-20')).toBe('Friday 20 November');
+    expect(shortDay('2027-01-03')).toBe('Sunday 3 January');
   });
 });

@@ -7,7 +7,7 @@ import { shortDay } from './r4EventsModel';
  * open the screen that changes them. A field with no read is not drawn.
  */
 export interface R4EditModel {
-  /** "Fri 20 Nov 2026" of the next night; null with no date coming up. */
+  /** "Friday 20 November 2026" of the next night; null with no date coming up. */
   date: string | null;
   /** "21:00"; null when the next night has no time. */
   starts: string | null;

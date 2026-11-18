@@ -20,7 +20,7 @@ type Sheet = null | 'money' | 'all';
 function NightPick({ c }: { c: EventChoice }) {
   const ev = c.event;
   if (!ev) return null;
-  const day = ev.next ? new Date(`${ev.next.date}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }) : 'No date yet';
+  const day = ev.next ? new Date(`${ev.next.date}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }) : 'No date yet';
   return (
     <label className="r4-nightpick" data-testid="r4-tix-pick">
       <span className="r4-row-body">

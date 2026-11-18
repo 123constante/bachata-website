@@ -24,7 +24,7 @@ export interface R4DoorInviteIn {
 
 export interface R4DoorInviteModel {
   load: R4DoorInviteIn['load'] | 'none';
-  /** "Friday Social, Fri 20 Nov" or "Friday Social, no night coming up". */
+  /** "Friday Social, Friday 20 November" or "Friday Social, no night coming up". */
   pick: string | null;
   pickable: boolean;
   copyWhy: string;
@@ -45,7 +45,7 @@ export const R4_DOOR_INVITE_COPY = {
 } as const;
 
 const dayWord = (iso: string) =>
-  new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }).replace(',', '');
+  new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).replace(',', '');
 
 export function r4DoorInviteOf(i: R4DoorInviteIn): R4DoorInviteModel {
   const C = R4_DOOR_INVITE_COPY;

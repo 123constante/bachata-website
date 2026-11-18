@@ -55,7 +55,7 @@ describe('R4 Night: every prod shape gets an honest screen', () => {
   it('repeat line joins the rule words with the dates coming up; "Needs a place" never lands there', () => {
     const live = r4NightOf({ row: rowFor({ lifecycle: 'live', format: 'recurring', venue: 'Soho', dates: ['2026-11-20', '2026-11-27', '2026-12-04'] }), name: 'x', place: 'Soho', repeatWords: 'Every Friday.', door: null, cancellable: true });
     expect(live.repeat).toBe('Every Friday, 3 dates coming up');
-    expect(live.when).toMatch(/^Fri 20 Nov, 9(pm|:00pm), Soho$/);
+    expect(live.when).toMatch(/^Friday 20 November, 9(pm|:00pm), Soho$/);
     const draft = r4NightOf({ row: rowFor({ lifecycle: 'draft', format: 'recurring', venue: null, dates: ['2026-11-21'] }), name: 'x', place: null, repeatWords: null, door: null, cancellable: false });
     expect(draft.repeat).toBeNull();
   });

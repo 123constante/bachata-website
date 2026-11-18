@@ -5,7 +5,7 @@ import type { R4Door, R4Tile, R4Tone } from './r4Model';
 /** Board R4Night: one night in focus. Every number is a real read; a stat with no read is not drawn. */
 export interface R4NightModel {
   title: string;
-  /** "Fri 20 Nov, 21:00, Soho Dance Studio"; null when there is no date and no place. */
+  /** "Friday 20 November, 21:00, Soho Dance Studio"; null when there is no date and no place. */
   when: string | null;
   /** "Every Friday" style words, plus "N dates coming up" when the series repeats. */
   repeat: string | null;
@@ -61,6 +61,6 @@ export function r4NightOf(i: R4NightInput): R4NightModel {
 /** Board R4Cancel copy. The "N going will be told, N refunded" line has no backing (nothing tells or refunds on cancel), so it is not here. */
 export const CANCEL_R4_COPY = {
   title: (name: string) => `Cancel ${name.trim() || NO_NAME}?`,
-  day: (day: string) => `${day}. Dancers will see ‘Cancelled’. You can bring it back any time.`,
-  noReasons: 'The reasons didn’t load. Check your connection, then try again.',
+  day: (day: string) => `${day}. Dancers will see \u2018Cancelled\u2019. You can bring it back any time.`,
+  noReasons: 'The reasons didn\u2019t load. Check your connection, then try again.',
 } as const;

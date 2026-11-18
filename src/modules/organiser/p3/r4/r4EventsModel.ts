@@ -6,7 +6,7 @@ import type { R4Tone } from './r4Model';
 export interface R4EventRow {
   id: string;
   name: string;
-  /** "Fri 20 Nov, 21:00, Soho Dance Studio"; no next date = the place alone, or null. */
+  /** "Friday 20 November, 21:00, Soho Dance Studio"; no next date = the place alone, or null. */
   when: string | null;
   /** Second line: "Needs a place" (draft, no place), "3 dates coming up" (repeating), else null. */
   extra: string | null;
@@ -21,10 +21,10 @@ export interface R4EventsModel {
   empty: boolean;
 }
 
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-/** "Fri 20 Nov" from an ISO date key (calendar day, no time zone). */
+/** "Friday 20 November" from an ISO date key (calendar day, no time zone). */
 export function shortDay(date: string): string {
   const [y, m, d] = date.split('-').map(Number);
   const dt = new Date(Date.UTC(y, m - 1, d));

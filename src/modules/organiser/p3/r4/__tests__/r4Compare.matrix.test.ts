@@ -45,7 +45,7 @@ describe('R4 Compare: every prod shape x counts', () => {
       '2026-11-13': { cameIn: 47, ticketsSold: 35 }, '2026-11-06': { cameIn: 54, ticketsSold: 41 }, '2026-10-30': { cameIn: 38, ticketsSold: 1 },
     }) });
     expect(m.rows.map((r) => [r.day, r.line])).toEqual([
-      ['Fri 6 Nov', '54 came, 41 tickets'], ['Fri 13 Nov', '47 came, 35 tickets'], ['Fri 30 Oct', '38 came, 1 ticket'],
+      ['Friday 6 November', '54 came, 41 tickets'], ['Friday 13 November', '47 came, 35 tickets'], ['Friday 30 October', '38 came, 1 ticket'],
     ]);
     // nights with no count were left out alongside the cancelled ones
     expect(m.foot).toBe(R4_COMPARE_COPY.footUnscanned);

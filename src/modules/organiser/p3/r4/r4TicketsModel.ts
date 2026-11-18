@@ -14,7 +14,7 @@ export type R4TicketsState = 'loading' | 'error' | 'empty' | 'ready';
 export interface R4TicketsModel {
   state: R4TicketsState;
   title: string;
-  /** "Fri 20 Nov, 9pm, Soho Dance Studio", or null. */
+  /** "Friday 20 November, 9pm, Soho Dance Studio", or null. */
   when: string | null;
   pill: { word: string; tone: R4Tone } | null;
   /** The big number. null = no read (hidden). `of` only when the night's places are known (a one-off). */

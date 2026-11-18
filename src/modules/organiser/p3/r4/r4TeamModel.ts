@@ -80,7 +80,7 @@ export const R4_ADD_COPY = {
   searchFailed: 'We could not search just now.',
   pickFirst: 'Pick someone from the list first.',
   add: 'Add to team',
-  adding: 'Adding…',
+  adding: 'Adding\u2026',
   invite: 'Send an invite link instead',
   inviteLine: 'They sign up and make a dancer profile, then you find them here.',
   inviteCopied: 'Invite link copied. Send it to them; once they have a dancer profile, search for them here.',
