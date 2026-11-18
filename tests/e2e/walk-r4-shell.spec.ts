@@ -266,3 +266,42 @@ test('add teammate', async ({ page }) => {
   await expect(page.getByTestId('r4-team-said')).toHaveText('Maya C. is now a Contributor.');
   expect(sent).toEqual([{ p_organiser_id: expect.any(String), p_profile_id: '66666666-6666-4666-8666-666666666666', p_member_role: 'contributor', p_reason: null }]);
 });
+
+// cont6: board R4Compare. The nights read and the door counts are mocked in the board's shape (prod has no past
+// night with a ticket yet, 2026-11-18 survey), keyed on the occurrence each door read asks for.
+async function compare(page: import('@playwright/test').Page, came: Record<string, [number, number]>) {
+  const fri = (i: number) => new Date(Date.parse('2026-10-02T12:00:00Z') + i * 7 * 86_400_000).toISOString().slice(0, 10);
+  await page.route('**/rest/v1/rpc/organiser_raffle_nights_v1', (route) => route.fulfill({ json: {
+    ok: true, series_id: 'x', can_edit: true, view_only_reason: null,
+    nights: Array.from({ length: 13 }, (_, i) => ({ occurrence_id: `o${i}`, date: fri(i), start_local: null, chip: i === 4 ? 'cancelled' : 'past', raffle_on: false, entries_count: 0, locked: false, winner: null, can_set: false, refuse_reason: null })),
+  } }));
+  await page.route('**/rest/v1/rpc/ticket_door_list_v3*', (route) => {
+    const occ = (route.request().postDataJSON() as { p_occurrence_id: string | null }).p_occurrence_id ?? '';
+    const [inCount, total] = came[occ] ?? [0, 0];
+    return route.fulfill({ json: { result: 'ok', rows: [], in_count: inCount, total_count: total } });
+  });
+}
+
+test('compare', async ({ page }) => {
+  await compare(page, { o6: [47, 35], o5: [54, 41], o3: [38, 28] });
+  await openOrganiser(page, '/account/p3/compare');
+  await expect(page.getByTestId('r4-compare-list')).toBeVisible({ timeout: 20_000 });
+  await page.waitForTimeout(800);
+  await expectNoHorizontalScroll(page);
+  await expect(page.getByTestId('r4-compare-row')).toHaveCount(3);
+  await expect(page.getByTestId('r4-compare-row').first()).toContainText('54 came, 41 tickets');
+  for (const r of await page.getByTestId('r4-compare-who').all()) expect((await r.boundingBox())!.height).toBeGreaterThanOrEqual(52);
+  expect((await page.getByTestId('r4-compare-back').boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  console.log('compare sub:', await page.getByTestId('r4-compare-sub').textContent(), '| foot:', await page.getByTestId('r4-compare-foot').textContent());
+  await page.screenshot({ path: `${OUT}/compare.png` });
+  await page.getByTestId('r4-compare-who').first().click();
+  await expect(page).toHaveURL(/\/came\/o5/);
+});
+
+test('compare empty', async ({ page }) => {
+  await compare(page, {});
+  await openOrganiser(page, '/account/p3/compare');
+  await expect(page.getByTestId('r4-compare-empty')).toBeVisible({ timeout: 20_000 });
+  await expectNoHorizontalScroll(page);
+  await page.screenshot({ path: `${OUT}/compare-empty.png` });
+});

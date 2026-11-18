@@ -131,3 +131,6 @@
 .r4-ellipsis { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .r4-link-quiet { font-size: 13px; font-weight: 500; text-decoration: none; }
 .r4-accent { color: #C2410C; }
+.r4-rank { flex: none; width: 16px; font-size: 13px; font-weight: 500; color: #696969; }
+.r4-ol { margin: 0; padding: 0; list-style: none; }
+.r4-ol > li + li { border-top: 1px solid #E9E9E9; }

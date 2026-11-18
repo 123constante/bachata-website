@@ -11,6 +11,7 @@ import { captionOf, nightLinkOf, shareText } from '../dash/shareLinks';
 import { whoCameLinkOf, whoIsInLinkOf } from '../sheets/sheetsModel';
 import { P3NightGoing } from '../screens/P3Going';
 import { P3_PATHS } from '../shell/paths';
+import { EVENT_PARAM } from '../v2/eventChoice';
 import { useEventChoice } from '../v2/V2Shell';
 import { useNoPageRedirect } from '../v2/V2Tabs';
 import { R4Chevron } from './R4Shell';
@@ -75,6 +76,9 @@ export function R4Home() {
   const whoIn = m.face === 'night' && next ? whoIsInLinkOf({ seriesId: next.seriesId, draft: next.draft, cancelled: false }, 'home') : null;
   const whoCame = m.face === 'after' && last ? whoCameLinkOf(last, 'home') : null;
   const aboutId = m.face === 'after' ? last?.seriesId : next?.seriesId;
+  // Compare ranks ONE event's nights (board R4Compare): the one this face is about, else the last night's.
+  const compareId = aboutId ?? last?.seriesId ?? null;
+  const compareTo = compareId ? `${P3_PATHS.compare}?${EVENT_PARAM}=${encodeURIComponent(compareId)}` : P3_PATHS.compare;
 
   return (
     <div className="r4-stack" data-testid="r4-home" data-face={m.face}>
@@ -115,7 +119,7 @@ export function R4Home() {
           {whoIn && <Row to={whoIn} label="Who is in" testId="r4-row-in" />}
           {whoCame && <Row to={whoCame} label="Who came" testId="r4-row-came" />}
           {aboutId && <Row to={P3_PATHS.event(aboutId)} label="Open this event" testId="r4-row-event" />}
-          {flags.organiserDash && past.nights.length > 0 && <Row to={P3_PATHS.compare} label="Compare with other nights" testId="r4-row-compare" />}
+          {flags.organiserDash && past.nights.length > 0 && <Row to={compareTo} label="Compare with other nights" testId="r4-row-compare" />}
         </div>
       )}
     </div>

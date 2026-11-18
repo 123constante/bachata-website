@@ -41,6 +41,7 @@ const R4EditNight = lazyWithRetry(() => import('../r4/R4EditNight').then((m) => 
 const R4Raffle = lazyWithRetry(() => import('../r4/R4Raffle').then((m) => ({ default: m.R4Raffle })));
 const R4Tickets = lazyWithRetry(() => import('../r4/R4Tickets').then((m) => ({ default: m.R4Tickets })));
 const R4Team = lazyWithRetry(() => import('../r4/R4Team').then((m) => ({ default: m.R4Team })));
+const R4Compare = lazyWithRetry(() => import('../r4/R4Compare').then((m) => ({ default: m.R4Compare })));
 const inSuspense = (el: ReactNode) => <Suspense fallback={null}>{el}</Suspense>;
 
 // The You hub and the R1 screens it pushes: lazy, as in OrganiserRoutes. Static imports here put
@@ -141,7 +142,7 @@ export default function P3Routes() {
           <Route path="create" element={<P3PushedSurface back={toEvents}><CreateFlow /></P3PushedSurface>} />
           {NEW_STEPS.map((step) => <Route key={step} path={step} element={<OldNewStep />} />)}
           <Route path="stats" element={<StatsScreen />} />
-          {flags.organiserDash && <Route path="compare" element={<P3PushedSurface back={toHome}><CompareNights /></P3PushedSurface>} />}
+          {flags.organiserDash && <Route path="compare" element={r4 ? inSuspense(<R4Compare />) : <P3PushedSurface back={toHome}><CompareNights /></P3PushedSurface>} />}
           {flags.organiserDash && <Route path="events/:seriesId/in" element={<P3PushedSurface back={toEvent}><WhoIsInRoute home={toHome()} /></P3PushedSurface>} />}
           {flags.organiserDash && <Route path="events/:seriesId/came/:occurrenceId" element={<P3PushedSurface back={toEvent}><WhoCameRoute home={toHome()} /></P3PushedSurface>} />}
           <Route path="you" element={<P3YouSurface />}>
