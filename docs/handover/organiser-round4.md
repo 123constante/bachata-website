@@ -49,7 +49,7 @@ Brief: `docs/briefs/organiser-round4-restyle.md` on `brief/organiser-r4`. Boards
   - Board compare (390x844):
     - R4Compare: DIFFERS. Title block, "night N of M" line, uppercase rank label, numbered white card rows with day + "N came, N tickets", "Cancelled nights are left out." match. People / Money switch and the GBP amount on each row hidden (no per-night money read). Page title is the "<- Home" line + "Compare nights" under the shell header (the shell header carries the page name, as on every R4 screen), not a back arrow in the header. Rows carry a chevron (they open Who came). The day line follows the board's "Every Friday" only when the dates really are weekly.
   - Review: not run (read-only screen, not a risky class: no saves, money, uploads or new RPC; one-round rule).
-  - tsc (tsconfig.app.json) on the cont6 code: 0 errors in branch files.
+  - tsc run on 913ae34 (the code is unchanged after it): 0 errors in branch files (tsconfig.app.json). PR #1790 body updated; both PR body checks exit 0.
 - Tests: `r4/__tests__/r4Model.matrix.test.ts` (10 shapes + tab mapping). Walk: `tests/e2e/walk-r4-shell.spec.ts` (manual list).
 
 ## Left (screens from the 19 boards not yet restyled to their own R4 layout)
