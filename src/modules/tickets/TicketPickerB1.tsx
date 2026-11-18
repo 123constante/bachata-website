@@ -6,7 +6,9 @@ import { Lock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { BUYER_ONBOARDING_ENABLED } from '@/lib/buyerOnboardingFlag';
-import { fetchPublicTicketTypes, postTicketCheckout, publicTicketKeys } from './ticketCheckoutApi';
+import { fetchPublicTicketTypes, postTicketCheckout, previewPromo, publicTicketKeys } from './ticketCheckoutApi';
+import { PROMO_MAX_LENGTH, isCodeReason, normaliseCode, promoView, type PromoState } from './promo';
+import { NO_PAID_LINES, NO_PAID_LINES_COPY, discountedTotal, pickerPromoKey, previewBasketPromo, promoLines } from './pickerPromo';
 import {
   CANCELLED_PARAM, MAX_PER_ORDER, PREVIEW_ORIGIN_REASON, TERMS_REASON, THANKS_PATH, availability, checkoutOriginOk, formatPence, maxQuantity, reasonCopy, typesForNight,
 } from './ticketCheckoutModel';
@@ -23,7 +25,8 @@ import {
 /**
  * Ticket picker B1 (flag ticketPickerB1; docs/briefs/ticket-buyer-picker.md). A white checkout:
  * pick, Continue, email card, 6-digit code card, "Opening secure payment", Stripe.
- * Promo is a STUB: the box and its states exist, no code is ever accepted (no backend yet).
+ * Promo: an always-open box priced by the classic page's preview RPC, line by line (pickerPromo.ts).
+ * Valid = a ticket-stub row (code, minus amount, Remove), old total struck beside the new one.
  */
 export interface TicketPickerB1Props {
   seriesId: string;
@@ -72,9 +75,11 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
   const [busy, setBusy] = useState(false);
   const [sendErr, setSendErr] = useState('');
   const [secs, setSecs] = useState(0);
-  const [promo, setPromo] = useState('');
-  const [promoMsg, setPromoMsg] = useState('');
-  const [promoChecking, setPromoChecking] = useState(false);
+  const [promoInput, setPromoInput] = useState('');
+  const [promo, setPromo] = useState<PromoState>({ status: 'idle' });
+  // The stub row stays up while an applied code is re-priced for a new basket.
+  const [stubbed, setStubbed] = useState(false);
+  const promoSeq = useRef(0);
   const [refusal, setRefusal] = useState('');
   const [held, setHeld] = useState<PickerHeld | null>(null);
   const [verifiedEmail, setVerifiedEmail] = useState('');
@@ -93,11 +98,16 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
   const sum = basketTotals(clean, types);
   // A price_changed holds only for the basket it was priced for.
   const heldNow = held && held.key === basketKey(clean) ? held : null;
-  const payPence = heldNow ? heldNow.totalPence : sum.totalPence;
+  const key = pickerPromoKey(clean, occurrenceId);
+  const lines = promoLines(clean, types);
+  // The one shared promo mapping (promo.ts): what checkout sends, and what holds Continue back.
+  const pv = promoView(promo, promoInput, key);
+  const promoTotal = pv.appliedDiscountPence !== null ? discountedTotal(sum, pv.appliedDiscountPence) : null;
+  const payPence = heldNow ? heldNow.totalPence : promoTotal ?? sum.totalPence;
   const priceNote = heldNow ? priceChangedText(heldNow.totalPence) : '';
   const atCap = sum.count >= MAX_PER_ORDER;
   // Before any field: a preview can never complete checkout (same guard as the classic page).
-  const blocked = sum.count === 0 ? null : !checkoutOriginOk(window.location.origin) ? PREVIEW_ORIGIN_REASON : !termsAccepted ? TERMS_REASON : null;
+  const blocked = sum.count === 0 ? null : !checkoutOriginOk(window.location.origin) ? PREVIEW_ORIGIN_REASON : pv.buyBlocked ?? (!termsAccepted ? TERMS_REASON : null);
   const continueOff = sum.count === 0 || blocked !== null;
   useEffect(() => { saveBasket(seriesId, occurrenceId, clean); }, [seriesId, occurrenceId, clean]);
 
@@ -124,6 +134,50 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
     return () => window.removeEventListener('pageshow', onShow);
   }, []);
 
+  // An applied code is priced for one basket: a change of tickets or counts re-prices it (no buzz).
+  // pricedKey = the basket the latest preview was asked for, so a change mid-check re-prices too.
+  const pricedKey = useRef<string | null>(null);
+  const liveCode = stubbed && (promo.status === 'applied' || promo.status === 'checking') ? promo.code : null;
+  useEffect(() => {
+    if (!liveCode || pricedKey.current === key || sum.count === 0) return;
+    // Only free tickets picked: nothing for the code to take off (Pick a ticket first).
+    if (lines.length === 0) { promoSeq.current += 1; pricedKey.current = key; setPromo({ status: 'refused', code: liveCode, key, reason: NO_PAID_LINES }); setStubbed(false); return; }
+    void pricePromo(liveCode, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-price on a basket change only
+  }, [key]);
+
+  async function pricePromo(code: string, tapped: boolean) {
+    const seq = ++promoSeq.current;
+    const forKey = key;
+    pricedKey.current = key;
+    setPromo({ status: 'checking', code });
+    const r = await previewBasketPromo(lines, code, (typeId, quantity, c) => previewPromo(seriesId, typeId, quantity, c, occurrenceId));
+    if (seq !== promoSeq.current) return;
+    if (r.ok) {
+      setPromo({ status: 'applied', code, key: forKey, discountPence: r.discountPence, totalPence: r.totalPence });
+      setStubbed(true);
+      if (tapped) buzz(30);
+      return;
+    }
+    setPromo({ status: 'refused', code, key: forKey, reason: r.reason });
+    setStubbed(false);
+    if (tapped) buzz([40, 60, 40]);
+  }
+
+  async function applyPromo() {
+    const code = normaliseCode(promoInput);
+    if (!code) { setPromo({ status: 'refused', code: '', key: null, reason: 'empty' }); buzz([40, 60, 40]); return; }
+    if (promo.status === 'checking') return;
+    // The keyboard closes on Apply; the stub row (or the red line) is what the buyer reads next.
+    (document.activeElement as HTMLElement | null)?.blur?.();
+    await pricePromo(code, true);
+  }
+
+  function removePromo() {
+    promoSeq.current += 1; pricedKey.current = null;
+    setPromoInput(''); setPromo({ status: 'idle' }); setStubbed(false);
+  }
+
   const step = (id: string, d: number) => {
     const t = types.find((x) => x.id === id);
     if (!t) return;
@@ -136,7 +190,11 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
     if (inFlight.current) return;
     inFlight.current = true;
     setStage('open');
-    const body = buildPickerBody({ basket: clean, types, email: buyerEmail, occurrenceId, origin: window.location.origin, pathname: location.pathname, search: location.search, held: heldNow });
+    const sendCode = pv.sendCode;
+    const body = buildPickerBody({
+      basket: clean, types, email: buyerEmail, occurrenceId, origin: window.location.origin, pathname: location.pathname, search: location.search, held: heldNow,
+      promo: sendCode ? { code: sendCode, totalPence: payPence } : null,
+    });
     setRefusal(''); setHeld(null);
     const r = await postTicketCheckout(body);
     if (r.kind === 'redirect') { saveOrderId(r.orderId); window.location.assign(r.url); return; }
@@ -150,6 +208,12 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
       if (pc) setHeld(heldFrom(pc, clean, types));
       else setRefusal(reasonCopy('price_changed_unreadable').text);
       reread();
+      return;
+    }
+    // A code refusal at checkout (HTTP 409) belongs to the promo box, as on the classic page.
+    if (sendCode && isCodeReason(r.reason)) {
+      setPromo({ status: 'refused', code: sendCode, key, reason: r.reason }); setStubbed(false);
+      buzz([40, 60, 40]);
       return;
     }
     const copy = stepReasonCopy(r.reason, null) ?? reasonCopy(r.reason, r.message);
@@ -198,14 +262,6 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
     setShake(true); setTimeout(() => setShake(false), 300); buzz([40, 60, 40]);
     setDigits(Array(CODE_LENGTH).fill(''));
     boxes.current[0]?.focus();
-  }
-
-  async function applyPromo() {
-    if (!promo.trim()) { setPromoMsg('Enter a code first.'); buzz([40, 60, 40]); return; }
-    setPromoChecking(true); setPromoMsg('');
-    await Promise.resolve();
-    setPromoChecking(false);
-    setPromoMsg('Promo codes are not available yet.'); buzz([40, 60, 40]);
   }
 
   const date = dateOnly(dateLine);
@@ -258,13 +314,30 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
           {types.length > 0 && (
             <div className="mt-4">
               <label htmlFor="picker-promo" className="mb-[6px] block text-[13px] font-semibold">Promo code</label>
-              <div className="flex gap-2">
-                <input id="picker-promo" value={promo} onChange={(e) => { setPromo(e.target.value.toUpperCase()); setPromoMsg(''); }} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void applyPromo(); } }}
-                  autoComplete="off" autoCapitalize="characters" placeholder="Enter code" disabled={promoChecking}
-                  className="h-[44px] min-w-0 flex-1 rounded-[10px] px-3 text-[15px]" style={{ border: `1px solid ${promoMsg ? BAD : LINE}`, background: '#fff', color: INK }} />
-                <button type="button" onClick={() => void applyPromo()} disabled={promoChecking} className="h-[44px] rounded-[10px] px-4 text-[14px] font-semibold" style={{ border: `1px solid ${BRAND}`, color: BRAND, background: '#fff' }}>{promoChecking ? <>Checking&hellip;</> : 'Apply'}</button>
+              {stubbed && (promo.status === 'applied' || promo.status === 'checking') ? (
+                <div data-testid="picker-promo-stub" className="flex min-h-[48px] items-center justify-between gap-3 rounded-[10px] px-3" style={{ border: `1px dashed ${BRAND}`, background: '#fff' }}>
+                  <span className="min-w-0 break-all text-[15px] font-semibold tracking-[.04em]" style={{ color: INK }}>{promo.code}</span>
+                  <span className="flex shrink-0 items-center gap-2">
+                    {promo.status === 'checking'
+                      ? <span role="status" className="text-[14px]" style={{ color: SUB }}>Checking&hellip;</span>
+                      : <b data-testid="picker-promo-saving" className="text-[15px] tabular-nums" style={{ color: BRAND }}>&minus;{formatPence(promo.discountPence)}</b>}
+                    <button type="button" data-testid="picker-promo-remove" onClick={removePromo} className="h-[44px] min-w-[44px] px-1 text-[14px] underline" style={{ color: SUB }}>Remove</button>
+                  </span>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input id="picker-promo" value={promoInput} maxLength={PROMO_MAX_LENGTH} readOnly={promo.status === 'checking'}
+                    onChange={(e) => { setPromoInput(e.target.value.toUpperCase()); if (promo.status === 'refused') setPromo({ status: 'idle' }); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void applyPromo(); } }}
+                    autoComplete="off" autoCapitalize="characters" placeholder="Enter code" enterKeyHint="done"
+                    aria-invalid={pv.tone === 'bad' || promo.status === 'refused'} aria-describedby="picker-promo-msg"
+                    className="h-[44px] min-w-0 flex-1 rounded-[10px] px-3 text-[16px]" style={{ border: `1px solid ${promo.status === 'refused' ? BAD : LINE}`, background: '#fff', color: INK }} />
+                  <button type="button" onClick={() => void applyPromo()} disabled={promo.status === 'checking'} className="h-[44px] min-w-[76px] rounded-[10px] px-4 text-[14px] font-semibold" style={{ border: `1px solid ${BRAND}`, color: BRAND, background: '#fff' }}>{promo.status === 'checking' ? <>Checking&hellip;</> : 'Apply'}</button>
+                </div>
+              )}
+              <div role="status" id="picker-promo-msg" data-testid="picker-promo-msg" className="mt-[6px] min-h-[16px] text-[13px]" style={{ color: BAD }}>
+                {promo.status === 'refused' ? (promo.reason === NO_PAID_LINES ? NO_PAID_LINES_COPY : pv.note ?? '') : ''}
               </div>
-              <div role="status" data-testid="picker-promo-msg" className="mt-[6px] min-h-[16px] text-[13px]" style={{ color: BAD }}>{promoMsg}</div>
               <button type="button" aria-expanded={showTerms} onClick={() => setShowTerms((v) => !v)} className="min-h-[44px] text-[13px] underline" style={{ color: SUB }}>
                 {showTerms ? 'Hide the terms of sale' : 'Read the terms of sale'}
               </button>
@@ -280,7 +353,10 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
         <div className="shrink-0 px-[18px] pb-[14px] pt-3" style={{ borderTop: `1px solid ${LINE}` }}>
           <div className="mb-[10px] flex items-baseline justify-between" style={{ color: SUB }}>
             <span data-testid="picker-count">{countLabel(sum.count)}</span>
-            <b data-testid="picker-total" className="text-[17px] tabular-nums" style={{ color: INK }}>{formatPence(payPence)}</b>
+            <span className="flex items-baseline gap-2">
+              {promoTotal !== null && !heldNow && <s data-testid="picker-total-was" className="text-[14px] tabular-nums" style={{ color: SUB }}>{formatPence(sum.totalPence)}</s>}
+              <b data-testid="picker-total" className="text-[17px] tabular-nums" style={{ color: INK }}>{formatPence(payPence)}</b>
+            </span>
           </div>
           <label className="mb-[6px] flex min-h-[44px] items-center gap-3">
             <input type="checkbox" data-testid="picker-terms" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} className="h-[22px] w-[22px] shrink-0" style={{ accentColor: BRAND }} />
