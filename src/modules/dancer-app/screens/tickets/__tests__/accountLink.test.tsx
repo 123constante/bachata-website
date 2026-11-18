@@ -155,4 +155,30 @@ describe('happy path', () => {
     expect(parseLinks([LINK, { user_id: 3 }, null, 'x'])).toEqual([{ userId: LINK.user_id, email: LINK.email, linkedAt: LINK.linked_at }]);
     expect(parseLinks(undefined)).toEqual([]);
   });
+
+  it('an unlinked row leaves the list even when the re-read fails', async () => {
+    backend({
+      [ACCOUNT_LINK_RPC.list]: [{ ok: true, links: [LINK] }, new Error('net')],
+      [ACCOUNT_LINK_RPC.unlink]: [{ ok: true, unlinked: true }],
+    });
+    await mount();
+    fireEvent.click(screen.getByTestId('account-unlink'));
+    await act(async () => { fireEvent.click(screen.getByTestId('account-unlink-confirm')); });
+    expect(screen.queryByTestId('account-link-row')).toBeNull();
+  });
+
+  it('with one order in view the success line does not promise the card shows them', () => {
+    expect(linkedLine('a@b.co', true)).toBe('Linked. Tickets from a@b.co now show on this account.');
+    expect(linkedLine('a@b.co')).toBe('Linked. Tickets from a@b.co now show here.');
+  });
+
+  it('typing over a filled box replaces that digit only (not treated as a paste)', async () => {
+    backend({ [ACCOUNT_LINK_RPC.list]: [{ ok: true, links: [] }], [ACCOUNT_LINK_RPC.request]: [{ ok: true }] });
+    await mount();
+    await openAndSend();
+    for (let i = 1; i <= 3; i++) fireEvent.change(screen.getByLabelText(`Digit ${i}`), { target: { value: String(i) } });
+    fireEvent.change(screen.getByLabelText('Digit 2'), { target: { value: '29' } });
+    const vals = [1, 2, 3, 4].map((i) => (screen.getByLabelText(`Digit ${i}`) as HTMLInputElement).value);
+    expect(vals).toEqual(['1', '9', '3', '']);
+  });
 });

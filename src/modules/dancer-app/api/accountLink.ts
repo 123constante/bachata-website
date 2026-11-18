@@ -23,13 +23,15 @@ const fail = <T = null>(code: string): LinkResult<T> => ({ ok: false, code, valu
 
 /** The neutral answer to "Send code": the same whether or not the email has an account. */
 export const SENT_LINE = "If that email has an account, we've sent a code. It works for 15 minutes.";
-export const linkedLine = (email: string) => `Linked. Tickets from ${email} now show here.`;
+/** With one order's card in view (?o=) the card shows that order only, so "here" would not be true yet. */
+export const linkedLine = (email: string, orderInView = false) =>
+  orderInView ? `Linked. Tickets from ${email} now show on this account.` : `Linked. Tickets from ${email} now show here.`;
 
 /** Every refusal the four RPCs can return, as a plain sentence with a way forward. */
 export const LINK_ERROR_COPY: Record<string, string> = {
   invalid_email: 'Enter a valid email, like you@example.com.',
   own_email: 'That is the email you are signed in with. Enter your other email.',
-  rate_limited: 'You have asked for 3 codes in the last hour. Try again in an hour.',
+  rate_limited: 'You have asked for too many codes. Try again in an hour.',
   not_signed_in: 'You are signed out. Sign in again, then link your other email.',
   wrong_code: 'That code is not right. Check the email and try again.',
   expired: 'That code has expired. Send a new code.',

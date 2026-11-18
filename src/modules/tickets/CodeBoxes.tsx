@@ -25,7 +25,9 @@ export function CodeBoxes({ digits, onDigits, onComplete, busy, bad, shake, boxe
   testId?: string;
 }) {
   function onDigit(i: number, raw: string) {
-    const d = raw.replace(/\D/g, '');
+    let d = raw.replace(/\D/g, '');
+    // Typing into a box that already holds a digit gives two characters: keep the new one, not a paste.
+    if (d.length === 2 && digits[i]) d = d[0] === digits[i] ? d[1] : d[0];
     if (d.length > 1) { // paste or autofill
       const next = d.slice(0, CODE_LENGTH).split('');
       onDigits(Array.from({ length: CODE_LENGTH }, (_, k) => next[k] ?? ''));
@@ -37,8 +39,8 @@ export function CodeBoxes({ digits, onDigits, onComplete, busy, bad, shake, boxe
     if (next.every(Boolean)) { (document.activeElement as HTMLElement | null)?.blur(); onComplete(next.join('')); }
   }
   return (
-    <div data-testid={testId} className="flex justify-between gap-2" style={shake ? { animation: 'pickerBuzz .28s' } : undefined}>
-      <style>{'@keyframes pickerBuzz{0%,100%{transform:translateX(0)}20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}@media (prefers-reduced-motion:reduce){[data-testid=code-boxes],[data-testid=link-code-boxes]{animation:none!important}}'}</style>
+    <div data-testid={testId} data-code-boxes="" className="flex justify-between gap-2" style={shake ? { animation: 'pickerBuzz .28s' } : undefined}>
+      <style>{'@keyframes pickerBuzz{0%,100%{transform:translateX(0)}20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}@media (prefers-reduced-motion:reduce){[data-code-boxes]{animation:none!important}}'}</style>
       {digits.map((d, i) => (
         <input key={i} ref={(el) => { boxes.current[i] = el; }} value={d} inputMode="numeric" aria-label={`Digit ${i + 1}`} disabled={busy}
           autoComplete={i === 0 ? 'one-time-code' : 'off'} autoFocus={i === 0}

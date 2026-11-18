@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { CodeBoxes, emptyDigits } from '@/modules/tickets/CodeBoxes';
+import { isEmail } from '@/modules/tickets/pickerModel';
 import {
   NEEDS_NEW_CODE, SENT_LINE, confirmAccountLink, fetchAccountLinks, linkErrorLine, linkedLine, requestAccountLink, unlinkAccount,
   type LinkedAccount,
@@ -11,14 +12,13 @@ export const unlinkConfirmLine = (email: string) => `Unlink ${email}? Its ticket
 
 /** Dark-sheet palette for the shared checkout code boxes (dancer tokens). */
 const BOX_COLORS = { ink: 'var(--da-text)', line: 'var(--da-border)', bad: '#ff6b6b', bg: 'var(--da-surface-2)' };
-const isEmail = (v: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v);
 
 /**
  * My tickets: "Have tickets under another email?" -> a sheet (email -> 6-digit code), plus the
  * "Linked accounts" list with Unlink. Renders NOTHING until my_account_links_v1 answers ok:
  * flag off (error 'disabled') or any failure = hidden, quietly. `onLinked` refetches My tickets.
  */
-export function AccountLinkPanel({ onLinked }: { onLinked(): void }) {
+export function AccountLinkPanel({ onLinked, orderInView = false }: { onLinked(): void; orderInView?: boolean }) {
   const [links, setLinks] = useState<LinkedAccount[] | null>(null);
   const [off, setOff] = useState(false);
   const [open, setOpen] = useState(false);
@@ -42,6 +42,8 @@ export function AccountLinkPanel({ onLinked }: { onLinked(): void }) {
     if (!r.ok && r.code === 'disabled') { setOff(true); return; }
     if (!r.ok) { setRowErr(linkErrorLine(r.code)); return; }
     setConfirming(null);
+    // Drop the row now: a failed re-read must not leave an unlinked email listed.
+    setLinks((prev) => (prev ? prev.filter((x) => x.userId !== userId) : prev));
     await reload();
     onLinked();
   }
@@ -54,7 +56,7 @@ export function AccountLinkPanel({ onLinked }: { onLinked(): void }) {
           <h2 id="dt-linked-title" className="dt-linked-title">Linked accounts</h2>
           <ul className="dt-linked">
             {links.map((l) => (
-              <li key={l.userId} className="dt-linked-row" data-testid="account-link-row">
+              <li key={l.userId} className={confirming === l.userId ? 'dt-linked-row dt-linked-confirm' : 'dt-linked-row'} data-testid="account-link-row">
                 {confirming === l.userId ? (
                   <>
                     <span className="dt-linked-email">{unlinkConfirmLine(l.email)}</span>
@@ -66,7 +68,7 @@ export function AccountLinkPanel({ onLinked }: { onLinked(): void }) {
                 ) : (
                   <>
                     <span className="dt-linked-email">{l.email}</span>
-                    <button type="button" className="dt-quiet-link" onClick={() => { setConfirming(l.userId); setRowErr(''); }} data-testid="account-unlink">Unlink</button>
+                    <button type="button" className="dt-quiet-link" disabled={rowBusy} onClick={() => { setConfirming(l.userId); setRowErr(''); }} data-testid="account-unlink">Unlink</button>
                   </>
                 )}
               </li>
@@ -77,6 +79,7 @@ export function AccountLinkPanel({ onLinked }: { onLinked(): void }) {
       )}
       {open && (
         <LinkSheet
+          orderInView={orderInView}
           onClose={() => setOpen(false)}
           onDisabled={() => { setOpen(false); setOff(true); }}
           onLinked={() => { void reload(); onLinked(); }}
@@ -86,7 +89,7 @@ export function AccountLinkPanel({ onLinked }: { onLinked(): void }) {
   );
 }
 
-function LinkSheet({ onClose, onDisabled, onLinked }: { onClose(): void; onDisabled(): void; onLinked(): void }) {
+function LinkSheet({ orderInView, onClose, onDisabled, onLinked }: { orderInView: boolean; onClose(): void; onDisabled(): void; onLinked(): void }) {
   const [step, setStep] = useState<'email' | 'code' | 'done'>('email');
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
@@ -125,7 +128,8 @@ function LinkSheet({ onClose, onDisabled, onLinked }: { onClose(): void; onDisab
     setNeedsNew(NEEDS_NEW_CODE.has(r.code));
     setShake(true); setTimeout(() => setShake(false), 300);
     setDigits(emptyDigits());
-    if (!NEEDS_NEW_CODE.has(r.code)) boxes.current[0]?.focus();
+    // After the re-render that re-enables the boxes: a disabled input cannot take focus.
+    if (!NEEDS_NEW_CODE.has(r.code)) setTimeout(() => boxes.current[0]?.focus(), 0);
   }
 
   const restart = () => { setErr(''); setNeedsNew(false); setStep('email'); };
@@ -161,7 +165,7 @@ function LinkSheet({ onClose, onDisabled, onLinked }: { onClose(): void; onDisab
         )}
         {step === 'done' && (
           <div>
-            <p className="dt-sheet-sub" role="status" data-testid="account-link-done">{linkedLine(email.trim())}</p>
+            <p className="dt-sheet-sub" role="status" data-testid="account-link-done">{linkedLine(email.trim(), orderInView)}</p>
             <button type="button" className="dt-btn dt-link-wide" onClick={onClose}>Done</button>
           </div>
         )}
