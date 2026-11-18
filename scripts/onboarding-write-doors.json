@@ -41,6 +41,10 @@
   },
   "not_event_writes": [
     {
+      "name": "organiser_night_reminder_set_v1",
+      "reason": "Slice 5: the buyer-reminder switch on one night (admin 20261117213327); a send setting, not an event edit. Gated by team role (owner/manager) inside the RPC."
+    },
+    {
       "name": "set_my_buyer_roles_v1",
       "reason": "Buyer onboarding B (admin 20261117214202): the signed-in person's own 'What are you?' answer on their dancer_profiles row; not an event edit, no organiser gate."
     },
