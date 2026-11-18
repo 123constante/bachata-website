@@ -220,7 +220,7 @@ describe('stale page: price_changed then confirm', () => {
     await fill(2);
     submit();
     const alert = await screen.findByText(/The price changed while this page was open/);
-    expect(alert.textContent).toBe(`The price changed while this page was open. New total: ${shown}. Check and pay again.`);
+    expect(alert.textContent).toBe(`The price changed while this page was open. New total: ${shown}. Check it and continue again.`);
     expect(api.postTicketCheckout).toHaveBeenCalledTimes(1);
     expect(barTotal()).toBe(shown);
     const confirm = screen.getByTestId('price-confirm');

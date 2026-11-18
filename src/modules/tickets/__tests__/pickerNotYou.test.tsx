@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 
 // Buyer onboarding slice A, item 5: 'Tickets go to {email}. Not you?' (flag ON only).
-// Fix 3 (2026-11-18): the line lives in the card the bar's Continue opens, not in the bar.
+// Owner pick 2026-11-18: no Check and pay card; the line sits in the bar above Continue to Stripe.
 const flag = vi.hoisted(() => ({ on: true }));
 vi.mock('@/lib/buyerOnboardingFlag', () => ({ get BUYER_ONBOARDING_ENABLED() { return flag.on; } }));
 const auth = vi.hoisted(() => ({ user: null as null | { email: string }, signOut: vi.fn() }));
@@ -31,10 +31,9 @@ function mount() {
   );
 }
 
-/** Pick one ticket and tap the bar's Continue: the card with the line opens. */
+/** Pick one ticket: the line is in the bar (the Check and pay card is gone). */
 async function openCard() {
   fireEvent.click(await screen.findByLabelText('Add one Party'));
-  fireEvent.click(screen.getByTestId('picker-continue'));
 }
 
 // The live origin, so the preview guard lets the bar's Continue open the card.
@@ -70,7 +69,6 @@ describe('picker B1 "Not you?" line', () => {
     fireEvent.click(await screen.findByLabelText('Add one Party'));
     fireEvent.click(screen.getByLabelText('Add one Party'));
     expect(screen.getByLabelText('Party count').textContent).toBe('2');
-    fireEvent.click(screen.getByTestId('picker-continue'));
     fireEvent.click(screen.getByTestId('picker-not-you-btn'));
     await screen.findByLabelText('Email address');
     expect(screen.getByLabelText('Party count').textContent).toBe('2');
