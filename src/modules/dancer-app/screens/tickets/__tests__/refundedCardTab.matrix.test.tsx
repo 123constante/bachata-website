@@ -10,12 +10,9 @@ import { MemoryRouter } from 'react-router-dom';
 
 const flag = vi.hoisted(() => ({ on: true }));
 vi.mock('@/lib/buyerOnboardingFlag', () => ({ get BUYER_ONBOARDING_ENABLED() { return flag.on; } }));
-const rpc = vi.fn();
-vi.mock('@/integrations/supabase/client', () => ({ supabase: { auth: {}, rpc: (...a: unknown[]) => rpc(...a) } }));
 vi.mock('@/lib/londonDate', async (orig) => ({ ...(await orig<typeof import('@/lib/londonDate')>()), londonTodayKey: () => '2026-11-18' }));
 vi.mock('@/modules/tickets/TicketQrCode', () => ({ default: () => <div data-testid="qr" /> }));
 
-import MyTicketsPage from '../MyTicketsPage';
 import TicketCard from '@/modules/dancer-app/screens/tickets/TicketCard';
 import { upcomingCardTickets } from '@/modules/dancer-app/screens/tickets/useTicketCard';
 import { CARD_COPY } from '@/modules/dancer-app/screens/tickets/model';
