@@ -60,7 +60,7 @@ export type ReminderView = {
 export function reminderView(r: ReminderRead): ReminderView {
   const day = londonWeekday(r.sendAt);
   const at = day ? `18:00 on ${day}` : '18:00 the day before';
-  if (r.nightCancelled) return { line: 'This night is cancelled — no reminder will go out.', on: false, disabledWhy: 'This night is cancelled' };
+  if (r.nightCancelled) return { line: 'No reminder will go out.', on: false, disabledWhy: 'This night is cancelled' };
   if (r.sentAt) {
     const sentDay = londonWeekday(r.sentAt) ?? day;
     return { line: `Sent to ${buyersWord(r.sentCount)} at 18:00 on ${sentDay ?? 'the day before'}.`, on: true, disabledWhy: 'Already sent — it is sent once' };

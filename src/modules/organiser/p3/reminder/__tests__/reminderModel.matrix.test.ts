@@ -18,7 +18,7 @@ const SHAPES: [string, Partial<ReminderRead>, { on: boolean; why: boolean; has: 
   ['sent to one', { sentAt: '2026-11-19T18:00:05Z', sentCount: 1, windowPassed: true }, { on: true, why: true, has: /Sent to 1 buyer at/ }],
   ['today / window passed, on', { windowPassed: true }, { on: true, why: true, has: /has passed/ }],
   ['past night, off', { windowPassed: true, enabled: false }, { on: false, why: true, has: /has passed/ }],
-  ['cancelled night', { nightCancelled: true }, { on: false, why: true, has: /cancelled/ }],
+  ['cancelled night', { nightCancelled: true }, { on: false, why: true, has: /^No reminder will go out\.$/ }],
   ['event not live', { nightLive: false }, { on: true, why: true, has: /until the event is live/ }],
   ['helper role, cannot edit', { canEdit: false }, { on: true, why: true, has: /^Sends/ }],
 ];
