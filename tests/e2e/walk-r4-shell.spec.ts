@@ -4,7 +4,8 @@ import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { PHONE, openOrganiser, expectNoHorizontalScroll } from './helpers/organiserFake';
 
-test.use({ viewport: PHONE, colorScheme: 'dark' });
+// a fake camera so the door's Scan box is drawn as on the board
+test.use({ viewport: PHONE, colorScheme: 'dark', launchOptions: { args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] } });
 const OUT = 'docs/design/organiser-round4/shots';
 mkdirSync(OUT, { recursive: true });
 for (const [tab, path] of [['home', '/account/p3'], ['events', '/account/p3/events'], ['tickets', '/account/p3/tickets'], ['team', '/account/p3/you/team']] as const) {
@@ -306,4 +307,69 @@ test('compare empty', async ({ page }) => {
   await expect(page.getByTestId('r4-compare-empty')).toBeVisible({ timeout: 20_000 });
   await expectNoHorizontalScroll(page);
   await page.screenshot({ path: `${OUT}/compare-empty.png` });
+});
+
+// Door group (boards R4DoorScan / R4DoorSearch / R4DoorInvite). A fake camera so the Scan box is drawn as on the
+// board; the door reads are mocked in the board's shape (prod has one series with tickets: 4, 3 in, 1 void).
+test.describe('door', () => {
+  test.use({ permissions: ['camera'] });
+  const DOOR = 'aaaaaaaa-0000-4000-8000-00000000d00a';
+  const rows = [['Amira', true], ['Ana', true], ['Zoe', false], ['Maya', false], ['Tom', true], ['Jan', false]] as const;
+  async function door(page: import('@playwright/test').Page) {
+    const fake = new (await import('./helpers/organiserFake')).OrganiserFake({});
+    fake.addSeries(fake.organisers[0], { id: DOOR, name: 'Friday Social', format: 'one_off', category: 'party', default_start_date: '2026-11-20' });
+    await fake.install(page);
+    let wrote = 0;
+    const list = { result: 'ok', truncated: false, in_count: 3, total_count: 6, rows: rows.map(([n, i], k) => ({ ticket_id: `t${k}`, first_name: n, quantity_in_order: 1, ticket_type_name: 'General entry', checked_in_at: i ? '2026-11-20T20:12:00Z' : null })) };
+    await page.route('**/rest/v1/rpc/ticket_door_list_v3*', (r) => r.fulfill({ json: list }));
+    await page.route('**/rest/v1/rpc/ticket_check_in_by_id_v3*', (r) => { wrote++; return r.fulfill({ json: { result: 'ok', first_name: 'Zoe', ticket_type_name: 'General entry', quantity: 1, in_count: 4, total_count: 6 } }); });
+    return { wrote: () => wrote };
+  }
+  test('door scan', async ({ page }) => {
+    await door(page);
+    await page.goto(`/account/p3/events/${DOOR}/door`);
+    await expect(page.getByTestId('door-screen')).toHaveAttribute('data-look', 'r4', { timeout: 30_000 });
+    await page.waitForTimeout(2500);
+    await expectNoHorizontalScroll(page);
+    expect(await page.getByTestId('door-screen').evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(253, 253, 253)');
+    await expect(page.getByTestId('door-count')).toHaveText('3 of 6 in');
+    expect((await page.getByTestId('door-back').boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    for (const id of ['door-tab-scan', 'door-tab-list']) expect((await page.getByTestId(id).boundingBox())!.height).toBeGreaterThanOrEqual(48);
+    console.log('cam:', await page.getByTestId('door-camera').getAttribute('data-cam'));
+    await page.screenshot({ path: `${OUT}/door-scan.png` });
+  });
+  test('door search', async ({ page }) => {
+    const s = await door(page);
+    await page.goto(`/account/p3/events/${DOOR}/door`);
+    await expect(page.getByTestId('door-screen')).toHaveAttribute('data-look', 'r4', { timeout: 30_000 });
+    await page.getByTestId('door-tab-list').click();
+    await expect(page.getByTestId('door-row')).toHaveCount(6);
+    await expectNoHorizontalScroll(page);
+    for (const r of await page.locator('.r4-door-row').all()) expect((await r.boundingBox())!.height).toBeGreaterThanOrEqual(52);
+    await page.screenshot({ path: `${OUT}/door-search.png` });
+    const tick = page.getByTestId('door-row-checkin');
+    if (await tick.count()) {
+      await tick.first().click();
+      await expect(page.getByTestId('door-toast')).toContainText('Zoe is in. 4 of 6 in.');
+      expect(s.wrote()).toBe(1);
+      await page.screenshot({ path: `${OUT}/door-search-toast.png` });
+    } else console.log('ticks off: VITE_ENABLE_TICKET_DOOR_CODE not set');
+  });
+  test('door invite', async ({ page }) => {
+    const s = await door(page);
+    await page.goto('/account/p3/you/team');
+    await expect(page.getByTestId('r4-team-door-invite')).toBeVisible({ timeout: 30_000 });
+    await page.getByTestId('r4-team-door-invite').click();
+    await expect(page.getByTestId('r4-door-invite')).toBeVisible();
+    await page.waitForTimeout(1500);
+    await expectNoHorizontalScroll(page);
+    await expect(page.locator('.r4-tab[data-tab="team"]')).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByTestId('r4-door-invite-copy')).toBeDisabled();
+    await expect(page.getByTestId('r4-door-invite-why')).toBeVisible();
+    console.log('pick:', await page.getByTestId('r4-door-invite-pick').innerText().catch(() => 'none'));
+    await page.screenshot({ path: `${OUT}/door-invite.png` });
+    await page.getByTestId('r4-door-invite-preview').click();
+    await expect(page.getByTestId('door-screen')).toBeVisible({ timeout: 20_000 });
+    expect(s.wrote()).toBe(0);
+  });
 });

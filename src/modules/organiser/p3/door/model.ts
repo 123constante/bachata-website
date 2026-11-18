@@ -171,6 +171,13 @@ export function counterText(inCount: number | null | undefined, total: number | 
   return `${inCount} of ${total} in`;
 }
 
+/** "Ana is in. 4 of 12 in." from the check-in answer; the count part only when the answer carries both counts. */
+export function r4ToastText(c: CheckIn): string {
+  const who = c.first_name?.trim() || 'They';
+  const n = counterText(c.in_count, c.total_count);
+  return `${who} ${who === 'They' ? 'are' : 'is'} in.${n ? ` ${n}.` : ''}`;
+}
+
 /**
  * The ticket code inside whatever the camera or the code box gave: a bare token, or a URL whose
  * `t` / `token` param or last path segment is the token. Spaces are dropped (a code typed in

@@ -26,6 +26,7 @@ import {
   londonClock,
   parseCode,
   personOf,
+  r4ToastText,
   type CameraState,
   type CheckIn,
   type DoorResult,
@@ -254,13 +255,6 @@ export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode
       )}
     </div>
   );
-}
-
-/** "Ana is in. 4 of 12 in." from the check-in answer; the count part only when the answer carries both counts. */
-export function r4ToastText(c: CheckIn): string {
-  const who = c.first_name?.trim() || 'They';
-  const n = counterText(c.in_count, c.total_count);
-  return `${who} ${who === 'They' ? 'are' : 'is'} in.${n ? ` ${n}.` : ''}`;
 }
 
 function Counter({ counts, bare = false }: { counts: { in: number; total: number } | null; bare?: boolean }) {
