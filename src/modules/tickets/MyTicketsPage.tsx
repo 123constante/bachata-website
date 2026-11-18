@@ -47,7 +47,7 @@ function TicketCard({ t, position, today, defaultOpen }: { t: MyTicket; position
   const [open, setOpen] = useState(defaultOpen);
   const show = open && qrVisible(t, anyway);
   // Buyer onboarding ON: the one shared status mapping (ticketCardStatus); passed / cancelled / refunded = greyed, no QR, no code.
-  const status = BUYER_ONBOARDING_ENABLED ? ticketStatusAt({ date: t.date }) : 'valid';
+  const status = BUYER_ONBOARDING_ENABLED ? ticketStatusAt({ date: t.date, eventCancelled: t.nightCancelled }) : 'valid';
   const reason = ticketStatusLine(status);
   const code = ticketQrShown(status) ? doorCodeText(t.shortCode, ticketDoorCode) : null;
   // Directly under the QR when one is drawn; otherwise in the QR's place, so it shows on every card.
