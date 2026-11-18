@@ -54,11 +54,75 @@ test('night', async ({ page }) => {
   await page.screenshot({ path: `${OUT}/night.png`, fullPage: true });
   if (await page.getByTestId('r4-night-cancel').isEnabled()) {
     await page.getByTestId('r4-night-cancel').click();
-    await expect(page.getByTestId('p3-cancel-reasons')).toBeVisible();
+    await expect(page.getByTestId('r4-cancel-reasons')).toBeVisible();
     await page.screenshot({ path: `${OUT}/night-cancel.png` });
   } else {
     // a control that cannot work says why
     await expect(page.getByTestId('r4-night-cancel-why')).toBeVisible();
     console.log('cancel off:', await page.getByTestId('r4-night-cancel-why').textContent());
   }
+});
+
+// cont3: the three boards R4EditNight, R4Raffle, R4Cancel. Screens land next to the night shots for the board compare.
+const ONE_OFF = 'a0000000-0000-4000-8000-0000000000aa';
+
+test('edit night', async ({ page }) => {
+  await openOrganiser(page, '/account/p3/events');
+  await page.getByTestId('r4-event-row').first().click();
+  await page.getByTestId('r4-night-edit').click();
+  await expect(page.getByTestId('r4-edit')).toBeVisible({ timeout: 20_000 });
+  await page.waitForTimeout(1500);
+  await expectNoHorizontalScroll(page);
+  for (const id of ['r4-edit-name', 'r4-edit-date', 'r4-edit-starts', 'r4-edit-place']) expect((await page.getByTestId(id).boundingBox())!.height).toBeGreaterThanOrEqual(42);
+  expect((await page.getByTestId('r4-edit-repeat').boundingBox())!.height).toBeGreaterThanOrEqual(52);
+  // untouched: Save is off and sends nothing
+  await expect(page.getByTestId('r4-edit-save')).toBeDisabled();
+  await page.screenshot({ path: `${OUT}/edit-night.png` });
+  // the save bar sits above the tabs, never under them
+  const bar = (await page.getByTestId('r4-edit-savebar').boundingBox())!;
+  expect(bar.y + bar.height).toBeLessThanOrEqual(844 - 64 + 1);
+  await page.getByTestId('r4-edit-name').fill('Friday Bachata Social');
+  await expect(page.getByTestId('r4-edit-save')).toBeEnabled();
+});
+
+test('raffle', async ({ page }) => {
+  // With ORGANISER_RAFFLE_LIVE on, the read is mocked in the board's shape (locked, 23 entered): admin #1576 is not on prod.
+  await openOrganiser(page, '/account/p3/events');
+  await page.route('**/rest/v1/rpc/organiser_raffle_nights_v1', (route) => route.fulfill({ json: {
+    ok: true, series_id: 'x', can_edit: true, view_only_reason: null,
+    nights: [{ occurrence_id: 'o1', date: '2026-10-09', start_local: '2026-10-09T21:00:00', chip: 'locked', raffle_on: true, entries_count: 23, locked: true, winner: null, can_set: false, refuse_reason: null }],
+  } }));
+  await page.getByTestId('r4-event-row').first().click();
+  await expect(page.getByTestId('r4-night')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId('raffle-row').or(page.getByTestId('raffle-soon'))).toBeVisible({ timeout: 20_000 });
+  if (await page.getByTestId('raffle-soon').count()) {
+    await page.goto(page.url() + '/raffle');
+    await expect(page.getByTestId('r4-raffle')).toBeVisible({ timeout: 20_000 });
+    await page.screenshot({ path: `${OUT}/raffle-soon.png` });
+    return;
+  }
+  await page.getByTestId('raffle-row').click();
+  await expect(page.getByTestId('r4-raffle-track')).toBeVisible({ timeout: 20_000 });
+  await expectNoHorizontalScroll(page);
+  await expect(page.getByTestId('r4-raffle-pick')).toBeDisabled();
+  await expect(page.getByTestId('r4-raffle-pick-why')).toHaveText('Available when doors close.');
+  await expect(page.getByTestId('r4-raffle-locked')).toContainText('Locked: 23 people have entered');
+  await page.screenshot({ path: `${OUT}/raffle.png` });
+});
+
+test('cancel a one-off night', async ({ page }) => {
+  await openOrganiser(page, '/account/p3/events', {}, (fake) => {
+    fake.addSeries(fake.organisers[0], { id: ONE_OFF, name: 'Halloween Social', format: 'one_off', category: 'party', default_start_date: '2026-10-31' });
+  });
+  await expect(page.getByTestId('r4-events')).toBeVisible({ timeout: 20_000 });
+  await page.getByTestId('r4-event-row').filter({ hasText: 'Halloween Social' }).click();
+  await expect(page.getByTestId('r4-night-cancel')).toBeEnabled({ timeout: 20_000 });
+  await page.getByTestId('r4-night-cancel').click();
+  await expect(page.getByTestId('r4-cancel-reasons')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId('r4-cancel-go')).toBeDisabled();
+  await expect(page.getByTestId('r4-cancel-help')).toHaveText('Pick a reason first.');
+  for (const b of await page.locator('[data-testid="r4-cancel-reasons"] .r4-chip').all()) expect((await b.boundingBox())!.height).toBeGreaterThanOrEqual(34);
+  await page.screenshot({ path: `${OUT}/cancel.png` });
+  await page.locator('[data-testid="r4-cancel-reasons"] .r4-chip').first().click();
+  await expect(page.getByTestId('r4-cancel-go')).toBeEnabled();
 });
