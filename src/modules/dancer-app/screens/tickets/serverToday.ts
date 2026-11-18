@@ -4,7 +4,7 @@ import { londonTodayKey } from '@/lib/londonDate';
 /**
  * "Today" for the ticket screens, from the SERVER clock, so a phone with a wrong date or
  * timezone cannot push tonight's ticket into Past or hide its QR. The server time is the `Date`
- * header of a same-origin HEAD (cross-origin Supabase does not expose `Date` to the browser).
+ * header of a same-origin HEAD of the static /robots.txt (no redirect or middleware on it, 3 s cap; cross-origin Supabase does not expose `Date` to the browser).
  * Read once per page load and kept; the device clock is only the fallback when the header is
  * missing, unparseable, or the request fails.
  */
@@ -23,7 +23,7 @@ export function serverTodayKey(): Promise<string> {
   if (!cached) {
     cached = (async () => {
       try {
-        const res = await fetch('/', { method: 'HEAD', cache: 'no-store' });
+        const res = await fetch('/robots.txt', { method: 'HEAD', cache: 'no-store', signal: AbortSignal.timeout(3000) });
         return todayKeyFromDateHeader(res.headers.get('date')) ?? londonTodayKey();
       } catch {
         return londonTodayKey();
