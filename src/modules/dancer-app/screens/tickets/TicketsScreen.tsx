@@ -2,10 +2,12 @@ import { Suspense } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { ChevronRight, Lock } from 'lucide-react';
 import { ORGANISER_HOME_PATH } from '@/lib/accountRouting';
+import { BUYER_ONBOARDING_ENABLED } from '@/lib/buyerOnboardingFlag';
 import { flags } from '@/lib/featureFlags';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { useProfileSheet } from '../../shell/profileSheet';
 import { DANCER_HOME } from '../../shell/routes';
+import { AccountLinkPanel } from './AccountLinkPanel';
 import { CARD_COPY } from './model';
 import { useTicketCard } from './useTicketCard';
 
@@ -49,6 +51,8 @@ function TicketsBody() {
           <ChevronRight aria-hidden="true" style={{ width: 16, height: 16 }} />
         </Link>
       )}
+      {/* Duplicate-account linking: build flag first (no RPC at all when off), then the DB flag inside. */}
+      {BUYER_ONBOARDING_ENABLED && <AccountLinkPanel onLinked={retry} />}
       {sheet.incomplete && (
         <div className="dt-bar" data-testid="tickets-finish-bar">
           <span className="dt-bar-text">{FINISH_BAR}</span>
