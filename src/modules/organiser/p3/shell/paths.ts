@@ -30,6 +30,8 @@ export const P3_PATHS = {
   you: `${P3_BASE}/you`,
   /** One event's page (W2a). */
   event: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}`,
+  /** One event's full settings page (the P3 EventPage) while R4 shows its own one-night screen at event(). */
+  eventAll: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/all`,
   /** One event's All dates (W2b). */
   eventDates: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/dates`,
   /** W4a: the screens the You hub pushes (back = You). */

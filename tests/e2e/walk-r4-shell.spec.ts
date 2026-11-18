@@ -36,3 +36,29 @@ for (const [tab, path] of [['home', '/account/p3'], ['events', '/account/p3/even
     await page.screenshot({ path: `${OUT}/${tab}.png` });
   });
 }
+
+test('night', async ({ page }) => {
+  await openOrganiser(page, '/account/p3/events');
+  await expect(page.getByTestId('r4-events')).toBeVisible({ timeout: 20_000 });
+  await page.getByTestId('r4-event-row').first().click();
+  await expect(page.getByTestId('r4-night')).toBeVisible({ timeout: 20_000 });
+  await page.waitForTimeout(1500);
+  await expectNoHorizontalScroll(page);
+  await expect(page.locator('.r4-tab[data-tab="events"]')).toHaveAttribute('aria-current', 'page');
+  expect((await page.getByTestId('r4-night-back').boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  for (const id of ['r4-night-share', 'r4-night-cancel']) {
+    const b = await page.getByTestId(id).boundingBox();
+    expect(b!.height).toBeGreaterThanOrEqual(48);
+  }
+  for (const r of await page.locator('[data-testid="r4-night-rows"] .r4-row').all()) expect((await r.boundingBox())!.height).toBeGreaterThanOrEqual(52);
+  await page.screenshot({ path: `${OUT}/night.png`, fullPage: true });
+  if (await page.getByTestId('r4-night-cancel').isEnabled()) {
+    await page.getByTestId('r4-night-cancel').click();
+    await expect(page.getByTestId('p3-cancel-reasons')).toBeVisible();
+    await page.screenshot({ path: `${OUT}/night-cancel.png` });
+  } else {
+    // a control that cannot work says why
+    await expect(page.getByTestId('r4-night-cancel-why')).toBeVisible();
+    console.log('cancel off:', await page.getByTestId('r4-night-cancel-why').textContent());
+  }
+});

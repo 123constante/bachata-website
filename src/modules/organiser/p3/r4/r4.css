@@ -59,3 +59,7 @@
 .r4-row-line { font-size: 13px; color: #696969; }
 .r4-row-btn { width: 100%; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
 .r4-btn-link { display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; box-sizing: border-box; }
+/* R4Night: the quiet second action (Cancel this night) and the back line. */
+.r4-btn-line { background: #FFFFFF; color: #B42318; border: 1px solid #E9E9E9; }
+.r4-btn-line:disabled { background: #FFFFFF; color: #8A8A8A; }
+.r4-back { display: inline-flex; align-items: center; min-height: 44px; font-size: 13px; font-weight: 500; color: #464646; text-decoration: none; }
