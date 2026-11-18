@@ -182,3 +182,18 @@ describe('happy path', () => {
     expect(vals).toEqual(['1', '9', '3', '']);
   });
 });
+
+describe('email step a11y (390x844 walk nit)', () => {
+  it('a refusal is tied to the field, and the field is not auto-capitalised', async () => {
+    backend({ [ACCOUNT_LINK_RPC.list]: [{ ok: true, links: [] }] });
+    await mount();
+    fireEvent.click(screen.getByTestId('account-link-open'));
+    const input = screen.getByTestId('account-link-email');
+    expect(input.getAttribute('autocapitalize')).toBe('none');
+    expect(input.getAttribute('aria-invalid')).toBeNull();
+    fireEvent.change(input, { target: { value: 'nope' } });
+    await act(async () => { fireEvent.click(screen.getByTestId('account-link-send')); });
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    expect(input.getAttribute('aria-describedby')).toBe(screen.getByTestId('account-link-error').id);
+  });
+});
