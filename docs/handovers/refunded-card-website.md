@@ -28,3 +28,7 @@ before the flag goes on.
 ## Left / next
 - Owner phone check on a preview with the flag ON.
 - Used card shows "Checked in at HH:MM" and "Already used at the door" (both kept; trim if the owner wants one).
+
+## Gates
+- tsc run on cc831c0: 0 errors in branch files (tsc -p tsconfig.app.json; 139 pre-existing errors elsewhere).
+- PR: #1793. pre-ship was not finished as one run (timeout); its post-build steps were run individually and all pass.
