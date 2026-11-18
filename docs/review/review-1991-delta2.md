@@ -8,7 +8,7 @@
   `prove` job log at this head (run 44261884509, job 134656939349, which checked out
   merge commit `fe99e917` = 9de6d77 into main `a5ba5506`), and read-only SELECTs on
   prod `stsdtacfauprzrdebmzg`. I made no writes and did not edit the PR.
-- Reviewer: cloud worker, dispatch ticket dt_78ca1aedbd74, 2026-11-18.
+- Reviewer: cloud worker, dispatch ticket dt_78ca1aedbd74, 2026-11-18. This review: website PR #1777.
 
 ## Verdict
 
