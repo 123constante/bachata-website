@@ -55,10 +55,28 @@ describe('flag gate', () => {
     expect(screen.queryByTestId('account-link-panel')).toBeNull();
     expect(calls(ACCOUNT_LINK_RPC.request)).toHaveLength(0);
   });
-  it('transport throw: nothing renders, no crash', async () => {
-    backend({ [ACCOUNT_LINK_RPC.list]: [new Error('net')] });
+  it.each([['signed out', { ok: false, error: 'not_signed_in' }], ['garbage', null], ['transport throw', new Error('net')]])(
+    '%s: a quiet failure line with Try again, which recovers', async (_n, data) => {
+      backend({ [ACCOUNT_LINK_RPC.list]: [data, { ok: true, links: [] }] });
+      await mount();
+      expect(screen.getByTestId('account-link-failed').textContent).toContain('Couldn\u2019t check your linked accounts.');
+      expect(screen.queryByTestId('account-link-panel')).toBeNull();
+      await act(async () => { fireEvent.click(screen.getByTestId('account-link-retry')); });
+      expect(screen.getByTestId('account-link-open')).toBeTruthy();
+      expect(screen.queryByTestId('account-link-failed')).toBeNull();
+    });
+  it('code step shows the typed email; "Send a new code" resends to it in one tap', async () => {
+    backend({ [ACCOUNT_LINK_RPC.list]: [{ ok: true, links: [] }], [ACCOUNT_LINK_RPC.request]: [{ ok: true }], [ACCOUNT_LINK_RPC.confirm]: [{ ok: false, error: 'expired' }] });
     await mount();
-    expect(screen.queryByTestId('account-link-panel')).toBeNull();
+    await openAndSend(' old@example.com ');
+    expect(screen.getByTestId('account-link-sent-to').textContent).toBe('We sent a code to old@example.com.');
+    await typeCode('123456');
+    expect(screen.getByTestId('account-link-new').textContent).toBe('Send a new code');
+    await act(async () => { fireEvent.click(screen.getByTestId('account-link-new')); });
+    expect(calls(ACCOUNT_LINK_RPC.request)).toHaveLength(2);
+    expect(calls(ACCOUNT_LINK_RPC.request)[1][1]).toEqual({ p_other_email: 'old@example.com' });
+    expect(screen.getByTestId('account-link-sent-to')).toBeTruthy();
+    expect(screen.queryByTestId('account-link-email')).toBeNull();
   });
   it('flag on: the quiet link shows, no list when there are no links', async () => {
     backend({ [ACCOUNT_LINK_RPC.list]: [{ ok: true, links: [] }] });
