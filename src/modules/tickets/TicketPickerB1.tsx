@@ -13,6 +13,7 @@ import {
 import { PRICE_CONFIRM_LABEL, parsePriceChanged, priceChangedText, stepReasonCopy } from './priceSteps';
 import { PRIVACY_PARAGRAPH, PRIVACY_POLICY_LINE, TERMS_CHECKBOX_LABEL, TERMS_OF_SALE } from './legalCopy';
 import { saveOrderId } from './orderStorage';
+import { CodeBoxes } from './CodeBoxes';
 import {
   CANCELLED_NOTE, CODE_LENGTH, ORDER_CAP_NOTE, RESEND_SECONDS, TRUST_LINE_BOLD, TRUST_LINE_REST, basketKey, basketTotals, buildPickerBody,
   cleanBasket, countLabel, dateOnly, heldFrom, isEmail, loadBasket, perLine, roomFor, saveBasket, sendCodeError, verifyCodeError,
@@ -199,19 +200,6 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
     boxes.current[0]?.focus();
   }
 
-  function onDigit(i: number, raw: string) {
-    const d = raw.replace(/\D/g, '');
-    if (d.length > 1) { // paste or autofill
-      const next = d.slice(0, CODE_LENGTH).split('');
-      setDigits(Array.from({ length: CODE_LENGTH }, (_, k) => next[k] ?? ''));
-      if (next.length === CODE_LENGTH) void checkCode(next.join(''));
-      return;
-    }
-    const next = digits.slice(); next[i] = d; setDigits(next); setCodeErr('');
-    if (d && i < CODE_LENGTH - 1) boxes.current[i + 1]?.focus();
-    if (next.every(Boolean)) { (document.activeElement as HTMLElement | null)?.blur(); void checkCode(next.join('')); }
-  }
-
   async function applyPromo() {
     if (!promo.trim()) { setPromoMsg('Enter a code first.'); buzz([40, 60, 40]); return; }
     setPromoChecking(true); setPromoMsg('');
@@ -227,7 +215,6 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
 
   return createPortal(
     <div role="dialog" aria-modal="true" aria-label="Tickets" data-testid="ticket-picker-b1" className="fixed inset-0 z-50 flex flex-col" style={{ background: '#fff', color: INK }}>
-      <style>{'@keyframes pickerBuzz{0%,100%{transform:translateX(0)}20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}@media (prefers-reduced-motion:reduce){[data-testid=code-boxes]{animation:none!important}}'}</style>
       <div className="mx-auto flex min-h-0 w-full max-w-[430px] flex-1 flex-col">
         <nav className="flex shrink-0 items-center px-[18px] pt-[14px]">
           <button type="button" onClick={() => window.history.back()} data-testid="tickets-back" className="h-[44px] pr-3 text-[15px]" style={{ color: SUB }}>&lsaquo; Back</button>
@@ -333,15 +320,7 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
               <div>
                 <h2 id="picker-card-title" className="mb-1 text-[17px] font-semibold" style={{ color: INK }}>Enter the 6-digit code</h2>
                 <p className="mb-[14px] break-words text-[14px]" style={{ color: SUB }}>We sent it to {email.trim()}.</p>
-                <div data-testid="code-boxes" className={`flex justify-between gap-2 `} style={shake ? { animation: 'pickerBuzz .28s' } : undefined}>
-                  {digits.map((d, i) => (
-                    <input key={i} ref={(el) => { boxes.current[i] = el; }} value={d} inputMode="numeric" aria-label={`Digit ${i + 1}`} disabled={busy}
-                      autoComplete={i === 0 ? 'one-time-code' : 'off'} autoFocus={i === 0}
-                      onChange={(e) => onDigit(i, e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Backspace' && !digits[i] && i > 0) boxes.current[i - 1]?.focus(); }}
-                      className="h-[54px] min-w-0 flex-1 rounded-[10px] p-0 text-center text-[22px] font-semibold" style={{ border: `1px solid ${codeErr ? BAD : LINE}`, color: INK, background: '#fff' }} />
-                  ))}
-                </div>
+                <CodeBoxes digits={digits} onDigits={(n) => { setDigits(n); setCodeErr(''); }} onComplete={(c) => void checkCode(c)} busy={busy} bad={Boolean(codeErr)} shake={shake} boxes={boxes} />
                 <div role="alert" data-testid="code-error" className="mt-[6px] min-h-[34px] text-[13px]" style={{ color: BAD }}>{codeErr}</div>
                 <div className="flex items-center justify-between text-[13px]" style={{ color: SUB }}>
                   {secs > 0 ? <span>Send a new code in {secs}s</span> : <button type="button" onClick={() => void sendCode()} className="h-[44px] underline" style={{ color: BRAND }}>Send a new code</button>}
