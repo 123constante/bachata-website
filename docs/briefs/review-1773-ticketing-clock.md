@@ -1,0 +1,5 @@
+# Review PR 1773 (Website): ticketing server clock, foreign ?o= fallback, stale not-you error
+
+Independent read-only review of branch claude/ticketing-clock (head 19efb53) against main. Do not edit product code; do not merge or approve.
+Check: (1) serverToday.ts: HEAD / on same origin, Date header parsed to the London day key, fallback to device clock, cached once per load, no flash that hides tonight's ticket while loading (device key first, then server). Is HEAD on / safe on Vercel (cost, 405, caching, service worker)? (2) useTicketCard: a foreign or unreadable ?o= falls back to the person's own upcoming tickets; no qr_token logged or put in a URL; flag-off behaviour unchanged. (3) TicketPickerB1 notYouErr: cleared on email change, only shown with a known email. (4) tests really fail on the old code (read them, run the new test files with npx vitest run on those files only).
+Write the verdict to docs/review/pr-1773-r1.md on your claude/review-1773 branch: PASS, PASS WITH NITS, or FAIL, then findings with file:line. Push, end the commit subject with the worker-done marker.
