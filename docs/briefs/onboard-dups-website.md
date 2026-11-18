@@ -1,0 +1,14 @@
+# Brief: buyer duplicate-account linking, Website half (flag OFF, careful lane)
+
+Owner rule (DECISIONS-ticket-buyer-onboarding-2026-11-17): a buyer with two accounts is OFFERED a link to the other account by a 6-digit code sent to the OTHER email. Never merge without that proof. DB half is MERGED and APPLIED to prod (admin #1970, migration 20270323070000). Flag `app_feature_flags.buyer_account_link` is false; keep it false. Read the DB handover: `docs/briefs/onboard-dups-admin-handover.md` in 123constante/bachata-admin (main) for exact RPC shapes.
+
+## Build (smallest working version, two parts)
+1. **Mail sender** (the DB only queues codes). Find the existing Website/edge mail-sending pattern (Resend or whatever sends ticket/receipt mail; `graphify query "send email edge function"`). Add ONE small sender that calls `account_link_mail_claim_v1(p_limit)` (service_role), emails each row's 6-digit `code` to `email` (plain, warm, British English; say it expires in 15 minutes and "if this was not you, ignore it"), then calls `account_link_mail_mark_v1(id, ok)`. Run it on the existing cron/poll mechanism the repo uses for similar outboxes; do not build a new scheduler. Claim returns no rows while the flag is OFF, so it is inert. Never log the code.
+2. **Link UI on My tickets** (reuse the existing 6-box code entry component from checkout; no new design, no new screens): a quiet text link "Have tickets under another email?" opens a sheet: step 1 email field then "Send code" (call `request_account_link_v1`; always show the same "If that email has an account, we've sent a code" message); step 2 code boxes, auto-check on 6th digit (`confirm_account_link_v1`); wrong code = red text + retry (reuse the checkout behaviour); error `too_many_attempts`/`rate_limited`/`expired` = plain sentence with a way forward. Success: "Linked. Tickets from {email} now show here." and refetch My tickets. A "Linked accounts" list below (`my_account_links_v1`) with an "Unlink" text button per row (`unlink_account_v1`, confirm line). Entire UI hidden unless the flag reads ON (same flag-read pattern slice B uses for its flags; `error:'disabled'` from any RPC = hide quietly).
+3. Layout must hold at 390x844: no wrapped buttons, 44px touch targets, no double borders.
+
+## Proof
+Unit tests with mocked RPC (each error code maps to its sentence; flag off = nothing renders; sender marks ok/failed correctly and never throws on one bad row). A 390x844 screenshot in the PR is enough. "Not verified" in the PR body must list: no real mail sent (flag off).
+
+## Do not
+No flag ON, no prod writes, no migration (admin owns schema; if an RPC shape is wrong, stop and write it in the handover). No name-based matching. Do not touch organiser code. PR title `feat(onboarding): duplicate-account linking Website half (flag OFF)`. Branch `claude/onboard-dups-website`. Permissions-adjacent: independent review follows.
