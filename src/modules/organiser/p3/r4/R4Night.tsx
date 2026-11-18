@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { KEPT_BACK_STATE, cameBackForKept, dropKept, keptDraft } from '../onboarding/keptDraft';
 import { useQuery } from '@tanstack/react-query';
 import { flags } from '@/lib/featureFlags';
 import { londonTodayKey } from '@/lib/londonDate';
@@ -41,6 +42,15 @@ function Night({ ws, place }: { ws: EventWorkspace; place: string | null }) {
   const navigate = useNavigate();
   const today = c.today || londonTodayKey();
   const id = ws.series.id;
+  // A kept Details / Prices edit the gate refused: the checklist's "Back to your event" lands here under R4, so pass
+  // it on to the screen that restores it, exactly as EventPage does (Details shows every field the draft carries).
+  const { state: navState } = useLocation();
+  const [kept] = useState(() => (cameBackForKept(navState) ? keptDraft(id) : null));
+  useEffect(() => {
+    if (!kept) return;
+    if (kept.screen === 'repeat') dropKept(id);
+    else navigate(kept.screen === 'details' ? P3_PATHS.eventDetails(id) : P3_PATHS.eventPrices(id), { replace: true, state: KEPT_BACK_STATE });
+  }, [kept, id, navigate]);
   const row = useMemo(() => c.rows.find((r) => r.id === id) ?? null, [c.rows, id]);
   const shape = repeatShapeOf(ws);
   const v = eventPageOf(ws, today);

@@ -29,7 +29,7 @@ describe('R4 Edit night: every prod shape gets an honest form', () => {
     ['ended, nothing coming', { lifecycle: 'ended', format: 'recurring', dates: [] }, 'Every Friday.', [], null, null, false, null, null, 'Repeats every Friday', true],
     ['course, team pattern', { lifecycle: 'live', format: 'course', dates: ['2026-11-24'] }, 'A pattern set by the Bachata Calendar team.', [], null, 'Tue 24 Nov 2026', true, null, null, 'A pattern set by the Bachata Calendar team', true],
   ] as const)('%s', (_c, shape, rw, prices, lock, date, starts, price, locked, words, on) => {
-    const m = r4EditOf({ row: rowFor(shape as Shape), repeatWords: rw, prices, pricesLock: lock });
+    const m = r4EditOf({ row: rowFor(shape as Shape), repeatWords: rw, wsNext: '2026-11-20', prices, pricesLock: lock });
     expect(m.date).toBe(date);
     expect(m.starts !== null).toBe(starts);
     expect(m.price?.value ?? null).toBe(price);
@@ -37,10 +37,18 @@ describe('R4 Edit night: every prod shape gets an honest form', () => {
     expect(m.repeat).toEqual({ words, on });
   });
 
-  it('no home_v1 row (still loading): no date, no time, never a made-up one', () => {
-    const m = r4EditOf({ row: null, repeatWords: null, prices: [], pricesLock: null });
-    expect([m.date, m.starts, m.price]).toEqual([null, null, null]);
+  it('no home_v1 row (loading or failed): the date comes from the workspace, the time is unknown, never "No time yet"', () => {
+    const m = r4EditOf({ row: null, repeatWords: null, wsNext: '2026-11-20', prices: [], pricesLock: null });
+    expect([m.date, m.starts, m.startsKnown, m.price]).toEqual(['Fri 20 Nov 2026', null, false, null]);
+    const none = r4EditOf({ row: null, repeatWords: null, wsNext: null, prices: [], pricesLock: null });
+    expect(none.date).toBeNull();
     expect(EDIT_COPY.noDate).toBe('No date yet');
+  });
+
+  it('a home row wins over the workspace date (the row is the night in focus)', () => {
+    const m = r4EditOf({ row: rowFor({ lifecycle: 'live', format: 'recurring', dates: [] }), repeatWords: null, wsNext: '2026-11-20', prices: [], pricesLock: null });
+    expect(m.date).toBeNull();
+    expect(m.startsKnown).toBe(true);
   });
 });
 

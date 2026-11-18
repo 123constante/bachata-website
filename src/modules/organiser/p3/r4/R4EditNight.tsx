@@ -10,7 +10,7 @@ import { repeatWords } from '../model/repeat';
 import { DETAILS_SPECS, detailsBlocker, detailsDraftOf, detailsLandedKeys, detailsPlan, detailsProblems } from '../data/details';
 import { scopedChangesOf, changedWord } from '../model/scopeAsk';
 import { keepDraft, dropKept } from '../onboarding/keptDraft';
-import { useBackToEvent, useEditForm, useEditLock, useKeptEdit, useSaveRun, GuardedBack } from '../screens/EditTray';
+import { useBackToEvent, useEditForm, useEditLock, useKeptEdit, useLeave, useSaveRun, GuardedBack, type Ask } from '../screens/EditTray';
 import { useVenueCity } from '../screens/DetailsScreen';
 import { WorkspaceGate } from '../screens/EventPage';
 import { ScopeSheet, useScopedRun, type ScopedDone } from '../screens/ScopeSheet';
@@ -38,6 +38,7 @@ function Edit({ ws }: { ws: EventWorkspace }) {
   const m = r4EditOf({
     row,
     repeatWords: shape.from === 'once' ? null : repeatWords(shape, today),
+    wsNext: ws.dates.filter((d) => d.lifecycle_status !== 'cancelled' && d.occurrence_date >= today).map((d) => d.occurrence_date).sort()[0] ?? null,
     prices: priceRows(ws).map(priceLabel),
     pricesLock: pricesLock(ws),
   });
@@ -52,6 +53,9 @@ function Edit({ ws }: { ws: EventWorkspace }) {
   const venues = useVenueOptions();
   const [picking, setPicking] = useState(false);
   const [asking, setAsking] = useState(false);
+  // the leave guard (back, tabs, browser back): asks before typing is dropped, as the Details tray does
+  const [ask, setAsk] = useState<Ask>(null);
+  useLeave(form.dirty, setAsk);
   const { draft, set } = form;
   const city = useVenueCity(form.changed.includes('venueId') ? draft.venueId : null, venues.data);
   const problems = detailsProblems(form.base, draft);
@@ -102,7 +106,7 @@ function Edit({ ws }: { ws: EventWorkspace }) {
           </div>
           <div className="r4-field">
             <span className="r4-field-l" id="r4-en-starts-l">Starts</span>
-            <Link to={P3_PATHS.eventDates(id)} className="r4-in r4-in-link" aria-labelledby="r4-en-starts-l" aria-describedby="r4-en-dates-why" data-testid="r4-edit-starts">{m.starts ?? EDIT_COPY.noTime}</Link>
+            <Link to={P3_PATHS.eventDates(id)} className="r4-in r4-in-link" aria-labelledby="r4-en-starts-l" aria-describedby="r4-en-dates-why" data-testid="r4-edit-starts">{m.starts ?? (m.startsKnown ? EDIT_COPY.noTime : EDIT_COPY.timeUnknown)}</Link>
           </div>
         </div>
         <p id="r4-en-dates-why" className="r4-hint">{EDIT_COPY.datesWhy}</p>
@@ -143,6 +147,9 @@ function Edit({ ws }: { ws: EventWorkspace }) {
       </div>
 
       <div className="r4-savebar" data-testid="r4-edit-savebar">
+        {form.elsewhere && (
+          <p className="r4-hint" role="status" data-testid="r4-edit-elsewhere">{L.changedElsewhere} <button type="button" className="r4-linkbtn" onClick={() => { form.restart(); save.forget(); scopedRun.forget(); }} data-testid="r4-edit-restart">{L.startAgain}</button></p>
+        )}
         {save.error && <p className="r4-err" role="alert" data-testid="r4-edit-error">{save.error}</p>}
         {saveWhy && <p className="r4-hint" data-testid="r4-edit-why">{saveWhy}</p>}
         <button type="button" className="r4-btn r4-btn-42" disabled={!form.dirty || !!blocker || !!lock || save.busy || !plan.length}
@@ -156,6 +163,15 @@ function Edit({ ws }: { ws: EventWorkspace }) {
           seriesVersion={form.version} dateVersion={(d) => ws.dates.find((x) => x.id === d)?.version ?? null} run={scopedRun.send}
           onPlain={() => { setAsking(false); void runPlain(); }} onDone={scopedDone}
           onGated={() => { setAsking(false); keepDraft(id, { screen: 'details', draft, base: form.base }); }} onClose={() => setAsking(false)} />
+      )}
+      {ask?.kind === 'leave' && (
+        <Sheet title={L.leaveTitle} onClose={() => setAsk(null)}>
+          <p className="r4-sub">{L.leaveBody}</p>
+          <div className="r4-section r4-pick">
+            <button type="button" className="r4-btn r4-btn-42" onClick={() => setAsk(null)} data-testid="r4-edit-keep">{L.keepEditing}</button>
+            <button type="button" className="r4-btn r4-btn-42 r4-btn-quiet" onClick={() => { const go = ask.go; form.undo(); setAsk(null); go(); }} data-testid="r4-edit-leave">{L.leaveGo}</button>
+          </div>
+        </Sheet>
       )}
       {picking && (
         <Sheet title={L.detailsPlaceSheet} onClose={() => setPicking(false)}>

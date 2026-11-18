@@ -83,6 +83,11 @@ test('edit night', async ({ page }) => {
   expect(bar.y + bar.height).toBeLessThanOrEqual(844 - 64 + 1);
   await page.getByTestId('r4-edit-name').fill('Friday Bachata Social');
   await expect(page.getByTestId('r4-edit-save')).toBeEnabled();
+  // typing is never dropped silently: the Events tab asks first
+  await page.locator('.r4-tab[data-tab="events"]').click();
+  await expect(page.getByTestId('r4-edit-keep')).toBeVisible();
+  await page.getByTestId('r4-edit-keep').click();
+  await expect(page.getByTestId('r4-edit-name')).toHaveValue('Friday Bachata Social');
 });
 
 test('raffle', async ({ page }) => {
