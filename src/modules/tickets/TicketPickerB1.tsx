@@ -144,8 +144,10 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
     if (pricedKey.current === key) {
       // + then - inside the debounce: back on the priced basket, so restore its answer (step() set Checking).
       const last = lastApplied.current;
-      if (promo.status === 'checking' && last && last.key === key) setPromo(last);
-      return;
+      if (promo.status === 'checking' && last && last.key === key) { setPromo(last); return; }
+      // Left and came back while this basket's own reply was dropped (seq bumped): nothing is pending, so re-price.
+      if (promo.status !== 'checking') return;
+      pricedKey.current = null;
     }
     // One preview per pause, so fast stepper taps cannot trip the limiter (step() already shows Checking).
     promoSeq.current += 1;
