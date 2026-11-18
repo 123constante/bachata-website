@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
-import { Navigate } from 'react-router-dom';
-import { Lock } from 'lucide-react';
+import { Link, Navigate } from 'react-router-dom';
+import { ChevronRight, Lock } from 'lucide-react';
+import { ORGANISER_HOME_PATH } from '@/lib/accountRouting';
 import { flags } from '@/lib/featureFlags';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { useProfileSheet } from '../../shell/profileSheet';
@@ -12,6 +13,15 @@ import { useTicketCard } from './useTicketCard';
 const TicketCard = lazyWithRetry(() => import('./TicketCard'));
 
 export const FINISH_BAR = 'Finish your profile to unlock the rest';
+export const ORGANISER_CARD = 'Set up your organiser page';
+
+/**
+ * Buyer onboarding B: the person picked Organiser in "What are you?" and has no organiser
+ * page yet (other_roles has no 'organising'). The card is a link to the EXISTING organiser
+ * flow, nothing else. `person` is null with the flag OFF, so it never shows then.
+ */
+export const showOrganiserCard = (person: { buyer_roles: readonly string[]; other_roles: readonly string[] } | null): boolean =>
+  Boolean(person && person.buyer_roles.includes('organiser') && !person.other_roles.includes('organising'));
 
 /**
  * /app/tickets (Option A, flags.publicTicketing). Top: the QR card. Under it: one slim
@@ -33,6 +43,12 @@ function TicketsBody() {
       <Suspense fallback={<section className="dt-card dt-card-state" data-testid="tickets-card" data-state="loading"><p className="dt-state-line">{CARD_COPY.loading}</p></section>}>
         <TicketCard view={view} retry={retry} copy={CARD_COPY} />
       </Suspense>
+      {showOrganiserCard(sheet.person) && (
+        <Link to={ORGANISER_HOME_PATH} className="dt-org-card" data-testid="tickets-organiser-card">
+          <span>{ORGANISER_CARD}</span>
+          <ChevronRight aria-hidden="true" style={{ width: 16, height: 16 }} />
+        </Link>
+      )}
       {sheet.incomplete && (
         <div className="dt-bar" data-testid="tickets-finish-bar">
           <span className="dt-bar-text">{FINISH_BAR}</span>

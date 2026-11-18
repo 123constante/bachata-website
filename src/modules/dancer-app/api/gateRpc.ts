@@ -14,6 +14,8 @@ export type DancerBackend = {
   /** ensure_my_dancer_profile_v1: create the signed-in person's auto_stub profile if missing (idempotent). */
   ensureMyDancerProfile(): Promise<{ created: boolean }>;
   saveMyDancerProfile(delta: DancerDelta): Promise<MyDancerEdit>;
+  /** set_my_buyer_roles_v1: save the "What are you?" answer; returns the stored roles. */
+  setMyBuyerRoles(roles: string[]): Promise<string[]>;
   fetchPublicExtras(profileId: string): Promise<PublicDancerExtras>;
   fetchMyStats(): Promise<MyDancerStats>;
   fetchMyViews(): Promise<MyProfileViews>;
