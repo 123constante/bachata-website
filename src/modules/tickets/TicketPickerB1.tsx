@@ -312,6 +312,8 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
   // Signed out elsewhere while the confirm card is up: there is no address to show, so ask for one.
   const card = stage === 'confirm' && !knownEmail ? 'email' : stage;
   const stubUp = stubbed && (promo.status === 'applied' || promo.status === 'checking');
+  // The 92px stub column fits a 5-character amount (25.80) at 18px; a longer one steps down so it never overflows.
+  const saveSize = promo.status === 'applied' && formatPence(promo.discountPence).length > 6 ? 'text-[15px]' : 'text-[18px]';
 
   // The email card's shared tail: terms tick box (gates the pay button), the terms text, trust, Back.
   const termsBlock = (
@@ -393,13 +395,13 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
                 <div data-testid="picker-promo-stub" className="pb1-unfold relative mt-[2px] flex items-stretch rounded-[12px]" style={{ background: '#e8f3ee', color: BRAND }}>
                   <span aria-hidden="true" className="absolute -top-[7px] h-[14px] w-[14px] rounded-full bg-white" style={{ left: 'calc(100% - 99px)' }} />
                   <span aria-hidden="true" className="absolute -bottom-[7px] h-[14px] w-[14px] rounded-full bg-white" style={{ left: 'calc(100% - 99px)' }} />
-                  <div className="min-w-0 flex-1 px-[14px] py-3">
+                  <div className="flex min-w-0 flex-1 items-center px-[14px] py-3">
                     <b className="block break-all text-[15px] font-bold tracking-[.08em]">{promo.code}</b>
                   </div>
                   <div className="flex w-[92px] flex-none flex-col items-center justify-center gap-[2px] p-2" style={{ borderLeft: '2px dashed #b7d6c9' }}>
                     {promo.status === 'checking'
                       ? <span role="status" className="text-[12px]" style={{ color: SUB }}>Checking&hellip;</span>
-                      : <b data-testid="picker-promo-saving" className="text-[18px] font-bold tabular-nums">&minus;{formatPence(promo.discountPence)}</b>}
+                      : <b data-testid="picker-promo-saving" className={`${saveSize} whitespace-nowrap font-bold tabular-nums`}>&minus;{formatPence(promo.discountPence)}</b>}
                     <button type="button" data-testid="picker-promo-remove" aria-label={`Remove code ${promo.code}`} onClick={removePromo} className="min-h-[32px] px-[6px] text-[12px] underline" style={{ color: SUB }}>Remove</button>
                   </div>
                 </div>
