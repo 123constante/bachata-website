@@ -1,0 +1,144 @@
+/* Organiser Round 4 (flag organiserR4): white + orange, owner-approved style guide.
+ * White cards, 1px grey hairlines, no shadows, 8px radius, orange #C2410C only for the
+ * main action and the active state, red only for danger. The p3 tokens are re-pointed so
+ * every reused screen inside the frame takes the same look. Light only. */
+.p3-theme.p3-frame.r4-look {
+  --bg: #FDFDFD; --card: #FFFFFF; --card2: #F6F6F6; --sheet: #FFFFFF; --tab: #FFFFFF;
+  --line: #E9E9E9; --line-strong: #A3A3A3; --fg: #030303; --mut: #464646;
+  --gold: #C2410C; --gold-fg: #C2410C; --btn: #C2410C; --btnfg: #FFFAF7;
+  --danger: #B3261E; --danger-fg: #FFFFFF; --cancel-bg: #FBE4E1; --cancel-fg: #B3261E;
+  --ok-bg: rgba(22, 182, 116, 0.10); --ok-fg: #097C4F; --warn-bg: #FFF1E8; --warn-fg: #9A3412;
+  --shadow: none; --r-card: 8px; --r-ctl: 8px; --r-sheet: 16px;
+  --font-ui: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light;
+  background: var(--bg); color: var(--fg); font-family: var(--font-ui); font-size: 16px; line-height: 1.5;
+  font-variant-numeric: tabular-nums; min-height: 100dvh; padding-bottom: 64px;
+}
+.r4-look :focus-visible { outline: 2px solid #C2410C; outline-offset: 2px; }
+.r4-exit { height: 44px; padding: 0 8px; display: flex; align-items: center; background: #FFFFFF; }
+.r4-exit-link { height: 44px; padding: 0 8px; display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; color: #464646; text-decoration: none; }
+.r4-header { height: 48px; padding: 0 8px 0 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px solid #E9E9E9; background: #FFFFFF; }
+.r4-page { display: flex; align-items: center; gap: 8px; min-height: 44px; min-width: 0; font-size: 15px; font-weight: 500; color: #030303; text-decoration: none; }
+.r4-page-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.r4-todo { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 8px; font-size: 13px; font-weight: 500; color: #464646; text-decoration: none; flex: none; }
+.r4-badge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: #C2410C; color: #FFFAF7; font-size: 11px; font-weight: 500; display: inline-flex; align-items: center; justify-content: center; }
+.r4-mut { color: #696969; display: inline-flex; }
+.r4-main { padding: 24px 16px 24px; }
+.r4-stack { display: flex; flex-direction: column; gap: 24px; }
+.r4-title-block { display: flex; flex-direction: column; gap: 4px; }
+.r4-title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.r4-h1 { margin: 0; font-size: 22px; line-height: 1.2; font-weight: 600; letter-spacing: -0.025em; min-width: 0; overflow-wrap: anywhere; }
+.r4-sub { margin: 0; font-size: 13px; color: #464646; }
+.r4-note { margin: 8px 0 0; font-size: 13px; color: #464646; }
+.r4-pill { flex: none; padding: 3px 7px; border-radius: 999px; font-size: 11px; font-weight: 500; line-height: 1; letter-spacing: 0.07em; text-transform: uppercase; border: 1px solid; }
+.r4-pill-ok { border-color: #16B674; background: rgba(22, 182, 116, 0.10); color: #097C4F; }
+.r4-pill-live { border-color: #C2410C; background: #FFF1E8; color: #9A3412; }
+.r4-pill-grey { border-color: #D4D4D4; background: #F6F6F6; color: #464646; }
+.r4-card { background: #FFFFFF; border: 1px solid #E9E9E9; border-radius: 8px; }
+.r4-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.r4-tile { padding: 16px; display: flex; flex-direction: column; gap: 4px; }
+.r4-label { font-size: 12px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; color: #696969; }
+.r4-num { font-size: 24px; line-height: 1.2; font-weight: 600; }
+.r4-of { font-size: 13px; font-weight: 400; color: #464646; }
+.r4-btn { height: 48px; width: 100%; padding: 0 16px; border: 0; border-radius: 8px; background: #C2410C; color: #FFFAF7; font: inherit; font-size: 16px; font-weight: 500; cursor: pointer; }
+.r4-btn:disabled { background: #F0F0F0; color: #8A8A8A; cursor: not-allowed; }
+.r4-list { display: flex; flex-direction: column; }
+.r4-row { min-height: 52px; padding: 0 16px; display: flex; align-items: center; gap: 8px; color: #030303; text-decoration: none; }
+.r4-row + .r4-row { border-top: 1px solid #E9E9E9; }
+.r4-row-t { flex: 1; font-weight: 500; }
+.r4-row-end { font-size: 13px; color: #464646; }
+.r4-skel { height: 64px; border-radius: 8px; background: #F2F2F2; }
+.r4-tabs { position: fixed; left: 0; right: 0; bottom: 0; height: 64px; border-top: 1px solid #E9E9E9; background: #FFFFFF; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); z-index: 30; }
+.r4-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 400; color: #464646; text-decoration: none; min-height: 48px; }
+.r4-tab[aria-current="page"] { color: #C2410C; font-weight: 500; }
+.r4-h2 { margin: 0; }
+.r4-section { display: flex; flex-direction: column; gap: 8px; }
+.r4-row-tall { padding: 12px 16px; }
+.r4-row-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.r4-row-body .r4-row-t { flex: none; overflow-wrap: anywhere; }
+.r4-row-line { font-size: 13px; color: #696969; }
+.r4-row-btn { width: 100%; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
+.r4-btn-link { display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; box-sizing: border-box; }
+/* R4Night: the quiet second action (Cancel this night) and the back line. */
+.r4-btn-line { background: #FFFFFF; color: #B42318; border: 1px solid #E9E9E9; }
+.r4-btn-line:disabled { background: #FFFFFF; color: #8A8A8A; }
+.r4-back { display: inline-flex; align-items: center; min-height: 44px; font-size: 13px; font-weight: 500; color: #464646; text-decoration: none; }
+/* cont3: Edit night form, Raffle track, Cancel sheet (boards R4EditNight, R4Raffle, R4Cancel). */
+.r4-form { padding-bottom: 96px; }
+.r4-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.r4-field-l { font-size: 13px; color: #464646; }
+.r4-in { height: 42px; width: 100%; box-sizing: border-box; padding: 0 12px; border: 1px solid #D9D9D9; border-radius: 8px; background: #FAFAFA; color: #030303; font: inherit; font-size: 16px; }
+.r4-in:disabled { border-color: #E9E9E9; color: #696969; opacity: 1; padding-right: 40px; }
+.r4-in-link { display: flex; align-items: center; text-decoration: none; text-align: left; cursor: pointer; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.r4-in-wrap { position: relative; }
+.r4-in-icon { position: absolute; right: 12px; top: 12px; }
+.r4-grid-32 { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 12px; }
+.r4-hint { margin: 0; font-size: 13px; color: #696969; }
+.r4-center { text-align: center; }
+.r4-err { margin: 0; font-size: 13px; color: #B42318; }
+.r4-linkbtn { border: 0; background: none; padding: 0; color: #C2410C; font: inherit; text-decoration: underline; cursor: pointer; min-height: 44px; }
+.r4-savebar { position: fixed; left: 0; right: 0; bottom: 64px; z-index: 29; padding: 12px 16px; border-top: 1px solid #E9E9E9; background: #FFFFFF; display: flex; flex-direction: column; gap: 8px; }
+.r4-btn-42 { height: 42px; border-radius: 10px; font-size: 15px; }
+.r4-btn-quiet { background: #FFFFFF; color: #030303; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.10); }
+.r4-btn-quiet:disabled { background: #FFFFFF; color: #8A8A8A; }
+.r4-btn-danger { background: #AB413E; color: #FFF9F8; }
+.r4-btn-danger:disabled { background: #AB413E; color: #FFF9F8; opacity: 0.5; }
+.r4-btn.r4-btn-42:disabled:not(.r4-btn-quiet):not(.r4-btn-danger) { background: #C2410C; color: #FFFAF7; opacity: 0.5; }
+.r4-track { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.r4-step { display: flex; flex-direction: column; gap: 8px; }
+.r4-step-bar { height: 4px; border-radius: 2px; background: #E9E9E9; }
+.r4-step-w { display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 400; color: #696969; }
+.r4-step-done .r4-step-bar { background: #030303; }
+.r4-step-done .r4-step-w { color: #030303; font-weight: 500; }
+.r4-step-now .r4-step-bar { background: #C2410C; }
+.r4-step-now .r4-step-w { color: #C2410C; font-weight: 500; }
+.r4-callout { padding: 16px; display: flex; gap: 8px; align-items: flex-start; }
+.r4-num-name { font-size: 18px; overflow-wrap: anywhere; }
+.r4-pick { display: flex; flex-direction: column; gap: 8px; margin-top: 24px; }
+.r4-sheet { gap: 24px; }
+.r4-chips { display: flex; flex-wrap: wrap; gap: 10px 8px; padding: 5px 0; }
+.r4-chip { min-height: 34px; padding: 0 12px; border: 1px solid #D9D9D9; border-radius: 9px; background: transparent; color: #030303; font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; }
+.r4-chip[aria-pressed="true"] { border-color: #C2410C; background: #FFF1E8; color: #9A3412; }
+/* cont4: Tickets one night in focus, empty / error, Refund sheet (boards R4Tickets, R4EmptyTickets, R4Refund). */
+.r4-stack-32 { gap: 32px; }
+.r4-gap-12 { gap: 12px; }
+.r4-big { font-size: 48px; line-height: 1.1; font-weight: 600; letter-spacing: -0.03em; }
+.r4-big-of { font-size: 18px; font-weight: 500; letter-spacing: 0; color: #464646; }
+.r4-bar { height: 6px; border-radius: 3px; background: #E9E9E9; overflow: hidden; }
+.r4-bar > div { height: 6px; border-radius: 3px; background: #030303; }
+.r4-row-sub { min-height: 44px; padding: 0 16px 12px; display: flex; align-items: center; gap: 12px; }
+.r4-grow { flex: 1; min-width: 0; }
+.r4-pad { padding: 0 16px 12px; }
+.r4-line-top { border-top: 1px solid #E9E9E9; }
+.r4-btn-34 { height: 34px; border-radius: 9px; font-size: 13px; }
+.r4-btn-fit { width: auto; flex: none; padding: 0 12px; min-height: 34px; }
+.r4-lead { margin: 0; font-size: 15px; color: #464646; }
+.r4-h3 { margin: 0; font-size: 18px; line-height: 1.25; font-weight: 500; color: #030303; }
+.r4-tile .r4-btn-34 { margin-top: 12px; }
+.r4-nightpick { position: relative; min-height: 56px; box-sizing: border-box; padding: 8px 12px; border: 1px solid #D9D9D9; border-radius: 8px; background: #FAFAFA; display: flex; align-items: center; gap: 8px; }
+.r4-nightpick select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; font-size: 16px; cursor: pointer; }
+.r4-nightpick:focus-within { outline: 2px solid #C2410C; outline-offset: 2px; }
+.r4-plain-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.r4-plain-list strong { font-weight: 600; }
+.r4-order { padding: 16px; display: flex; align-items: center; gap: 12px; }
+.r4-order-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.r4-order-amt { font-size: 24px; line-height: 1.2; font-weight: 600; }
+.r4-refund-body { margin: 0; font-size: 15px; color: #030303; }
+/* cont5: Team T1 grouped by role, Add a teammate sheet (boards R4Team, R4AddTeammate). */
+.r4-in-lead { position: absolute; left: 12px; top: 12px; pointer-events: none; }
+.r4-in-search { padding-left: 38px; }
+.r4-pickrow[aria-checked="true"] { background: #FFF8F3; }
+.r4-ellipsis { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.r4-link-quiet { font-size: 13px; font-weight: 500; text-decoration: none; }
+.r4-accent { color: #C2410C; }
+.r4-rank { flex: none; width: 16px; font-size: 13px; font-weight: 500; color: #696969; }
+.r4-ol { margin: 0; padding: 0; list-style: none; }
+.r4-ol > li + li { border-top: 1px solid #E9E9E9; }
+.r4-look h2.r4-h1 { color: #030303; }
+/* cont8: Home with no events (board R4EmptyHome) and "N things waiting for you" (board R4HomeBefore). */
+.r4-steps { margin: 0; padding: 0; list-style: none; }
+.r4-steps .r4-row { gap: 12px; padding: 16px; }
+.r4-step-n { flex: none; width: 24px; height: 24px; box-sizing: border-box; border: 1px solid #D9D9D9; border-radius: 12px; background: #FFFFFF; color: #464646; font-size: 12px; font-weight: 500; line-height: 1; display: flex; align-items: center; justify-content: center; }
+.r4-mt-24 { margin-top: 24px; }
+.r4-list > .r4-order + .r4-order { border-top: 1px solid #E9E9E9; }
+.r4-order .r4-row-t { overflow-wrap: anywhere; }

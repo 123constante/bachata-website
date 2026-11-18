@@ -80,7 +80,11 @@ const SalesReport = lazyWithRetry(() => import('./SalesReport').then((m) => ({ d
  * The add / edit sheet and the Refund sheet open OVER it. The add / edit draft is held
  * here, above every sheet, so a re-render or a refetch never resets it.
  */
-export function TicketsEntry({ seriesId }: { seriesId: string }) {
+/**
+ * `startOn: 'orders'` (R4 Tickets' Who bought) opens straight on the orders list; `onOrdersClose` then runs when it
+ * closes, so the caller can close its own sheet too. Without them: exactly as before.
+ */
+export function TicketsEntry({ seriesId, startOn, onOrdersClose }: { seriesId: string; startOn?: 'orders'; onOrdersClose?: () => void }) {
   const home = useP3Home();
   const found = organiserOfSeries(home.data, seriesId);
   if (home.isPending) {
@@ -92,7 +96,7 @@ export function TicketsEntry({ seriesId }: { seriesId: string }) {
   }
   // Not one of the person's pages (home_v1 lists owner / manager pages): no ticket entry to offer.
   if (!found) return null;
-  return <Entry org={found.org} series={found.series} />;
+  return <Entry org={found.org} series={found.series} startOn={startOn} onOrdersClose={onOrdersClose} />;
 }
 
 type View = 'list' | 'orders';
@@ -100,12 +104,13 @@ type View = 'list' | 'orders';
 /** After Stripe sends the person back: refetch every 3 s, for at most 30 s. */
 export { CONNECT_RETURN_EVERY_MS, CONNECT_RETURN_FOR_MS };
 
-function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) {
+function Entry({ org, series, startOn, onOrdersClose }: { org: HomeOrganiser; series: HomeSeriesFull; startOn?: 'orders'; onOrdersClose?: () => void }) {
   const queryClient = useQueryClient();
   const today = londonTodayKey();
   // Option A: the page is inline, so the editor and Refund sheets are always allowed to open.
   const open = true;
-  const [view, setView] = useState<View>('list');
+  const [view, setView] = useState<View>(startOn ?? 'list');
+  const ordersOnly = startOn === 'orders' && !!onOrdersClose;
   const [editing, setEditing] = useState<{ type: TicketType | null } | null>(null);
   const [draft, setDraft] = useState<TypeDraft | null>(null);
   const [refunding, setRefunding] = useState<Order | null>(null);
@@ -454,7 +459,8 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   );
   return (
     <>
-      <section className="p3-stack-s" data-testid="tix-tall">
+      {/* Orders-only (R4 Who bought): the page under the orders sheet is not drawn. */}
+      <section className="p3-stack-s" data-testid="tix-tall" hidden={ordersOnly || undefined}>
         <div className="p3-status-row" data-testid="tix-row">
           <span className="p3-grow">
             <span className="p3-row-t">Tickets</span>
@@ -508,8 +514,8 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
         <StackSheet
           full
           title={`Orders \u00B7 ${series.name}`}
-          onClose={() => setView('list')}
-          onBack={() => setView('list')}
+          onClose={ordersOnly ? onOrdersClose : () => setView('list')}
+          onBack={ordersOnly ? onOrdersClose : () => setView('list')}
           testId="tix-orders-sheet"
         >
           <div className="p3-card p3-tight" data-testid="tix-orders-view">{ordersCard(true)}</div>

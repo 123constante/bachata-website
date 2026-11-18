@@ -40,6 +40,12 @@ export function todosOf(home: OrganiserHome, organiserId: string): number {
   return needsOf(rowsOf(scoped, organiserId)).length;
 }
 
+/** The series on ONE page that can carry a to-do (the same cut todosOf counts): cancelled left out. */
+export function todoSeriesIdsOf(home: OrganiserHome | undefined, organiserId: string | null | undefined): Set<string> {
+  const page = home && organiserId ? home.organisers.find((o) => o.id === organiserId) : undefined;
+  return new Set((page?.series ?? []).filter(countsForTodos).map((s) => s.id));
+}
+
 /** The Switch badge: to-dos on organiser pages OTHER than the one open. 0 = no badge. */
 export function switchBadgeOf(home: OrganiserHome | undefined, openId: string | null | undefined): number {
   if (!home || !openId) return 0;

@@ -8,18 +8,22 @@ import {
   newRefundRequestId,
   orderLine,
   orderTag,
+  orderTagFor,
   partialRefundDone,
   refundAmount,
+  formatPence,
   penceOf,
   refundReasonMessage,
   refundAmountError,
   refundMaybeSent,
   refundPartQuestion,
   refundQuestion,
+  shortRef,
   type Order,
 } from '../../tickets/ticketModel';
 import { TONE_CLASS } from './model';
 import { StackSheet } from './StackSheet';
+import { useR4Look } from '../r4/r4Look';
 
 type Mode = 'all' | 'part';
 
@@ -65,6 +69,7 @@ export function RefundSheet({
   setKey: (pence: number, key: string | null) => void;
 }) {
   const id = useId();
+  const r4 = useR4Look();
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>('all');
@@ -124,6 +129,66 @@ export function RefundSheet({
     setNote(text);
   };
   const confirmBlocked = mode === 'part' && pence === null;
+  const amountField = mode === 'part' && (
+    <>
+      <label className="p3-field" htmlFor={`${id}-amount`}>Amount to refund (&pound;)</label>
+      <input
+        id={`${id}-amount`}
+        className="p3-in"
+        inputMode="decimal"
+        autoComplete="off"
+        placeholder="0.00"
+        value={amount}
+        disabled={busy}
+        onChange={(e) => setAmount(e.target.value)}
+        aria-invalid={amountError && amount.trim() !== '' ? true : undefined}
+        aria-describedby={`${id}-amount-max${amountError ? ` ${id}-amount-err` : ''}`}
+        data-testid="tix-refund-amount"
+      />
+      <p id={`${id}-amount-max`} className="p3-note" data-testid="tix-refund-max">{part.max}</p>
+      {amountError && <p id={`${id}-amount-err`} className="p3-note p3-danger-t" data-testid="tix-refund-amount-err">{amountError}</p>}
+    </>
+  );
+  if (r4) {
+    // Board R4Refund (organiserR4): the same command and the same answers as below, in the board's layout.
+    // The board's "We email them" and "comes out of your next payout" are not said: nothing here backs them.
+    const r4Tag = orderTagFor(order);
+    const tickets = `${order.quantity} ${order.quantity === 1 ? 'ticket' : 'tickets'}${typeName ? `, ${typeName}` : ''}`;
+    return (
+      <StackSheet
+        title={`Order ${shortRef(order.id)}`.trim()}
+        onClose={onClose}
+        testId="tix-refund-sheet"
+        footer={
+          <div className="r4-section">
+            <button type="button" className="r4-btn r4-btn-42 r4-btn-danger" onClick={() => void go()} disabled={busy || confirmBlocked} aria-busy={busy || undefined} aria-describedby={confirmBlocked ? `${id}-amount-err` : undefined} data-testid="tix-refund-confirm">
+              {busy ? 'Refunding\u2026' : mode === 'part' ? part.confirm : q.confirm}
+            </button>
+            <button type="button" className="r4-btn r4-btn-42 r4-btn-quiet" onClick={onClose} data-sheet-autofocus data-testid="tix-refund-cancel">Keep the order</button>
+            <p className="r4-hint r4-center">Only the owner handles money.</p>
+          </div>
+        }
+      >
+        <div className="r4-stack" data-testid="r4-refund">
+          <div className="r4-card r4-order" data-testid="tix-refund-order">
+            <div className="r4-order-body">
+              <span className="r4-row-t">{order.buyerName?.trim() || 'A buyer'}</span>
+              <span className="r4-row-line">{tickets}</span>
+              <span className="r4-order-amt" data-testid="r4-refund-amount">{formatPence(refundAmount(order))}</span>
+            </div>
+            <span className={`r4-pill r4-pill-${r4Tag.tone === 'live' ? 'ok' : 'grey'}`} data-testid="tix-refund-order-tag">{r4Tag.label}</span>
+          </div>
+          <p className="r4-refund-body" data-testid="tix-refund-body">{mode === 'part' ? part.body : q.body}</p>
+          {amountField}
+          <button type="button" className="r4-linkbtn" disabled={busy} onClick={() => { setMode(mode === 'part' ? 'all' : 'part'); setAmount(''); }} aria-pressed={mode === 'part'} data-testid="tix-refund-part">
+            {mode === 'part' ? 'Refund all of it instead' : 'Refund part of it instead'}
+          </button>
+          {note && <p ref={noteRef} tabIndex={-1} role="alert" className="r4-err" data-testid="tix-refund-note">{note}</p>}
+          {heldPence !== null && <p className="r4-hint" data-testid="tix-refund-maybe-sent">{refundMaybeSent(heldPence)}</p>}
+        </div>
+      </StackSheet>
+    );
+  }
   return (
     <StackSheet
       title={q.title}

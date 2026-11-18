@@ -30,6 +30,19 @@ const V2Home = lazyWithRetry(() => import('../v2/V2Tabs').then((m) => ({ default
 const V2GuestsTab = lazyWithRetry(() => import('../v2/V2Tabs').then((m) => ({ default: m.V2GuestsTab })));
 const V2RaffleTab = lazyWithRetry(() => import('../v2/V2Tabs').then((m) => ({ default: m.V2RaffleTab })));
 const V2TicketsTab = lazyWithRetry(() => import('../v2/V2Tabs').then((m) => ({ default: m.V2TicketsTab })));
+// Organiser Round 4 (flag organiserR4, brief organiser-round4-restyle): white + orange shell and Home. Needs organiserP3 and
+// organiserDash; wins over V2 when both are on. Lazy, like V2. OFF = exactly as before.
+const r4Live = (): boolean => flags.organiserR4 && flags.organiserP3 && flags.organiserDash;
+const R4Shell = lazyWithRetry(() => import('../r4/R4Shell').then((m) => ({ default: m.R4Shell })));
+const R4Home = lazyWithRetry(() => import('../r4/R4Home').then((m) => ({ default: m.R4Home })));
+const R4Events = lazyWithRetry(() => import('../r4/R4Events').then((m) => ({ default: m.R4Events })));
+const R4Night = lazyWithRetry(() => import('../r4/R4Night').then((m) => ({ default: m.R4Night })));
+const R4EditNight = lazyWithRetry(() => import('../r4/R4EditNight').then((m) => ({ default: m.R4EditNight })));
+const R4Raffle = lazyWithRetry(() => import('../r4/R4Raffle').then((m) => ({ default: m.R4Raffle })));
+const R4Tickets = lazyWithRetry(() => import('../r4/R4Tickets').then((m) => ({ default: m.R4Tickets })));
+const R4Team = lazyWithRetry(() => import('../r4/R4Team').then((m) => ({ default: m.R4Team })));
+const R4Compare = lazyWithRetry(() => import('../r4/R4Compare').then((m) => ({ default: m.R4Compare })));
+const R4DoorInvite = lazyWithRetry(() => import('../r4/R4DoorInvite').then((m) => ({ default: m.R4DoorInvite })));
 const inSuspense = (el: ReactNode) => <Suspense fallback={null}>{el}</Suspense>;
 
 // The You hub and the R1 screens it pushes: lazy, as in OrganiserRoutes. Static imports here put
@@ -97,26 +110,31 @@ function lazyScreen(el: ReactNode, frame: P3RouteFrame, back: (p: Readonly<Param
  */
 /** The area's frame: the V2 shell behind organiserShellV2, else the P3 shell exactly as before. */
 function P3Shell() {
+  if (r4Live()) return inSuspense(<R4Shell />);
   return v2Live() ? inSuspense(<V2Shell />) : <P3ShellV1 />;
 }
 
 export default function P3Routes() {
   useNoindexMeta(true);
-  const v2 = v2Live();
+  const r4 = r4Live();
+  const v2 = !r4 && v2Live();
   return (
     <AuthGuard>
       <Routes>
         <Route path="you/details" element={lazyScreen(<PersonFlow />, 'own', toYou)} />
         <Route path="start" element={lazyScreen(<OnboardingFlow />, 'own', toHome)} />
         {flags.organiserTicketing && <Route path="get-paid" element={lazyScreen(<GetPaidStart />, 'own', toHome)} />}
-        {flags.organiserTicketing && <Route path="events/:seriesId/door" element={lazyScreen(<DoorScreen />, 'own', toEvent)} />}
+        {flags.organiserTicketing && <Route path="events/:seriesId/door" element={lazyScreen(<DoorScreen r4={r4} />, 'own', toEvent)} />}
         <Route element={<P3Shell />}>
-          <Route index element={v2 ? inSuspense(<V2Home />) : <HomeScreen />} />
-          <Route path="events" element={v2 ? inSuspense(<V2EventsTab />) : <EventsScreen />} />
-          {v2 && <Route path="tickets" element={inSuspense(<V2TicketsTab />)} />}
+          <Route index element={r4 ? inSuspense(<R4Home />) : v2 ? inSuspense(<V2Home />) : <HomeScreen />} />
+          <Route path="events" element={r4 ? inSuspense(<R4Events />) : v2 ? inSuspense(<V2EventsTab />) : <EventsScreen />} />
+          {(v2 || r4) && <Route path="tickets" element={inSuspense(r4 ? <R4Tickets /> : <V2TicketsTab />)} />}
           {v2 && <Route path="guests" element={inSuspense(<V2GuestsTab />)} />}
           {v2 && <Route path="raffle" element={inSuspense(<V2RaffleTab />)} />}
-          <Route path="events/:seriesId" element={lazyScreen(<EventPage />, 'tab', toEvents)} />
+          <Route path="events/:seriesId" element={r4 ? inSuspense(<R4Night />) : lazyScreen(<EventPage />, 'tab', toEvents)} />
+          {r4 && <Route path="events/:seriesId/all" element={lazyScreen(<EventPage />, 'tab', toEvent)} />}
+          {r4 && <Route path="events/:seriesId/edit" element={lazyScreen(<R4EditNight />, 'tab', toEvent)} />}
+          {r4 && <Route path="events/:seriesId/raffle" element={lazyScreen(<R4Raffle />, 'tab', toEvent)} />}
           <Route path="events/:seriesId/dates" element={lazyScreen(<AllDatesScreen />, 'tab', toEvent)} />
           <Route path="events/:seriesId/details" element={lazyScreen(<DetailsScreen />, 'tab', toEvent)} />
           <Route path="events/:seriesId/prices" element={lazyScreen(<PricesScreen />, 'tab', toEvent)} />
@@ -125,7 +143,7 @@ export default function P3Routes() {
           <Route path="create" element={<P3PushedSurface back={toEvents}><CreateFlow /></P3PushedSurface>} />
           {NEW_STEPS.map((step) => <Route key={step} path={step} element={<OldNewStep />} />)}
           <Route path="stats" element={<StatsScreen />} />
-          {flags.organiserDash && <Route path="compare" element={<P3PushedSurface back={toHome}><CompareNights /></P3PushedSurface>} />}
+          {flags.organiserDash && <Route path="compare" element={r4 ? inSuspense(<R4Compare />) : <P3PushedSurface back={toHome}><CompareNights /></P3PushedSurface>} />}
           {flags.organiserDash && <Route path="events/:seriesId/in" element={<P3PushedSurface back={toEvent}><WhoIsInRoute home={toHome()} /></P3PushedSurface>} />}
           {flags.organiserDash && <Route path="events/:seriesId/came/:occurrenceId" element={<P3PushedSurface back={toEvent}><WhoCameRoute home={toHome()} /></P3PushedSurface>} />}
           <Route path="you" element={<P3YouSurface />}>
@@ -133,7 +151,8 @@ export default function P3Routes() {
             <Route path="switch" element={<SwitchPage />} />
             <Route path="welcome" element={<WelcomePage />} />
             <Route path="page" element={<PageScreen />} />
-            <Route path="team" element={<TeamPage />} />
+            <Route path="team" element={r4 ? inSuspense(<R4Team />) : <TeamPage />} />
+            {r4 && <Route path="team/door-invite" element={inSuspense(<R4DoorInvite />)} />}
             <Route path="team/add" element={<TeamFlow step="add" />} />
             <Route path="team/:userId" element={<TeamFlow step="person" />} />
             <Route path="handover" element={<HandoverFlow step="to" />} />

@@ -300,7 +300,8 @@ function PicturesSheet({ seriesId, gallery, busy, onChange, onClose, cover, onPh
  */
 const CITY_LOOKUP_MS = 10_000;
 
-function useVenueCity(venueId: string | null, venues: VenueOption[] | undefined) {
+/** The venue's city lookup the save needs (also R4EditNight's place field). */
+export function useVenueCity(venueId: string | null, venues: VenueOption[] | undefined) {
   const [found, setFound] = useState<{ venueId: string; id: string | null; failed: boolean } | null>(null);
   const [attempt, setAttempt] = useState(0);
   // the latest list, without making a new list (each read of the venue query) a new lookup
