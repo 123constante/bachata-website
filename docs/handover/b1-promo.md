@@ -1,4 +1,4 @@
-# Handover: B1 ticket picker promo box (claude/b1-promo)
+# Handover: B1 ticket picker promo box (claude/b1-promo, PR #1784)
 
 Brief: `brief/b1-promo:docs/briefs/b1-promo.md`. Flag `ticketPickerB1` untouched (still OFF in prod). No Vercel env change.
 
@@ -36,6 +36,9 @@ Brief: `brief/b1-promo:docs/briefs/b1-promo.md`. Flag `ticketPickerB1` untouched
 ## NEEDS ADMIN
 - Nothing required. Optional: a basket-level preview RPC (`p_lines jsonb`) would remove the per-line
   below_minimum limit above and cut the N calls to 1.
+
+## Checks
+- tsc run on the final head (tsconfig.app.json): 0 errors in branch files. vitest src/modules/tickets: 917 passed. check:mojibake: clean.
 
 ## Next steps
 - Owner: try it on a Vercel preview with `VITE_ENABLE_TICKET_PICKER_B1=true` (preview env only) and the live 10% code.
