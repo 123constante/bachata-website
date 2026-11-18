@@ -222,7 +222,7 @@ export function parseOrderQr(data: unknown): OrderQrTicket[] | null {
     const r = raw as Record<string, unknown>;
     if (typeof r.ticket_id !== 'string' || typeof r.ticket_type_name !== 'string' || typeof r.checked_in !== 'boolean') continue;
     if (typeof r.qr_token !== 'string' || !TOKEN_RE.test(r.qr_token)) continue;
-    out.push({ ticketId: r.ticket_id, typeName: r.ticket_type_name, qrToken: r.qr_token, checkedIn: r.checked_in, shortCode: parseShortCode(r.short_code), nightCancelled: r.night_cancelled === true });
+    out.push({ ticketId: r.ticket_id, typeName: r.ticket_type_name, qrToken: r.qr_token, checkedIn: r.checked_in, shortCode: parseShortCode(r.short_code), ...(r.night_cancelled === true ? { nightCancelled: true } : {}) });
   }
   return out;
 }
