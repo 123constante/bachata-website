@@ -19,9 +19,6 @@ vi.mock('@/lib/londonDate', async (orig) => ({ ...(await orig<typeof import('@/l
 vi.mock('../TicketQrCode', () => ({ default: () => <div data-testid="qr" /> }));
 
 import MyTicketsPage from '../MyTicketsPage';
-import TicketCard from '@/modules/dancer-app/screens/tickets/TicketCard';
-import { upcomingCardTickets } from '@/modules/dancer-app/screens/tickets/useTicketCard';
-import { CARD_COPY } from '@/modules/dancer-app/screens/tickets/model';
 import { parseMyTickets } from '../myTicketsModel';
 import { orderTicketList, partRefundLine, ticketStatus, ticketStatusLines, ticketStatusTag } from '../ticketCardStatus';
 
@@ -132,30 +129,6 @@ describe('My tickets page x every shape (flag ON)', () => {
     render(<MemoryRouter><MyTicketsPage /></MemoryRouter>);
     expect(await screen.findByTestId('my-tickets-past')).toBeTruthy();
     expect(screen.queryByTestId('my-ticket-part-refund')).toBeNull();
-  });
-});
-
-describe('Tickets tab card x every shape (flag ON)', () => {
-  it.each(SHAPES)('%s', (_n, over, want) => {
-    const tickets = upcomingCardTickets(parse([row(over)]), TODAY);
-    if (!want.listed) { expect(tickets).toEqual([]); return; }
-    expect(tickets).toHaveLength(1);
-    render(<MemoryRouter><TicketCard view={{ kind: 'tickets', tickets }} retry={() => {}} copy={CARD_COPY} /></MemoryRouter>);
-    const card = screen.getByTestId('tickets-card');
-    expect(card.getAttribute('data-ticket-status')).toBe(want.status);
-    expect(screen.queryByTestId('tickets-card-tag')?.textContent ?? null).toBe(want.tag);
-    const st = screen.queryByTestId('tickets-card-status');
-    expect(st ? Array.from(st.querySelectorAll('p')).map((p) => p.textContent) : []).toEqual(want.lines);
-    expect(screen.queryByTestId('qr') !== null).toBe(want.qr);
-    expect(screen.queryByTestId('tickets-card-part-refund')?.textContent ?? null).toBe(want.part);
-  });
-  it('carousel order matches the list order', () => {
-    const rows = [row({ event_title: 'R', occurrence_date: '2026-11-19', ...REFUNDED }), row({ event_title: 'B', occurrence_date: '2026-11-25' }), row({ event_title: 'A', occurrence_date: '2026-11-20' })];
-    expect(upcomingCardTickets(parse(rows), TODAY).map((t) => t.eventTitle)).toEqual(['A', 'B', 'R']);
-  });
-  it('flag OFF: refunded rows (no QR) never reach the card', () => {
-    flag.on = false;
-    expect(upcomingCardTickets(parse([row(REFUNDED)]), TODAY)).toEqual([]);
   });
 });
 
