@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ORGANISER_HOME_KEY, fetchIncomingAccessRequests, incomingAccessRequestsQueryKey } from '@/modules/organiser/shared/selfServeApi';
@@ -190,18 +190,17 @@ export function R4Team() {
   );
   const memberIds = useMemo(() => new Set(members.flatMap((x) => (x.profileId ? [x.userId, x.profileId] : [x.userId]))), [members]);
   const full = members.length >= TEAM_CAP;
-  // Home's "Answer" (board R4HomeBefore) lands here with ?answer=<request id>: open that request once it is listed.
+  // Home's "Answer" (board R4HomeBefore) lands here with ?answer=<request id>: that request opens once it is listed.
   const [params, setParams] = useSearchParams();
   const answer = params.get('answer');
-  useEffect(() => {
+  const shown = open ?? (answer ? m.waiting.find((w) => w.key === answer) ?? null : null);
+  const closeShown = () => {
+    setOpen(null);
     if (!answer) return;
-    const hit = m.waiting.find((w) => w.key === answer);
-    if (!hit) return;
-    setOpen(hit);
     const next = new URLSearchParams(params);
     next.delete('answer');
     setParams(next, { replace: true });
-  }, [answer, m.waiting, params, setParams]);
+  };
 
   if (m.load === 'loading') return <div className="r4-stack" data-testid="r4-team-loading" aria-busy="true"><div className="r4-skel" /><div className="r4-skel" /></div>;
   if (m.load === 'error') {
@@ -258,11 +257,11 @@ export function R4Team() {
         <AddTeammateSheet organiserId={organiser.id} pageName={organiser.name} memberCount={members.length} memberIds={memberIds}
           onClose={() => setAdding(false)} onAdded={(msg) => { setAdding(false); setSaid(msg); }} />
       )}
-      {open && (
-        <Sheet title={open.name} onClose={() => setOpen(null)}>
+      {shown && (
+        <Sheet title={shown.name} onClose={closeShown}>
           <div className="r4-sheet" data-testid="r4-team-request">
-            <JoinRequestCard organiserId={organiser.id} request={open.request} blockedReason={full ? TEAM_FULL_REASON : null}
-              declineGate={canDecline(viewerRole, members, full)} onAnswered={(msg) => { setOpen(null); setSaid(msg); }} />
+            <JoinRequestCard organiserId={organiser.id} request={shown.request} blockedReason={full ? TEAM_FULL_REASON : null}
+              declineGate={canDecline(viewerRole, members, full)} onAnswered={(msg) => { closeShown(); setSaid(msg); }} />
           </div>
         </Sheet>
       )}

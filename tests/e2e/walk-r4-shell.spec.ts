@@ -373,3 +373,39 @@ test.describe('door', () => {
     expect(s.wrote()).toBe(0);
   });
 });
+
+// cont8: boards R4EmptyHome and R4HomeBefore's "N things waiting for you".
+test('home waiting list', async ({ page }) => {
+  await openOrganiser(page, '/account/p3');
+  await expect(page.getByTestId('r4-home')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId('r4-waiting')).toBeVisible({ timeout: 20_000 });
+  await page.waitForTimeout(800);
+  await expectNoHorizontalScroll(page);
+  console.log('face:', await page.getByTestId('r4-home').getAttribute('data-face'), '| heading:', await page.getByTestId('r4-waiting-heading').textContent());
+  for (const b of await page.getByTestId('r4-wait-go').all()) expect((await b.boundingBox())!.height).toBeGreaterThanOrEqual(34);
+  await page.screenshot({ path: `${OUT}/home-waiting.png`, fullPage: true });
+  // Answer opens that request on Team
+  const answer = page.locator('[data-testid="r4-wait-item"][data-go="answer"]').first();
+  await expect(answer).toContainText('maria.k@example.com asked to join');
+  await answer.getByTestId('r4-wait-go').click();
+  await expect(page.getByTestId('r4-team-request')).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('.r4-tab[data-tab="team"]')).toHaveAttribute('aria-current', 'page');
+});
+
+test('empty home', async ({ page }) => {
+  await openOrganiser(page, '/account/p3', {}, (fake) => {
+    const o = fake.organisers[0];
+    o.series = [];
+    o.requests = [];
+    o.team = o.team.slice(0, 1);
+  });
+  await expect(page.getByTestId('r4-home')).toHaveAttribute('data-face', 'none', { timeout: 20_000 });
+  await expect(page.getByTestId('r4-empty-alone')).toBeVisible({ timeout: 20_000 });
+  await expectNoHorizontalScroll(page);
+  await expect(page.getByTestId('r4-home-title')).toHaveText('No events yet');
+  await expect(page.getByTestId('r4-empty-steps').locator('li')).toHaveCount(3);
+  const btn = (await page.getByTestId('r4-home-primary').boundingBox())!;
+  expect(btn.height).toBeGreaterThanOrEqual(42);
+  expect((await page.getByTestId('r4-empty-alone').boundingBox())!.height).toBeGreaterThanOrEqual(52);
+  await page.screenshot({ path: `${OUT}/empty-home.png` });
+});

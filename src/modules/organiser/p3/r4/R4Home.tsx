@@ -97,8 +97,8 @@ function WaitingList({ rows, pageId }: { rows: readonly P3Row[]; pageId: string 
   };
   if (m.items.length === 0 && !requests.isError) return null;
   return (
-    <section className="r4-section" aria-labelledby="r4-wait-h" data-testid="r4-waiting">
-      <h2 id="r4-wait-h" className="r4-label r4-h2" data-testid="r4-waiting-heading">{m.heading}</h2>
+    <section className="r4-section" aria-labelledby={m.items.length > 0 ? 'r4-wait-h' : undefined} data-testid="r4-waiting">
+      {m.items.length > 0 && <h2 id="r4-wait-h" className="r4-label r4-h2" data-testid="r4-waiting-heading">{m.heading}</h2>}
       {m.items.length > 0 && (
         <div className="r4-card r4-list">
           {m.items.map((it) => (

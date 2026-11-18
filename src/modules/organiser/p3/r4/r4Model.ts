@@ -129,7 +129,7 @@ export function r4WaitingOf(i: { rows: readonly R4WaitRow[]; todoIds: ReadonlySe
     if (!i.todoIds.has(r.id)) continue;
     const base = { key: `e-${r.id}`, title: r.name, id: r.id };
     if (r.lifecycle === 'draft' && !r.place) items.push({ ...base, detail: 'Needs a place before it can go live.', action: 'Add place', go: 'place' });
-    else if (r.lifecycle === 'draft') items.push({ ...base, detail: 'Still a draft. Only you can see it.', action: 'Open', go: 'event' });
+    else if (r.lifecycle === 'draft') items.push({ ...base, detail: 'Still a draft. Dancers cannot see it yet.', action: 'Open', go: 'event' });
     else if (r.status.key === 'warn') items.push({ ...base, detail: 'Live, but no dates coming up.', action: 'Add dates', go: 'dates' });
     else if (!r.cover && !r.status.past) items.push({ ...base, detail: 'No photo yet. It is the first thing dancers see.', action: 'Add photo', go: 'photo' });
   }
