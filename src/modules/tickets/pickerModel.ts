@@ -129,6 +129,8 @@ export function buildPickerBody(f: {
   search: string;
   /** After a price_changed the buyer confirmed: the server's new prices and total. */
   held?: PickerHeld | null;
+  /** An applied promo code (as the preview priced it for this basket) and the total it gives. */
+  promo?: { code: string; totalPence: number } | null;
 }): BasketCheckoutBody {
   const held = f.held && f.held.key === basketKey(f.basket) ? f.held : null;
   const lines = f.types
@@ -141,7 +143,9 @@ export function buildPickerBody(f: {
     cancel_url: `${f.origin}${cancelReturnPath(f.pathname, search)}`,
     ...(f.occurrenceId ? { occurrence_id: f.occurrenceId } : {}),
     lines,
-    expected_total_pence: held ? held.totalPence : basketTotals(f.basket, f.types).totalPence,
+    // A held price_changed total already carries the code's discount (reserve v5 new_total_pence).
+    expected_total_pence: held ? held.totalPence : f.promo ? f.promo.totalPence : basketTotals(f.basket, f.types).totalPence,
+    ...(f.promo ? { promo_code: f.promo.code } : {}),
   };
 }
 

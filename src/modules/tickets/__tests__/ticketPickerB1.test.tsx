@@ -8,12 +8,13 @@ const auth = vi.hoisted(() => ({ user: null as null | { email: string } }));
 const sb = vi.hoisted(() => ({ signInWithOtp: vi.fn(), verifyOtp: vi.fn() }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { auth: { ...sb, getSession: async () => ({ data: { session: null } }) }, rpc: vi.fn() } }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: auth.user, authStatus: auth.user ? 'signed_in' : 'signed_out' }) }));
-const api = vi.hoisted(() => ({ fetchPublicTicketTypes: vi.fn(), postTicketCheckout: vi.fn() }));
+const api = vi.hoisted(() => ({ fetchPublicTicketTypes: vi.fn(), postTicketCheckout: vi.fn(), previewPromo: vi.fn() }));
 vi.mock('../ticketCheckoutApi', async (orig) => ({ ...(await orig<typeof import('../ticketCheckoutApi')>()), ...api }));
 
 import { TicketPickerB1 } from '../TicketPickerB1';
 import { basketTotals, buildPickerBody, cleanBasket, dateOnly, heldFrom, isEmail, perLine, sendCodeError, verifyCodeError } from '../pickerModel';
 import type { PublicTicketType } from '../ticketCheckoutModel';
+import { pickerPromoKey } from '../pickerPromo';
 
 const NOW = new Date('2026-11-04T12:00:00Z');
 const mk = (id: string, name: string, pricePence: number, extra: Partial<PublicTicketType> = {}): PublicTicketType => ({
@@ -21,8 +22,8 @@ const mk = (id: string, name: string, pricePence: number, extra: Partial<PublicT
 });
 const TYPES = [mk('a', '1 Class + Latin Party', 1000), mk('b', 'Full Experience', 1500), mk('c', '5 Weeks Class', 6500, { remaining: 1 }), mk('d', 'Gone', 500, { status: 'sold_out' })];
 
-function mount(search = '') {
-  api.fetchPublicTicketTypes.mockResolvedValue(TYPES);
+function mount(search = '', types: PublicTicketType[] = TYPES) {
+  api.fetchPublicTicketTypes.mockResolvedValue(types);
   return render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <MemoryRouter initialEntries={[`/event/e1${search}`]}>
@@ -37,6 +38,7 @@ const assign = vi.fn();
 const live = (origin = LIVE) => vi.stubGlobal('location', { ...window.location, assign, origin });
 const tick = () => fireEvent.click(screen.getByTestId('picker-terms'));
 const add = (n: string) => fireEvent.click(screen.getByRole('button', { name: `Add one ${n}` }));
+const applyCode = (c: string) => { fireEvent.change(screen.getByLabelText('Promo code'), { target: { value: c } }); fireEvent.click(screen.getByRole('button', { name: 'Apply' })); };
 const typeCode = (code: string) => code.split('').forEach((d, i) => fireEvent.change(screen.getByLabelText(`Digit ${i + 1}`), { target: { value: d } }));
 
 beforeEach(() => { sessionStorage.clear(); auth.user = null; });
@@ -95,14 +97,172 @@ describe('TicketPickerB1', () => {
     expect(screen.getByTestId('picker-count').textContent).toBe('2 tickets');
     expect(screen.getByText('Secure payment by Stripe.')).toBeTruthy();
   });
-  it('promo is a stub: empty and any code are refused with a reason', async () => {
+  it('promo: empty code says what to do, with the double buzz', async () => {
+    const vibrate = vi.fn(); vi.stubGlobal('navigator', { ...navigator, vibrate });
     mount();
     await screen.findByText('Full Experience');
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
-    expect(screen.getByTestId('picker-promo-msg').textContent).toBe('Enter a code first.');
-    fireEvent.change(screen.getByLabelText('Promo code'), { target: { value: 'spring10' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
-    await waitFor(() => expect(screen.getByTestId('picker-promo-msg').textContent).toMatch(/not available yet/));
+    expect(screen.getByTestId('picker-promo-msg').textContent).toBe('Type a code first, then tap Apply.');
+    expect(vibrate).toHaveBeenCalledWith([40, 60, 40]);
+    expect(api.previewPromo).not.toHaveBeenCalled();
+  });
+  it('promo: nothing picked yet asks for a ticket first (no RPC)', async () => {
+    mount();
+    await screen.findByText('Full Experience');
+    applyCode('spring10');
+    await waitFor(() => expect(screen.getByTestId('picker-promo-msg').textContent).toBe('Codes only take money off paid tickets. Pick one, or remove the code.'));
+    expect(api.previewPromo).not.toHaveBeenCalled();
+  });
+  it('promo valid: stub row with code, minus amount, Remove; old total struck; one buzz', async () => {
+    const vibrate = vi.fn(); vi.stubGlobal('navigator', { ...navigator, vibrate });
+    api.previewPromo.mockResolvedValue({ ok: true, discountPence: 600, totalPence: 2400, reason: '' });
+    mount();
+    await screen.findByText('Full Experience');
+    add('Full Experience'); add('Full Experience');
+    applyCode(' spring10 ');
+    expect(screen.getByRole('button', { name: 'Checking\u2026' })).toBeTruthy();
+    const stub = await screen.findByTestId('picker-promo-stub');
+    expect(api.previewPromo).toHaveBeenCalledWith('e1', 'b', 2, 'SPRING10', null);
+    expect(stub.textContent).toContain('SPRING10');
+    expect(screen.getByTestId('picker-promo-saving').textContent).toBe('\u2212\u00a36');
+    expect(screen.getByTestId('picker-total').textContent).toBe('\u00a324');
+    expect(screen.getByTestId('picker-total-was').textContent).toBe('\u00a330');
+    expect(vibrate).toHaveBeenCalledTimes(1);
+    expect(vibrate).toHaveBeenCalledWith(30);
+    expect(screen.queryByLabelText('Promo code')).toBeNull();
+  });
+  it('promo invalid: red reason copy, double buzz, no stub, Continue held back', async () => {
+    const vibrate = vi.fn(); vi.stubGlobal('navigator', { ...navigator, vibrate });
+    api.previewPromo.mockResolvedValue({ ok: false, discountPence: 0, totalPence: 0, reason: 'unknown_code' });
+    live();
+    mount();
+    await screen.findByText('Full Experience');
+    add('Full Experience'); tick();
+    applyCode('nope');
+    await waitFor(() => expect(screen.getByTestId('picker-promo-msg').textContent).toBe("That code isn't recognised. Check the spelling and try again."));
+    expect(vibrate).toHaveBeenCalledWith([40, 60, 40]);
+    expect(screen.queryByTestId('picker-promo-stub')).toBeNull();
+    expect(screen.getByTestId('picker-total').textContent).toBe('\u00a315');
+    expect(screen.queryByTestId('picker-total-was')).toBeNull();
+    expect((screen.getByTestId('picker-continue') as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('picker-blocked').textContent).toBe('Remove the promo code or try a different one.');
+    // The control the blocked line points at is on screen, and it clears the code.
+    fireEvent.click(screen.getByTestId('picker-promo-clear'));
+    expect(screen.getByTestId('picker-promo-msg').textContent).toBe('');
+    expect((screen.getByLabelText('Promo code') as HTMLInputElement).value).toBe('');
+    expect((screen.getByTestId('picker-continue') as HTMLButtonElement).disabled).toBe(false);
+  });
+  it('promo remove: back to the empty box and the full total', async () => {
+    api.previewPromo.mockResolvedValue({ ok: true, discountPence: 150, totalPence: 1350, reason: '' });
+    mount();
+    await screen.findByText('Full Experience');
+    add('Full Experience');
+    applyCode('save10');
+    await screen.findByTestId('picker-promo-stub');
+    expect(screen.getByTestId('picker-total').textContent).toBe('\u00a313.50');
+    fireEvent.click(screen.getByTestId('picker-promo-remove'));
+    expect(screen.queryByTestId('picker-promo-stub')).toBeNull();
+    expect((screen.getByLabelText('Promo code') as HTMLInputElement).value).toBe('');
+    expect(screen.getByTestId('picker-total').textContent).toBe('\u00a315');
+  });
+  it('promo re-validated when quantities change (per line, summed; no buzz)', async () => {
+    const vibrate = vi.fn(); vi.stubGlobal('navigator', { ...navigator, vibrate });
+    api.previewPromo.mockImplementation(async (_s: string, typeId: string, q: number) => ({ ok: true, discountPence: (typeId === 'a' ? 100 : 150) * q, totalPence: 0, reason: '' }));
+    mount();
+    await screen.findByText('Full Experience');
+    add('Full Experience');
+    applyCode('save10');
+    await screen.findByTestId('picker-promo-saving');
+    expect(screen.getByTestId('picker-promo-saving').textContent).toBe('\u2212\u00a31.50');
+    add('Full Experience'); add('1 Class + Latin Party');
+    await waitFor(() => expect(screen.getByTestId('picker-promo-saving').textContent).toBe('\u2212\u00a34'));
+    expect(api.previewPromo).toHaveBeenLastCalledWith('e1', 'b', 2, 'SAVE10', null);
+    expect(api.previewPromo).toHaveBeenCalledWith('e1', 'a', 1, 'SAVE10', null);
+    // 1000 + 3000 - 400
+    expect(screen.getByTestId('picker-total').textContent).toBe('\u00a336');
+    expect(vibrate).toHaveBeenCalledTimes(1);
+  });
+  it('promo: a run of stepper taps is one re-price (debounced); free tickets only = refused with a way out', async () => {
+    api.previewPromo.mockResolvedValue({ ok: true, discountPence: 150, totalPence: 0, reason: '' });
+    live();
+    mount();
+    await screen.findByText('Full Experience');
+    add('Full Experience');
+    applyCode('save10');
+    await screen.findByTestId('picker-promo-saving');
+    api.previewPromo.mockClear();
+    add('Full Experience'); add('Full Experience'); add('Full Experience');
+    expect(screen.getByTestId('picker-promo-stub').textContent).toContain('Checking');
+    await waitFor(() => expect(screen.queryByText('Checking\u2026')).toBeNull());
+    expect(api.previewPromo).toHaveBeenCalledTimes(1);
+    expect(api.previewPromo).toHaveBeenCalledWith('e1', 'b', 4, 'SAVE10', null);
+  });
+  it('promo: + then - inside the debounce restores the applied code (no stuck Checking)', async () => {
+    api.previewPromo.mockResolvedValue({ ok: true, discountPence: 150, totalPence: 0, reason: '' });
+    live();
+    mount();
+    await screen.findByText('Full Experience');
+    add('Full Experience');
+    applyCode('save10');
+    await screen.findByTestId('picker-promo-saving');
+    api.previewPromo.mockClear();
+    add('Full Experience');
+    fireEvent.click(screen.getByRole('button', { name: 'Remove one Full Experience' }));
+    await waitFor(() => expect(screen.queryByText('Checking…')).toBeNull());
+    expect(screen.getByTestId('picker-promo-saving')).toBeTruthy();
+    expect(api.previewPromo).not.toHaveBeenCalled();
+  });
+  it('promo: down to free tickets only, the code is refused and Remove the code frees Continue', async () => {
+    api.previewPromo.mockResolvedValue({ ok: true, discountPence: 150, totalPence: 0, reason: '' });
+    live();
+    mount('', [...TYPES, mk('f', 'Guest list', 0)]);
+    await screen.findByText('Guest list');
+    add('Full Experience'); add('Guest list'); tick();
+    applyCode('save10');
+    await screen.findByTestId('picker-promo-saving');
+    fireEvent.click(screen.getByRole('button', { name: 'Remove one Full Experience' }));
+    await waitFor(() => expect(screen.getByTestId('picker-promo-msg').textContent).toBe('Codes only take money off paid tickets. Pick one, or remove the code.'));
+    expect((screen.getByTestId('picker-continue') as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByTestId('picker-promo-clear'));
+    expect((screen.getByTestId('picker-continue') as HTMLButtonElement).disabled).toBe(false);
+  });
+  it('promo: a re-read list with a new price re-prices the applied code', () => {
+    expect(pickerPromoKey({ b: 1 }, null, TYPES)).not.toBe(pickerPromoKey({ b: 1 }, null, [mk('b', 'Full Experience', 1800)]));
+  });
+  it('promo: the discounted total and the code go into the checkout body; a 409 code refusal lands in the box', async () => {
+    auth.user = { email: 'me@x.co' };
+    api.previewPromo.mockResolvedValue({ ok: true, discountPence: 300, totalPence: 2700, reason: '' });
+    api.postTicketCheckout.mockResolvedValueOnce({ kind: 'error', reason: 'used_up', message: null });
+    live();
+    mount();
+    await screen.findByText('Full Experience');
+    add('Full Experience'); add('Full Experience'); tick();
+    applyCode('save10');
+    await screen.findByTestId('picker-promo-stub');
+    fireEvent.click(screen.getByTestId('picker-continue'));
+    await waitFor(() => expect(api.postTicketCheckout).toHaveBeenCalledTimes(1));
+    expect(api.postTicketCheckout.mock.calls[0][0]).toMatchObject({
+      lines: [{ ticket_type_id: 'b', quantity: 2, expected_unit_price_pence: 1500 }],
+      expected_total_pence: 2700,
+      promo_code: 'SAVE10',
+    });
+    await waitFor(() => expect(screen.getByTestId('picker-promo-msg').textContent).toBe('That code has been fully used.'));
+    expect(screen.queryByTestId('picker-refusal')).toBeNull();
+  });
+  it('promo: free after discount follows the free path', async () => {
+    auth.user = { email: 'me@x.co' };
+    api.previewPromo.mockResolvedValue({ ok: true, discountPence: 1000, totalPence: 0, reason: '' });
+    api.postTicketCheckout.mockResolvedValue({ kind: 'free', orderId: '11111111-1111-4111-8111-111111111111' });
+    live();
+    mount();
+    await screen.findByText('Full Experience');
+    add('1 Class + Latin Party'); tick();
+    applyCode('free100');
+    await screen.findByTestId('picker-promo-stub');
+    expect(screen.getByTestId('picker-total').textContent).toBe('Free');
+    fireEvent.click(screen.getByTestId('picker-continue'));
+    await waitFor(() => expect(assign).toHaveBeenCalledWith('/tickets/thanks?o=11111111-1111-4111-8111-111111111111&free=1'));
+    expect(api.postTicketCheckout.mock.calls[0][0]).toMatchObject({ expected_total_pence: 0, promo_code: 'FREE100' });
   });
   it('signed out: email, code, then Stripe; account via OTP create', async () => {
     sb.signInWithOtp.mockResolvedValue({ error: null });
