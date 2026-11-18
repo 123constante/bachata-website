@@ -26,12 +26,16 @@ export function AccountLinkPanel({ onLinked, orderInView = false }: { onLinked()
   const [rowBusy, setRowBusy] = useState(false);
   const [rowErr, setRowErr] = useState('');
 
-  const reload = useCallback(async () => {
-    const r = await fetchAccountLinks();
+  const apply = useCallback((r: Awaited<ReturnType<typeof fetchAccountLinks>>) => {
     if (r.ok) setLinks(r.value ?? []);
     else if (r.code === 'disabled') setOff(true);
   }, []);
-  useEffect(() => { void reload(); }, [reload]);
+  const reload = useCallback(() => fetchAccountLinks().then(apply), [apply]);
+  useEffect(() => {
+    let live = true;
+    void fetchAccountLinks().then((r) => { if (live) apply(r); });
+    return () => { live = false; };
+  }, [apply]);
 
   if (off || links === null) return null;
 
