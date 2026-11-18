@@ -12,7 +12,7 @@ import { orderCardView, type CardTicket, type CardView } from './model';
 export function upcomingCardTickets(tickets: MyTicket[], todayKey: string): CardTicket[] {
   return groupTickets(tickets, todayKey)
     .upcoming.filter((t) => t.qrToken)
-    .map((t) => ({ ticketId: t.ticketId, typeName: t.typeName ?? 'Ticket', qrToken: t.qrToken!, checkedIn: t.checkedIn, shortCode: t.shortCode, eventTitle: t.title, eventDate: t.date, eventCancelled: t.nightCancelled }));
+    .map((t) => ({ ticketId: t.ticketId, typeName: t.typeName ?? 'Ticket', qrToken: t.qrToken!, checkedIn: t.checkedIn, shortCode: t.shortCode, eventTitle: t.title, eventDate: t.date }));
 }
 
 /**
@@ -78,7 +78,7 @@ export function useTicketCard(): { view: CardView; retry: () => void } {
         if (!live) return;
         // Paid but no QR rows for this account (a guest order, or tickets not issued yet): the email is certain.
         if (r.kind === 'ok') {
-          setLoaded(r.tickets.length ? { kind: 'tickets', tickets: r.tickets.map((t) => ({ ...t, eventTitle: title, eventDate: date, eventCancelled: t.nightCancelled })) } : { kind: 'paid_email' });
+          setLoaded(r.tickets.length ? { kind: 'tickets', tickets: r.tickets.map((t) => ({ ...t, eventTitle: title, eventDate: date })) } : { kind: 'paid_email' });
           return;
         }
         if (r.kind === 'signed_out') { setLoaded({ kind: 'paid_email' }); return; }
