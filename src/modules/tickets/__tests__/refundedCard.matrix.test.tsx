@@ -38,7 +38,7 @@ const row = (o: Record<string, unknown> = {}) => {
   };
 };
 const REFUNDED = { refunded: true, qr_token: null, order_refunded_pence: 1250 };
-const REFUND_LINE = '£12.50 refunded, usually 5 to 10 working days to reach your card';
+const REFUND_LINE = '\u00a312.50 refunded, usually 5 to 10 working days to reach your card';
 const CANCEL_LINES = ['This night was cancelled', 'The organiser will be in touch about refunds'];
 
 type Want = { status: string; tag: string | null; lines: string[]; qr: boolean; part: string | null; listed: boolean };
@@ -49,7 +49,7 @@ const SHAPES: [string, Record<string, unknown>, Want][] = [
   ['refunded', REFUNDED, { status: 'refunded', tag: 'Refunded', lines: [REFUND_LINE], qr: false, part: null, listed: true }],
   ['refunded + cancelled: refunded wins', { ...REFUNDED, night_cancelled: true }, { status: 'refunded', tag: 'Refunded', lines: [REFUND_LINE], qr: false, part: null, listed: true }],
   ['refunded, amount unknown', { refunded: true, qr_token: null, order_refunded_pence: null }, { status: 'refunded', tag: 'Refunded', lines: ['This ticket was refunded'], qr: false, part: null, listed: true }],
-  ['part refund (money only)', { order_refunded_pence: 500 }, { status: 'valid', tag: null, lines: [], qr: true, part: 'Part refunded £5', listed: true }],
+  ['part refund (money only)', { order_refunded_pence: 500 }, { status: 'valid', tag: null, lines: [], qr: true, part: 'Part refunded \u00a35', listed: true }],
   ['used + part refund (prod shape)', { checked_in: true, checked_in_at: '2026-11-18T21:14:00Z', order_refunded_pence: 300 }, { status: 'used', tag: 'Used', lines: ['Already used at the door'], qr: false, part: 'Part refunded \u00a33', listed: true }],
   ['past night', { occurrence_date: '2026-11-10' }, { status: 'passed', tag: null, lines: ['This night has passed'], qr: false, part: null, listed: false }],
   ['refunded, past night', { ...REFUNDED, occurrence_date: '2026-11-10' }, { status: 'refunded', tag: 'Refunded', lines: [REFUND_LINE], qr: false, part: null, listed: false }],
@@ -103,7 +103,7 @@ describe('My tickets page x every shape (flag ON)', () => {
     expect(within(card).queryByTestId('my-ticket-part-refund')?.textContent ?? null).toBe(want.part);
     expect(card.getAttribute('style') ?? '').toMatch(want.status === 'valid' ? /^(?!.*opacity)/ : /opacity: 0.6/);
     expect(card.textContent).not.toMatch(/contact/i);
-    expect(card.textContent).not.toMatch(/Â|â€/);
+    expect(card.textContent).not.toMatch(/\u00c2|\u00e2\u20ac/);
   });
   it('empty reply: No tickets yet + one button to browse events', async () => {
     rpc.mockResolvedValue({ data: { tickets: [], truncated: false, total_count: 0 }, error: null });

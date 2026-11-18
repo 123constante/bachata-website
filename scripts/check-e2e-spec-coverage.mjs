@@ -97,6 +97,7 @@ export const MANUAL = {
   'tests/e2e/ticket-thanks.spec.ts': { reason: 'needs VITE_ENABLE_PUBLIC_TICKETING at dev-server start; 404 by design in the gate', run: PW('tests/e2e/ticket-thanks.spec.ts', 'VITE_ENABLE_PUBLIC_TICKETING=true') },
   'tests/e2e/ticket-thanks-forward.spec.ts': { reason: 'needs VITE_ENABLE_PUBLIC_TICKETING at dev-server start; 404 by design in the gate', run: PW('tests/e2e/ticket-thanks-forward.spec.ts', 'VITE_ENABLE_PUBLIC_TICKETING=true') },
   'tests/e2e/vendor-city-real-supabase.spec.ts': { reason: 'real Supabase; skips without its env vars', run: 'npm run test:e2e:vendor:real' },
+  'tests/e2e/walk-refunded-card.spec.ts': { reason: `${WALK}; mounts only with ticketing + buyer onboarding flags on`, run: PW('tests/e2e/walk-refunded-card.spec.ts', 'VITE_ENABLE_PUBLIC_TICKETING=true VITE_ENABLE_BUYER_ONBOARDING=true') },
   'tests/e2e/walk-event-tickets-page.spec.ts': { reason: `${WALK}; needs the local mock Supabase and a flag`, run: `(MOCK_PORT=54321 npx tsx tests/e2e/helpers/mockSupabaseServer.ts &) && ${PW('tests/e2e/walk-event-tickets-page.spec.ts', 'VITE_ENABLE_PUBLIC_TICKETING=true')}` },
   'tests/e2e/walk-fix-gate-lost-edit.spec.ts': { reason: WALK, run: PW('tests/e2e/walk-fix-gate-lost-edit.spec.ts', P3) },
   'tests/e2e/walk-fix-sw1.spec.ts': { reason: PROD_BUILD, run: BUILT('tests/e2e/walk-fix-sw1.spec.ts') },
