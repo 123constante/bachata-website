@@ -51,3 +51,11 @@
 .r4-tabs { position: fixed; left: 0; right: 0; bottom: 0; height: 64px; border-top: 1px solid #E9E9E9; background: #FFFFFF; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); z-index: 30; }
 .r4-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 400; color: #464646; text-decoration: none; min-height: 48px; }
 .r4-tab[aria-current="page"] { color: #C2410C; font-weight: 500; }
+.r4-h2 { margin: 0; }
+.r4-section { display: flex; flex-direction: column; gap: 8px; }
+.r4-row-tall { padding: 12px 16px; }
+.r4-row-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.r4-row-body .r4-row-t { flex: none; overflow-wrap: anywhere; }
+.r4-row-line { font-size: 13px; color: #696969; }
+.r4-row-btn { width: 100%; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
+.r4-btn-link { display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; box-sizing: border-box; }
