@@ -19,6 +19,9 @@ Brief: `docs/briefs/organiser-round4-restyle.md` on `brief/organiser-r4`. Boards
 - "Things waiting for you" list on Home; Ticket money and Guest list tiles: no read wired here (no money-per-night read found; guest list needs ORGANISER_GUEST_LIST_LIVE, admin #1577 not applied). Reminder row: backend absent, hidden.
 - Pill copy: the board says "In 3 days"; the build shows the day word ("Tomorrow", "Friday 20 November").
 
+## Status
+PARTIAL: shell + Home + walk + tests done; the screen groups under "Left" are next. tsc run on the final branch head: 0 errors in branch files.
+
 ## Next steps
 1. One PR per screen group above, each reusing `r4.css` classes (`r4-card`, `r4-tile`, `r4-row`, `r4-btn`, `r4-pill-*`).
 2. Run the walk: see MANUAL entry in `scripts/check-e2e-spec-coverage.mjs`.
