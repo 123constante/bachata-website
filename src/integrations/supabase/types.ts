@@ -677,6 +677,44 @@ export type Database = {
         }
         Relationships: []
       }
+      buyer_onboarding_reminders: {
+        Row: {
+          attempts: number
+          claimed_at: string | null
+          order_id: string
+          reminder_sent_at: string | null
+          reminder_status: string
+          skip_reason: string | null
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          claimed_at?: string | null
+          order_id: string
+          reminder_sent_at?: string | null
+          reminder_status: string
+          skip_reason?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          claimed_at?: string | null
+          order_id?: string
+          reminder_sent_at?: string | null
+          reminder_status?: string
+          skip_reason?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "buyer_onboarding_reminders_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "ticket_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calendar_occurrence_quarantine: {
         Row: {
           created_at: string | null
@@ -1221,6 +1259,7 @@ export type Database = {
           avatar_url: string | null
           based_city_id: string | null
           bio: string | null
+          buyer_roles: string[]
           claimed_by: string | null
           cover_url: string | null
           created_at: string
@@ -1258,6 +1297,7 @@ export type Database = {
           avatar_url?: string | null
           based_city_id?: string | null
           bio?: string | null
+          buyer_roles?: string[]
           claimed_by?: string | null
           cover_url?: string | null
           created_at?: string
@@ -1295,6 +1335,7 @@ export type Database = {
           avatar_url?: string | null
           based_city_id?: string | null
           bio?: string | null
+          buyer_roles?: string[]
           claimed_by?: string | null
           cover_url?: string | null
           created_at?: string
@@ -11007,6 +11048,10 @@ export type Database = {
         }
         Returns: Json
       }
+      _buyer_roles_for_order_v1: {
+        Args: { p_buyer_user_id: string; p_status: string }
+        Returns: Json
+      }
       _caller_proven_email_p5: { Args: never; Returns: string }
       _can_act_as_organiser_p5: { Args: { p_actor: string }; Returns: boolean }
       _can_act_as_series_organiser_p5: {
@@ -12799,6 +12844,10 @@ export type Database = {
       _ticket_organiser_charge_account_v1: {
         Args: { p_organiser_id: string }
         Returns: string
+      }
+      _ticket_pace_days_to_go_v1: {
+        Args: { p_night_date: string; p_now: string }
+        Returns: number
       }
       _ticket_promo_normalise_code_v1: {
         Args: { p_code: string }
@@ -15187,6 +15236,14 @@ export type Database = {
         Args: { p_email: string; p_token: string }
         Returns: Json
       }
+      buyer_onboarding_reminder_claim_v1: {
+        Args: { p_limit?: number; p_now?: string }
+        Returns: Json
+      }
+      buyer_onboarding_reminder_set_v1: {
+        Args: { p_order_id: string; p_skip_reason?: string; p_status: string }
+        Returns: boolean
+      }
       calendar_events_dto: {
         Args: {
           p_city_id?: string
@@ -15435,6 +15492,7 @@ export type Database = {
         }
         Returns: string
       }
+      ensure_my_dancer_profile_v1: { Args: never; Returns: Json }
       enumerate_series_dates_v1: {
         Args: { p_series_id: string; p_until: string }
         Returns: {
@@ -17569,6 +17627,7 @@ export type Database = {
         Args: { p_series_id: string; p_stopped: boolean }
         Returns: Json
       }
+      set_my_buyer_roles_v1: { Args: { p_roles: string[] }; Returns: string[] }
       set_my_going_v1: {
         Args: { p_going: boolean; p_occurrence_id: string }
         Returns: Json
@@ -17910,6 +17969,14 @@ export type Database = {
       }
       ticket_orders_hold_due_v1: { Args: { p_limit?: number }; Returns: Json }
       ticket_orders_sweep_v1: { Args: never; Returns: Json }
+      ticket_pace_v1: {
+        Args: {
+          p_event_series_id?: string
+          p_occurrence_id?: string
+          p_organiser_id: string
+        }
+        Returns: Json
+      }
       ticket_price_step_remove_v1: {
         Args: { p_step_id: string }
         Returns: Json
