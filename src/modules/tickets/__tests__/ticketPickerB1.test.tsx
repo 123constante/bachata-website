@@ -212,6 +212,24 @@ describe('TicketPickerB1', () => {
     expect(screen.getByTestId('picker-promo-saving')).toBeTruthy();
     expect(api.previewPromo).not.toHaveBeenCalled();
   });
+  it('promo: + then - while a re-price is in flight re-prices (no stuck Checking)', async () => {
+    api.previewPromo.mockResolvedValue({ ok: true, discountPence: 150, totalPence: 0, reason: '' });
+    live();
+    mount();
+    await screen.findByText('Full Experience');
+    add('Full Experience');
+    applyCode('save10');
+    await screen.findByTestId('picker-promo-saving');
+    let release: (v: unknown) => void = () => {};
+    api.previewPromo.mockImplementationOnce(() => new Promise((r) => { release = r; }));
+    add('Full Experience');
+    await waitFor(() => expect(api.previewPromo).toHaveBeenCalledTimes(2), { timeout: 3000 });
+    add('Full Experience');
+    fireEvent.click(screen.getByRole('button', { name: 'Remove one Full Experience' }));
+    release({ ok: true, discountPence: 150, totalPence: 0, reason: '' });
+    await waitFor(() => expect(screen.queryByText('Checking…')).toBeNull(), { timeout: 3000 });
+    expect(screen.getByTestId('picker-promo-saving')).toBeTruthy();
+  });
   it('promo: down to free tickets only, the code is refused and Remove the code frees Continue', async () => {
     api.previewPromo.mockResolvedValue({ ok: true, discountPence: 150, totalPence: 0, reason: '' });
     live();
