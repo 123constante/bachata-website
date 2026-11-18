@@ -12,7 +12,7 @@ Brief: `docs/briefs/refunded-card-website.md` on `brief/refunded-card-website`. 
   Empty-state button now "Browse events" and styled as a button.
 - `MyTicketsPage.tsx` (flag ON): one list in `orderTicketList` order, no Upcoming/Past sections, status tag,
   multi-line status, part-refund line; empty after dropping past = "No tickets yet" state.
-- Tickets tab (`useTicketCard.ts`, `TicketCard.tsx`, `model.ts`): refunded rows (no QR) now reach the
+- (Moved to the follow-up dancer PR) Tickets tab (`useTicketCard.ts`, `TicketCard.tsx`, `model.ts`): refunded rows (no QR) now reach the
   carousel (flag ON only), same list order, tag + lines + part-refund line.
 - Tests: `src/modules/tickets/__tests__/refundedCard.matrix.test.tsx` (both surfaces x valid, used, used +
   part refund, cancelled, refunded, refunded + cancelled, refunded no amount, part refund, past, refunded

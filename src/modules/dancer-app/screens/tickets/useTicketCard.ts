@@ -2,27 +2,17 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { fetchMyTickets, fetchOrderQr } from '@/modules/tickets/myTicketsApi';
 import { groupTickets, type MyTicket } from '@/modules/tickets/myTicketsModel';
-import { BUYER_ONBOARDING_ENABLED } from '@/lib/buyerOnboardingFlag';
-import { orderTicketList, ticketNightKey, ticketStatusAt } from '@/modules/tickets/ticketCardStatus';
 import { serverTodayKey } from './serverToday';
 import { clearOrderId, readOrderId } from '@/modules/tickets/orderStorage';
 import { isOrderId, type ThanksOrderState } from '@/modules/tickets/ticketCheckoutModel';
 import { useOrderStatus } from './useOrderStatus';
 import { orderCardView, type CardTicket, type CardView } from './model';
 
-/**
- * My tickets rows the card can show: upcoming (London today), with a QR. Buyer onboarding ON: a
- * refunded ticket (no QR) shows too, in the one list order (soonest first, greyed at the end).
- */
+/** My tickets rows the card can show: upcoming (London today), with a QR. */
 export function upcomingCardTickets(tickets: MyTicket[], todayKey: string): CardTicket[] {
-  const rows = groupTickets(tickets, todayKey).upcoming.filter((t) => t.qrToken || (BUYER_ONBOARDING_ENABLED && t.refunded));
-  const ordered = BUYER_ONBOARDING_ENABLED
-    ? orderTicketList(rows, (t) => ticketStatusAt({ date: t.date, eventCancelled: t.nightCancelled, refunded: t.refunded, checkedIn: t.checkedIn }), (t) => t.date, ticketNightKey())
-    : rows;
-  return ordered.map((t) => ({
-    ticketId: t.ticketId, typeName: t.typeName ?? 'Ticket', qrToken: t.qrToken, checkedIn: t.checkedIn, shortCode: t.shortCode,
-    eventTitle: t.title, eventDate: t.date, eventCancelled: t.nightCancelled, refunded: t.refunded, refundedPence: t.refundedPence,
-  }));
+  return groupTickets(tickets, todayKey)
+    .upcoming.filter((t) => t.qrToken)
+    .map((t) => ({ ticketId: t.ticketId, typeName: t.typeName ?? 'Ticket', qrToken: t.qrToken!, checkedIn: t.checkedIn, shortCode: t.shortCode, eventTitle: t.title, eventDate: t.date, eventCancelled: t.nightCancelled }));
 }
 
 /**

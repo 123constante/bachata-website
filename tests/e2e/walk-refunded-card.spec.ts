@@ -66,20 +66,3 @@ test('My tickets: only past tickets = empty state with one browse button', async
   await expect(page.getByTestId('my-tickets-state').getByRole('link')).toHaveText(['Browse events']);
   await shot(page, '6-empty-state');
 });
-
-test('Tickets tab: carousel in the list order, refunded card with no QR', async ({ page }) => {
-  await open(page, '/app/tickets', ALL);
-  const card = page.getByTestId('tickets-card');
-  await expect(card).toHaveAttribute('data-state', 'tickets', { timeout: 45_000 });
-  await expect(page.getByTestId('tickets-card-part-refund')).toHaveText('Part refunded £5');
-  await shot(page, '7-tab-part-refund');
-  const statuses: string[] = [];
-  for (let i = 0; i < 4; i += 1) {
-    statuses.push((await card.getAttribute('data-ticket-status')) ?? '');
-    if (i < 3) await page.getByTestId('tickets-card-next').click();
-  }
-  expect(statuses).toEqual(['valid', 'used', 'event_cancelled', 'refunded']);
-  await expect(page.getByTestId('tickets-card-status')).toHaveText('£12.50 refunded, usually 5 to 10 working days to reach your card');
-  await expectNoHorizontalScroll(page);
-  await shot(page, '8-tab-refunded');
-});

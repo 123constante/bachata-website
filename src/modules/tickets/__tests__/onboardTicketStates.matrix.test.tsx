@@ -90,7 +90,7 @@ describe('dancer ticket card draws the status (flag ON) and never with flag OFF'
   const cases: [string, Partial<CardTicket>, string | null][] = [
     ['valid', {}, null],
     ['passed', { eventDate: '2026-11-10' }, 'This night has passed'],
-    ['cancelled', { eventCancelled: true }, 'This night was cancelledThe organiser will be in touch about refunds'],
+    ['cancelled', { eventCancelled: true }, 'This night was cancelled'],
     ['refunded', { refunded: true }, 'This ticket was refunded'],
   ];
   it('last night at 00:30 the morning after: QR still there (H1)', () => {
