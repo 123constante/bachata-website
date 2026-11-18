@@ -7,7 +7,7 @@ Live organiser area (src/modules/organiser, #655, 8 Oct) is mockup v12: DARK the
 
 ## Source of truth (read first)
 - ~/.claude/plans/DESIGN-REGISTRY.md rows "Organiser area base", "Organiser accent colour", section "Organiser design direction" (lines 25-36).
-- Canvas (design): https://claude.ai/artifact/WyBvUeP1paFcUYR8frNyiR page "Round 4: whole app", screens 1-19. Read it with the Artifact tool (action read); big file: grep, do not read whole.
+- The 19 Round-4 screens are exported as HTML at docs/design/organiser-round4-md/R4*.md (HTML source inside a code fence) (same branch). The cloud worker cannot open the private canvas: build from these files. Each is a 390x844 board; exact colours, sizes, copy and tab order are in the markup. Links between boards show the flow. Strings like [DOOR LINK], [GUEST NAME], 54 came, 62 going are placeholders: use real data.
 - Round-4 canvas beats older prototypes for LOOK; older ones are content source only.
 
 ## Style guide (owner approved)
