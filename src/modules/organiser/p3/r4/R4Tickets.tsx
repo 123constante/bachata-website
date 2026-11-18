@@ -174,9 +174,8 @@ function Body({ c }: { c: EventChoice }) {
         </StackSheet>
       )}
       {sheet === 'all' && (
-        <StackSheet title="Who bought" onClose={() => setSheet(null)} testId="r4-tix-sheet-all" full>
-          <TicketsEntry seriesId={row.id} />
-        </StackSheet>
+        // Straight onto the orders (Refund lives on each order); closing it comes back here.
+        <TicketsEntry seriesId={row.id} startOn="orders" onOrdersClose={() => setSheet(null)} />
       )}
     </div>
   );

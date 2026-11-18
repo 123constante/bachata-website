@@ -11,6 +11,7 @@ import {
   orderTagFor,
   partialRefundDone,
   refundAmount,
+  formatPence,
   penceOf,
   refundReasonMessage,
   refundAmountError,
@@ -161,7 +162,7 @@ export function RefundSheet({
         footer={
           <div className="r4-section">
             <button type="button" className="r4-btn r4-btn-42 r4-btn-danger" onClick={() => void go()} disabled={busy || confirmBlocked} aria-busy={busy || undefined} aria-describedby={confirmBlocked ? `${id}-amount-err` : undefined} data-testid="tix-refund-confirm">
-              {busy ? 'Refunding…' : mode === 'part' ? part.confirm : q.confirm}
+              {busy ? 'Refunding\u2026' : mode === 'part' ? part.confirm : q.confirm}
             </button>
             <button type="button" className="r4-btn r4-btn-42 r4-btn-quiet" onClick={onClose} data-sheet-autofocus data-testid="tix-refund-cancel">Keep the order</button>
             <p className="r4-hint r4-center">Only the owner handles money.</p>
@@ -173,7 +174,7 @@ export function RefundSheet({
             <div className="r4-order-body">
               <span className="r4-row-t">{order.buyerName?.trim() || 'A buyer'}</span>
               <span className="r4-row-line">{tickets}</span>
-              <span className="r4-order-amt" data-testid="r4-refund-amount">{q.confirm.replace(/^Refund /, '')}</span>
+              <span className="r4-order-amt" data-testid="r4-refund-amount">{formatPence(refundAmount(order))}</span>
             </div>
             <span className={`r4-pill r4-pill-${r4Tag.tone === 'live' ? 'ok' : 'grey'}`} data-testid="tix-refund-order-tag">{r4Tag.label}</span>
           </div>
