@@ -104,7 +104,8 @@ export function countLabel(count: number): string {
 /** "Saturday 14 November, 9pm" -> "Saturday 14 November". The picker header shows the date only. */
 export function dateOnly(dateLine: string | null): string | null {
   if (!dateLine) return null;
-  const s = dateLine.replace(/,?\s+(at\s+)?\d{1,2}([:.]\d{2})?\s?(am|pm)\b.*$/i, '').trim();
+  // Also strips a 24-hour time ("at 19:15"), which the 12-hour pattern alone left in place.
+  const s = dateLine.replace(/,?\s+(at\s+)?(\d{1,2}([:.]\d{2})?\s?(am|pm)|\d{1,2}[:.]\d{2})\b.*$/i, '').trim();
   return s || null;
 }
 
