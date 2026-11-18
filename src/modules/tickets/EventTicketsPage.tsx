@@ -26,6 +26,8 @@ export interface EventTicketsPageProps {
   dateLine: string | null;
   /** Venue name and address, e.g. "The Studio, 14 Dean St, London". */
   venueLine?: string | null;
+  /** Venue name only: the B1 picker shows the name, never the address (prototype B1 v4). */
+  venueName?: string | null;
   chipInput: Omit<GoodToKnowInput, 'latestCloseIso'>;
   /** The series' nights from the page snapshot; the block lists the future ones when a night
    *  has to be chosen (the event page's Dates tile only exists for courses). */
@@ -188,7 +190,7 @@ function ClassicEventTicketsPage({ seriesId, occurrenceId, organiserId, title, d
 /** Flag ticketPickerB1 swaps in the white B1 checkout; OFF is the classic page above, unchanged. */
 export function EventTicketsPage(props: EventTicketsPageProps) {
   if (flags.ticketPickerB1) {
-    return <TicketPickerB1 seriesId={props.seriesId} occurrenceId={props.occurrenceId} title={props.title} dateLine={props.dateLine} venueLine={props.venueLine} onClose={props.onClose} />;
+    return <TicketPickerB1 seriesId={props.seriesId} occurrenceId={props.occurrenceId} title={props.title} dateLine={props.dateLine} venueLine={props.venueName ?? null} onClose={props.onClose} />;
   }
   return <ClassicEventTicketsPage {...props} />;
 }

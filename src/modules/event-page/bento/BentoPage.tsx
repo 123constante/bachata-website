@@ -806,6 +806,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
               title={pageModel.identity.title}
               dateLine={ticketsDateLine}
               venueLine={[pageModel.location.venueName, pageModel.location.address].filter(Boolean).join(', ') || null}
+              venueName={pageModel.location.venueName || null}
               chipInput={{
                 startIso: ticketsStartIso,
                 endIso: ticketsEndIso,
