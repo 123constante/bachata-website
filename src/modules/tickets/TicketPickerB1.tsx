@@ -137,9 +137,16 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
   // An applied code is priced for one basket: a change of tickets or counts re-prices it (no buzz).
   // pricedKey = the basket the latest preview was asked for, so a change mid-check re-prices too.
   const pricedKey = useRef<string | null>(null);
+  const lastApplied = useRef<typeof promo | null>(null);
   const liveCode = stubbed && (promo.status === 'applied' || promo.status === 'checking') ? promo.code : null;
   useEffect(() => {
-    if (!liveCode || pricedKey.current === key || sum.count === 0) return;
+    if (!liveCode || sum.count === 0) return;
+    if (pricedKey.current === key) {
+      // + then - inside the debounce: back on the priced basket, so restore its answer (step() set Checking).
+      const last = lastApplied.current;
+      if (promo.status === 'checking' && last && last.key === key) setPromo(last);
+      return;
+    }
     // One preview per pause, so fast stepper taps cannot trip the limiter (step() already shows Checking).
     promoSeq.current += 1;
     const id = setTimeout(() => {
@@ -168,7 +175,9 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
     if (seq !== promoSeq.current) return;
     scrollToAnswer.current = tapped;
     if (r.ok) {
-      setPromo({ status: 'applied', code, key: forKey, discountPence: r.discountPence, totalPence: r.totalPence });
+      const applied = { status: 'applied' as const, code, key: forKey, discountPence: r.discountPence, totalPence: r.totalPence };
+      lastApplied.current = applied;
+      setPromo(applied);
       setStubbed(true);
       if (tapped) buzz(30);
       return;
@@ -182,13 +191,14 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
     const code = normaliseCode(promoInput);
     if (!code) { setPromo({ status: 'refused', code: '', key: null, reason: 'empty' }); buzz([40, 60, 40]); return; }
     if (promo.status === 'checking') return;
+    setHeld(null); // a held price_changed was priced without (or with) the old code
     // The keyboard closes on Apply; the stub row (or the red line) is what the buyer reads next.
     (document.activeElement as HTMLElement | null)?.blur?.();
     await pricePromo(code, true);
   }
 
   function removePromo() {
-    promoSeq.current += 1; pricedKey.current = null;
+    promoSeq.current += 1; pricedKey.current = null; lastApplied.current = null; setHeld(null);
     setPromoInput(''); setPromo({ status: 'idle' }); setStubbed(false);
   }
 

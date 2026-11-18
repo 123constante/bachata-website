@@ -197,6 +197,21 @@ describe('TicketPickerB1', () => {
     expect(api.previewPromo).toHaveBeenCalledTimes(1);
     expect(api.previewPromo).toHaveBeenCalledWith('e1', 'b', 4, 'SAVE10', null);
   });
+  it('promo: + then - inside the debounce restores the applied code (no stuck Checking)', async () => {
+    api.previewPromo.mockResolvedValue({ ok: true, discountPence: 150, totalPence: 0, reason: '' });
+    live();
+    mount();
+    await screen.findByText('Full Experience');
+    add('Full Experience');
+    applyCode('save10');
+    await screen.findByTestId('picker-promo-saving');
+    api.previewPromo.mockClear();
+    add('Full Experience');
+    fireEvent.click(screen.getByRole('button', { name: 'Remove one Full Experience' }));
+    await waitFor(() => expect(screen.queryByText('Checking…')).toBeNull());
+    expect(screen.getByTestId('picker-promo-saving')).toBeTruthy();
+    expect(api.previewPromo).not.toHaveBeenCalled();
+  });
   it('promo: down to free tickets only, the code is refused and Remove the code frees Continue', async () => {
     api.previewPromo.mockResolvedValue({ ok: true, discountPence: 150, totalPence: 0, reason: '' });
     live();
