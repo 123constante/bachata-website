@@ -57,3 +57,10 @@ export function r4NightOf(i: R4NightInput): R4NightModel {
     doorRead: !!nightDate && !draft,
   };
 }
+
+/** Board R4Cancel copy. The "N going will be told, N refunded" line has no backing (nothing tells or refunds on cancel), so it is not here. */
+export const CANCEL_R4_COPY = {
+  title: (name: string) => `Cancel ${name.trim() || NO_NAME}?`,
+  day: (day: string) => `${day}. Dancers will see ‘Cancelled’. You can bring it back any time.`,
+  noReasons: 'The reasons didn’t load. Check your connection, then try again.',
+} as const;

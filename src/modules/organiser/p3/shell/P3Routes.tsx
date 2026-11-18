@@ -37,6 +37,8 @@ const R4Shell = lazyWithRetry(() => import('../r4/R4Shell').then((m) => ({ defau
 const R4Home = lazyWithRetry(() => import('../r4/R4Home').then((m) => ({ default: m.R4Home })));
 const R4Events = lazyWithRetry(() => import('../r4/R4Events').then((m) => ({ default: m.R4Events })));
 const R4Night = lazyWithRetry(() => import('../r4/R4Night').then((m) => ({ default: m.R4Night })));
+const R4EditNight = lazyWithRetry(() => import('../r4/R4EditNight').then((m) => ({ default: m.R4EditNight })));
+const R4Raffle = lazyWithRetry(() => import('../r4/R4Raffle').then((m) => ({ default: m.R4Raffle })));
 const inSuspense = (el: ReactNode) => <Suspense fallback={null}>{el}</Suspense>;
 
 // The You hub and the R1 screens it pushes: lazy, as in OrganiserRoutes. Static imports here put
@@ -127,6 +129,8 @@ export default function P3Routes() {
           {v2 && <Route path="raffle" element={inSuspense(<V2RaffleTab />)} />}
           <Route path="events/:seriesId" element={r4 ? inSuspense(<R4Night />) : lazyScreen(<EventPage />, 'tab', toEvents)} />
           {r4 && <Route path="events/:seriesId/all" element={lazyScreen(<EventPage />, 'tab', toEvent)} />}
+          {r4 && <Route path="events/:seriesId/edit" element={lazyScreen(<R4EditNight />, 'tab', toEvent)} />}
+          {r4 && <Route path="events/:seriesId/raffle" element={lazyScreen(<R4Raffle />, 'tab', toEvent)} />}
           <Route path="events/:seriesId/dates" element={lazyScreen(<AllDatesScreen />, 'tab', toEvent)} />
           <Route path="events/:seriesId/details" element={lazyScreen(<DetailsScreen />, 'tab', toEvent)} />
           <Route path="events/:seriesId/prices" element={lazyScreen(<PricesScreen />, 'tab', toEvent)} />

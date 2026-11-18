@@ -11,10 +11,8 @@ import { repeatWords } from '../model/repeat';
 import { fetchDoorNight } from '../dash/pastNights';
 import { captionOf, nightLinkOf, shareText } from '../dash/shareLinks';
 import { RaffleRow } from '../events/raffle/RaffleParts';
-import { RaffleSheet } from '../events/raffle/RaffleSheet';
 import { P3NightGoing } from '../screens/P3Going';
 import { WorkspaceGate } from '../screens/EventPage';
-import { StatusSheet, type Send } from '../screens/StatusSheet';
 import type { SendOnce } from '../screens/CancelEventSheet';
 import { useToast } from '../screens/Toast';
 import { P3_PATHS } from '../shell/paths';
@@ -22,6 +20,7 @@ import { V2_PATHS } from '../v2/paths';
 import { EVENT_PARAM } from '../v2/eventChoice';
 import { useEventChoice } from '../v2/V2Shell';
 import { nightsOfChoice } from '../v2/V2Tabs';
+import { R4CancelSheet } from './R4CancelSheet';
 import { R4Chevron } from './R4Shell';
 import { r4NightOf } from './r4NightModel';
 
@@ -45,6 +44,7 @@ function Night({ ws, place }: { ws: EventWorkspace; place: string | null }) {
   const row = useMemo(() => c.rows.find((r) => r.id === id) ?? null, [c.rows, id]);
   const shape = repeatShapeOf(ws);
   const v = eventPageOf(ws, today);
+  const plan = cancelPlan(ws, today);
   const draft = row?.lifecycle === 'draft';
   const nightOn = !!row?.next && row.next.status !== 'cancelled' && !draft;
   const doorRead = useQuery({
@@ -57,14 +57,12 @@ function Night({ ws, place }: { ws: EventWorkspace; place: string | null }) {
   const m = r4NightOf({
     row, name: ws.series.name, place,
     repeatWords: shape.from === 'once' ? null : repeatWords(shape, today),
-    door, cancellable: !!cancelPlan(ws, today),
+    door, cancellable: !!plan,
   });
   const raffleNight = row ? nightsOfChoice({ event: row, today, page: c.page })[0] ?? null : null;
-  const [raffle, setRaffle] = useState(false);
   const [cancel, setCancel] = useState(false);
   const [said, setSaid] = useState<string | null>(null);
   const toast = useToast(id, ws.series.version);
-  const send: Send = (commands, version) => toast.run(commands, version);
   const once = useSendOnce(id);
   const sendOnce: SendOnce = (command, key) => once(command, ws.series.version, key);
   const link = typeof window === 'undefined' || !row ? null : nightLinkOf(window.location.origin, row.publicEventRef);
@@ -104,13 +102,14 @@ function Night({ ws, place }: { ws: EventWorkspace; place: string | null }) {
 
       {raffleNight && (
         <section className="r4-section" aria-label="Raffle" data-testid="r4-night-raffle">
-          <RaffleRow night={raffleNight} onOpen={() => setRaffle(true)} />
+          <RaffleRow night={raffleNight} onOpen={() => navigate(P3_PATHS.eventRaffle(id))} />
         </section>
       )}
 
       <div className="r4-card r4-list" data-testid="r4-night-rows">
         {flags.organiserTicketing && <Row to={`${V2_PATHS.tickets}?${EVENT_PARAM}=${encodeURIComponent(id)}`} label="Tickets" testId="r4-night-tickets" />}
-        <Row to={P3_PATHS.eventDetails(id)} label="Edit this night" sub="Name, place, description, flyer" testId="r4-night-edit" />
+        <Row to={P3_PATHS.eventEdit(id)} label="Edit this night" sub="Name, date, place, price, repeats" testId="r4-night-edit" />
+        <Row to={P3_PATHS.eventDetails(id)} label="Description and pictures" testId="r4-night-details" />
         <Row to={P3_PATHS.eventDates(id)} label="All dates" testId="r4-night-dates" />
         <Row to={P3_PATHS.eventAll(id)} label="More settings" sub="Prices, repeats, status, organisers" testId="r4-night-more" />
       </div>
@@ -126,9 +125,8 @@ function Night({ ws, place }: { ws: EventWorkspace; place: string | null }) {
         {!m.cancel.on && <p className="r4-note" data-testid="r4-night-cancel-why">{m.cancel.why}</p>}
       </div>
 
-      {raffle && raffleNight && <RaffleSheet night={raffleNight} onClose={() => setRaffle(false)} />}
       {cancel && (
-        <StatusSheet ws={ws} today={today} status={v.status} send={send} sendOnce={sendOnce} initialStep="cancel"
+        plan && <R4CancelSheet name={m.title} plan={plan} send={sendOnce}
           onClose={() => setCancel(false)}
           onDone={(d) => {
             setCancel(false);

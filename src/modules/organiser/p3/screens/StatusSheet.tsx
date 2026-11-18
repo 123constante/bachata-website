@@ -55,7 +55,7 @@ function Choice({ row, busy, onPick }: { row: StatusRow; busy: boolean; onPick: 
  * Show / Put it live send at once (Hide and Show come back with Undo); End it, Stop
  * repeating, Remove and Cancel the event ask first. Closing it, at any step, sends nothing.
  */
-export function StatusSheet({ ws, today, status, send, sendOnce, onDone, onClose, initialStep = 'list' }: {
+export function StatusSheet({ ws, today, status, send, sendOnce, onDone, onClose }: {
   ws: EventWorkspace;
   today: string;
   status: P3Status;
@@ -64,10 +64,8 @@ export function StatusSheet({ ws, today, status, send, sendOnce, onDone, onClose
   sendOnce: SendOnce;
   onDone: (d: Done) => void;
   onClose: () => void;
-  /** R4Night's "Cancel this night" opens straight on the cancel step (reason pick + Keep the night). */
-  initialStep?: 'list' | 'cancel';
 }) {
-  const [step, setStep] = useState<Step>(initialStep);
+  const [step, setStep] = useState<Step>('list');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const gated = useGatedCopy();
