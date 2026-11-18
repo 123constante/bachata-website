@@ -36,9 +36,8 @@ const LIVE = 'https://bachatacalendar.co.uk';
 const assign = vi.fn();
 /** The live origin (the preview guard passes) and a spy for the Stripe hop. */
 const live = (origin = LIVE) => vi.stubGlobal('location', { ...window.location, assign, origin });
-const tick = () => fireEvent.click(screen.getByTestId('picker-terms'));
-/** Bar Continue opens the card; tick the terms there, then Continue to Stripe (signed in). */
-const pay = () => { fireEvent.click(screen.getByTestId('picker-continue')); tick(); fireEvent.click(screen.getByTestId('picker-pay')); };
+/** Signed in: the bar's Continue to Stripe goes straight to payment (no Check and pay card, no tick box). */
+const pay = () => { fireEvent.click(screen.getByTestId('picker-continue')); };
 const add = (n: string) => fireEvent.click(screen.getByRole('button', { name: `Add one ${n}` }));
 const applyCode = (c: string) => { fireEvent.change(screen.getByLabelText('Promo code'), { target: { value: c } }); fireEvent.click(screen.getByRole('button', { name: 'Apply' })); };
 const typeCode = (code: string) => code.split('').forEach((d, i) => fireEvent.change(screen.getByLabelText(`Digit ${i + 1}`), { target: { value: d } }));
@@ -259,10 +258,9 @@ describe('TicketPickerB1', () => {
     add('Full Experience'); add('Full Experience');
     applyCode('save10');
     await screen.findByTestId('picker-promo-stub');
+    // Signed in: the bar says Continue to Stripe and pays at once.
+    expect(screen.getByTestId('picker-continue').textContent).toBe('Continue to Stripe');
     fireEvent.click(screen.getByTestId('picker-continue'));
-    // The card summary names the applied code beside the count.
-    expect(screen.getByTestId('picker-card-summary').textContent).toBe('2 tickets \u00b7 SAVE10\u00a327');
-    tick(); fireEvent.click(screen.getByTestId('picker-pay'));
     await waitFor(() => expect(api.postTicketCheckout).toHaveBeenCalledTimes(1));
     expect(api.postTicketCheckout.mock.calls[0][0]).toMatchObject({
       lines: [{ ticket_type_id: 'b', quantity: 2, expected_unit_price_pence: 1500 }],
@@ -296,17 +294,15 @@ describe('TicketPickerB1', () => {
     await screen.findByText('Full Experience');
     add('Full Experience'); add('1 Class + Latin Party'); add('1 Class + Latin Party');
     expect(screen.getByTestId('picker-total').textContent).toBe('£35');
-    // The bar's Continue no longer waits for terms: the tick box is in the email card and gates its button.
+    // The bar's Continue never waits for terms; the email card has a Terms of sale link, no tick box.
     expect((screen.getByTestId('picker-continue') as HTMLButtonElement).disabled).toBe(false);
     expect(screen.queryByTestId('picker-blocked')).toBeNull();
     fireEvent.click(screen.getByTestId('picker-continue'));
     expect(screen.getByTestId('picker-card-summary').textContent).toBe('3 tickets\u00a335');
     const send = () => screen.getAllByRole('button', { name: 'Continue' }).pop() as HTMLButtonElement;
-    expect(send().disabled).toBe(true);
-    expect(screen.getByTestId('picker-terms-reason').textContent).toBe('Tick the box to accept the terms of sale.');
-    tick();
     expect(send().disabled).toBe(false);
-    expect(screen.queryByTestId('picker-terms-reason')).toBeNull();
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    expect(screen.getByTestId('picker-terms-link').textContent).toBe('Terms of sale');
     fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'bad' } });
     fireEvent.click(screen.getAllByRole('button', { name: 'Continue' }).pop()!);
     expect(await screen.findByText('Enter a valid email, like you@example.com.')).toBeTruthy();
@@ -342,7 +338,7 @@ describe('TicketPickerB1', () => {
     mount();
     await screen.findByText('Full Experience');
     add('Full Experience');
-    fireEvent.click(screen.getByTestId('picker-continue')); tick();
+    fireEvent.click(screen.getByTestId('picker-continue'));
     fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'me@x.co' } });
     fireEvent.click(screen.getAllByRole('button', { name: 'Continue' }).pop()!);
     expect(await screen.findByText('Too many codes were asked for. Wait a minute, then try again.')).toBeTruthy();
@@ -361,9 +357,8 @@ describe('TicketPickerB1', () => {
     expect(screen.getByTestId('picker-total').textContent).toBe('£32');
     expect(screen.getByTestId('picker-continue').textContent).toBe('Price changed, confirm');
     await waitFor(() => expect(api.fetchPublicTicketTypes).toHaveBeenCalledTimes(2));
-    // The confirm tap reopens the card; the terms stay ticked.
+    // The confirm tap sends the new price at once.
     fireEvent.click(screen.getByTestId('picker-continue'));
-    fireEvent.click(screen.getByTestId('picker-pay'));
     await waitFor(() => expect(assign).toHaveBeenCalledWith('https://checkout.stripe.com/y'));
     const second = api.postTicketCheckout.mock.calls[1][0];
     expect(second.lines).toEqual([{ ticket_type_id: 'b', quantity: 2, expected_unit_price_pence: 1600 }]);
@@ -397,12 +392,11 @@ describe('TicketPickerB1', () => {
     mount();
     await screen.findByText('Full Experience');
     add('1 Class + Latin Party');
+    // Signed in: one tap on Continue to Stripe, no email card, no tick box, one Terms of sale link.
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    expect(screen.getAllByText('Terms of sale')).toHaveLength(1);
     fireEvent.click(screen.getByTestId('picker-continue'));
-    // Signed in: the card shows who the tickets go to; Continue to Stripe waits for the tick.
     expect(screen.queryByLabelText('Email address')).toBeNull();
-    expect((screen.getByTestId('picker-pay') as HTMLButtonElement).disabled).toBe(true);
-    tick();
-    fireEvent.click(screen.getByTestId('picker-pay'));
     await waitFor(() => expect(api.postTicketCheckout).toHaveBeenCalled());
     expect(api.postTicketCheckout.mock.calls[0][0].buyer_email).toBe('in@x.co');
     expect(sb.signInWithOtp).not.toHaveBeenCalled();

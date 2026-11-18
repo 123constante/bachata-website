@@ -10,14 +10,14 @@ import { fetchPublicTicketTypes, postTicketCheckout, previewPromo, publicTicketK
 import { PROMO_MAX_LENGTH, isCodeReason, normaliseCode, promoView, type PromoState } from './promo';
 import { NO_PAID_LINES, REPRICE_DEBOUNCE_MS, discountedTotal, pickerPromoKey, previewBasketPromo, promoLines } from './pickerPromo';
 import {
-  CANCELLED_PARAM, MAX_PER_ORDER, PREVIEW_ORIGIN_REASON, TERMS_REASON, THANKS_PATH, availability, checkoutOriginOk, formatPence, maxQuantity, reasonCopy, typesForNight,
+  CANCELLED_PARAM, MAX_PER_ORDER, PREVIEW_ORIGIN_REASON, THANKS_PATH, availability, checkoutOriginOk, formatPence, maxQuantity, reasonCopy, typesForNight,
 } from './ticketCheckoutModel';
 import { PRICE_CONFIRM_LABEL, parsePriceChanged, priceChangedText, stepReasonCopy } from './priceSteps';
-import { PRIVACY_PARAGRAPH, PRIVACY_POLICY_LINE, TERMS_CHECKBOX_LABEL, TERMS_OF_SALE } from './legalCopy';
+import { PRIVACY_PARAGRAPH, PRIVACY_POLICY_LINE, TERMS_OF_SALE } from './legalCopy';
 import { saveOrderId } from './orderStorage';
 import { CodeBoxes } from './CodeBoxes';
 import {
-  CANCELLED_NOTE, CODE_LENGTH, ORDER_CAP_NOTE, RESEND_SECONDS, TRUST_LINE_BOLD, TRUST_LINE_REST, basketKey, basketTotals, buildPickerBody,
+  CANCELLED_NOTE, CODE_LENGTH, ORDER_CAP_NOTE, RESEND_SECONDS, TRUST_LINE_BOLD, basketKey, basketTotals, buildPickerBody,
   cleanBasket, countLabel, dateOnly, heldFrom, isEmail, loadBasket, perLine, roomFor, saveBasket, sendCodeError, verifyCodeError,
   type Basket, type PickerHeld,
 } from './pickerModel';
@@ -39,7 +39,7 @@ export interface TicketPickerB1Props {
 }
 
 // confirm = signed in (no email step): who the tickets go to, terms, Continue to Stripe.
-type Stage = 'pick' | 'confirm' | 'email' | 'code' | 'open';
+type Stage = 'pick' | 'email' | 'code' | 'open';
 
 const INK = '#17211c', SUB = '#5f6e66', LINE = '#e3e9e6', BRAND = '#14604a', BAD = '#b3261e';
 /** Prototype motion (B1 v4): the stub unfolds, the total rolls; both off for reduced motion. */
@@ -53,7 +53,7 @@ function Trust() {
   return (
     <div className="mt-[10px] flex items-center justify-center gap-2 text-[12px]" style={{ color: SUB }}>
       <Lock aria-hidden="true" width={14} height={14} />
-      <span><b style={{ color: INK, fontWeight: 600 }}>{TRUST_LINE_BOLD}</b> {TRUST_LINE_REST}</span>
+      <span>{TRUST_LINE_BOLD}</span>
     </div>
   );
 }
@@ -96,7 +96,6 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
   const [notYouErr, setNotYouErr] = useState('');
   // The error belongs to one signed-in address: a different (or no) address means it is stale.
   useEffect(() => { setNotYouErr(''); }, [knownEmail]);
-  const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [cancelled] = useState(() => new URLSearchParams(location.search).get(CANCELLED_PARAM) === 'cancelled');
   const inFlight = useRef(false);
@@ -225,7 +224,7 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
   };
 
   async function startPayment(buyerEmail: string) {
-    if (inFlight.current || !termsAccepted) return;
+    if (inFlight.current) return;
     inFlight.current = true;
     setStage('open');
     const sendCode = pv.sendCode;
@@ -265,7 +264,7 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
   function onContinue() {
     if (continueOff) return;
     setNotYouErr('');
-    if (knownEmail) { setStage('confirm'); return; }
+    if (knownEmail) { void startPayment(knownEmail); return; }
     setEmailBad(false); setSendErr(''); setStage('email');
   }
 
@@ -284,7 +283,6 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
 
   async function sendCode() {
     const v = email.trim();
-    if (!termsAccepted) return;
     if (!isEmail(v)) { setEmailBad(true); return; }
     setEmailBad(false); setBusy(true); setSendErr('');
     const { error } = await supabase.auth.signInWithOtp({ email: v, options: { shouldCreateUser: true } });
@@ -310,28 +308,23 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
   const btn = 'h-[46px] w-full rounded-[10px] text-[14px] font-semibold disabled:opacity-100';
   const primary = (off: boolean) => ({ background: off ? '#f4f6f5' : BRAND, color: off ? '#9aa8a1' : '#fff' });
   // Signed out elsewhere while the confirm card is up: there is no address to show, so ask for one.
-  const card = stage === 'confirm' && !knownEmail ? 'email' : stage;
+  const card = stage;
   const stubUp = stubbed && (promo.status === 'applied' || promo.status === 'checking');
   // The 92px stub column fits a 5-character amount (25.80) at 18px; a longer one steps down so it never overflows.
   const saveSize = promo.status === 'applied' && formatPence(promo.discountPence).length > 6 ? 'text-[15px]' : 'text-[18px]';
 
-  // The email card's shared tail: terms tick box (gates the pay button), the terms text, trust, Back.
+  // One "Terms of sale" link under the button that leads to Stripe; it opens the terms inline. No tick box: continuing is the acceptance.
   const termsBlock = (
-    <div className="mt-3">
-      <label className="flex min-h-[44px] items-center gap-3">
-        <input type="checkbox" data-testid="picker-terms" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} className="h-[22px] w-[22px] shrink-0" style={{ accentColor: BRAND }} />
-        <span className="text-[13px]" style={{ color: INK }}>{TERMS_CHECKBOX_LABEL}</span>
-      </label>
-      <button type="button" aria-expanded={showTerms} onClick={() => setShowTerms((v) => !v)} className="min-h-[40px] text-[13px] underline" style={{ color: SUB }}>
-        {showTerms ? 'Hide the terms of sale' : 'Read the terms of sale'}
+    <div className="mt-1 text-center">
+      <button type="button" data-testid="picker-terms-link" aria-expanded={showTerms} onClick={() => setShowTerms((v) => !v)} className="min-h-[40px] text-[13px] underline" style={{ color: SUB }}>
+        Terms of sale
       </button>
       {showTerms && (
-        <div data-testid="terms-text" className="space-y-1 text-[12px]" style={{ color: SUB }}>
+        <div data-testid="terms-text" className="space-y-1 text-left text-[12px]" style={{ color: SUB }}>
           <ul className="list-disc space-y-1 pl-4">{TERMS_OF_SALE.map((line) => <li key={line}>{line}</li>)}</ul>
           <p>{PRIVACY_PARAGRAPH} {PRIVACY_POLICY_LINE.lead}{' '}<a href={PRIVACY_POLICY_LINE.path} target="_blank" rel="noopener noreferrer" className="underline">{PRIVACY_POLICY_LINE.linkText}</a>{' '}{PRIVACY_POLICY_LINE.tail}</p>
         </div>
       )}
-      {!termsAccepted && <p data-testid="picker-terms-reason" className="mt-1 text-[12px]" style={{ color: SUB }}>{TERMS_REASON}</p>}
     </div>
   );
   const cardSummary = (
@@ -438,32 +431,25 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
             </span>
           </div>
           {blocked && <p data-testid="picker-blocked" className="mb-[6px] text-[12px]" style={{ color: SUB }}>{blocked}</p>}
-          <button type="button" data-testid="picker-continue" onClick={onContinue} disabled={continueOff} className={btn} style={primary(continueOff)}>{heldNow ? PRICE_CONFIRM_LABEL : 'Continue'}</button>
+          {knownEmail && (
+            <p data-testid={BUYER_ONBOARDING_ENABLED ? 'picker-not-you' : 'picker-sends-to'} className="mb-[10px] flex flex-wrap items-center gap-x-1 break-words text-[13px]" style={{ color: SUB }}>
+              <span>Tickets go to {knownEmail}.</span>
+              {BUYER_ONBOARDING_ENABLED && <button type="button" data-testid="picker-not-you-btn" onClick={() => void notYou()} disabled={notYouBusy} className="min-h-[40px] underline" style={{ color: BRAND, opacity: notYouBusy ? 0.5 : 1 }}>Not you?</button>}
+            </p>
+          )}
+          {BUYER_ONBOARDING_ENABLED && notYouErr && <p role="alert" data-testid="picker-not-you-error" className="mb-2 text-[12px]" style={{ color: BAD }}>{notYouErr}</p>}
+          <button type="button" data-testid="picker-continue" onClick={onContinue} disabled={continueOff} className={btn} style={primary(continueOff)}>{heldNow ? PRICE_CONFIRM_LABEL : knownEmail ? 'Continue to Stripe' : 'Continue'}</button>
+          {knownEmail && termsBlock}
           <Trust />
         </div>
       </div>
 
-      {(card === 'confirm' || card === 'email' || card === 'code') && (
+      {(card === 'email' || card === 'code') && (
         <div className="absolute inset-0 flex items-center justify-center p-[18px]" style={{ background: 'rgba(10,18,14,.55)' }}>
           <div role="dialog" aria-modal="true" aria-labelledby="picker-card-title" className="max-h-full w-full max-w-[394px] overflow-y-auto rounded-2xl bg-white px-[18px] pb-4 pt-5 text-[13px]" style={{ boxShadow: '0 10px 30px rgba(0,0,0,.3)' }}>
-            {card === 'confirm' ? (
-              <div>
-                <h2 id="picker-card-title" className="mb-1 text-[17px] font-semibold" style={{ color: INK }}>Check and pay</h2>
-                <p data-testid={BUYER_ONBOARDING_ENABLED ? 'picker-not-you' : 'picker-sends-to'} className="mb-3 flex flex-wrap items-center gap-x-1 break-words" style={{ color: SUB }}>
-                  <span>Tickets go to {knownEmail}.</span>
-                  {BUYER_ONBOARDING_ENABLED && <button type="button" data-testid="picker-not-you-btn" onClick={() => void notYou()} disabled={notYouBusy} className="min-h-[40px] underline" style={{ color: BRAND, opacity: notYouBusy ? 0.5 : 1 }}>Not you?</button>}
-                </p>
-                {BUYER_ONBOARDING_ENABLED && notYouErr && <p role="alert" data-testid="picker-not-you-error" className="mb-2 text-[12px]" style={{ color: BAD }}>{notYouErr}</p>}
-                {cardSummary}
-                {termsBlock}
-                <button type="button" data-testid="picker-pay" onClick={() => void startPayment(knownEmail)} disabled={!termsAccepted} className={`${btn} mt-3`} style={primary(!termsAccepted)}>Continue to Stripe</button>
-                <Trust />
-                {backToTickets}
-              </div>
-            ) : card === 'email' ? (
+            {card === 'email' ? (
               <form noValidate onSubmit={(e) => { e.preventDefault(); void sendCode(); }}>
-                <h2 id="picker-card-title" className="mb-1 text-[17px] font-semibold" style={{ color: INK }}>Where should we send your tickets?</h2>
-                <p className="mb-[14px]" style={{ color: SUB }}>We email you a code to confirm it is you.</p>
+                <h2 id="picker-card-title" className="mb-1 text-[17px] font-semibold" style={{ color: INK }}>Your email</h2>
                 {cardSummary}
                 <input type="email" inputMode="email" autoComplete="email" aria-label="Email address" placeholder="you@example.com" value={email} autoFocus
                   onChange={(e) => { setEmail(e.target.value); setEmailBad(false); }}
@@ -471,7 +457,7 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
                 {emailBad && <div role="alert" className="mt-[6px] text-[12px]" style={{ color: BAD }}>Enter a valid email, like you@example.com.</div>}
                 {sendErr && <div role="alert" className="mt-[6px] text-[12px]" style={{ color: BAD }}>{sendErr}</div>}
                 {termsBlock}
-                <button type="submit" disabled={busy || !termsAccepted} className={`${btn} mt-3`} style={primary(!termsAccepted)}>{busy ? <>Sending&hellip;</> : 'Continue'}</button>
+                <button type="submit" disabled={busy} className={`${btn} mt-3`} style={primary(false)}>{busy ? <>Sending&hellip;</> : 'Continue'}</button>
                 <Trust />
                 {backToTickets}
               </form>
