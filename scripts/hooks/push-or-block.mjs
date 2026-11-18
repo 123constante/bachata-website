@@ -35,6 +35,17 @@ function git(cwd, args) {
   return { code: r.status ?? -1, out: (r.stdout || '').trim(), err: (r.stderr || '').trim() };
 }
 
+/** True when every file changed by the commits in `range` is byte-identical on origin/main (fetch fails -> false, keep blocking). */
+function contentAlreadyOnMain(cwd, range) {
+  if (git(cwd, ['fetch', '--quiet', 'origin', '+refs/heads/main:refs/remotes/origin/main']).code !== 0) return false;
+  const list = git(cwd, ['log', '--format=', '--name-only', ...range]);
+  if (list.code !== 0) return false;
+  const files = [...new Set(list.out.split(/?
+/).filter(Boolean))];
+  if (files.length === 0) return true; // only empty commits: nothing to push
+  return git(cwd, ['diff', '--quiet', 'refs/remotes/origin/main', 'HEAD', '--', ...files]).code === 0;
+}
+
 /** @returns {{ code: number, message: string }} the exit code and the stderr line ('' = none). */
 function decide(payload) {
   const cwd = (payload && typeof payload.cwd === 'string' && payload.cwd) || process.cwd();
@@ -66,6 +77,11 @@ function decide(payload) {
   if (count.code !== 0) return warn('rev-list failed');
   const unpushed = Number(count.out) || 0;
   if (unpushed === 0) return { code: 0, message: '' };
+
+  // A squash-merged branch keeps its pre-squash commits locally: they are not on origin/<branch> but
+  // their content IS on main. If every file the unpushed commits touch is identical on origin/main,
+  // pushing would add nothing, so do not block (owner ask 2026-11-18: stale-copy false alarm, 3x).
+  if (contentAlreadyOnMain(cwd, range)) return { code: 0, message: '' };
 
   if (payload && payload.stop_hook_active === true) {
     return { code: 0, message: `PUSH-BLOCKED ${branch} ${unpushed} commits` };
