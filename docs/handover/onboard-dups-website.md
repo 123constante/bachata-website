@@ -41,3 +41,8 @@ must not add migrations. So, per the brief's "stop and write it in the handover"
 ## Next steps
 1. Admin worker: build the sender + cron above.
 2. Owner: flag ON in a test window, link two own accounts on a phone.
+
+## Status
+- PR: #1772 (title per brief; body has Verified on real data + Phone QA; both body checks exit 0). Not merged, not approved.
+- tsc run on 76407e0: 0 errors in branch files (tsc -p tsconfig.app.json; 138 repo-wide, same as origin/main).
+- Independent review: one /code-review round done in-session (findings fixed: shared isEmail, overtype in code boxes, unlink drops row, order-in-view copy, disabled rows while busy, list height cap). The brief's separate independent review is still to come.
