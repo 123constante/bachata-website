@@ -124,3 +124,10 @@
 .r4-order-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .r4-order-amt { font-size: 24px; line-height: 1.2; font-weight: 600; }
 .r4-refund-body { margin: 0; font-size: 15px; color: #030303; }
+/* cont5: Team T1 grouped by role, Add a teammate sheet (boards R4Team, R4AddTeammate). */
+.r4-in-lead { position: absolute; left: 12px; top: 12px; pointer-events: none; }
+.r4-in-search { padding-left: 38px; }
+.r4-pickrow[aria-checked="true"] { background: #FFF8F3; }
+.r4-ellipsis { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.r4-link-quiet { font-size: 13px; font-weight: 500; text-decoration: none; }
+.r4-accent { color: #C2410C; }

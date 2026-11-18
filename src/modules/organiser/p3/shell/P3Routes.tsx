@@ -40,6 +40,7 @@ const R4Night = lazyWithRetry(() => import('../r4/R4Night').then((m) => ({ defau
 const R4EditNight = lazyWithRetry(() => import('../r4/R4EditNight').then((m) => ({ default: m.R4EditNight })));
 const R4Raffle = lazyWithRetry(() => import('../r4/R4Raffle').then((m) => ({ default: m.R4Raffle })));
 const R4Tickets = lazyWithRetry(() => import('../r4/R4Tickets').then((m) => ({ default: m.R4Tickets })));
+const R4Team = lazyWithRetry(() => import('../r4/R4Team').then((m) => ({ default: m.R4Team })));
 const inSuspense = (el: ReactNode) => <Suspense fallback={null}>{el}</Suspense>;
 
 // The You hub and the R1 screens it pushes: lazy, as in OrganiserRoutes. Static imports here put
@@ -148,7 +149,7 @@ export default function P3Routes() {
             <Route path="switch" element={<SwitchPage />} />
             <Route path="welcome" element={<WelcomePage />} />
             <Route path="page" element={<PageScreen />} />
-            <Route path="team" element={<TeamPage />} />
+            <Route path="team" element={r4 ? inSuspense(<R4Team />) : <TeamPage />} />
             <Route path="team/add" element={<TeamFlow step="add" />} />
             <Route path="team/:userId" element={<TeamFlow step="person" />} />
             <Route path="handover" element={<HandoverFlow step="to" />} />
