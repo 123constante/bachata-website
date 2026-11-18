@@ -31,6 +31,8 @@ export interface MyTicket {
   shortCode: string | null;
   checkedIn: boolean;
   checkedInAt: string | null;
+  /** night_cancelled from the read (absent on old replies = false). */
+  nightCancelled?: boolean;
 }
 
 export interface MyTicketsReply {
@@ -89,6 +91,7 @@ export function parseMyTickets(data: unknown): MyTicketsReply | null {
       shortCode: parseShortCode(r.short_code),
       checkedIn: r.checked_in === true || str(r.checked_in_at) !== null,
       checkedInAt: str(r.checked_in_at),
+      nightCancelled: r.night_cancelled === true,
     });
   }
   const total = typeof o.total_count === 'number' && Number.isFinite(o.total_count) ? Math.max(o.total_count, tickets.length) : tickets.length;
@@ -205,6 +208,7 @@ export interface OrderQrTicket {
   qrToken: string;
   checkedIn: boolean;
   shortCode: string | null;
+  nightCancelled?: boolean;
 }
 
 /** my_ticket_order_qr_v1's reply: only `{tickets: [...]}`; a row without all four valid fields is dropped (a bad short_code is null, never a drop); anything else is null (an error). */
@@ -218,7 +222,7 @@ export function parseOrderQr(data: unknown): OrderQrTicket[] | null {
     const r = raw as Record<string, unknown>;
     if (typeof r.ticket_id !== 'string' || typeof r.ticket_type_name !== 'string' || typeof r.checked_in !== 'boolean') continue;
     if (typeof r.qr_token !== 'string' || !TOKEN_RE.test(r.qr_token)) continue;
-    out.push({ ticketId: r.ticket_id, typeName: r.ticket_type_name, qrToken: r.qr_token, checkedIn: r.checked_in, shortCode: parseShortCode(r.short_code) });
+    out.push({ ticketId: r.ticket_id, typeName: r.ticket_type_name, qrToken: r.qr_token, checkedIn: r.checked_in, shortCode: parseShortCode(r.short_code), nightCancelled: r.night_cancelled === true });
   }
   return out;
 }
