@@ -55,3 +55,7 @@ Every hunk is an insertion. No existing type was changed or removed.
 
 - I did not read the admin migration file `20261118003850_buyer_onboarding_reminder_v1.sql` itself, because the admin repo is not reachable from this session. I checked the deployed catalog instead, which is the source `types-drift` compares against.
 - I did not regenerate the types locally. That job is covered by the green `types-drift` run.
+
+## Handover
+
+Done: review written; PR #1771 opened (docs-only, label automerge-ok). tsc not run (docs-only branch, no .ts touched). Left: nothing. Next: owner/author of #1770 fills its PR body (N2) and optionally widens its title (N1).
