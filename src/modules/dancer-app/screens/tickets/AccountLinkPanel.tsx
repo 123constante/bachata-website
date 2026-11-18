@@ -21,14 +21,16 @@ const BOX_COLORS = { ink: 'var(--da-text)', line: 'var(--da-border)', bad: '#ff6
 export function AccountLinkPanel({ onLinked, orderInView = false }: { onLinked(): void; orderInView?: boolean }) {
   const [links, setLinks] = useState<LinkedAccount[] | null>(null);
   const [off, setOff] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [rowBusy, setRowBusy] = useState(false);
   const [rowErr, setRowErr] = useState('');
 
   const apply = useCallback((r: Awaited<ReturnType<typeof fetchAccountLinks>>) => {
-    if (r.ok) setLinks(r.value ?? []);
+    if (r.ok) { setLinks(r.value ?? []); setFailed(false); }
     else if (r.code === 'disabled') setOff(true);
+    else setFailed(true);
   }, []);
   const reload = useCallback(() => fetchAccountLinks().then(apply), [apply]);
   useEffect(() => {
@@ -37,7 +39,16 @@ export function AccountLinkPanel({ onLinked, orderInView = false }: { onLinked()
     return () => { live = false; };
   }, [apply]);
 
-  if (off || links === null) return null;
+  if (off) return null;
+  if (links === null) {
+    if (!failed) return null;
+    return (
+      <div className="dt-link-panel" data-testid="account-link-failed">
+        <p className="dt-sheet-sub">Couldn&rsquo;t check your linked accounts.</p>
+        <button type="button" className="dt-quiet-link" onClick={() => { setFailed(false); void reload(); }} data-testid="account-link-retry">Try again</button>
+      </div>
+    );
+  }
 
   async function unlink(userId: string) {
     setRowBusy(true); setRowErr('');
@@ -160,11 +171,12 @@ function LinkSheet({ orderInView, onClose, onDisabled, onLinked }: { orderInView
         {step === 'code' && (
           <div>
             <p className="dt-sheet-sub" role="status" data-testid="account-link-sent">{SENT_LINE}</p>
+            <p className="dt-sheet-sub" data-testid="account-link-sent-to">We sent a code to {email.trim()}.</p>
             <CodeBoxes testId="link-code-boxes" digits={digits} onDigits={(n) => { setDigits(n); if (!needsNew) setErr(''); }} onComplete={(c) => void check(c)}
               busy={busy || needsNew} bad={Boolean(err)} shake={shake} boxes={boxes} colors={BOX_COLORS} />
             <p className="dt-link-bad dt-link-err-slot" role="alert" data-testid="account-link-error">{err}</p>
             <div className="dt-link-row2">
-              <button type="button" className="dt-quiet-link" onClick={restart} data-testid="account-link-new">{needsNew ? 'Send a new code' : 'Change email'}</button>
+              <button type="button" className="dt-quiet-link" onClick={needsNew ? () => void send() : restart} disabled={busy} data-testid="account-link-new">{needsNew ? 'Send a new code' : 'Change email'}</button>
             </div>
           </div>
         )}
