@@ -5,7 +5,7 @@ import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo } from '@/lib/seo';
 import { useAuth } from '@/hooks/useAuth';
 import { buildSignInHref } from '@/lib/authRouting';
-import { londonTodayKey } from '@/lib/londonDate';
+import { useServerToday } from './serverToday';
 import { ticketDoorCode } from '@/modules/organiser/p3/door/doorFlags';
 import { fetchMyTickets, type MyTicketsResult } from './myTicketsApi';
 import DoorCodeLine from './DoorCodeLine';
@@ -199,6 +199,7 @@ export default function MyTicketsPage() {
   const [result, setResult] = useState<MyTicketsResult | null>(null);
   const [attempt, setAttempt] = useState(0);
   const uid = user?.id ?? null;
+  const today = useServerToday();
   useEffect(() => {
     if (!uid) return;
     let live = true;
@@ -213,7 +214,7 @@ export default function MyTicketsPage() {
   const authReady = authStatus === 'resolving' ? 'resolving' : authStatus === 'unavailable' ? 'unavailable' : uid ? 'signed_in' : 'signed_out';
   return (
     <GlobalLayout breadcrumbs={buildBreadcrumbs('myTickets')}>
-      <MyTicketsView result={result} authReady={authReady} onRetry={onRetry} today={londonTodayKey()} />
+      <MyTicketsView result={result} authReady={authReady} onRetry={onRetry} today={today} />
     </GlobalLayout>
   );
 }

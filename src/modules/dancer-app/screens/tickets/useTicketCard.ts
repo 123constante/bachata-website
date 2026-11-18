@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { londonTodayKey } from '@/lib/londonDate';
 import { fetchMyTickets, fetchOrderQr } from '@/modules/tickets/myTicketsApi';
 import { groupTickets, type MyTicket } from '@/modules/tickets/myTicketsModel';
+import { serverTodayKey } from '@/modules/tickets/serverToday';
 import { clearOrderId, readOrderId } from '@/modules/tickets/orderStorage';
 import { isOrderId, type ThanksOrderState } from '@/modules/tickets/ticketCheckoutModel';
 import { useOrderStatus } from './useOrderStatus';
@@ -63,20 +63,34 @@ export function useTicketCard(): { view: CardView; retry: () => void } {
     setLoaded(null);
     const title = reading?.eventTitle ?? null;
     const date = reading?.eventDate ?? null;
+    // The person's own upcoming tickets (server-clock "today"): the answer when there is no usable
+    // order id, and the fallback when the order in the link cannot be read for this account.
+    const ownUpcoming = async (): Promise<CardView | 'signed_out' | 'error'> => {
+      const [r, today] = await Promise.all([fetchMyTickets(), serverTodayKey()]);
+      if (r.kind === 'ok') {
+        const tickets = upcomingCardTickets(r.reply.tickets, today);
+        return tickets.length ? { kind: 'tickets', tickets } : { kind: 'none' };
+      }
+      return r.kind === 'signed_out' ? 'signed_out' : 'error';
+    };
     if (orderId) {
-      void fetchOrderQr(orderId).then((r) => {
+      void fetchOrderQr(orderId).then(async (r) => {
         if (!live) return;
         // Paid but no QR rows for this account (a guest order, or tickets not issued yet): the email is certain.
-        if (r.kind === 'ok') setLoaded(r.tickets.length ? { kind: 'tickets', tickets: r.tickets.map((t) => ({ ...t, eventTitle: title, eventDate: date })) } : { kind: 'paid_email' });
-        else setLoaded(r.kind === 'signed_out' ? { kind: 'paid_email' } : { kind: 'qr_error' });
+        if (r.kind === 'ok') {
+          setLoaded(r.tickets.length ? { kind: 'tickets', tickets: r.tickets.map((t) => ({ ...t, eventTitle: title, eventDate: date })) } : { kind: 'paid_email' });
+          return;
+        }
+        if (r.kind === 'signed_out') { setLoaded({ kind: 'paid_email' }); return; }
+        // A foreign or unreadable ?o=: never an error while the person has tickets of their own.
+        const own = await ownUpcoming();
+        if (!live) return;
+        setLoaded(typeof own === 'object' && own.kind === 'tickets' ? own : { kind: 'qr_error' });
       });
     } else {
-      void fetchMyTickets().then((r) => {
+      void ownUpcoming().then((own) => {
         if (!live) return;
-        if (r.kind === 'ok') {
-          const tickets = upcomingCardTickets(r.reply.tickets, londonTodayKey());
-          setLoaded(tickets.length ? { kind: 'tickets', tickets } : { kind: 'none' });
-        } else setLoaded(r.kind === 'signed_out' ? { kind: 'none' } : { kind: 'qr_error' });
+        setLoaded(own === 'signed_out' ? { kind: 'none' } : own === 'error' ? { kind: 'qr_error' } : own);
       });
     }
     return () => {
