@@ -15,7 +15,9 @@ import { orderCardView, type CardTicket, type CardView } from './model';
  * refunded ticket (no QR) shows too, in the one list order (soonest first, greyed at the end).
  */
 export function upcomingCardTickets(tickets: MyTicket[], todayKey: string): CardTicket[] {
-  const rows = groupTickets(tickets, todayKey).upcoming.filter((t) => t.qrToken || (BUYER_ONBOARDING_ENABLED && t.refunded));
+  // Flag ON: the raw list, so orderTicketList drops a night only after the 08:00 rollover (not at 00:00 London) -- like MyTicketsPage.
+  const base = BUYER_ONBOARDING_ENABLED ? tickets : groupTickets(tickets, todayKey).upcoming;
+  const rows = base.filter((t) => t.qrToken || (BUYER_ONBOARDING_ENABLED && t.refunded));
   const ordered = BUYER_ONBOARDING_ENABLED
     ? orderTicketList(rows, (t) => ticketStatusAt({ date: t.date, eventCancelled: t.nightCancelled, refunded: t.refunded, checkedIn: t.checkedIn }), (t) => t.date, ticketNightKey())
     : rows;
