@@ -130,6 +130,7 @@ describe('slice 2: Home clock reuses tickets/a/clockState', () => {
   ] as const)('%s', (_l, iso, nextDate, lastDate, now, want) => {
     expect(homeClockOf(iso, nextDate, lastDate, TODAY, now)).toBe(want);
   });
+  it('no day yet (today empty): before, never throws', () => expect(homeClockOf(null, null, '2026-11-16', '', at('2026-11-17T10:00:00Z'))).toBe('before'));
   it('yesterday crosses a month', () => expect(yesterdayOf('2026-12-01')).toBe('2026-11-30'));
 });
 
