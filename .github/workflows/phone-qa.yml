@@ -93,6 +93,10 @@ jobs:
       # a parent writable by another user") and vite.config.ts fails to load. /root is
       # root-owned 0700, so the cache is accepted there.
       XDG_CACHE_HOME: /root/.cache
+    # pull-requests: read lets the auto-walk step list the PR's files through the API.
+    permissions:
+      contents: read
+      pull-requests: read
     timeout-minutes: 25
     strategy:
       fail-fast: false
@@ -189,10 +193,15 @@ jobs:
       # do not depend on the shard, and five uploads named auto-walk would collide.
       - name: Auto-walk pictures (390x844)
         if: ${{ !cancelled() && github.event_name == 'pull_request' && matrix.shard == 1 && steps.mode.outputs.mode == 'full' }}
+        # Report-only: it must never red the job. The file list comes from the pulls API
+        # (no local git history needed). A shallow checkout made `git diff BASE...HEAD`
+        # die with "no merge base" once the PR base moved (#1812, 2026-11-19).
+        continue-on-error: true
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_API: ${{ github.api_url }}/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files
         run: |
-          PR_FILES="$(git diff --name-only "$BASE_SHA"...HEAD)" node scripts/auto-walk-manifest.mjs --run
+          PR_FILES="$(node scripts/ci-pr-files.mjs)" node scripts/auto-walk-manifest.mjs --run
           node scripts/auto-walk-manifest.mjs --summary >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload auto-walk pictures
