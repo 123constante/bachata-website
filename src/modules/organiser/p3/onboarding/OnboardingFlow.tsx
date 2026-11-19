@@ -15,7 +15,6 @@ import { claimScreen, hintRowText } from '../../home/onboarding/claimStates';
 import { askedLine, declinedLine, declinedNextLine, waitingRowText } from '../../home/onboarding/onboardingModel';
 import { useP3Home } from '../data/useP3Data';
 import { P3_PATHS, p3StartReview } from '../shell/paths';
-import { homePathOf, homeWordOf } from '../v2/paths';
 import { ObSheet, ObShell, ObToast } from './ObShell';
 import { OB_THEME_KEY, prefersReducedMotion, readObTheme } from './obEnv';
 import { REAL_READS, REAL_WRITES, type PersonReads, type PersonWrites } from './personApi';
@@ -140,7 +139,7 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
       /* private mode: the switch still works for this visit */
     }
   }, []);
-  const exit = useCallback(() => navigate(homePathOf()), [navigate]);
+  const exit = useCallback(() => navigate(P3_PATHS.home), [navigate]);
   // Slice R: the event a refused write came from (GateSheet's Continue), read once so in-flow URL changes keep it.
   // The checklist's exit goes back to the refused event whenever there is a valid one (finishLabel), left or not:
   // the kept edit is waiting there (keptDraft.ts). Replace, so Back never loops.
@@ -359,7 +358,7 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
         <h1 className="p3-ob-t" tabIndex={-1} data-testid="p3-ob-title">Asked to join {stage.name}</h1>
         <p className="p3-ob-m">We will check your request and the page team will be in touch.</p>
       </>,
-      <button type="button" className="p3-ob-btn" onClick={exit} data-testid="p3-ob-continue">Go to {homeWordOf()}</button>,
+      <button type="button" className="p3-ob-btn" onClick={exit} data-testid="p3-ob-continue">Go to Home</button>,
       0,
       exit,
     );

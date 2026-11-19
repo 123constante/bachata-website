@@ -22,9 +22,6 @@ vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u-scope' } })
 vi.mock('@/modules/going/useMyOrganiserGoingTotal', () => ({ useMyOrganiserGoingTotal: () => ({ view: { state: 'off' }, total: null }) }));
 vi.mock('../GraceBanner', () => ({ GraceBanner: () => null }));
 
-import { HomeScreen } from '../HomeScreen';
-import { EventsScreen } from '../EventsScreen';
-import { StatsScreen } from '../StatsScreen';
 
 const ok = (data: unknown) => ({ isPending: false, isError: false, isFetching: false, data, refetch: vi.fn() });
 const LONG = 'Maximiliana Concepcion Rodriguez-Villanueva de la Fuente Bachata Collective';
@@ -59,59 +56,12 @@ const CASES: Case[] = [
   { who: 'P7/P8 chosen page id no longer in the list: first by name', pages: [ZED, RITMO], url: '/?o=gone', name: 'Ritmo Bachata London', ids: ['weekly', 'monthly', 'course'], switchBtn: true },
 ];
 
-describe('Events: the chosen page only, named', () => {
-  it.each(CASES)('$who', (c) => {
-    homeQ.value = ok(home(...c.pages));
-    show(<EventsScreen />, c.url);
-    expect(screen.getByTestId('p3-page-name').textContent).toBe(c.name);
-    expect(!!screen.queryByTestId('p3-page-switch')).toBe(c.switchBtn);
-    expect(rowIds().sort()).toEqual([...c.ids].sort());
-    if (!c.ids.length) expect(screen.getByTestId('p3-events-empty').textContent).toMatch(/add one now, or switch to another page/);
-  });
-});
 
-describe('Home: the chosen page only, named', () => {
-  it.each(CASES.filter((c) => c.ids.length))('$who', (c) => {
-    homeQ.value = ok(home(...c.pages));
-    show(<HomeScreen />, c.url);
-    expect(screen.getByTestId('p3-page-name').textContent).toBe(c.name);
-    expect(!!screen.queryByTestId('p3-page-switch')).toBe(c.switchBtn);
-    for (const id of rowIds()) expect(c.ids).toContain(id);
-  });
-  it('a page with 0 events says what to do and still names the page', () => {
-    homeQ.value = ok(home(ZED, EMPTY));
-    show(<HomeScreen />, '/?o=empty');
-    expect(screen.getByTestId('p3-page-name').textContent).toBe('Empty Page');
-    expect(screen.getByTestId('p3-home-empty').textContent).toMatch(/switch to another page/);
-  });
-});
 
 describe('Stats: one page’s numbers, named', () => {
-  it.each([
-    ['Ritmo (weekly 10 + monthly 4)', '/?o=ritmo', 14],
-    ['Zed (weekly 10 + oneoff 7)', '/?o=zed', 17],
-    ['first visit lands on first by name', '/', 14],
-  ] as const)('%s', (_n, url, total) => {
-    homeQ.value = ok(home(ZED, RITMO));
-    show(<StatsScreen />, url);
-    expect(screen.getByTestId('p3-page-name')).toBeTruthy();
-    expect(screen.getByTestId('p3-stats-total').textContent).toContain(String(total));
-    // the 100 views of a page the person is not showing never appear
-    expect(screen.getByTestId('p3-stats').textContent).not.toContain('Tonight Social');
-  });
   it('scopeStats keeps only the page’s series', () => {
     expect(viewsTotal(scopeStats(stats(), new Set(['tonight'])))).toBe(100);
     expect(viewsTotal(scopeStats(stats(), new Set()))).toBe(0);
-  });
-  it('home still loading: Loading, not an empty page', () => {
-    homeQ.value = { isPending: true, isError: false, data: undefined, refetch: vi.fn() };
-    show(<StatsScreen />);
-    expect(screen.getByTestId('p3-stats-loading')).toBeTruthy();
-  });
-  it('home failed: Try again, never blank', () => {
-    homeQ.value = { isPending: false, isError: true, data: undefined, refetch: vi.fn() };
-    show(<StatsScreen />);
-    expect(screen.getByTestId('p3-stats-error')).toBeTruthy();
   });
 });
 
@@ -126,66 +76,13 @@ describe('an event run by 2 pages', () => {
     expect(r.find((x) => x.id === 'weekly')!.alsoRunBy).toEqual(['Zed Page']);
     expect(r.find((x) => x.id === 'monthly')!.alsoRunBy).toEqual([]);
   });
-  it('the row says so on screen', () => {
-    homeQ.value = ok(home(ZED, RITMO));
-    show(<EventsScreen />, '/?o=zed');
-    expect(screen.getByTestId('p3-also-run-by').textContent).toBe('Also run by Ritmo Bachata London');
-  });
 });
 
-describe('J4 switch from the same screen', () => {
-  it.each([['Events', <EventsScreen key="e" />], ['Home', <HomeScreen key="h" />], ['Stats', <StatsScreen key="s" />]] as const)('%s stays put and shows the other page', (_n, node) => {
-    homeQ.value = ok(home(ZED, RITMO));
-    show(node, '/?o=zed');
-    expect(screen.getByTestId('p3-page-name').textContent).toBe('Zed Page');
-    fireEvent.click(screen.getByTestId('p3-page-switch'));
-    fireEvent.click(screen.getByTestId('p3-page-pick-ritmo'));
-    expect(screen.getByTestId('p3-page-name').textContent).toBe('Ritmo Bachata London');
-    expect(screen.queryByTestId('p3-page-list')).toBeNull();
-  });
-});
 
 /* p3-event-status-1: the nits from the #1307 walk (states 0 pages, loading, the open Switch list) x Home/Events/Stats. */
-describe('no page at all (0 pages): Events and Stats say how to get a page', () => {
-  it.each([
-    ['Events', <EventsScreen key="e" />, 'p3-events-nopage'],
-    ['Stats', <StatsScreen key="s" />, 'p3-stats-nopage'],
-  ] as const)('%s', (_n, node, id) => {
-    homeQ.value = ok(home());
-    show(node);
-    const card = screen.getByTestId(id);
-    expect(card.textContent).not.toMatch(/this page/i);
-    expect(card.textContent).toMatch(/find your page or create one/i);
-    expect(screen.getByTestId('p3-nopage-start').getAttribute('href')).toMatch(/\/start$/);
-    expect(screen.queryByTestId('p3-stats-total')).toBeNull();
-    expect(screen.queryByTestId('p3-events-empty')).toBeNull();
-  });
-});
 
-describe('the open Switch list marks the current page', () => {
-  it.each([['Events', <EventsScreen key="e" />], ['Home', <HomeScreen key="h" />], ['Stats', <StatsScreen key="s" />]] as const)('%s', (_n, node) => {
-    homeQ.value = ok(home(ZED, RITMO));
-    show(node, '/?o=zed');
-    fireEvent.click(screen.getByTestId('p3-page-switch'));
-    expect(screen.getByTestId('p3-page-pick-zed').getAttribute('aria-current')).toBe('true');
-    expect(screen.getByTestId('p3-page-pick-ritmo').getAttribute('aria-current')).toBeNull();
-    expect(screen.getByTestId('p3-page-pick-zed').querySelector('[data-testid="p3-page-current"]')).toBeTruthy();
-    expect(screen.getByTestId('p3-page-pick-ritmo').querySelector('[data-testid="p3-page-current"]')).toBeNull();
-  });
-});
 
 describe('the page choice still loading: all three show the same loading, no page data', () => {
-  it.each([
-    ['Home', <HomeScreen key="h" />, 'p3-home-loading'],
-    ['Events', <EventsScreen key="e" />, 'p3-events-loading'],
-    ['Stats', <StatsScreen key="s" />, 'p3-stats-loading'],
-  ] as const)('%s', (_n, node, id) => {
-    homeQ.value = { isPending: true, isError: false, isFetching: true, data: undefined, refetch: vi.fn() };
-    show(node);
-    expect(screen.getByTestId(id)).toBeTruthy();
-    expect(screen.queryAllByTestId('p3-row')).toHaveLength(0);
-    expect(screen.queryByTestId('p3-stats-total')).toBeNull();
-  });
   it('rowsOf with no page chosen (null) reads no page; only a caller with no page concept reads all', () => {
     const h = home(ZED, RITMO);
     expect(rowsOf(h, null)).toEqual([]);

@@ -1,5 +1,5 @@
 /**
- * Organiser shell V2 (flag organiserShellV2): which event the tabs act on.
+ * Organiser area: which event the tabs act on.
  * Pure rules, so the default and the refresh rule are unit-tested on their own.
  *
  * The choice rides in the URL (`?e=<seriesId>`), so a refresh or a shared link keeps it;

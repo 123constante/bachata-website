@@ -17,11 +17,10 @@ import { P3NightGoing } from '../screens/P3Going';
 import { WorkspaceGate } from '../screens/EventPage';
 import type { SendOnce } from '../screens/CancelEventSheet';
 import { useToast } from '../screens/Toast';
-import { P3_PATHS } from '../shell/paths';
-import { V2_PATHS } from '../v2/paths';
-import { EVENT_PARAM } from '../v2/eventChoice';
-import { useEventChoice } from '../v2/V2Shell';
-import { nightsOfChoice } from '../v2/V2Tabs';
+import { P3_BASE, P3_PATHS } from '../shell/paths';
+import { EVENT_PARAM } from './eventChoice';
+import { useEventChoice } from './EventChoice';
+import { nightsOfChoice } from './r4Nights';
 import { R4CancelSheet } from './R4CancelSheet';
 import { R4Chevron } from './R4Shell';
 import { r4NightOf } from './r4NightModel';
@@ -141,7 +140,7 @@ function Night({ ws, place }: { ws: EventWorkspace; place: string | null }) {
       )}
 
       <div className="r4-card r4-list" data-testid="r4-night-rows">
-        {flags.organiserTicketing && <Row to={`${V2_PATHS.tickets}?${EVENT_PARAM}=${encodeURIComponent(id)}`} label="Tickets" testId="r4-night-tickets" />}
+        {flags.organiserTicketing && <Row to={`${P3_BASE}/tickets?${EVENT_PARAM}=${encodeURIComponent(id)}`} label="Tickets" testId="r4-night-tickets" />}
         <Row to={P3_PATHS.eventEdit(id)} label="Edit this night" sub="Name, date, place, price, repeats" testId="r4-night-edit" />
         <Row to={P3_PATHS.eventDetails(id)} label="Description and pictures" testId="r4-night-details" />
         <Row to={P3_PATHS.eventDates(id)} label="All dates" testId="r4-night-dates" />

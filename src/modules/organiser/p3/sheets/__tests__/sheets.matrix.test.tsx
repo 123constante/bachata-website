@@ -7,7 +7,7 @@ import type { DoorList, DoorRow } from '../../door/data';
 import { compareOf, type PastNight } from '../../dash/dashModel';
 import { CompareView } from '../../dash/CompareNights';
 import { pastNightOf, pastOf } from '../../dash/pastNights';
-import { isPushed } from '../../shell/P3Shell';
+import { isPushed } from '../../shell/pushed';
 import { P3_PATHS } from '../../shell/paths';
 import { GUEST, NO_NAMES, ROW_CAP_NOTE, eventWhoIsInLinkOf, fromOf, sheetBackOf, whoCameLinkOf, whoCameOf, whoIsInLinkOf, whoIsInOf } from '../sheetsModel';
 import { WhoListView } from '../WhoSheets';
