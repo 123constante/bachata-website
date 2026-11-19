@@ -218,6 +218,7 @@ const TARGETS = [
   { rel: 'scripts/check-required-jobs.mjs' },
   { rel: 'scripts/check-ruleset-vs-required-jobs.mjs' },
   { rel: 'scripts/pr-body-stub.mjs' },
+  { rel: 'scripts/pr-auto-rebase.mjs' },
   { rel: 'scripts/check-program-day-offsets.mjs' },
   { rel: 'scripts/check-rpc-typing.mjs' },
   { rel: 'scripts/check-script-conventions.mjs' },
