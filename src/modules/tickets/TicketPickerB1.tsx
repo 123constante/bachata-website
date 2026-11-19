@@ -315,7 +315,7 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
   // The 92px stub column fits a 5-character amount (25.80) at 18px; a longer one steps down so it never overflows.
   const saveSize = promo.status === 'applied' && formatPence(promo.discountPence).length > 6 ? 'text-[15px]' : 'text-[18px]';
 
-  // One "Terms of sale" link under the button that leads to Stripe; it opens the terms inline. No tick box: continuing is the acceptance.
+  // One "Terms of sale" link under the button that may lead to Stripe; it opens the terms inline. No tick box: continuing is the acceptance.
   const termsLink = (
     <button type="button" data-testid="picker-terms-link" aria-expanded={showTerms} onClick={() => setShowTerms((v) => !v)} className={`${knownEmail ? 'min-h-[36px]' : 'mt-1 min-h-[40px]'} text-[13px] underline`} style={{ color: SUB }}>
       Terms of sale
@@ -448,10 +448,10 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
           {knownEmail ? (
             <>
               {/* Signed in: the terms link and the trust line share one row so the bar stays short and the promo box is never covered. */}
-              <div className="mt-1 flex flex-wrap items-center justify-center gap-x-4">{termsLink}<Trust compact /></div>
+              <div className="mt-1 flex flex-wrap items-center justify-center gap-x-4">{termsLink}{!freeOnly && <Trust compact />}</div>
               {termsText}
             </>
-          ) : <Trust />}
+          ) : !freeOnly ? <Trust /> : null}
         </div>
       </div>
 
@@ -469,7 +469,7 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
                 {sendErr && <div role="alert" className="mt-[6px] text-[12px]" style={{ color: BAD }}>{sendErr}</div>}
                 {termsBlock}
                 <button type="submit" disabled={busy} className={`${btn} mt-3`} style={primary(false)}>{busy ? <>Sending&hellip;</> : 'Continue'}</button>
-                <Trust />
+                {!freeOnly && <Trust />}
                 {backToTickets}
               </form>
             ) : (

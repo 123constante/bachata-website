@@ -102,6 +102,17 @@ describe('TicketPickerB1', () => {
     expect(screen.getByTestId('picker-count').textContent).toBe('2 tickets');
     expect(screen.getByText('Secure payment by Stripe.')).toBeTruthy();
   });
+  it('free-only order: free button copy and no Stripe wording; a paid line brings it back', async () => {
+    auth.user = { email: 'a@b.co' };
+    mount('', [mk('f', 'Free Entry', 0), mk('b', 'Full Experience', 1500)]);
+    await screen.findByText('Full Experience');
+    add('Free Entry');
+    expect(screen.getByTestId('picker-continue').textContent).toBe('Get my free tickets');
+    expect(screen.queryByText('Secure payment by Stripe.')).toBeNull();
+    add('Full Experience');
+    expect(screen.getByTestId('picker-continue').textContent).toBe('Continue to Stripe');
+    expect(screen.getByText('Secure payment by Stripe.')).toBeTruthy();
+  });
   it('promo: empty code says what to do, with the double buzz', async () => {
     const vibrate = vi.fn(); vi.stubGlobal('navigator', { ...navigator, vibrate });
     mount();
