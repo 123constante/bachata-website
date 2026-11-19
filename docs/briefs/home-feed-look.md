@@ -1,0 +1,3 @@
+
+## Inventory first (short, scoped to this change)
+Before editing, write `INVENTORY.md` at the repo root of your branch (delete it before the final commit, paste it into the PR body instead): every state of the three areas that the new look must cover, each with file:line on origin/main: tab states (default, selected, focus, hover, Calendar deep-link), map states (loading, error, no events), category row states (All, one selected, no results for a category, many categories overflowing), feed row states (poster, no poster, today vs later days, long titles, no price, cancelled/sold out badges). Mark each GAP if the mockup does not show it and say what you chose. End the PR body with a coverage count: "N states listed, N handled".
