@@ -5,11 +5,13 @@ import { useOrgSurface } from '../shell/surface';
 import { Card, Chip, ErrorState, SkeletonRows } from '../ui';
 import { lifecycleTag } from '@/modules/organiser/shared/eventState';
 import { rememberChoice, useOrganiserChoice } from './useOrganiserChoice';
-import { fetchMyRoles, myRolesQueryKey } from '@/modules/areas/home/rolesApi';
+import { fetchMyRoleIntent, fetchMyRoles, myRoleIntentQueryKey, myRolesQueryKey } from '@/modules/areas/home/rolesApi';
 import { AREA_HREF, AREA_NAME } from '@/modules/areas/home/areaStatus';
 import { otherPagesOf, roleWordOf, todosOf } from '@/modules/organiser/p3/model/strip';
 import { L } from '@/modules/organiser/p3/model/labels';
 import { AddProfileCard } from './AddProfileCard';
+import { flags } from '@/lib/featureFlags';
+import { COMING_SOON_LABEL, COMING_SOON_NAME, comingSoonRoles } from '@/components/account/profiles/switchR4Model';
 
 /**
  * A row of chips, one per organiser, shown only when there are several (the
@@ -60,6 +62,46 @@ function OtherPages() {
 }
 
 /**
+ * Dashboard switch, Round-4 (flag dashboardSwitchR4): Teacher / DJ are grey Coming soon rows, shown
+ * ONLY when picked at onboarding (switchR4Model, the sheet's one rule), never links; Dancer keeps its link.
+ */
+function OtherPagesR4() {
+  const roles = useQuery({ queryKey: myRolesQueryKey, queryFn: fetchMyRoles });
+  const intent = useQuery({ queryKey: myRoleIntentQueryKey, queryFn: fetchMyRoleIntent });
+  const soon = comingSoonRoles(intent.data);
+  const links = otherPagesOf(roles.data).filter((r) => r !== 'teacher' && r !== 'dj');
+  if (soon.length === 0 && links.length === 0) return null;
+  return (
+    <>
+      <h2 className="mt-[16px] mb-[8px] font-mono text-[12px] font-medium uppercase tracking-[0.05em] text-[var(--mut)]">{L.strip.otherPages}</h2>
+      <Card testId="switch-other-pages" className="rounded-[11px]">
+        {soon.map((role) => (
+          <div
+            key={role}
+            aria-disabled="true"
+            data-testid={`switch-soon-${role}`}
+            className="flex min-h-[52px] w-full cursor-not-allowed items-center gap-[12px] px-[16px] text-[13px] text-[var(--mut)]"
+          >
+            <span className="min-w-0 flex-1 truncate font-medium">{COMING_SOON_NAME[role]}</span>
+            <span className="shrink-0 rounded-full border border-[var(--line)] px-[7px] py-[3px] font-mono text-[11px] uppercase leading-none tracking-[0.07em]">{COMING_SOON_LABEL}</span>
+          </div>
+        ))}
+        {links.map((role) => (
+          <Link
+            key={role}
+            to={AREA_HREF[role]}
+            data-testid={`switch-area-${role}`}
+            className="flex min-h-[52px] w-full items-center px-[16px] text-[13px] font-medium text-[var(--fg)]"
+          >
+            {AREA_NAME[role]}
+          </Link>
+        ))}
+      </Card>
+    </>
+  );
+}
+
+/**
  * /account/o/switch (C35): the login's pages as rows -- name, role, a Live chip
  * when live (D22: the one status mark). Tap = choose, and Home opens on it.
  */
@@ -71,6 +113,7 @@ export default function SwitchPage() {
     rememberChoice(user?.id, id);
     navigate(`${hub.to}?o=${encodeURIComponent(id)}`);
   };
+  const r4 = flags.dashboardSwitchR4;
   const failed = (home.isError || (home.isPending && home.isPaused)) && !home.data;
   return (
     <Shell title="Switch page" back={hub} testId="org-page-switch">
@@ -84,7 +127,7 @@ export default function SwitchPage() {
           testId="switch-error"
         />
       ) : (
-        <Card testId="switch-list">
+        <Card testId="switch-list" className={r4 ? 'rounded-[11px]' : undefined}>
           {organisers.map((o) => (
             <button
               key={o.id}
@@ -113,13 +156,33 @@ export default function SwitchPage() {
               )}
               {/* P3: Switch decides which page You, Team and the page editor show; say which one that is. */}
               {kind === 'p3' && o.id === selected?.id && (
-                <span className="rounded-[8px] bg-[var(--btn)] px-[8px] py-[2px] text-[12px] font-semibold text-[var(--btnfg)]" data-testid="switch-showing">{SHOWING}</span>
+                <span
+                  className={r4
+                    ? 'shrink-0 rounded-full border border-[var(--btn)] px-[7px] py-[3px] text-[11px] font-semibold uppercase leading-none tracking-[0.07em] text-[var(--btn)]'
+                    : 'rounded-[8px] bg-[var(--btn)] px-[8px] py-[2px] text-[12px] font-semibold text-[var(--btnfg)]'}
+                  data-testid="switch-showing"
+                >
+                  {SHOWING}
+                </span>
               )}
             </button>
           ))}
         </Card>
       )}
-      {kind === 'p3' && <OtherPages />}
+      {kind === 'p3' && (r4 ? <OtherPagesR4 /> : <OtherPages />)}
+      {/* Round-4 (option B): Add a page is one card row; the Add a profile card leaves this page for the sheet's + Add a profile. */}
+      {r4 ? (
+        <Card className="mt-[16px] rounded-[11px]">
+          <Link
+            to={addPage}
+            data-testid="switch-add-page"
+            className="flex min-h-[52px] w-full items-center gap-[12px] px-[16px] text-[13px] font-medium text-[var(--gold-fg)]"
+          >
+            <span aria-hidden="true" className="text-[18px] leading-none">+</span>
+            Add a page
+          </Link>
+        </Card>
+      ) : (<>
       <Link
         to={addPage}
         data-testid="switch-add-page"
@@ -130,6 +193,7 @@ export default function SwitchPage() {
       </Link>
       {/* P3 (slice 1c): the roles the person lacks, last on the page. Flag off (R1) = today's Switch. */}
       {kind === 'p3' && <AddProfileCard key={user?.id ?? 'signed-out'} userId={user?.id} organiserPages={organisers.length} addPage={addPage} />}
+      </>)}
     </Shell>
   );
 }

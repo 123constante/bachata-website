@@ -15,9 +15,6 @@ vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'me', email: '
 vi.mock('@/components/auth/AuthGuard', () => ({ AuthGuard: ({ children }: { children: ReactNode }) => <>{children}</> }));
 vi.mock('@/hooks/useNoindexMeta', () => ({ useNoindexMeta: () => undefined }));
 vi.mock('@/modules/organiser/shared/selfServeApi', async () => ({ ...(await vi.importActual<object>('@/modules/organiser/shared/selfServeApi')), fetchOrganiserHome: h.home }));
-vi.mock('../../p3/screens/HomeScreen', () => ({ HomeScreen: () => <div /> }));
-vi.mock('../../p3/screens/EventsScreen', () => ({ EventsScreen: () => <div /> }));
-vi.mock('../../p3/screens/StatsScreen', () => ({ StatsScreen: () => <div /> }));
 
 import P3Routes from '../../p3/shell/P3Routes';
 import { P3_BASE, P3_PATHS } from '../../p3/shell/paths';
@@ -61,7 +58,8 @@ const grid = P.flatMap((p) => R.flatMap((r) => Q.map((q) => [p, r, q] as const))
 // Page 0 -> no page; the requests query never runs.
 const errorExpected = (p: number, q: Reqs) => p > 0 && q === 'error';
 
-describe.each([['Team', P3_PATHS.youTeam], ['You', P3_PATHS.you]] as const)('%s: requests error + page name', (screenName, path) => {
+// R4 is the only organiser UI: You > Team is R4Team now (its rows: r4/__tests__); the old P3 Team page's row went with it.
+describe.each([['You', P3_PATHS.you]] as const)('%s: requests error + page name', (_screenName, path) => {
   it.each(grid)('pages=%i role=%s requests=%s', async (p, r, q) => {
     pages = p; role = r; reqs = q; install();
     at(path);
@@ -72,10 +70,6 @@ describe.each([['Team', P3_PATHS.youTeam], ['You', P3_PATHS.you]] as const)('%s:
       if (errorExpected(p, q)) expect(err).not.toBeNull(); else expect(screen.queryByTestId('p3-team-requests-error')).toBeNull();
     }, { timeout: 2000 }).catch(async () => { await new Promise((x) => setTimeout(x, 50)); });
     expect(!!screen.queryByTestId('p3-team-requests-error')).toBe(errorExpected(p, q));
-    if (screenName === 'Team') {
-      const cap = screen.queryByTestId('p3-team-page-name');
-      if (p >= 2) { expect(cap?.textContent).toBe(NAMES[0]); expect(cap?.className).toContain('truncate'); } else expect(cap).toBeNull();
-    }
   });
   it('Try again refetches once', async () => {
     pages = 1; role = 'owner'; reqs = 'error'; install();

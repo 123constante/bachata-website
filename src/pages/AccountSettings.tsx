@@ -33,6 +33,7 @@ import {
 import { ACCOUNT_CONTACT_EMAIL, OTHER_DEVICES_NOT_SIGNED_OUT, deleteRefusalMessage } from "@/lib/accountDeletionCopy";
 import { toast } from "@/hooks/use-toast";
 import { SIGN_OUT_FAILED, useSignOutToHome } from "@/components/account/profiles/signOutToHome";
+import { flags } from "@/lib/featureFlags";
 import { ACCOUNT_SETTINGS_LABEL, HIDDEN_STATE_LINE, SHOW_AGAIN_LABEL } from "@/lib/accountRouting";
 
 /**
@@ -107,7 +108,7 @@ function ExportButton({ testId, label = "Download my data" }: { testId: string; 
 
 // Review #789 B1: both buttons go through the one sign-out path (leave first, then sign out),
 // so AuthGuard cannot send the person to "Welcome back" first.
-export function SignOutSection() {
+export function SignOutSection({ quiet = flags.dashboardSwitchR4 }: { quiet?: boolean } = {}) {
   const { user } = useAuth();
   const { signOutToHome, busy } = useSignOutToHome();
   const [confirming, setConfirming] = useState(false);
@@ -119,7 +120,8 @@ export function SignOutSection() {
   return (
     <Section title="Sign out">
       <p className={NOTE}>{user?.email ? <>Signed in as <EmailText email={user.email} />.</> : <>Signed in.</>}</p>
-      {confirming ? (
+      {/* Dashboard switch (flag dashboardSwitchR4): the plain Sign out is QuietSignOut at the page foot instead. */}
+      {quiet ? null : confirming ? (
         <div className="space-y-[8px]">
           <button type="button" className={PILL} onClick={() => void go()} disabled={busy} data-testid="settings-signout-yes">
             {busy ? <>Signing out&hellip;</> : "Yes, sign out"}
@@ -138,6 +140,48 @@ export function SignOutSection() {
       )}
       <SignOutEverywhere />
     </Section>
+  );
+}
+
+/**
+ * Dashboard switch, Round-4 (flag dashboardSwitchR4): Sign out leaves the Switch profile sheet and
+ * is a quiet text link at the very foot of Account settings. Still two steps: it asks first.
+ */
+export function QuietSignOut() {
+  const { signOutToHome, busy } = useSignOutToHome();
+  const [confirming, setConfirming] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const go = async () => {
+    setFailed(false);
+    if ((await signOutToHome()) === "failed") setFailed(true);
+  };
+  return (
+    <div className="pt-[8px]" data-testid="settings-signout-foot">
+      {confirming ? (
+        <div className="space-y-[8px]" data-testid="settings-signout-step">
+          <p className="text-[13px] font-semibold text-[var(--fg)]">Sign out?</p>
+          <p className={NOTE}>You can sign back in any time with your email.</p>
+          <div className="grid grid-cols-2 gap-[8px]">
+            <button type="button" className={OUTLINE} onClick={() => setConfirming(false)} disabled={busy}>
+              Stay signed in
+            </button>
+            <button type="button" className={PILL} onClick={() => void go()} disabled={busy} data-testid="settings-signout-yes">
+              {busy ? <>Signing out&hellip;</> : "Yes, sign out"}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setConfirming(true)}
+          className="flex min-h-[44px] w-full items-center justify-center text-[13px] text-[var(--mut)] underline underline-offset-2"
+          data-testid="settings-signout"
+        >
+          Sign out
+        </button>
+      )}
+      {failed && <p role="alert" className={ERR}>{SIGN_OUT_FAILED}</p>}
+    </div>
   );
 }
 
@@ -364,6 +408,7 @@ function Home() {
         </Link>
       </Section>
       <SignOutSection />
+      {flags.dashboardSwitchR4 && <QuietSignOut />}
     </div>
   );
 }

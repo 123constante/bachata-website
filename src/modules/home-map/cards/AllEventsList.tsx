@@ -33,6 +33,7 @@ import { resolvePageCity } from '@/lib/pageCity';
 import EmptyCityNote from '@/components/listing/LazyEmptyCityNote';
 import { flags } from '@/lib/featureFlags';
 import { HomeChipRow } from '@/modules/home-polish/HomeChipRow';
+import { PosterRow, type PosterSel } from '@/modules/home-polish/PosterRow';
 import {
   FAR_MI,
   matchesCats,
@@ -71,6 +72,20 @@ function GroupHeader({
     sticky &&
       "sticky top-0 z-10 bg-[#11121a] before:absolute before:inset-x-0 before:bottom-full before:h-3 before:bg-[#11121a] before:content-['']",
   );
+  if (flags.homeFeedLook) {
+    // homeFeedLook: poster day header, big word + date + count on ONE baseline.
+    return (
+      <header className={cn('flex items-baseline gap-2 px-1 pb-1.5 pt-1', sticky && "hm-look-sticky sticky top-0 z-10 before:absolute before:inset-x-0 before:bottom-full before:h-3 before:content-['']")}>
+        {isToday ? (
+          <span className="hm-look-day shrink-0 text-[34px] tracking-[.03em] text-[hsl(var(--hm-look-amber))]">Today</span>
+        ) : isTomorrow ? (
+          <span className="hm-look-day shrink-0 text-[26px] tracking-[.03em] text-[hsl(var(--hm-look-dim))]">Tomorrow</span>
+        ) : null}
+        <span className="truncate text-[13px] font-bold text-[hsl(var(--hm-look-dim))]">{label}</span>
+        <span className="ml-auto shrink-0 text-[13px] font-extrabold tabular-nums text-[hsl(var(--hm-look-amber))]">{count}</span>
+      </header>
+    );
+  }
   if (isToday) {
     return (
       <header className={base}>
@@ -186,6 +201,8 @@ export function AllEventsList({
   const coords = state.geo.coords;
   // homePolish: Party/Class/Fest filters (multi) + a remembered Nearest preference.
   const polish = flags.homePolish;
+  // homeFeedLook: the poster-word row replaces the chip row (single category; Near me inside it).
+  const look = polish && flags.homeFeedLook;
   const [cats, setCats] = useState<ReadonlySet<ChipCat>>(() => new Set());
   const toggleCat = (c: ChipCat) =>
     setCats((prev) => {
@@ -348,7 +365,22 @@ export function AllEventsList({
   const cityNote = !city.isLondon && groups.length === 0 && !state.q ? (
     <EmptyCityNote cityName={city.name} citySlug={city.slug} />
   ) : null;
-  const chipRow = polish ? (
+  const posterSel: PosterSel = nearest ? 'near' : (([...cats][0] as ChipCat | undefined) ?? 'all');
+  const onPosterSelect = (next: PosterSel) => {
+    if (next === 'near') {
+      setCats(new Set());
+      setNearest(true);
+      // Location is asked for ONLY on this tap (a no-op if already granted / in flight).
+      if (state.geo.status !== 'granted' && state.geo.status !== 'loading') state.geo.request();
+      return;
+    }
+    if (nearest && state.geo.status === 'loading') state.geo.clear();
+    setNearest(false);
+    setCats(next === 'all' ? new Set() : new Set<ChipCat>([next]));
+  };
+  const chipRow = look ? (
+    <PosterRow geo={state.geo} sel={posterSel} onSelect={onPosterSelect} />
+  ) : polish ? (
     <HomeChipRow geo={state.geo} nearest={nearest} onNearest={setNearest} cats={cats} onToggleCat={toggleCat} />
   ) : null;
   if (polish && cats.size > 0 && groups.length === 0 && remote.length === 0) {

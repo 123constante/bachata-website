@@ -283,7 +283,7 @@ export default function HomeMapShell({
 
   return (
     <div
-      className={cn('home-map-fill home-map relative isolate w-full overflow-hidden', flags.homePolish && 'hm-polish')}
+      className={cn('home-map-fill home-map relative isolate w-full overflow-hidden', flags.homePolish && 'hm-polish', flags.homeFeedLook && 'hm-look')}
     >
       {/* The skip link only has something to skip when the card is on screen.
           On What's New and Calendar the map is not rendered at all, so a link
@@ -353,6 +353,13 @@ export default function HomeMapShell({
           The whole block is REMOVED, not hidden, on What's New and Calendar:
           `display:none` would leave Leaflet mounted at zero size, which is the
           worst of both -- it still costs a live map and still moves the tab row. */}
+      {/* homeFeedLook: the folder tabs sit ABOVE the map and join it (one panel). Same TabBar. */}
+      {flags.homeFeedLook && (
+        <div className="hm-dock hm-look-dock shrink-0 px-3 pt-3">
+          <TabBar tab={state.tab} setTab={state.setTab} />
+        </div>
+      )}
+
       {showMapCard && (
       <div
         className="hm-mapcard relative overflow-hidden"
@@ -459,9 +466,11 @@ export default function HomeMapShell({
       )}
 
       <div className="hm-side flex min-h-0 flex-1 flex-col">
-        <div className="hm-dock shrink-0 px-3 pt-3 md:px-4">
-          <TabBar tab={state.tab} setTab={state.setTab} />
-        </div>
+        {!flags.homeFeedLook && (
+          <div className="hm-dock shrink-0 px-3 pt-3 md:px-4">
+            <TabBar tab={state.tab} setTab={state.setTab} />
+          </div>
+        )}
 
         <div
           ref={state.listRef}

@@ -9,7 +9,7 @@ import { useSeriesTypes, useSummary } from '../tickets/data';
 import { StackSheet } from '../tickets/StackSheet';
 import { TicketsEntry } from '../tickets/TicketsEntry';
 import { P3_PATHS } from '../shell/paths';
-import { useEventChoice, type EventChoice } from '../v2/V2Shell';
+import { useEventChoice, type EventChoice } from './EventChoice';
 import { R4Chevron } from './R4Shell';
 import { R4LookContext } from './r4Look';
 import { r4TicketsOf, type R4TicketsModel } from './r4TicketsModel';

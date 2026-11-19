@@ -6,7 +6,7 @@ import { flags } from '@/lib/featureFlags';
 import { fetchNightCount } from '../dash/pastNights';
 import { fetchRaffleNights, raffleNightsQueryKey } from '../events/raffle/raffleApi';
 import { P3_PATHS } from '../shell/paths';
-import { useEventChoice } from '../v2/V2Shell';
+import { useEventChoice } from './EventChoice';
 import { R4Chevron } from './R4Shell';
 import { pastToReadOf, r4CompareMoneyOf, r4CompareOf } from './r4CompareModel';
 import { fetchNightMoney, nightMoneyQueryKey } from './r4MoneyApi';

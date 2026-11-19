@@ -10,7 +10,9 @@ export function homeClockOf(nextStartIso: string | null, nextDate: string | null
   const c = nextStartIso ? ticketsClock(nextStartIso, now) : null;
   if (c === 'door') return 'night';
   if (c === 'after' && nextDate === today) return 'after';
-  return lastDate !== null && lastDate >= yesterdayOf(today) && lastDate <= today ? 'after' : 'before';
+  // No day yet (no page, today still empty): nothing to compare, and yesterdayOf('') throws RangeError (R4 Home, CI p3 walk).
+  if (!today) return 'before';
+  return lastDate === yesterdayOf(today) ? 'after' : 'before';
 }
 
 /** 'YYYY-MM-DD' minus one day, pure calendar arithmetic (no time zone). */

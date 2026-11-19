@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { P3_PATHS } from '../../shell/paths';
-import { isPushed, tabOf } from '../../shell/P3Shell';
+import { isPushed } from '../../shell/pushed';
 import { P3_SURFACE } from '../../you/surface';
 
 /*
@@ -13,8 +13,7 @@ import { P3_SURFACE } from '../../you/surface';
 const P3_DIR = join(process.cwd(), 'src/modules/organiser/p3');
 
 describe('New event in the P3 frame', () => {
-  it.each([P3_PATHS.create, `${P3_PATHS.create}/`])('%s is a pushed Events screen', (path) => {
-    expect(tabOf(path)).toBe('events');
+  it.each([P3_PATHS.create, `${P3_PATHS.create}/`])('%s is a pushed screen', (path) => {
     expect(isPushed(path)).toBe(true);
   });
 
@@ -31,9 +30,9 @@ describe('New event in the P3 frame', () => {
       return /\.tsx?$/.test(f) ? [full] : [];
     });
     for (const f of files(P3_DIR)) {
-      // paths.ts defines the old URLs, P3Shell keeps them in the frame while they redirect, and the surface
+      // paths.ts defines the old URLs, the pushed list keeps them in the frame while they redirect, and the surface
       // keeps R1's step keys (only R1's wizard reads them, and P3 no longer mounts it) pointing at those redirects
-      if (['shell/paths.ts', 'shell/P3Shell.tsx', 'you/surface.tsx'].some((x) => f.endsWith(x))) continue;
+      if (['shell/paths.ts', 'shell/pushed.ts', 'you/surface.tsx'].some((x) => f.endsWith(x))) continue;
       expect(readFileSync(f, 'utf8'), f).not.toMatch(/P3_PATHS\.(newWhat|newName|newVenue|newDate|newTime|newCover)\b/);
     }
   });

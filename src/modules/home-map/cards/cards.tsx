@@ -55,10 +55,13 @@ export function CoverThumb({
   event,
   className,
   monoClassName,
+  hourLabel,
 }: {
   event: MapEvent;
   className?: string;
   monoClassName?: string;
+  /** homeFeedLook: shown instead of the monogram when there is no (working) poster. */
+  hourLabel?: string;
 }) {
   // A 404/expired cover falls back to the same gradient+monogram as a missing
   // one, rather than a broken-image icon. Reset when the src changes (this
@@ -91,7 +94,7 @@ export function CoverThumb({
           )}
           style={{ fontFamily: 'var(--hm-poster)', fontWeight: 900, textShadow: '0 1px 7px rgba(0,0,0,.5)' }}
         >
-          {monogram(event.name)}
+          {hourLabel || monogram(event.name)}
         </span>
       )}
       <span className="grain" />
@@ -112,13 +115,13 @@ export function CategoryDot({ category, className }: { category: MapCategory; cl
 /** Time row for a list/card. A "Class & Party" event with split times shows two
  *  coloured segments (Class teal, Party rose); everything else shows the single
  *  category dot + merged start/end range. Renders nothing if there are no times. */
-export function TimePills({ event, className }: { event: MapEvent; className?: string }) {
+export function TimePills({ event, className, stack }: { event: MapEvent; className?: string; stack?: boolean }) {
   const split = formatSplitTimes(event);
   if (split) {
     return (
-      <span className={cn('inline-flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground', className)}>
+      <span className={cn('inline-flex items-center text-xs text-muted-foreground', stack ? 'flex-col items-start gap-y-0.5' : 'flex-wrap gap-x-3 gap-y-1', className)}>
         {split.map((seg) => (
-          <span key={seg.label} className="inline-flex items-center gap-1.5">
+          <span key={seg.label} className={cn('inline-flex items-center gap-1.5', stack && 'whitespace-nowrap')}>
             <CategoryDot category={seg.category} className="h-1.5 w-1.5" />
             <span className="font-bold" style={{ color: CATEGORY_COLORS[seg.category] }}>{seg.label}</span>
             <span>{seg.range}</span>
@@ -220,7 +223,7 @@ function FreshnessClockBody({
           {verb}
         </span>
         <span className="text-xs font-bold tabular-nums" style={{ color: heat.text }}>{rel}</span>
-        {!justNow && <span className="text-[9px] text-muted-foreground">ago</span>}
+        {!justNow && <span className="text-[11px] text-muted-foreground">ago</span>}
       </span>
     </div>
   );
@@ -339,6 +342,98 @@ function DistanceChip({ mi }: { mi: number }) {
   );
 }
 
+/** homeFeedLook row (option C): 68px poster thumb (gradient + start hour when there is no poster),
+ *  title 15px, venue 13px, meta 13px, and a 44px map-pin target on the right. The pin selects the
+ *  occurrence on the map exactly as a row tap does; it is a SIBLING of the link (no nested interactive).
+ *  The feed carries no price, so the meta line is type + time only. */
+function LookRow({
+  event,
+  selected,
+  onSelect,
+  onHover,
+  today,
+  mi,
+  trackRef,
+  className,
+  stamp,
+}: {
+  event: MapEvent;
+  selected: boolean;
+  onSelect: (id: string) => void;
+  onHover?: (id: string | null) => void;
+  today: string;
+  mi: number | null;
+  trackRef?: (el: Element | null) => void;
+  className?: string;
+  stamp: boolean;
+}) {
+  const cancelled = event.is_cancelled;
+  const hour = event.start_time ? event.start_time.slice(11, 16) : '';
+  const open = () => onSelect(event.occurrence_id);
+  return (
+    <div
+      className={cn('hm-look-row flex w-full items-center gap-3 p-2', selected && 'ring-1 ring-[hsl(var(--hm-look-amber)/.6)]', cancelled && 'opacity-60', className)}
+      onPointerEnter={() => onHover?.(event.occurrence_id)}
+      onPointerLeave={() => onHover?.(null)}
+    >
+      <a
+        ref={trackRef}
+        href={rowHref(event)}
+        data-occ={event.occurrence_id}
+        onClick={(e) => {
+          e.preventDefault();
+          open();
+        }}
+        className={cn('flex min-w-0 flex-1 items-center gap-3 rounded-xl', focusRing)}
+      >
+        <CoverThumb
+          event={event}
+          className={cn('hm-look-thumb', cancelled && 'grayscale')}
+          monoClassName="text-[20px]"
+          hourLabel={hour}
+        />
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2">
+            <span className={cn('min-w-0 truncate text-[15px] font-bold leading-tight', cancelled && 'line-through')}>{event.name}</span>
+            {isTodayRow(event, today) && <LiveBadge event={event} today={today} />}
+          </span>
+          {/* FEED CARD CONTENT RULE (owner 2026-11-19): name, Class/Party time lines (dot + start-end),
+              venue; Added/Updated stamp stays on the RIGHT as on the old card. Look may change, content may not. */}
+          <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5" data-feed-times="">
+            <TimePills event={event} stack className="text-[13px]" />
+            {(event.lat == null || event.lng == null) && <OffMapTag />}
+          </span>
+          {event.festivalDateRange && (
+            <span className="mt-0.5 block text-[13px] font-semibold text-primary">{event.festivalDateRange}</span>
+          )}
+          {event.venue_name && (
+            <span className="mt-0.5 block truncate text-[13px] text-[hsl(var(--hm-look-dim))]" data-feed-venue="">
+              {event.venue_name}
+              {event.area ? `, ${event.area}` : ''}
+            </span>
+          )}
+        </span>
+        {cancelled ? (
+          <CancelPill />
+        ) : stamp ? (
+          <FreshnessClock event={event} className="self-start" />
+        ) : mi != null ? (
+          <DistanceChip mi={mi} />
+        ) : null}
+      </a>
+      <button
+        type="button"
+        onClick={open}
+        aria-label={`Show ${event.name} on the map`}
+        disabled={event.lat == null || event.lng == null}
+        className={cn('hm-look-pin disabled:opacity-30', focusRing)}
+      >
+        <MapPin className="h-5 w-5" aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
 /** Grouped-list / day-detail row (cover + title + times + venue). When
  *  `showFreshness` is set, a recently added/updated row carries the "Added/Updated
  *  Xm ago" stamp (gated by isRecentlyChanged). A row with no stamp falls back to
@@ -382,6 +477,21 @@ export const EventRow = memo(function EventRow({
   const cancelled = event.is_cancelled;
   const offMap = event.lat == null || event.lng == null;
   const mi = distanceMi ?? null;
+  if (flags.homeFeedLook) {
+    return (
+      <LookRow
+        event={event}
+        selected={selected}
+        onSelect={onSelect}
+        onHover={onHover}
+        today={today}
+        mi={mi}
+        trackRef={trackRef}
+        className={className}
+        stamp={showFreshness && isRecentlyChanged(event, 14, now)}
+      />
+    );
+  }
   return (
     <a
       ref={trackRef}

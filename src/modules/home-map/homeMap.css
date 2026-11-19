@@ -423,3 +423,70 @@
     transparent
   );
 }
+
+
+/* ---- homeFeedLook (VITE_ENABLE_HOME_FEED_LOOK; needs homePolish) -----------------
+   Folder tabs joined to the map, plum ground, poster category row, poster feed rows.
+   Every rule is scoped under .hm-look, which only exists with the flag ON, so OFF is
+   pixel-identical. Tokens (space-separated HSL) live here, not as raw hexes in TSX.
+   ground #2b1630, card #38203f, amber #f5b83d, dim text #b9a6bf, poster dim #7d6684. */
+.home-map-fill.hm-look {
+  --hm-look-ground: 288 36% 13%;
+  --hm-look-card: 288 33% 18%;
+  --hm-look-amber: 41 91% 58%;
+  --hm-look-dim: 288 15% 70%;
+  --hm-look-poster-dim: 285 13% 64%;
+  background-color: hsl(var(--hm-look-ground));
+}
+.hm-look .hm-look-dock { padding-top: 12px; padding-bottom: 0; }
+.hm-look .hm-look-tabs { gap: 4px; border-bottom: 1.5px solid hsl(var(--hm-look-amber) / .45); align-items: flex-end; }
+.hm-look .hm-look-tab {
+  height: 44px; border: 1.5px solid hsl(var(--hm-look-dim) / .45); border-bottom: 0;
+  border-radius: 12px 12px 0 0; background: transparent; transition: color .14s, background-color .14s;
+}
+.hm-look .hm-look-tab.is-on {
+  height: 48px; margin-bottom: -1.5px; position: relative; z-index: 2;
+  color: hsl(var(--hm-look-amber)); border-color: hsl(var(--hm-look-amber));
+  background: hsl(var(--hm-look-ground));
+  box-shadow: 0 -4px 12px -2px hsl(var(--hm-look-amber) / .35);
+}
+.hm-look .hm-look-tab:focus-visible { outline: 2px solid hsl(var(--hm-look-amber)); outline-offset: -2px; }
+/* The 148px map panel: outlined amber on sides + bottom, bottom corners rounded, no gap under the tabs. */
+.home-map-fill.hm-look .hm-mapcard {
+  margin-top: 0; border: 1.5px solid hsl(var(--hm-look-amber)); border-top: 0;
+  border-radius: 0 0 1rem 1rem;
+}
+.hm-look .hm-feed { background: transparent; }
+/* Poster category row: no boxes, one line, next word peeks at the right edge. */
+.hm-look .hm-poster-row {
+  display: flex; align-items: stretch; gap: 14px; overflow-x: auto; margin-inline: -12px; padding-inline: 12px;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.hm-look .hm-poster-row::-webkit-scrollbar { display: none; }
+.hm-look .hm-poster-row::after { content: ""; flex: 0 0 12px; }
+.hm-look .hm-poster-word {
+  position: relative; flex: 0 0 auto; min-height: 44px; display: inline-flex; align-items: center;
+  font-family: var(--hm-poster); font-weight: 800; font-size: 24px; line-height: 1; letter-spacing: .02em;
+  text-transform: uppercase; white-space: nowrap; background: none; border: 0; padding: 0 2px;
+  color: hsl(var(--hm-look-poster-dim));
+}
+.hm-look .hm-poster-word[aria-pressed="true"] { color: hsl(var(--hm-look-amber)); }
+.hm-look .hm-poster-word[aria-pressed="true"]::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 2px; height: 4px; border-radius: 2px;
+  background: hsl(var(--hm-look-amber));
+}
+.hm-look .hm-poster-word:focus-visible { outline: 2px solid hsl(var(--hm-look-amber)); outline-offset: 2px; border-radius: 4px; }
+.hm-look .hm-poster-status { font-size: 13px; line-height: 1.3; color: hsl(var(--hm-look-dim)); }
+/* Feed rows (option C). */
+.hm-look .hm-look-row { background: hsl(var(--hm-look-card)); border-radius: 14px; }
+.hm-look .hm-look-row .hm-look-thumb { width: 68px; height: 68px; border-radius: 10px; flex: 0 0 68px; }
+.hm-look .hm-look-day { font-family: var(--hm-poster); font-weight: 800; line-height: 1; text-transform: uppercase; }
+.hm-look .hm-look-pin {
+  display: inline-grid; place-items: center; width: 44px; height: 44px; flex: 0 0 44px; border-radius: 12px;
+  color: hsl(var(--hm-look-amber)); background: none; border: 0;
+}
+.hm-look .hm-look-pin:focus-visible { outline: 2px solid hsl(var(--hm-look-amber)); outline-offset: -2px; }
+.hm-look .hm-look-sticky, .hm-look .hm-look-sticky::before { background-color: hsl(var(--hm-look-ground)); }
+@media (min-width: 768px) {
+  .home-map-fill.hm-look .hm-mapcard { margin-inline: 0.75rem; }
+}

@@ -37,9 +37,6 @@ vi.mock('@/components/account/profiles/signOutToHome', () => ({
   SIGN_OUT_FAILED: 'Could not sign you out.',
   useSignOutToHome: () => ({ signOutToHome: async () => 'signed-out', busy: false }),
 }));
-vi.mock('../../p3/screens/HomeScreen', () => ({ HomeScreen: () => <div data-testid="stub-home" /> }));
-vi.mock('../../p3/screens/EventsScreen', () => ({ EventsScreen: () => <div data-testid="stub-events" /> }));
-vi.mock('../../p3/screens/StatsScreen', () => ({ StatsScreen: () => <div data-testid="stub-stats" /> }));
 
 import P3Routes from '../../p3/shell/P3Routes';
 import { P3_BASE, P3_PATHS } from '../../p3/shell/paths';
@@ -77,20 +74,7 @@ beforeEach(() => { window.localStorage.clear(); h.fl.organiserP3 = true; h.fl.or
 afterEach(cleanup);
 
 describe('P3 Team screens never say contributor (owner and manager viewers, prod shapes)', () => {
-  it.each(['owner', 'manager'] as const)('Team tab, %s: roles listed from TEAM_ROLES, Door disabled with its reason', async (r) => {
-    viewer = r; install();
-    at(P3_PATHS.youTeam);
-    const card = await screen.findByTestId('p3-team-roles');
-    await screen.findAllByTestId('team-member');
-    expect(TEAM_ROLES.map((x) => x.label)).toEqual(['Owner', 'Manager', 'Door']);
-    for (const x of TEAM_ROLES) expect(within(card).getByTestId(`p3-team-role-${x.key}`).textContent).toContain(x.label);
-    const door = within(card).getByTestId('p3-team-role-door');
-    expect(door.getAttribute('aria-disabled')).toBe('true');
-    expect(within(card).getByTestId('p3-team-role-door-why').textContent).toBe(DOOR_NOT_OPEN);
-    expect(within(card).getByTestId('p3-team-role-manager').getAttribute('aria-disabled')).toBeNull();
-    expect(screen.getByTestId('org-page-team').textContent).not.toMatch(CONTRIBUTOR);
-  });
-
+  // The Team tab is R4Team now (its rows: p3/r4/__tests__); the old P3 Team page's roles card went with it.
   it.each(['owner', 'manager'] as const)('Person screen, %s: the explainer is built from TEAM_ROLES', async (r) => {
     viewer = r; install();
     at(P3_PATHS.youTeamPerson('u-other'));
@@ -162,30 +146,5 @@ describe('the Team roles follow the flag PAIR (AnimatedRoutes p3Live)', () => {
     const dialog = await openSheet();
     expect(within(dialog).queryByRole('radio', { name: 'Contributor' })).toBeNull();
     expect((within(dialog).getByRole('radio', { name: 'Door' }) as HTMLInputElement).disabled).toBe(true);
-  });
-});
-
-describe('X1: Account / Help / Sign out reachable from every P3 screen', () => {
-  const SCREENS: Array<[string, string]> = [
-    ['Home', P3_PATHS.home],
-    ['Events', P3_PATHS.events],
-    ['Stats', P3_PATHS.stats],
-    ['You', P3_PATHS.you],
-    ['Team', P3_PATHS.youTeam],
-    ['Team person', P3_PATHS.youTeamPerson('u-other')],
-  ];
-  const cases = SCREENS.flatMap(([n, p]) => [[n, p, 1] as const, [n, p, 0] as const]);
-  it.each(cases)('%s (pages=%i): one 44px entry opens the sheet with Account settings, Help and Sign out', async (_n, path, p) => {
-    viewer = 'owner'; pages = p; install();
-    at(path);
-    const entry = await screen.findByTestId('p3-account-entry');
-    expect(screen.getAllByTestId('p3-account-entry')).toHaveLength(1);
-    expect(entry.className).toMatch(/min-h-\[44px\]/);
-    expect(entry.className).toMatch(/min-w-\[44px\]/);
-    fireEvent.click(entry);
-    await waitFor(() => expect(screen.getByTestId('p3-ob-account-block')).toBeTruthy());
-    expect(screen.getByTestId('p3-ob-account').getAttribute('href')).toBe('/account/settings');
-    expect(screen.getByTestId('p3-ob-help').getAttribute('href')).toMatch(/^mailto:/);
-    expect(screen.getByTestId('p3-ob-signout').textContent).toBe('Sign out');
   });
 });
