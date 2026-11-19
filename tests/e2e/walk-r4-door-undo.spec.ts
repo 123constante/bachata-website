@@ -4,7 +4,7 @@ import { FRIDAY, OrganiserFake, PHONE, json } from './helpers/organiserFake';
 
 // WALK (report only, not in the gate): organiser R4 slice c, door Undo after a list tick, 390x844, every answer route-mocked.
 //   WALK_OUT=<dir> VITE_ENABLE_ORGANISER_SELF_SERVE=true VITE_ENABLE_ORGANISER_P3=true VITE_ENABLE_ORGANISER_DASH=true \
-//   VITE_ENABLE_ORGANISER_R4=true VITE_ENABLE_ORGANISER_TICKETING=true VITE_ENABLE_TICKET_DOOR_CODE=true npx playwright test tests/e2e/walk-r4-door-undo.spec.ts --project=chromium --workers=1 --trace off
+//   VITE_ENABLE_ORGANISER_TICKETING=true VITE_ENABLE_TICKET_DOOR_CODE=true npx playwright test tests/e2e/walk-r4-door-undo.spec.ts --project=chromium --workers=1 --trace off
 const OUT = process.env.WALK_OUT ?? 'docs/walk/r4-door-undo';
 mkdirSync(`${OUT}/pics`, { recursive: true });
 test.use({ viewport: PHONE, reducedMotion: 'reduce', launchOptions: { args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] } });
