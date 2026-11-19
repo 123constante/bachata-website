@@ -71,7 +71,7 @@ async function openReal(page: Page) {
     tix.push(route.request().postData() ?? '');
     return json(route, REFUSAL, 400);
   });
-  await page.goto(`/account/p3/events/${FRIDAY}`);
+  await page.goto(`/account/p3/events/${FRIDAY}/all`);
   await expect(page.getByTestId('p3-event')).toBeVisible();
   return { sent, tix };
 }
