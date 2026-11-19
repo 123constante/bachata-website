@@ -1,4 +1,5 @@
-import { useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ClaimNotice } from '../../home/ClaimNotice';
 import { useP3Home } from '../data/useP3Data';
 import { P3_PATHS } from '../shell/paths';
@@ -19,6 +20,29 @@ export function HomeNotices({ confirmation }: { confirmation: string | null }) {
       <GraceBanner />
     </>
   );
+}
+
+/**
+ * The words a finished action carried in router state (p3Toast), e.g. "Removed from your events."
+ * Shown once for a few seconds, then dropped from the history entry so Back and reload do not repeat it.
+ */
+export function RemovedToast() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const carried = (location.state as { p3Toast?: unknown } | null)?.p3Toast;
+  const [text, setText] = useState<string | null>(null);
+  useEffect(() => {
+    if (typeof carried !== 'string' || !carried.trim()) return;
+    setText(carried);
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+  }, [carried, navigate, location.pathname, location.search]);
+  useEffect(() => {
+    if (!text) return;
+    const t = window.setTimeout(() => setText(null), 6000);
+    return () => window.clearTimeout(t);
+  }, [text]);
+  if (!text) return null;
+  return <p className="r4-toast" role="status" data-testid="r4-toast">{text}</p>;
 }
 
 /**
