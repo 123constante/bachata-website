@@ -13,8 +13,6 @@ Independent review of two test-only flake-fix PRs in 123constante/bachata-websit
 5. Run the touched test file once locally (`npx vitest run <file>`) and report pass or fail.
 
 ## Output
-For each PR, on its own branch cut from origin/main:
-- #1852: branch `claude/review-1852-r1`, file `docs/review/1852-r1.md`
-- #1854: branch `claude/review-1854-r1`, file `docs/review/1854-r1.md`
+On ONE branch `claude/review-flake-bots` (cut from origin/main), two files: `docs/review/1852-r1.md` and `docs/review/1854-r1.md`.
 
-Each doc has: a line `## Verdict: PASS` or `## Verdict: PASS WITH NITS` or `## Verdict: BLOCK` (exactly one Verdict line), the text `head <full sha>` of the reviewed head, `PR #<n>` in the title, findings one per line with file:line, and what you did not verify. Push both branches. Do not merge, approve, or edit the PR branches.
+Each doc has: a line `## Verdict: PASS` or `## Verdict: PASS WITH NITS` or `## Verdict: BLOCK` (exactly one Verdict line), the text `head <full sha>` of the reviewed head, `PR #<n>` in the title, findings one per line with file:line, and what you did not verify. Push the one branch. Do not merge, approve, or edit the PR branches.
