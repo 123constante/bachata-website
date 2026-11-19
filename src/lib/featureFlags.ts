@@ -129,6 +129,10 @@ export const flags = {
   // logo + menu button header with a full-screen menu sheet and search, no BottomNav, map strip option 3.
   // OFF = every screen exactly as before. Turn on with VITE_ENABLE_HOME_POLISH=true (Vercel env) -- no code change.
   homePolish:          import.meta.env.VITE_ENABLE_HOME_POLISH === 'true',
+  // Near me (docs/briefs/near-me.md): one shared location provider, a 30-minute remembered fix,
+  // tilde distances, split denial copy. Needs homePolish ON to show the chip row.
+  // OFF = every screen exactly as before. Turn on with VITE_ENABLE_NEAR_ME=true (Vercel env) -- no code change.
+  nearMe:              import.meta.env.VITE_ENABLE_NEAR_ME === 'true',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the

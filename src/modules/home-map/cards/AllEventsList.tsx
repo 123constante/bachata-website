@@ -385,6 +385,11 @@ export function AllEventsList({
           </button>
         </div>
       )}
+      {flags.nearMe && polish && nearest && coords && !hasDistances && (
+        <div role="status" className="rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground">
+          No events with a place on the map to measure from here yet. The chip still works as events are added.
+        </div>
+      )}
       {!polish && state.geo.status === 'idle' && <LocationStrip onUse={state.geo.request} />}
       {!polish && coords && hasDistances && (
         <div className="flex items-center justify-end gap-1.5 text-[11px] font-bold">
