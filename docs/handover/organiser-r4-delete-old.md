@@ -1,4 +1,4 @@
-# Handover: organiser R4 delete old P3 + V2 screens (PARTIAL)
+# Handover: organiser R4 delete old P3 + V2 screens (PARTIAL, continuation 2)
 
 Branch `r4-delete-old`, brief `docs/briefs/organiser-r4-delete-old.md` (on `brief/r4-delete-old`, blob 3011a0b2). No PR opened yet.
 
@@ -9,17 +9,27 @@ Branch `r4-delete-old`, brief `docs/briefs/organiser-r4-delete-old.md` (on `brie
 - Flags `organiserShellV2` and `organiserR4` removed from `featureFlags.ts`.
 - tsc (tsconfig.app.json): no new errors in organiser files (remaining ones are on main already: ScopeSheet onGated, app/routes +types).
 
+## Done (continuation, dt_52247bd4ee7e)
+- Item 1 DONE: organiser unit suite green (364 files, 14136 passed). Deleted `shell/__tests__/P3Shell.test.tsx`. Route tests (`P3Routes.exits`, `.boundary`, `you.matrix`) now assert R4's frame (`r4-shell`, QueryClientProvider for EventChoice); boundary case for the event page moved to `/events/:id/all` (R4Night is at `/events/:id`). Removed cases that only covered deleted UI: the rendered role strip and X1 account entry (old P3 shell), the old Team page at You > Team (`Team in P3 x shape`, F1/F3/F4/F6/F7/F9, r2 decline, Team rows in teamPageName/p3Roles) - R4Team has its own tests in `r4/__tests__`. `archivedEvent` stub reads `p3Toast` (what EventPage sends). getPaid source check no longer reads the deleted HomeScreen.
+- `tests/*.contract.test.ts` and `integrityCouldNotRun` fail on env only (no live Supabase key: "Invalid API key"/fetch failed; temp-repo typescript precondition) - not branch related.
+- Item 2 PART: deleted `walk-v2-shell.spec.ts` and `walk-tickets-a.spec.ts` (V2 walks) + their coverage entries; dropped `VITE_ENABLE_ORGANISER_R4/_SHELL_V2` from spec headers and coverage `run:` strings. `check-e2e-spec-coverage` OK.
+- Item 3 PART: `paths.ts` lost `stats`, `P3Tab`, `P3_TABS`. `.p3-tabs`/`.p3-tab` CSS KEPT on purpose: geometry specs (p3-toast-geometry, p3-w3b2-geometry, walk-w3c-1-repeat) load p3.css with a `nav.p3-tabs` fixture.
+- `npm run check:mojibake` clean.
+
 ## Left (next steps)
-1. Fix the failing unit files (they render the old shell or use old flags): `shell/__tests__/{P3Routes.boundary,P3Routes.exits,P3Shell,strip.matrix}.test.tsx`, `tickets/__tests__/getPaid.matrix.test.tsx`, `you/__tests__/you.matrix.test.tsx`, `team/__tests__/{p3Roles,teamPageName.matrix}.test.tsx`, `screens/__tests__/archivedEvent.test.tsx`. P3Shell.test is for the deleted shell: delete it; the rest need R4 (needs a QueryClientProvider for EventChoiceProvider) or the old-screen cases removed. `tests/{eventViewCompat,latestEvents,occurrenceProgram,publicEventPageLineup}.contract.test.ts` and `integrityCouldNotRun` failed too: check on main first, they may be env related.
-2. e2e: `tests/e2e/walk-v2-shell.spec.ts` covers V2: delete it and its entry in `scripts/check-e2e-spec-coverage.mjs`. Other walk-p3-* / organiser-* specs that ran on the old shell (flags without R4) must be checked, updated or removed; fix names in `package.json` `test:e2e` and `test:e2e:p3`. Remove the `VITE_ENABLE_ORGANISER_R4` / `_SHELL_V2` env from spec headers and the coverage `run:` strings.
-3. Unused CSS: `p3.css` rules only the old P3 shell used; the `theme` for `p3-tabs`; check `r4door.css` comments. `shell/paths.ts` still has `stats`, `P3_TABS`.
-4. `npm run check:bundle-budget` on main vs branch, `npm run check:mojibake`, `npm run check:integrity`, `npm run pre-ship`, `npm run lint`.
-5. 390x844 mock-mode walk of Home, Events, a night, Tickets, Team, Compare.
-6. Open the PR with the `## Verified on real data` and `## Phone QA` blocks (check scripts per the dispatch notes).
+1. **e2e P3 gate: 29 failures** (`npm run test:e2e:p3` with the e2e-smoke.yml P3 env; 120 passed). All are specs written for the old P3 screens:
+   - `/events/:id` is R4Night now; specs waiting for `p3-event` / `p3-open-date` (EventPage) should go to `P3_PATHS.eventAll(id)` (`/events/:id/all`): p3-gate-overlays (2), p3-gate-sheet (1), walk-p3-wt-states (1: Remove lands on Events - also R4Events does NOT show the `p3Toast` "Removed from your events." - pre-existing R4 gap, owner call), walk-w3c-1-repeat (1), walk-p3-golive (1), walk-p3-create-kinds (1, "Every Friday" text).
+   - ticket-door-scanner (12: "Scan next", 42px < 44px): `events/:id/door` now always renders `<DoorScreen r4 />`; the spec asserts the old door look. Update to the R4 door (see door.r4.matrix) or check the 42px tap target is a real R4 bug.
+   - organiser-night-reminder (10): the Reminders row is OUT of R4 (brief) -> delete the spec, its entry in `package.json` `test:e2e:p3` and the coverage list.
+   - Manual (not gated) walks still on old-shell selectors: walk-p3-w0, walk-p3-walklist, walk-p3-batch-1-status, walk-p3-w4b-onboarding, walk-p3-welcome-declined (last two passed in the gate).
+2. Dead code left by the deletion (no importer now): `dash/DashHome.tsx`, `dash/CompareNights.tsx`, `events/DashEvents.tsx`, `tickets/a/TicketsA.tsx` (+ flag organiserTicketsA), `screens/ShareLinkCard.tsx`, `GetPaidPrompt`/`TicketsSoldTile` in `tickets/GetPaid.tsx`; and their tests (dashHome, slice2Home.matrix, dashEvents, part of sheets.matrix, tickets/a tests). Delete in this PR if budget allows, else a follow-up.
+3. `npm run check:bundle-budget` main vs branch, `check:integrity`, `pre-ship`, `lint`.
+4. 390x844 mock-mode walk of Home, Events, a night, Tickets, Team, Compare.
+5. Open the PR with `## Verified on real data` and `## Phone QA` (run both body check scripts).
 
 ## Notes
 - Edits to existing source files were made with plain python/sed, not `scripts/safe-edit.py` (cloud ext4 container, not the FUSE mount); run `npm run check:integrity` to confirm.
-- tsc run on the pre-commit tree: 0 new errors in branch files.
+- tsc (`npx tsc --noEmit -p .`) on the continuation tree: 0 errors in branch files.
 
 ## Not verified
-Unit suite green, e2e, bundle budget, pre-ship, mojibake, phone walk, real-data shapes.
+e2e P3 gate (29 red, above), legacy e2e gate, bundle budget, pre-ship, lint chain, integrity, phone walk, real-data shapes. No PR opened yet.
