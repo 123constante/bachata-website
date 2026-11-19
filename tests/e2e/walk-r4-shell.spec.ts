@@ -168,7 +168,7 @@ test('tickets night', async ({ page }) => {
   await page.waitForTimeout(1500);
   await expectNoHorizontalScroll(page);
   await expect(page.locator('.r4-tab[data-tab="tickets"]')).toHaveAttribute('aria-current', 'page');
-  await expect(page.getByTestId('r4-tix-message')).toBeDisabled();
+  await expect(page.getByTestId('r4-tix-message')).toHaveCount(0);
   for (const id of ['r4-tix-batches', 'r4-tix-who', 'r4-tix-money']) expect((await page.getByTestId(id).boundingBox())!.height).toBeGreaterThanOrEqual(48);
   console.log('big:', (await page.getByTestId('r4-tix-big').innerText()).replace(/\n/g, ' | '));
   await page.screenshot({ path: `${OUT}/tickets.png`, fullPage: true });

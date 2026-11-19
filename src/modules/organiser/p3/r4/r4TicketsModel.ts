@@ -19,8 +19,6 @@ export interface R4TicketsModel {
   pill: { word: string; tone: R4Tone } | null;
   /** The big number. null = no read (hidden). `of` only when the night's places are known (a one-off). */
   big: { sold: number; of: number | null; pct: number | null; label: string } | null;
-  /** "Message everyone who bought": no message command exists, so always off with this reason. */
-  messageWhy: string;
   /** The next batch that is not on sale yet, and whether this person can open it now. */
   batch: { line: string; open: { id: string; name: string } | null; openWhy: string | null } | null;
   /** "N orders" on Who bought, or null while the summary is not known. */
@@ -45,7 +43,6 @@ export interface R4TicketsInput {
   error: boolean;
 }
 
-export const MESSAGE_WHY = 'Messaging everyone who bought is coming soon.';
 export const NO_NAME = 'No name yet';
 
 export function r4TicketsOf(i: R4TicketsInput): R4TicketsModel {
@@ -54,7 +51,6 @@ export function r4TicketsOf(i: R4TicketsInput): R4TicketsModel {
     title: i.row?.name.trim() || NO_NAME,
     when: er?.when ?? null,
     pill: er?.pill ?? null,
-    messageWhy: MESSAGE_WHY,
     addWhy: addWhy(i.role as Parameters<typeof addWhy>[0], i.row?.lifecycle === 'live'),
   };
   const none = { big: null, batch: null, who: null, money: null };

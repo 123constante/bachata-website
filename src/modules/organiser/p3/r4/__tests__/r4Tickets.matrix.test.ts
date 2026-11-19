@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { rowOf, type HomeSeriesRow } from '../../data/home';
 import type { TicketType, TypeSales } from '../../../tickets/ticketModel';
-import { MESSAGE_WHY, r4TicketsOf } from '../r4TicketsModel';
+import { r4TicketsOf } from '../r4TicketsModel';
 
 const TODAY = '2026-11-18';
 
@@ -51,8 +51,6 @@ describe('R4 Tickets: every prod shape gets an honest screen', () => {
     expect(m.batch?.open?.name ?? null).toBe(open);
     expect(m.who).toBe(who);
     expect(m.money !== null).toBe(money);
-    // the message button never works yet, and always says why
-    expect(m.messageWhy).toBe(MESSAGE_WHY);
     // a bar is only drawn with a real "of"
     if (m.big && m.big.of === null) expect(m.big.pct).toBeNull();
     // a control that cannot work says why
