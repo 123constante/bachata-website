@@ -47,7 +47,10 @@ describe('flag off: old routes unchanged', () => {
     );
   });
   it('nothing outside modules/organiser/p3 imports the P3 area except the lazy route', () => {
-    expect(routes.match(/import\("@\/modules\/organiser\/p3\//g)).toHaveLength(1);
+    // Plus the door invite link (organiser R4 slice a): a link must work for the door person whatever the
+    // organiser flags, so its accept page and the seat-only door are two named lazy routes of their own.
+    const p3Imports = [...routes.matchAll(/import\("(@\/modules\/organiser\/p3\/[^"]+)"\)/g)].map((m) => m[1]).sort();
+    expect(p3Imports).toEqual(['@/modules/organiser/p3/door/join/DoorJoinPage', '@/modules/organiser/p3/door/join/SeatDoorPage', '@/modules/organiser/p3/shell/P3Routes']);
     expect(routes).not.toMatch(/^import .*organiser\/p3/m);
   });
 });

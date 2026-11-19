@@ -9,6 +9,7 @@
   ],
   "seams": [
     "src/lib/buyerOnboardingFlag.ts",
+    "src/lib/postpayTicketsTabFlag.ts",
     "src/modules/tickets/MyTicketsPage.tsx",
     "src/modules/tickets/TicketPickerB1.tsx",
     "src/modules/tickets/CodeBoxes.tsx",

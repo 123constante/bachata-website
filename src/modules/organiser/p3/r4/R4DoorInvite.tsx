@@ -1,21 +1,84 @@
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { flags } from '@/lib/featureFlags';
 import { P3_PATHS } from '../shell/paths';
+import { useEventWorkspace } from '@/modules/organiser/shared/runCommands';
+import { mintDoorInvite } from '../door/join/doorJoinApi';
+import { doorInviteUrl } from '../door/join/doorJoinModel';
 import { useEventChoice } from '../v2/V2Shell';
 import { R4Chevron } from './R4Shell';
-import { R4_DOOR_INVITE_COPY as C, r4DoorInviteOf } from './r4DoorInviteModel';
+import { R4_DOOR_INVITE_COPY as C, r4DoorInviteOf, type R4DoorInviteIn } from './r4DoorInviteModel';
 
-/** Board R4DoorInvite (flag organiserR4): the door invite link page for one night. Writes nothing (see the model). */
-export function R4DoorInvite() {
+async function copyText(text: string): Promise<boolean> {
+  try { await navigator.clipboard.writeText(text); return true; } catch { return false; }
+}
+
+/**
+ * Copy a link that is still being made. iOS Safari drops the tap's permission to write the clipboard
+ * once an await has run, so where ClipboardItem exists the write starts NOW, inside the tap, with the
+ * text as a promise; elsewhere the text is written when it arrives.
+ */
+function copyWhenReady(text: Promise<string | null>): Promise<boolean> {
+  const CI = (window as unknown as { ClipboardItem?: typeof ClipboardItem }).ClipboardItem;
+  if (CI && navigator.clipboard?.write) {
+    try {
+      const blob = text.then((t) => { if (!t) throw new Error('no_link'); return new Blob([t], { type: 'text/plain' }); });
+      blob.catch(() => undefined);
+      return navigator.clipboard.write([new CI({ 'text/plain': blob })]).then(() => true, () => text.then((t) => (t ? copyText(t) : false)));
+    } catch { /* fall through */ }
+  }
+  return text.then((t) => (t ? copyText(t) : false));
+}
+
+/** Board R4DoorInvite (flag organiserR4): the door invite link page for one night. Mints a link only when Copy is tapped. */
+export function R4DoorInvite({ mint: mintFn = mintDoorInvite }: { mint?: typeof mintDoorInvite } = {}) {
   const c = useEventChoice();
   const ev = c.event;
+  const nextDate = ev?.next?.date ?? null;
+  // The night's occurrence id: the event's own dates (the workspace read the night screens already use).
+  const ws = useEventWorkspace(ev && nextDate ? ev.id : undefined);
+  const occurrenceId = ws.data?.dates.find((d) => d.occurrence_date === nextDate && d.lifecycle_status !== 'cancelled')?.id ?? null;
+  // The event a mint was started for: an answer for an event no longer chosen is dropped.
+  const forEvent = useRef<string | null>(null);
+  const [mint, setMint] = useState<NonNullable<R4DoorInviteIn['mint']>>('idle');
+  const [copied, setCopied] = useState<boolean | null>(null);
+  // A link belongs to one night: choosing another event forgets it.
+  useEffect(() => { forEvent.current = ev?.id ?? null; setMint('idle'); setCopied(null); }, [ev?.id]);
   const m = useMemo(() => r4DoorInviteOf({
     load: c.loading ? 'loading' : c.error ? 'error' : 'ready',
-    event: ev ? { id: ev.id, name: ev.name, nextDate: ev.next?.date ?? null } : null,
+    event: ev ? { id: ev.id, name: ev.name, nextDate } : null,
     many: c.rows.length > 1,
     doorOn: flags.organiserTicketing,
-  }), [c.loading, c.error, c.rows.length, ev]);
+    occurrenceId,
+    nightRead: ws.isError ? 'error' : ws.data ? 'ready' : 'loading',
+    mint,
+    origin: window.location.origin,
+  }), [c.loading, c.error, c.rows.length, ev, nextDate, occurrenceId, ws.isError, ws.data, mint]);
+
+  const onCopy = useCallback(() => {
+    if (!ev || !occurrenceId) return;
+    const id = ev.id;
+    setMint('running');
+    setCopied(null);
+    const answer = mintFn(id, occurrenceId);
+    const copied = copyWhenReady(answer.then((a) => (a.result === 'ok' && a.token ? doorInviteUrl(window.location.origin, a.token) : null), () => null));
+    answer.then(async (a) => {
+      if (forEvent.current !== id) return;
+      setMint(a);
+      if (a.result === 'ok' && a.token) { const ok = await copied; if (forEvent.current === id) setCopied(ok); }
+    }, () => { if (forEvent.current === id) setMint('failed'); });
+  }, [ev, occurrenceId, mintFn]);
+
+  const onShare = useCallback(async () => {
+    if (!m.link) return;
+    const nav = navigator as Navigator & { share?: (d: ShareData) => Promise<void> };
+    if (typeof nav.share === 'function') {
+      try { await nav.share({ title: C.copy, text: C.shareText, url: m.link.url }); return; } catch (e) {
+        if ((e as { name?: string })?.name === 'AbortError') return;
+      }
+    }
+    setCopied(await copyText(m.link.url));
+  }, [m.link]);
 
   return (
     <div className="r4-stack" data-testid="r4-door-invite">
@@ -47,9 +110,20 @@ export function R4DoorInvite() {
             </label>
           )}
           <div className="r4-field">
-            <button type="button" className="r4-btn r4-btn-42" disabled aria-describedby="r4-door-invite-why" data-testid="r4-door-invite-copy">{C.copy}</button>
-            <p id="r4-door-invite-why" className="r4-hint" data-testid="r4-door-invite-why">{m.copyWhy}</p>
+            <button type="button" className="r4-btn r4-btn-42" disabled={!m.canCopy} aria-describedby={m.copyWhy ? 'r4-door-invite-why' : undefined} onClick={onCopy} data-testid="r4-door-invite-copy">{m.busy ? C.copying : C.copy}</button>
+            {m.copyWhy && <p id="r4-door-invite-why" className="r4-hint" role={typeof mint === 'object' || mint === 'failed' || m.nightRetry ? 'alert' : undefined} data-testid="r4-door-invite-why">{m.copyWhy}</p>}
+            {m.nightRetry && <button type="button" className="r4-btn r4-btn-42 r4-btn-quiet" onClick={() => void ws.refetch()} data-testid="r4-door-invite-night-retry">{C.retry}</button>}
           </div>
+          {m.link && (
+            <div className="r4-card r4-tile" data-testid="r4-door-invite-link">
+              <p className="r4-hint" style={{ fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.4 }}>{C.linkLabel}</p>
+              <p style={{ margin: '4px 0 0', fontSize: 13, wordBreak: 'break-all', userSelect: 'all' }} data-testid="r4-door-invite-url">{m.link.url}</p>
+              {m.link.ends && <p className="r4-note" data-testid="r4-door-invite-ends">Access ends {m.link.ends}.</p>}
+              <p className="r4-note">{C.oneUse}</p>
+              {copied !== null && <p className="r4-note" role="status" style={{ color: copied ? '#C2410C' : undefined }} data-testid="r4-door-invite-copied">{copied ? C.copied : C.copyFailed}</p>}
+              <button type="button" className="r4-btn r4-btn-42 r4-btn-quiet" style={{ marginTop: 8 }} onClick={() => void onShare()} data-testid="r4-door-invite-share">{C.share}</button>
+            </div>
+          )}
           {m.facts.length > 0 && (
             <div data-testid="r4-door-invite-facts">
               {m.facts.map((f) => <p key={f} className="r4-note" style={{ margin: '4px 0 0' }}>{f}</p>)}

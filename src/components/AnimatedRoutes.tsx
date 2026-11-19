@@ -62,6 +62,9 @@ const AdminOrganisers = lazyWithRetry(() => import("@/modules/admin-organisers/A
 const AdminFrontDoor = lazyWithRetry(() => import("@/modules/admin-organisers/FrontDoorPage"));
 const AmbassadorQueue = lazyWithRetry(() => import("@/modules/ambassador/AmbassadorQueuePage"));
 const InviteRedeem = lazyWithRetry(() => import("@/modules/admin-organisers/InviteRedeemPage"));
+// The door invite link and a door-seat holder's door screen (organiser R4 slice a): live whatever the organiser flags.
+const DoorJoin = lazyWithRetry(() => import("@/modules/organiser/p3/door/join/DoorJoinPage"));
+const SeatDoor = lazyWithRetry(() => import("@/modules/organiser/p3/door/join/SeatDoorPage"));
 const AmbassadorLink = lazyWithRetry(() => import("@/modules/ambassador/link/AmbassadorLinkPage"));
 const AuthCallback = lazyWithRetry(() => import("../pages/AuthCallback"));
 const FinishProfile = lazyWithRetry(() => import("../pages/FinishProfile"));
@@ -291,6 +294,9 @@ export const AnimatedRoutes = () => {
             <Route path="/admin/organisers/front-door" element={<PageTransition><AdminFrontDoor /></PageTransition>} />
             <Route path="/invite" element={<PageTransition><InviteRedeem /></PageTransition>} />
             <Route path="/invite/:token" element={<PageTransition><InviteRedeem /></PageTransition>} />
+            <Route path="/door/join" element={<DoorJoin />} />
+            <Route path="/door/join/:token" element={<DoorJoin />} />
+            <Route path="/door/:seriesId" element={<SeatDoor />} />
             {/* Ambassador shared link (one permanent link per ambassador): works for an inactive city. */}
             <Route path="/join/a/:code" element={<PageTransition><AmbassadorLink /></PageTransition>} />
 

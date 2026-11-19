@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/useAuth';
 import { flags } from '@/lib/featureFlags';
 import { fetchIncomingAccessRequests, incomingAccessRequestsQueryKey } from '@/modules/organiser/shared/selfServeApi';
 import { useTeamContext } from '../../team/useTeamContext';
@@ -19,6 +20,8 @@ import { EVENT_PARAM } from '../v2/eventChoice';
 import { useEventChoice } from '../v2/V2Shell';
 import { useNoPageRedirect } from '../v2/V2Tabs';
 import { R4Chevron } from './R4Shell';
+import { fetchNightMoney, nightMoneyQueryKey } from './r4MoneyApi';
+import { moneyQuietOf, nightMoneyOf, R4_MONEY_COPY } from './r4MoneyModel';
 import { R4_EMPTY_HOME, r4AloneOf, r4HomeOf, r4WaitingOf, type R4Door, type R4NextNight, type R4WaitItem } from './r4Model';
 
 function Row({ to, label, end, testId }: { to: string; label: string; end?: string; testId: string }) {
@@ -151,7 +154,20 @@ export function R4Home() {
     retry: false,
   });
   const door: R4Door | null = doorRead.data?.result === 'ok' ? { sold: doorRead.data.totalCount, cameIn: doorRead.data.inCount } : null;
-  const m = r4HomeOf({ clock, next, door, last });
+  // Money for the night in focus: the last night after it, else the next one (one read per event, shared with One night and Compare).
+  const { user } = useAuth();
+  const afterFace = clock === 'after' && !!last;
+  const focusId = afterFace ? last!.seriesId : next?.seriesId ?? null;
+  const moneyRead = useQuery({
+    queryKey: nightMoneyQueryKey(user?.id ?? null, focusId ?? ''),
+    queryFn: () => fetchNightMoney(focusId!),
+    enabled: flags.organiserTicketing && !!user?.id && !!focusId && (afterFace || !next?.draft),
+    staleTime: 60_000,
+    retry: 1,
+  });
+  const money = nightMoneyOf(moneyRead.data, afterFace ? { occurrenceId: last!.occurrenceId ?? null, date: last!.date } : { date: nextRow?.next?.date ?? null });
+  const moneyQuiet = moneyQuietOf(money);
+  const m = r4HomeOf({ clock, next, door, last, money });
 
   if (r.to) return <Navigate to={r.to} replace />;
   if (r.loading || c.loading) return <div className="r4-stack" data-testid="r4-home-loading" aria-busy="true"><div className="r4-skel" /><div className="r4-skel" /></div>;
@@ -190,9 +206,13 @@ export function R4Home() {
             <div key={t.key} className="r4-card r4-tile" data-testid={`r4-tile-${t.key}`}>
               <div className="r4-label">{t.label}</div>
               <div className="r4-num">{t.value}{t.of && <span className="r4-of"> {t.of}</span>}</div>
+              {t.key === 'money' && moneyQuiet && <div className="r4-tile-quiet" data-testid="r4-home-money-quiet">{moneyQuiet}</div>}
             </div>
           ))}
         </div>
+      )}
+      {moneyRead.isError && (
+        <p className="r4-err" role="alert" data-testid="r4-home-money-error">{R4_MONEY_COPY.error} <button type="button" className="r4-linkbtn" onClick={() => void moneyRead.refetch()}>{R4_MONEY_COPY.retry}</button></p>
       )}
       {m.lines.map((l) => <p key={l} className="r4-sub" data-testid="r4-home-line">{l}</p>)}
 
