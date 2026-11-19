@@ -404,7 +404,7 @@ function LookRow({
             </span>
           )}
           <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[13px] text-[hsl(var(--hm-look-dim))]">
-            <span className="font-bold" style={{ color: CATEGORY_COLORS[cat] }}>{CATEGORY_LABEL[cat]}</span>
+            <span className="font-bold" style={{ color: `color-mix(in srgb, ${CATEGORY_COLORS[cat]} 80%, white)` }}>{CATEGORY_LABEL[cat]}</span>
             {formatTimeRange(event) && <span>{formatTimeRange(event)}</span>}
             {mi != null && <span className="font-semibold tabular-nums">{flags.nearMe ? formatNearMiles(mi) : `${mi < 10 ? mi.toFixed(1) : Math.round(mi)} mi`}</span>}
             {cancelled && <span className="font-bold uppercase text-[#E2415C]">Cancelled</span>}
