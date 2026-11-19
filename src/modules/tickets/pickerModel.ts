@@ -97,6 +97,21 @@ export function basketTotals(basket: Basket, types: readonly PublicTicketType[])
   return { count, subtotalPence, feePence, totalPence: subtotalPence + feePence };
 }
 
+export interface SummaryLine { id: string; name: string; quantity: number; free: boolean; priceLabel: string }
+
+/** One line per picked type, in the picker's row order. Free lines say "Free", never "0". */
+export function basketSummaryLines(basket: Basket, types: readonly PublicTicketType[]): SummaryLine[] {
+  return types
+    .filter((t) => (basket[t.id] ?? 0) > 0)
+    .map((t) => ({ id: t.id, name: t.name, quantity: basket[t.id], free: t.pricePence <= 0, priceLabel: formatPence(t.pricePence * basket[t.id]) }));
+}
+
+/** A basket of only free tickets: no payment step. */
+export function isFreeOnly(basket: Basket, types: readonly PublicTicketType[]): boolean {
+  const b = basketTotals(basket, types);
+  return b.count > 0 && b.totalPence === 0;
+}
+
 export function countLabel(count: number): string {
   return count === 0 ? 'No tickets yet' : `${count} ticket${count === 1 ? '' : 's'}`;
 }

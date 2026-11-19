@@ -18,7 +18,7 @@ import { saveOrderId } from './orderStorage';
 import { CodeBoxes } from './CodeBoxes';
 import {
   CANCELLED_NOTE, CODE_LENGTH, ORDER_CAP_NOTE, RESEND_SECONDS, TRUST_LINE_BOLD, basketKey, basketTotals, buildPickerBody,
-  cleanBasket, countLabel, dateOnly, heldFrom, isEmail, loadBasket, perLine, roomFor, saveBasket, sendCodeError, verifyCodeError,
+  basketSummaryLines, cleanBasket, countLabel, isFreeOnly, dateOnly, heldFrom, isEmail, loadBasket, perLine, roomFor, saveBasket, sendCodeError, verifyCodeError,
   type Basket, type PickerHeld,
 } from './pickerModel';
 
@@ -112,6 +112,8 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
   const promoTotal = pv.appliedDiscountPence !== null ? discountedTotal(sum, pv.appliedDiscountPence) : null;
   const payPence = heldNow ? heldNow.totalPence : promoTotal ?? sum.totalPence;
   const priceNote = heldNow ? priceChangedText(heldNow.totalPence) : '';
+  const freeOnly = isFreeOnly(clean, types);
+  const summaryLines = basketSummaryLines(clean, types);
   const atCap = sum.count >= MAX_PER_ORDER;
   // Before any field: a preview can never complete checkout (same guard as the classic page).
   // The terms box lives in the email card and gates its pay button, not the bar's Continue.
@@ -313,7 +315,7 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
   // The 92px stub column fits a 5-character amount (25.80) at 18px; a longer one steps down so it never overflows.
   const saveSize = promo.status === 'applied' && formatPence(promo.discountPence).length > 6 ? 'text-[15px]' : 'text-[18px]';
 
-  // One "Terms of sale" link under the button that leads to Stripe; it opens the terms inline. No tick box: continuing is the acceptance.
+  // One "Terms of sale" link under the button that may lead to Stripe; it opens the terms inline. No tick box: continuing is the acceptance.
   const termsLink = (
     <button type="button" data-testid="picker-terms-link" aria-expanded={showTerms} onClick={() => setShowTerms((v) => !v)} className={`${knownEmail ? 'min-h-[36px]' : 'mt-1 min-h-[40px]'} text-[13px] underline`} style={{ color: SUB }}>
       Terms of sale
@@ -366,7 +368,7 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
                   {per && <div className="mt-1 text-[12px]" style={{ color: BRAND }}>{per}</div>}
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-2">
-                  <div className="text-[16px] font-semibold leading-[1.2] tabular-nums">{formatPence(t.pricePence)}</div>
+                  <div data-testid={t.pricePence <= 0 ? 'picker-free-price' : undefined} className="text-[16px] font-semibold leading-[1.2] tabular-nums">{formatPence(t.pricePence)}</div>
                   {max > 0 && (
                     // 36x36 is the prototype value, accepted by the owner over the 44px tap rule (2026-11-18).
                     <div className="flex items-center gap-[2px]">
@@ -422,6 +424,11 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
           )}
         </div>
         <div className={`shrink-0 px-[18px] ${knownEmail ? 'pb-[8px] pt-2' : 'pb-[14px] pt-3'}`} style={{ borderTop: `1px solid ${LINE}` }}>
+          {summaryLines.length > 1 && (
+            <ul data-testid="picker-summary" className="mb-[6px] space-y-[2px] text-[12px]" style={{ color: SUB }}>
+              {summaryLines.map((l) => <li key={l.id} className="flex justify-between gap-2"><span className="min-w-0 break-words">{l.quantity} &times; {l.name}</span><span className="tabular-nums">{l.priceLabel}</span></li>)}
+            </ul>
+          )}
           <div className={`${knownEmail ? 'mb-[4px]' : 'mb-[10px]'} flex items-baseline justify-between text-[13px]`} style={{ color: SUB }}>
             <span data-testid="picker-count">{countLabel(sum.count)}</span>
             <span key={roll} className={roll > 0 ? 'pb1-roll' : undefined}>
@@ -437,14 +444,14 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
             </p>
           )}
           {BUYER_ONBOARDING_ENABLED && notYouErr && <p role="alert" data-testid="picker-not-you-error" className="mb-2 text-[12px]" style={{ color: BAD }}>{notYouErr}</p>}
-          <button type="button" data-testid="picker-continue" onClick={onContinue} disabled={continueOff} className={btn} style={primary(continueOff)}>{heldNow ? PRICE_CONFIRM_LABEL : knownEmail ? 'Continue to Stripe' : 'Continue'}</button>
+          <button type="button" data-testid="picker-continue" onClick={onContinue} disabled={continueOff} className={btn} style={primary(continueOff)}>{heldNow ? PRICE_CONFIRM_LABEL : freeOnly ? (knownEmail ? 'Get my free tickets' : 'Continue') : knownEmail ? 'Continue to Stripe' : 'Continue'}</button>
           {knownEmail ? (
             <>
               {/* Signed in: the terms link and the trust line share one row so the bar stays short and the promo box is never covered. */}
-              <div className="mt-1 flex flex-wrap items-center justify-center gap-x-4">{termsLink}<Trust compact /></div>
+              <div className="mt-1 flex flex-wrap items-center justify-center gap-x-4">{termsLink}{!freeOnly && <Trust compact />}</div>
               {termsText}
             </>
-          ) : <Trust />}
+          ) : !freeOnly ? <Trust /> : null}
         </div>
       </div>
 
@@ -462,7 +469,7 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
                 {sendErr && <div role="alert" className="mt-[6px] text-[12px]" style={{ color: BAD }}>{sendErr}</div>}
                 {termsBlock}
                 <button type="submit" disabled={busy} className={`${btn} mt-3`} style={primary(false)}>{busy ? <>Sending&hellip;</> : 'Continue'}</button>
-                <Trust />
+                {!freeOnly && <Trust />}
                 {backToTickets}
               </form>
             ) : (
@@ -484,8 +491,8 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
       {stage === 'open' && (
         <div role="status" data-testid="picker-opening" className="absolute inset-0 flex flex-col items-center justify-center gap-[10px] bg-white text-center">
           <div aria-hidden="true" className="h-[30px] w-[30px] animate-spin rounded-full" style={{ border: `3px solid ${LINE}`, borderTopColor: BRAND }} />
-          <div className="text-[18px] font-semibold">Opening secure payment</div>
-          <div className="flex items-center gap-[6px] text-[12px]" style={{ color: SUB }}><Lock aria-hidden="true" width={14} height={14} /><span>Secure payment by Stripe</span></div>
+          <div className="text-[18px] font-semibold">{freeOnly ? 'Getting your tickets' : 'Opening secure payment'}</div>
+          {!freeOnly && <div className="flex items-center gap-[6px] text-[12px]" style={{ color: SUB }}><Lock aria-hidden="true" width={14} height={14} /><span>Secure payment by Stripe</span></div>}
         </div>
       )}
     </div>,
