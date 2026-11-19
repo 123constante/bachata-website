@@ -55,6 +55,8 @@ export function TabBar({
   className?: string;
 }) {
   const btns = useRef<(HTMLButtonElement | null)[]>([]);
+  // homeFeedLook: folder tabs joined to the map. Same buttons, roles, keys and telemetry.
+  const look = flags.homeFeedLook;
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     const i = TABS.findIndex((t) => t.id === tab);
@@ -82,7 +84,11 @@ export function TabBar({
       aria-label="Discover events"
       aria-orientation="horizontal"
       onKeyDown={onKeyDown}
-      className={cn('relative flex items-stretch gap-1 rounded-full bg-muted/40 p-1', className)}
+      className={cn(
+        'relative flex items-stretch',
+        look ? 'hm-look-tabs gap-1' : 'gap-1 rounded-full bg-muted/40 p-1',
+        className,
+      )}
     >
       {TABS.map((t, idx) => {
         const on = tab === t.id;
@@ -103,14 +109,22 @@ export function TabBar({
               setTab(t.id);
             }}
             className={cn(
-              // The before: box lifts the tap area to 44px without making the rail taller (audit L8).
+              look
+                ? // Folder tab: real 44px px-height (no rem), rounded top corners only, outline, no bottom
+                  // border; the selected one is taller and takes the map panel's colour (see .hm-look in index.css).
+                  'hm-look-tab relative min-h-[44px] flex-1 whitespace-nowrap px-2 text-[13px] font-bold transition-colors'
+                : // The before: box lifts the tap area to 44px without making the rail taller (audit L8).
               // 24px + 2 x 10px, in px: rem padding alone rendered ~23.6px on phones
               // (root font ~13.5px), leaving a 43.6px tap area (Live QA 2026-11-05).
               "relative min-h-[24px] flex-1 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-bold transition-colors before:absolute before:inset-x-0 before:-inset-y-[10px] before:content-['']",
               focusRing,
-              on
-                ? 'bg-primary text-primary-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
+              look
+                ? on
+                  ? 'is-on'
+                  : 'text-[hsl(var(--hm-look-dim))]'
+                : on
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
             )}
           >
             {t.label}

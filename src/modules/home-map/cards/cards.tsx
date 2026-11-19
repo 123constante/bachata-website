@@ -45,6 +45,7 @@ import {
 import type { FreshnessHeat } from '../mapTypes';
 import { useHomeNow, useHomeNowStatic } from '../homeClock';
 import { focusRing } from './controls';
+import { isSitePlaceholderCover } from './coverPlaceholder';
 import { flags } from '@/lib/featureFlags';
 
 type Coords = { lat: number; lng: number } | null;
@@ -54,17 +55,20 @@ export function CoverThumb({
   event,
   className,
   monoClassName,
+  hourLabel,
 }: {
   event: MapEvent;
   className?: string;
   monoClassName?: string;
+  /** homeFeedLook: shown instead of the monogram when there is no (working) poster. */
+  hourLabel?: string;
 }) {
   // A 404/expired cover falls back to the same gradient+monogram as a missing
   // one, rather than a broken-image icon. Reset when the src changes (this
   // component is reused across list rows as the event prop changes).
   const [imgError, setImgError] = useState(false);
   useEffect(() => setImgError(false), [event.cover_image_url]);
-  const showImg = !!event.cover_image_url && !imgError;
+  const showImg = !!event.cover_image_url && !isSitePlaceholderCover(event.cover_image_url) && !imgError;
   const scene = showImg ? '' : eventScene(event);
   return (
     <span className={cn('cv block', scene, className)}>
@@ -90,7 +94,7 @@ export function CoverThumb({
           )}
           style={{ fontFamily: 'var(--hm-poster)', fontWeight: 900, textShadow: '0 1px 7px rgba(0,0,0,.5)' }}
         >
-          {monogram(event.name)}
+          {hourLabel || monogram(event.name)}
         </span>
       )}
       <span className="grain" />
@@ -338,6 +342,90 @@ function DistanceChip({ mi }: { mi: number }) {
   );
 }
 
+/** homeFeedLook row (option C): 68px poster thumb (gradient + start hour when there is no poster),
+ *  title 15px, venue 13px, meta 13px, and a 44px map-pin target on the right. The pin selects the
+ *  occurrence on the map exactly as a row tap does; it is a SIBLING of the link (no nested interactive).
+ *  The feed carries no price, so the meta line is type + time only. */
+function LookRow({
+  event,
+  selected,
+  onSelect,
+  onHover,
+  today,
+  mi,
+  trackRef,
+  className,
+  stamp,
+}: {
+  event: MapEvent;
+  selected: boolean;
+  onSelect: (id: string) => void;
+  onHover?: (id: string | null) => void;
+  today: string;
+  mi: number | null;
+  trackRef?: (el: Element | null) => void;
+  className?: string;
+  stamp: boolean;
+}) {
+  const cancelled = event.is_cancelled;
+  const hour = event.start_time ? event.start_time.slice(11, 16) : '';
+  const cat = deriveCategory(event);
+  const open = () => onSelect(event.occurrence_id);
+  return (
+    <div
+      className={cn('hm-look-row flex w-full items-center gap-3 p-2', selected && 'ring-1 ring-[hsl(var(--hm-look-amber)/.6)]', cancelled && 'opacity-60', className)}
+      onPointerEnter={() => onHover?.(event.occurrence_id)}
+      onPointerLeave={() => onHover?.(null)}
+    >
+      <a
+        ref={trackRef}
+        href={rowHref(event)}
+        data-occ={event.occurrence_id}
+        onClick={(e) => {
+          e.preventDefault();
+          open();
+        }}
+        className={cn('flex min-w-0 flex-1 items-center gap-3 rounded-xl', focusRing)}
+      >
+        <CoverThumb
+          event={event}
+          className={cn('hm-look-thumb', cancelled && 'grayscale')}
+          monoClassName="text-[20px]"
+          hourLabel={hour}
+        />
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2">
+            <span className={cn('min-w-0 truncate text-[15px] font-bold leading-tight', cancelled && 'line-through')}>{event.name}</span>
+            {isTodayRow(event, today) && <LiveBadge event={event} today={today} />}
+          </span>
+          {event.venue_name && (
+            <span className="mt-0.5 block truncate text-[13px] text-[hsl(var(--hm-look-dim))]">
+              {event.venue_name}
+              {event.area ? `, ${event.area}` : ''}
+            </span>
+          )}
+          <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[13px] text-[hsl(var(--hm-look-dim))]">
+            <span className="font-bold" style={{ color: `color-mix(in srgb, ${CATEGORY_COLORS[cat]} 80%, white)` }}>{CATEGORY_LABEL[cat]}</span>
+            {formatTimeRange(event) && <span>{formatTimeRange(event)}</span>}
+            {mi != null && <span className="font-semibold tabular-nums">{flags.nearMe ? formatNearMiles(mi) : `${mi < 10 ? mi.toFixed(1) : Math.round(mi)} mi`}</span>}
+            {cancelled && <span className="font-bold uppercase text-[#E2415C]">Cancelled</span>}
+            {stamp && !cancelled && <span className="font-semibold text-[hsl(var(--hm-look-amber))]">New</span>}
+          </span>
+        </span>
+      </a>
+      <button
+        type="button"
+        onClick={open}
+        aria-label={`Show ${event.name} on the map`}
+        disabled={event.lat == null || event.lng == null}
+        className={cn('hm-look-pin disabled:opacity-30', focusRing)}
+      >
+        <MapPin className="h-5 w-5" aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
 /** Grouped-list / day-detail row (cover + title + times + venue). When
  *  `showFreshness` is set, a recently added/updated row carries the "Added/Updated
  *  Xm ago" stamp (gated by isRecentlyChanged). A row with no stamp falls back to
@@ -381,6 +469,21 @@ export const EventRow = memo(function EventRow({
   const cancelled = event.is_cancelled;
   const offMap = event.lat == null || event.lng == null;
   const mi = distanceMi ?? null;
+  if (flags.homeFeedLook) {
+    return (
+      <LookRow
+        event={event}
+        selected={selected}
+        onSelect={onSelect}
+        onHover={onHover}
+        today={today}
+        mi={mi}
+        trackRef={trackRef}
+        className={className}
+        stamp={showFreshness && isRecentlyChanged(event, 14, now)}
+      />
+    );
+  }
   return (
     <a
       ref={trackRef}
