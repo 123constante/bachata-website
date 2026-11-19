@@ -125,6 +125,10 @@ export const flags = {
   // Stripe) behind "Get tickets". Needs publicTicketing. OFF = the Tickets page is exactly as before.
   // Turn on with VITE_ENABLE_TICKET_PICKER_B1=true (Vercel env) -- no code change.
   ticketPickerB1:      import.meta.env.VITE_ENABLE_TICKET_PICKER_B1 === 'true',
+  // Homepage polish + menu sheet (docs/briefs/home-polish.md): chip row (Nearest/Party/Class/Fest), Today tab,
+  // logo + menu button header with a full-screen menu sheet and search, no BottomNav, map strip option 3.
+  // OFF = every screen exactly as before. Turn on with VITE_ENABLE_HOME_POLISH=true (Vercel env) -- no code change.
+  homePolish:          import.meta.env.VITE_ENABLE_HOME_POLISH === 'true',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the

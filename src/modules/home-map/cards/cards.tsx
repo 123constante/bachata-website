@@ -43,6 +43,7 @@ import {
 import type { FreshnessHeat } from '../mapTypes';
 import { useHomeNow, useHomeNowStatic } from '../homeClock';
 import { focusRing } from './controls';
+import { flags } from '@/lib/featureFlags';
 
 type Coords = { lat: number; lng: number } | null;
 
@@ -210,7 +211,7 @@ function FreshnessClockBody({
       <span className={cn('mt-0.5 hm-heatdot', heat.live && 'is-live', heat.updated && 'is-updated')} style={{ background: heat.dot }} />
       <span className="flex flex-col items-end gap-0.5 text-right">
         <span
-          className="text-[8px] font-extrabold uppercase tracking-[0.1em]"
+          className={cn(BADGE_8, 'font-extrabold uppercase tracking-[0.1em]')}
           style={{ color: heat.verb || undefined }}
         >
           {verb}
@@ -302,6 +303,10 @@ const rowBase = cn(
   'flex w-full items-center gap-3 rounded-xl p-2 text-left transition-colors',
   focusRing,
 );
+// homePolish: badges read at 11px+ (critique). OFF = the old sizes exactly.
+const BADGE_8 = flags.homePolish ? 'text-[11px]' : 'text-[8px]';
+const BADGE_10 = flags.homePolish ? 'text-[11px]' : 'text-[10px]';
+
 const rowState = (selected: boolean) =>
   selected ? 'bg-primary/10 ring-1 ring-primary/40' : 'hover:bg-muted/40';
 
@@ -311,11 +316,11 @@ function LiveBadge({ event, today }: { event: MapEvent; today: string }) {
   const status = todayLiveStatus(event, new Date(useHomeNow()), today);
   if (!status) return null;
   return status === 'on-now' ? (
-    <span className="shrink-0 rounded bg-[#5FBF7F] px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-[#0c1a12]">
+    <span className={cn('shrink-0 rounded bg-[#5FBF7F] px-1.5 py-0.5 font-extrabold uppercase tracking-wide text-[#0c1a12]', BADGE_10)}>
       On now
     </span>
   ) : (
-    <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-primary">
+    <span className={cn('shrink-0 rounded bg-primary/15 px-1.5 py-0.5 font-extrabold uppercase tracking-wide text-primary', BADGE_10)}>
       Soon
     </span>
   );
@@ -525,7 +530,7 @@ export const NewsRow = memo(function NewsRow({ event, selected, onSelect, onHove
         <span className="flex items-center gap-2">
           <span className={cn('min-w-0 truncate text-sm font-bold', cancelled && 'line-through')}>{event.name}</span>
           {!cancelled && isFreshNew(event, 30, now) && (
-            <span className="shrink-0 rounded bg-[#5FBF7F] px-1.5 py-0.5 text-[8px] font-extrabold uppercase tracking-wide text-[#0c1a12]">
+            <span className={cn('shrink-0 rounded bg-[#5FBF7F] px-1.5 py-0.5 font-extrabold uppercase tracking-wide text-[#0c1a12]', BADGE_8)}>
               New
             </span>
           )}

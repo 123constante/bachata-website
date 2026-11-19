@@ -1,8 +1,9 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { Suspense, useEffect, useState, type CSSProperties } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
-import { ChevronLeft, UserRound } from 'lucide-react';
+import { ChevronLeft, Menu, UserRound } from 'lucide-react';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import bachataCalendarLogo from '@/assets/brand/bachata-calendar-logo.png';
 import { HeaderSearch } from '@/components/search/HeaderSearch';
 import { SearchTrigger } from '@/components/search/SearchTrigger';
@@ -19,6 +20,10 @@ import { ACCOUNT_HOME_PATH, isAccountPath } from '@/lib/accountPaths';
 // #app-header transition), reduced-motion gated by CSS media query.
 
 const EVENT_DETAIL_RE = /^\/event\/[^/]+/i;
+
+// homePolish: the full-screen menu sheet. Lazy and only mounted once opened, so it adds
+// nothing to the every-page first load.
+const MenuSheet = lazyWithRetry(() => import('@/modules/home-polish/MenuSheet'));
 
 const WhatsAppGlyph = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
@@ -48,6 +53,7 @@ const NAV_ITEMS: {
 export const GlobalHeader = () => {
   const [scrolled, setScrolled] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const { citySlug } = useCity();
   const homePath = buildCityPath(citySlug);
   const { pathname, search } = useLocation();
@@ -96,6 +102,7 @@ export const GlobalHeader = () => {
 
   useEffect(() => {
     setSearching(false);
+    setMenuOpen(false);
   }, [pathname]);
 
   // The 0.3s fade between these two states is #app-header's CSS transition.
@@ -147,7 +154,7 @@ export const GlobalHeader = () => {
         ))}
 
         {/* Desktop nav links with animated emojis */}
-        {!searching && (
+        {!searching && !flags.homePolish && (
           <div className="hidden md:flex items-center gap-0.5 ml-4">
             {NAV_ITEMS.map((item) => {
               const href = item.fixedPath ?? buildCityPath(citySlug, item.segment);
@@ -192,11 +199,28 @@ export const GlobalHeader = () => {
           </div>
         )}
 
-        <div className="hidden md:block flex-1" />
+        {flags.homePolish && (
+          <>
+            <div className="flex-1" />
+            <button
+              type="button"
+              onClick={() => setMenuOpen(true)}
+              aria-label="Open menu"
+              aria-haspopup="dialog"
+              aria-expanded={menuOpen}
+              data-testid="header-menu-button"
+              className="inline-flex items-center justify-center w-[44px] h-[44px] -mr-2 rounded-md shrink-0 text-foreground transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <Menu className="w-6 h-6" aria-hidden="true" />
+            </button>
+          </>
+        )}
 
-        {flags.searchV5 ? <SearchTrigger /> : <HeaderSearch expanded={searching} onExpandedChange={setSearching} />}
+        {!flags.homePolish && <div className="hidden md:block flex-1" />}
 
-        {showAccount && (
+        {!flags.homePolish && (flags.searchV5 ? <SearchTrigger /> : <HeaderSearch expanded={searching} onExpandedChange={setSearching} />)}
+
+        {!flags.homePolish && showAccount && (
           <Link
             to={ACCOUNT_HOME_PATH}
             className={cn(
@@ -210,7 +234,7 @@ export const GlobalHeader = () => {
           </Link>
         )}
 
-        {showSignIn && (
+        {!flags.homePolish && showSignIn && (
           <Link
             to={buildSignInHref(here)}
             className="inline-flex items-center justify-center h-[44px] min-w-[44px] px-2 sm:px-3 rounded-md shrink-0 text-sm font-semibold text-primary no-underline transition-colors hover:bg-primary/10"
@@ -220,6 +244,12 @@ export const GlobalHeader = () => {
           </Link>
         )}
       </nav>
+
+      {menuOpen && (
+        <Suspense fallback={null}>
+          <MenuSheet onClose={() => setMenuOpen(false)} />
+        </Suspense>
+      )}
 
       {/* Decorative orange line */}
       <div className="h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent" />
