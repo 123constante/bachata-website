@@ -85,7 +85,7 @@ describe('R4 door: Search tab x shape x short codes', () => {
     expect(screen.getAllByTestId('door-row-status')).toHaveLength(d.rows.filter((r) => r.checked_in_at).length);
     // a tick button only on a not-in row, and only with the tick-in flag on
     expect(screen.queryAllByTestId('door-row-checkin')).toHaveLength(sc ? d.rows.filter((r) => !r.checked_in_at).length : 0);
-    expect(screen.getByTestId('door-list-how').textContent).toBe(sc ? 'Tap a name to tick them in. A tick cannot be undone here.' : 'To let someone in, scan their code on the Scan tab. This list shows who is in.');
+    expect(screen.getByTestId('door-list-how').textContent).toBe(sc ? 'Tap a name to tick them in. Tapped the wrong name? Tap Undo straight after.' : 'To let someone in, scan their code on the Scan tab. This list shows who is in.');
     expect(!!screen.queryByTestId('door-truncated')).toBe(d.truncated);
     if (d === PROD_A) expect(rows[2].textContent).toContain('No name given');
   });

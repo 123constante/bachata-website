@@ -79,7 +79,7 @@ describe('undoKindOf / undoText: the one mapping', () => {
     for (const k of UNDO_KINDS) expect(undoText(k, 'Zoe').length).toBeGreaterThan(5);
     expect(undoText('ended', 'Zoe')).toBe('This night has ended, so it cannot be undone');
     // names only, never money; no mojibake
-    for (const k of UNDO_KINDS) expect(undoText(k, null)).not.toMatch(/[£$€]|Ã|â€/);
+    for (const k of UNDO_KINDS) expect(undoText(k, null)).not.toMatch(/[\u00a3$\u20ac]|\u00c3|\u00e2\u20ac/);
   });
 });
 
@@ -130,7 +130,7 @@ for (const [look, r4, seat] of [['R4', true, false], ['R4 seat-only', true, true
       fireEvent.click(btn);
       const running = screen.getByTestId('door-undo-btn') as HTMLButtonElement;
       expect(running.disabled).toBe(true);
-      expect(running.textContent).toBe('Undoing…');
+      expect(running.textContent).toBe('Undoing\u2026');
       fireEvent.click(running);
       expect(undoCalls().length).toBe(1);
       release({ data: { result: 'ok', undone: true }, error: null });

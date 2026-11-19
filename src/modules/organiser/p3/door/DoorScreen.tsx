@@ -313,7 +313,8 @@ function DoorInner({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode, 
 function UndoBar({ undo, onUndo, onClose }: { undo: Undo; onUndo: () => void; onClose: () => void }) {
   const running = undo.phase === 'running';
   const canTap = undo.phase === 'ready' || running || undo.phase === 'error';
-  const text = undo.phase === 'ready' || running ? undo.text : undoText(undo.phase, undo.name);
+  const ph = undo.phase;
+  const text = ph === 'ready' || ph === 'running' ? undo.text : undoText(ph, undo.name);
   return (
     <div className="p3-door-undo" role="status" data-testid="door-undo" data-phase={undo.phase}>
       <span data-testid="door-undo-text">{text}</span>
@@ -642,7 +643,7 @@ function ListTab({ list, shown, cam, busy, codeInput, onCode, act, seriesId, sho
           )}
           <p className="r4-door-foot" data-testid="door-list-how">
             {shortCodes
-              ? (busy ? <>Checking the last ticket&hellip; wait for the answer.</> : 'Tap a name to tick them in. A tick cannot be undone here.')
+              ? (busy ? <>Checking the last ticket&hellip; wait for the answer.</> : 'Tap a name to tick them in. Tapped the wrong name? Tap Undo straight after.')
               : 'To let someone in, scan their code on the Scan tab. This list shows who is in.'}
           </p>
         </div>
