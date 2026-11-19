@@ -1,18 +1,16 @@
 ## Aim
-Independent review of two test-only flake-fix PRs in 123constante/bachata-website. Read-only on the PR branches. Output: one review doc per PR.
+One review pass over three CI-flake fix PRs in 123constante/bachata-website. Read-only on the builders' branches. Write verdict docs only.
 
-## PRs and heads (review exactly these heads; if a head moved, review the new head and say so)
-- #1852 `claude/flake-routerunner-hooks-bot`, head 83477ad7025c7040ba5fca89ae7005e7a3700d83. Fix: `tests/routeRunner.test.ts` test-gate-hooks shell test uses a stall watchdog plus a ceiling instead of a flat 60 s spawnSync cap.
-- #1854 `claude/flake-otp-disabled-bot`, head d2e6f6f5e0796e58549e59dfb088b3bb2ba0d301. Fix: `tests/regression/today/auth.today.test.tsx` otp_disabled test waits for the settled sign-up heading, not a fixed 40 ms tick.
+## PRs (check out each head, read the diff against origin/main plus the worker handover on the branch)
+- #1855 branch claude/flake-dancer-home-189 head f5dd1ed (dancer-home:189 flake)
+- #1856 branch claude/flake-switch-r4-31 head fcde142 (dev server pre-scan so Vite dep optimizer never full-reloads mid-test)
+- #1857 branch claude/flake-layout-190 head 208c569 (organiser-layout:190 flake)
 
-## What to check (per PR)
-1. Diff touches tests only (no app code, no CI config, no migrations).
-2. No retry, skip, `.only`, deleted assertion, or timeout bump that hides the failure. The assertion still proves the original behaviour.
-3. The root cause in the PR body matches the diff. The fix removes the race, not the symptom.
-4. #1852 only: the watchdog kills the child process group on stall and on ceiling, cannot leave orphans, and cannot pass when the script hangs.
-5. Run the touched test file once locally (`npx vitest run <file>`) and report pass or fail.
+## Check per PR
+1. Fix addresses the stated root cause, not a retry, longer timeout or skipped test.
+2. No product code behaviour change; test or config only unless the handover justifies it.
+3. No assertion weakened; the test still fails when the real bug is present.
+4. Nothing outside the flake's scope touched.
 
 ## Output
-On ONE branch `claude/review-flake-bots` (cut from origin/main), two files: `docs/review/1852-r1.md` and `docs/review/1854-r1.md`.
-
-Each doc has: a line `## Verdict: PASS` or `## Verdict: PASS WITH NITS` or `## Verdict: BLOCK` (exactly one Verdict line), the text `head <full sha>` of the reviewed head, `PR #<n>` in the title, findings one per line with file:line, and what you did not verify. Push the one branch. Do not merge, approve, or edit the PR branches.
+For each PR write docs/review/<pr>-r1.md on branch claude/review-flakes-r1 (one shared branch, push once). Each doc: a line "head <full sha of the PR head you reviewed>", then "## Verdict: PASS" or "## Verdict: BLOCK", then up to 5 short findings. Do not merge, approve or comment on the PRs.
