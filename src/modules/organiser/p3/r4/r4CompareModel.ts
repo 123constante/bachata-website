@@ -1,16 +1,18 @@
 import type { RaffleNight } from '../events/raffle/raffleModel';
 import type { NightCount } from '../dash/pastNights';
 import { shortDay } from './r4EventsModel';
+import { gbp, hasSales, moneyQuietOf, type R4MoneyRead } from './r4MoneyModel';
 
 /**
  * Board R4Compare (flag organiserR4): ONE event's past nights ranked by people who came.
  * Reads: organiser_raffle_nights_v1 (every night of the series, with its chip) and ticket_door_list_v3 per
- * past night (in_count = came, total_count = tickets). No money-per-night read exists, so the board's Money
- * toggle and the amount column are not drawn. A night with no door count (null or 0 came) is not ranked.
+ * past night (in_count = came, total_count = tickets). The board's Money switch ranks the same nights by
+ * net money (ticket_sales_by_night_v1). A night with no door count (null or 0 came) is not ranked by people;
+ * a night with no sale is not ranked by money.
  */
 export const R4_COMPARE_CAP = 8;
 
-export interface R4CompareRow { key: string; occurrenceId: string; date: string; day: string; came: number; line: string }
+export interface R4CompareRow { key: string; occurrenceId: string; date: string; day: string; came: number; line: string; quiet?: string | null }
 
 export interface R4CompareModel {
   /** "Every Friday, night 3 of 13" pieces that have a read; null when none. */
@@ -76,5 +78,40 @@ export function r4CompareOf(i: { nights: readonly RaffleNight[]; today: string; 
     rows,
     empty: rows.length ? null : past.length ? R4_COMPARE_COPY.empty : R4_COMPARE_COPY.noPast,
     foot: unscanned > 0 && rows.length > 0 ? R4_COMPARE_COPY.footUnscanned : R4_COMPARE_COPY.foot,
+  };
+}
+
+// ---- slice (b): the Money switch, ranked by net per night ----
+
+export const R4_COMPARE_MONEY_COPY = {
+  empty: 'No night has a ticket sale yet. Once one does, it shows here, most money first.',
+  truncated: 'Only the first 400 nights of this event are counted.',
+  pool: (amount: string) => `${amount} from tickets not tied to one night is not in this list.`,
+} as const;
+
+/** The same past nights as the people ranking, ranked by net money (gross less refunds, booking fees left out). */
+export function r4CompareMoneyOf(i: { nights: readonly RaffleNight[]; today: string; money: R4MoneyRead }): R4CompareModel {
+  const live = liveNightsOf(i.nights);
+  const all = i.nights.slice().sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const sub = [everyWord(all), nightOfWord(live, i.today)].filter(Boolean).join(', ') || null;
+  const past = pastToReadOf(i.nights, i.today);
+  const byId = new Map(i.money.kind === 'ok' ? i.money.nights.map((n) => [n.occurrenceId, n]) : []);
+  const rows: (R4CompareRow & { net: number })[] = [];
+  for (const n of past) {
+    const m = byId.get(n.occurrenceId);
+    if (!m || !hasSales(m)) continue;
+    const parts = [`${gbp(m.netPence)} in`];
+    if (m.ticketsSold > 0) parts.push(`${m.ticketsSold.toLocaleString('en-GB')} ${m.ticketsSold === 1 ? 'ticket' : 'tickets'}`);
+    rows.push({ key: n.occurrenceId, occurrenceId: n.occurrenceId, date: n.date, day: shortDay(n.date), came: 0, net: m.netPence, line: parts.join(', '), quiet: moneyQuietOf(m) });
+  }
+  rows.sort((a, b) => b.net - a.net || (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  const foot: string[] = [R4_COMPARE_COPY.foot];
+  if (i.money.kind === 'ok' && i.money.truncated) foot.push(R4_COMPARE_MONEY_COPY.truncated);
+  if (i.money.kind === 'ok' && i.money.noNight && i.money.noNight.netPence !== 0) foot.push(R4_COMPARE_MONEY_COPY.pool(gbp(i.money.noNight.netPence)));
+  return {
+    sub,
+    rows: rows.map(({ net: _net, ...r }) => r),
+    empty: rows.length ? null : past.length ? R4_COMPARE_MONEY_COPY.empty : R4_COMPARE_COPY.noPast,
+    foot: foot.join(' '),
   };
 }
