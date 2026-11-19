@@ -122,7 +122,10 @@ describe.each(VIEWPORTS)('/auth at $name', (vp) => {
     mountAuth('/auth?mode=signin&returnTo=%2Forganisers%2Fritmo');
     sendLink('new@example.com');
     await screen.findByText('No account for this email yet. Create one to continue.', {}, { timeout: 5000 });
-    await tick();
+    // The notice is set in the same batch as the URL switch to ?mode=signup, but the router applies the
+    // mode a render later: on a loaded runner the notice is on screen while the page still reads "Welcome
+    // back". Wait for the settled sign-up state, not a fixed 40 ms (flake: 11 of 16 under load).
+    await screen.findByRole('heading', { name: 'Join the community' });
     expect(a11yTree()).toMatchSnapshot();
   });
 
