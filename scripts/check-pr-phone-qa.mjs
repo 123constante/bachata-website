@@ -66,7 +66,21 @@ const PLACEHOLDER_WORDS = ['n/a', 'na', 'none', 'todo', 'tbd', '-'];
 const MIN_CHARS = 12;
 const SIZE_RE = /\b\d{3,4}\s*[x\u00d7]\s*\d{3,4}\b/i;
 /** An honest answer when the machine phone-qa walk is the proof: no size is claimed. */
-const MACHINE_RE = /\bphone-qa\b/i;
+const MACHINE_RE = /\bphone[-\s_]?qa\b/i;
+/** A negation or failure word near "phone-qa" ("not phone-qa", "phone-qa was skipped") is not a claim. */
+const NEG_SRC = "(?:not|no|never|without|skipped|failed|unable|cannot|can'?t|couldn'?t|wasn'?t|didn'?t|hasn'?t|haven'?t)";
+const PQ_SRC = String.raw`phone[-\s_]?qa`;
+const NEGATED_MACHINE_RE = new RegExp(
+  String.raw`\b${NEG_SRC}\b[^.;,:!?]{0,20}\b${PQ_SRC}\b|\b${PQ_SRC}\b[^.;,:!?]{0,30}\b${NEG_SRC}\b`,
+  'i',
+);
+
+/** The machine wording counts only as a real sentence: "phone-qa" plus MIN_CHARS other chars, not negated. */
+function machineClaim(raw) {
+  const value = raw.replace(/[\u2018\u2019]/g, "'");
+  if (!MACHINE_RE.test(value) || NEGATED_MACHINE_RE.test(value)) return false;
+  return stripPunct(value.replace(/\bphone[-\s_]?qa\b/gi, ' ')).length >= MIN_CHARS;
+}
 
 const HEADING_RE = /^[ \t]{0,3}##[ \t]+phone[ \t]+qa[ \t]*#*[ \t]*$/i;
 const ANY_HEADING_RE = /^[ \t]{0,3}#{1,6}(?:[ \t]|$)/;
@@ -95,7 +109,7 @@ function contentProblem(label, raw) {
     return label + ': placeholder text ("' + value + '")';
   }
   if (label === 'Sizes checked') {
-    return SIZE_RE.test(value) || MACHINE_RE.test(value) ? null : label + ': names no viewport size like 390x844 ("' + value + '")';
+    return SIZE_RE.test(value) || machineClaim(value) ? null : label + ': names no viewport size like 390x844 ("' + value + '")';
   }
   let rest = lower;
   if (label === 'Not verified') rest = rest.replace(/^\s*nothing\b/, ' ');
