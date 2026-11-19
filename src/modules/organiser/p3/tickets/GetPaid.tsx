@@ -24,7 +24,7 @@ import { P3_PATHS } from '../shell/paths';
 import { P3PushedShell } from '../you/surface';
 import { P3Link, RetryButton, StateCard } from '../screens/parts';
 import { hasLiveEvent, payingOrganiser, useP3Home, useStartOnboarding, useStripe, useSummary } from './data';
-import { PROMPT_BODY, PROMPT_TITLE, TONE_CLASS, getPaidRowTag, showPrompt, type PromptState } from './model';
+import { TONE_CLASS, getPaidRowTag } from './model';
 import { P3_TICKET_PATHS } from './paths';
 import { CONNECT_RETURN_EVERY_MS, CONNECT_RETURN_FOR_MS, nextTicketTarget, returnKindOf, useConnectReturn } from './connectReturn';
 
@@ -217,15 +217,6 @@ export function GetPaidRow() {
   );
 }
 
-/** Home's ONE Get paid prompt: owner / manager, a live event, payments not connected. */
-export function GetPaidPrompt() {
-  const home = useP3Home();
-  const org = payingOrganiser(home.data, null);
-  const { state } = useStripe(org?.id);
-  if (!org || !showPrompt(org.role, hasLiveEvent(org), state)) return null;
-  return <Prompt org={org} stripe={state} />;
-}
-
 /** Connected: the real next step, Add a ticket, opening the Tickets sheet of the right event. */
 function AddTicketNext({ org, idPrefix }: { org: HomeOrganiser; idPrefix: string }) {
   const next = nextTicketTarget(org);
@@ -243,48 +234,6 @@ function OpenStripeLink({ onClick, disabled, busy, testId }: { onClick: () => vo
     <button type="button" className="p3-link" style={{ minHeight: 44, textAlign: 'left' }} disabled={disabled} aria-busy={busy || undefined} onClick={onClick} data-testid={testId}>
       {busy ? 'Opening Stripe\u2026' : OPEN_STRIPE_LABEL}
     </button>
-  );
-}
-
-function Prompt({ org, stripe }: { org: HomeOrganiser; stripe: PromptState }) {
-  const { go, busy, note, switchedOff } = useStartOnboarding(org.id);
-  const { query } = useStripe(org.id);
-  return (
-    <section className="p3-card p3-stack-s p3-prompt" aria-label="Get paid" data-testid="tix-prompt" data-state={stripe}>
-      <span className={`${TONE_CLASS.party} p3-self-start`} data-testid="tix-prompt-kicker">Get paid</span>
-      <strong data-testid="tix-prompt-title">{PROMPT_TITLE[stripe]}</strong>
-      <p className="p3-note">{PROMPT_BODY[stripe]}</p>
-      {switchedOff ? (
-        <p className="p3-warn" role="status" data-testid="tix-prompt-off">{NOT_SWITCHED_ON}</p>
-      ) : (
-        <button type="button" className="p3-btn" onClick={() => (stripe === 'waiting' ? void query.refetch() : void go())} disabled={busy} aria-busy={busy || undefined} data-testid="tix-prompt-go">
-          {busy && stripe !== 'waiting' ? 'Opening Stripe\u2026' : STRIPE_COPY[stripe].action}
-        </button>
-      )}
-      {stripe === 'waiting' && !switchedOff && <OpenStripeLink onClick={() => void go()} disabled={busy} busy={busy} testId="tix-prompt-open" />}
-      {note && <p role="alert" className="p3-error" data-testid="tix-prompt-note">{note}</p>}
-      <Link className="p3-link" to={P3_TICKET_PATHS.getPaid(org.id)} data-testid="tix-prompt-more">More about getting paid</Link>
-    </section>
-  );
-}
-
-/** Home's tickets-sold tile: only once anything has sold, only on a page the person runs. */
-export function TicketsSoldTile() {
-  const home = useP3Home();
-  const org = payingOrganiser(home.data, null);
-  // Slice 2 (PQ1): the amount is the owner's. A manager's tile is the count alone (its summary keeps no pence).
-  const summary = useSummary(org?.id, isOwner(org?.role));
-  // Fail closed: the server's money_visible=false hides the amount even for a role we believed was the owner; a missing flag or loading summary is counts only.
-  const money = isOwner(org?.role) && summary.data?.moneyVisible === true;
-  const types = summary.data?.ok ? summary.data.types : null;
-  if (!org || !types) return null;
-  const t = totalsOf(types);
-  if (t.ticketsSold === 0) return null;
-  return (
-    <Link to={P3_TICKET_PATHS.getPaid(org.id)} className="p3-card p3-stat p3-tap" data-testid="tix-sold-tile">
-      <span className="p3-stat-n">{formatCount(t.ticketsSold)}</span>
-      <span className="p3-stat-l">Tickets sold{money && <> &middot; {formatPence(t.grossPence)}</>}</span>
-    </Link>
   );
 }
 

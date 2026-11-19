@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest';
-import { EVENT_STORE_KEY, defaultEventId, readStoredEvent, resolveEventId, storeEvent, type ChoiceRow } from '../eventChoice';
+import { EVENT_STORE_KEY, defaultEventId, readStoredEvent, resolveEventId, storeEvent, type ChoiceRow } from '../eventChoiceModel';
 
 const T = '2026-11-17';
 const row = (id: string, name: string, lifecycle: string, next: string | null): ChoiceRow => ({ id, name, lifecycle, next: next ? { date: next } : null });

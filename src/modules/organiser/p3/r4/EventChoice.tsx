@@ -4,7 +4,7 @@ import { rowsOf, type P3Row } from '../data/home';
 import { useP3Home } from '../data/useP3Data';
 import { usePageScope } from '../screens/PageScope';
 import type { HomeOrganiser } from '../../shared/selfServeApi';
-import { EVENT_PARAM, readStoredEvent, resolveEventId, storeEvent } from './eventChoice';
+import { EVENT_PARAM, readStoredEvent, resolveEventId, storeEvent } from './eventChoiceModel';
 import { vibrate } from './feedback';
 
 export interface EventChoice {

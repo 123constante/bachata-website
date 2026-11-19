@@ -16,7 +16,7 @@ import { captionOf, nightLinkOf, shareText } from '../dash/shareLinks';
 import { whoCameLinkOf, whoIsInLinkOf } from '../sheets/sheetsModel';
 import { P3NightGoing } from '../screens/P3Going';
 import { P3_PATHS } from '../shell/paths';
-import { EVENT_PARAM } from './eventChoice';
+import { EVENT_PARAM } from './eventChoiceModel';
 import { useEventChoice } from './EventChoice';
 import { useNoPageRedirect } from './r4Notices';
 import { R4Chevron } from './R4Shell';
