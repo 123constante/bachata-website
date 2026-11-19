@@ -8,7 +8,7 @@ export const GUEST_CHIPS: ReadonlyArray<{ key: GuestChip; label: string }> = [
 
 export const GUEST_COPY = {
   title: 'Guest list',
-  loading: 'Loading the guest list…',
+  loading: 'Loading the guest list\u2026',
   empty: 'No tickets yet',
   emptyChip: (chip: GuestChip) => (chip === 'in' ? 'Nobody has checked in yet.' : 'Everyone is in.'),
   error: 'Could not load the guest list.',
