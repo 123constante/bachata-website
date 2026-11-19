@@ -126,6 +126,7 @@ describe('slice 2: Home clock reuses tickets/a/clockState', () => {
     ['2h before start (door)', '2026-11-17T20:00:00Z', '2026-11-17', null, at('2026-11-17T18:00:00Z'), 'night'],
     ['during', '2026-11-17T20:00:00Z', '2026-11-17', null, at('2026-11-17T23:00:00Z'), 'night'],
     ['tonight over, door shut', '2026-11-17T08:00:00Z', '2026-11-17', null, at('2026-11-17T20:00:00Z'), 'after'],
+    ['tonight not started, lastDate is today', '2026-11-17T20:00:00Z', '2026-11-17', '2026-11-17', at('2026-11-17T15:00:00Z'), 'before'],
     ['last night was yesterday', '2026-11-20T20:00:00Z', '2026-11-20', '2026-11-16', at('2026-11-17T10:00:00Z'), 'after'],
     ['last night was a week ago', '2026-11-20T20:00:00Z', '2026-11-20', '2026-11-10', at('2026-11-17T10:00:00Z'), 'before'],
     ['no nights at all', null, null, null, at('2026-11-17T10:00:00Z'), 'before'],

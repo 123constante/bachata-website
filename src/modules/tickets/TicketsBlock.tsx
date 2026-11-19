@@ -28,7 +28,7 @@ import { NightPicker, scrollToNights, type NightOption } from './NightPicker';
 import { SYMBOL_GRADIENT, ticketSymbol } from './ticketSymbol';
 import { useAuth } from '@/hooks/useAuth';
 import { buildSignInHref } from '@/lib/authRouting';
-import { MY_TICKETS_PATH, TICKET_WHERE } from './myTicketsModel';
+import { TICKET_WHERE } from './myTicketsModel';
 import { clearOrderId, saveOrderId } from './orderStorage';
 import { PRIVACY_PARAGRAPH, PRIVACY_POLICY_LINE, TERMS_CHECKBOX_LABEL, TERMS_OF_SALE } from './legalCopy';
 import { flags } from '@/lib/featureFlags';
@@ -565,7 +565,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [],
             <p className="text-[13px]" style={muted} data-testid="tickets-guest-note">
               {TICKET_WHERE.guestNote}{' '}
               <Link
-                to={buildSignInHref(MY_TICKETS_PATH)}
+                to={buildSignInHref(`${location.pathname}${location.search}`)}
                 className="inline-flex min-h-[44px] items-center underline"
                 data-testid="tickets-guest-signin"
               >

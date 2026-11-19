@@ -10,7 +10,7 @@ export function homeClockOf(nextStartIso: string | null, nextDate: string | null
   const c = nextStartIso ? ticketsClock(nextStartIso, now) : null;
   if (c === 'door') return 'night';
   if (c === 'after' && nextDate === today) return 'after';
-  return lastDate !== null && lastDate >= yesterdayOf(today) && lastDate <= today ? 'after' : 'before';
+  return lastDate === yesterdayOf(today) ? 'after' : 'before';
 }
 
 /** 'YYYY-MM-DD' minus one day, pure calendar arithmetic (no time zone). */
