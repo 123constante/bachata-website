@@ -4,9 +4,9 @@
 // Wired only to commands that exist on prod (2026-11-18): organiser_team_add_member_by_profile_v1
 // (manager | contributor), list_organiser_access_requests_v1 (join requests) and the sign-up link share.
 // Hidden, with no read or command behind them: the Door staff group and chip (no door seat on a team),
-// "Copy door invite link" (door seats are per night), "Invited" rows (no read of sent invites),
+// "Copy door invite link" (door seats are per night; R4DoorInvite has it),
 // search by email (the search matches names only) and "Works once, lasts 7 days" (the link is the
-// plain sign-up link, not a single-use invite).
+// plain sign-up link, not a single-use invite). The "Invited" rows live in r4InvitedModel.ts.
 import { ROLE_LABEL, TEAM_FULL_REASON, shortName, type IncomingAccessRequest, type TeamMember, type TeamRole } from '@/modules/organiser/shared/teamModel';
 import type { SharedTeamRow } from '@/modules/organiser/team/teamShared';
 import { ROLE_LINE, buildTeamDash, type Control, type TeamLoad } from '../dash/team/teamDashModel';
