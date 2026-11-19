@@ -165,6 +165,7 @@ const TRACE_LINE_RE = /\[entry-point-trace\] (true|false) (.+)/;
  */
 const TARGETS = [
   { rel: 'scripts/_serve-build.mjs' },
+  { rel: 'scripts/preview-shots.mjs' },
   { rel: 'scripts/apply-firewall.mjs' },
   { rel: 'scripts/auto-walk-manifest.mjs' },
   { rel: 'scripts/automation-arming.mjs' },
