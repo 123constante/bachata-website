@@ -77,7 +77,7 @@ function GroupHeader({
     return (
       <header className={cn('flex items-baseline gap-2 px-1 pb-1.5 pt-1', sticky && "hm-look-sticky sticky top-0 z-10 before:absolute before:inset-x-0 before:bottom-full before:h-3 before:content-['']")}>
         {isToday ? (
-          <span className="hm-look-day shrink-0 text-[34px] tracking-[.03em] text-[hsl(var(--hm-look-amber))]">Tonight</span>
+          <span className="hm-look-day shrink-0 text-[34px] tracking-[.03em] text-[hsl(var(--hm-look-amber))]">Today</span>
         ) : isTomorrow ? (
           <span className="hm-look-day shrink-0 text-[26px] tracking-[.03em] text-[hsl(var(--hm-look-dim))]">Tomorrow</span>
         ) : null}

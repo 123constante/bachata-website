@@ -157,7 +157,7 @@ export default function HomeMapCard({
               Pins stay clear of the strip because it is a solid-ish bar at the foot. */}
           {!notReady && (
             <span className="pointer-events-none absolute left-2 top-2 z-[500] rounded-full bg-black/70 px-2.5 py-1 text-[12px] font-bold text-white">
-              {state.stats.tonight > 0 ? `${state.stats.tonight} tonight in ${cityName}` : `Nothing on tonight in ${cityName}`}
+              {state.stats.tonight > 0 ? `${state.stats.tonight} today in ${cityName}` : `Nothing on today in ${cityName}`}
             </span>
           )}
           <div className="hm-hook pointer-events-none absolute inset-x-0 bottom-0 z-[500] flex items-center gap-2 px-2 pb-1.5 pt-4">

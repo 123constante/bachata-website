@@ -435,7 +435,7 @@
   --hm-look-card: 288 33% 18%;
   --hm-look-amber: 41 91% 58%;
   --hm-look-dim: 288 15% 70%;
-  --hm-look-poster-dim: 285 13% 46%;
+  --hm-look-poster-dim: 285 13% 64%;
   background-color: hsl(var(--hm-look-ground));
 }
 .hm-look .hm-look-dock { padding-top: 12px; padding-bottom: 0; }
@@ -459,13 +459,14 @@
 .hm-look .hm-feed { background: transparent; }
 /* Poster category row: no boxes, one line, next word peeks at the right edge. */
 .hm-look .hm-poster-row {
-  display: flex; align-items: stretch; gap: 22px; overflow-x: auto; margin-inline: -12px; padding-inline: 12px;
+  display: flex; align-items: stretch; gap: 14px; overflow-x: auto; margin-inline: -12px; padding-inline: 12px;
   scrollbar-width: none; -ms-overflow-style: none;
 }
 .hm-look .hm-poster-row::-webkit-scrollbar { display: none; }
+.hm-look .hm-poster-row::after { content: ""; flex: 0 0 12px; }
 .hm-look .hm-poster-word {
   position: relative; flex: 0 0 auto; min-height: 44px; display: inline-flex; align-items: center;
-  font-family: var(--hm-poster); font-weight: 800; font-size: 26px; line-height: 1; letter-spacing: .03em;
+  font-family: var(--hm-poster); font-weight: 800; font-size: 24px; line-height: 1; letter-spacing: .02em;
   text-transform: uppercase; white-space: nowrap; background: none; border: 0; padding: 0 2px;
   color: hsl(var(--hm-look-poster-dim));
 }
