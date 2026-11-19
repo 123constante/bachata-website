@@ -325,7 +325,7 @@ export const REASON_COPY: Readonly<Record<string, ReasonCopy>> = {
   invalid_fee: { text: 'The booking could not be priced. You have not been charged. Try again; if it keeps happening, contact the organiser.', way: 'retry' },
   refused: { text: 'Your tickets could not be reserved. You have not been charged. Try again.', way: 'retry' },
   rate_limited: { text: `Too many ticket requests. Please wait a while and try again. ${RATE_HELD}`, way: 'retry' },
-  free_daily_limit: { text: 'You have reached today’s limit of 5 free bookings for this email. Try again tomorrow.', way: 'retry' },
+  free_daily_limit: { text: "You have reached today's limit of 5 free bookings for this email. Try again tomorrow.", way: 'retry' },
   not_found: { text: 'This ticket is no longer available. Pick another ticket.', way: 'pick_another' },
   not_on_sale: { text: 'This ticket is not on sale right now. Pick another ticket.', way: 'pick_another' },
   outside_sales_window: { text: 'Sales for this ticket are not open right now. Pick another ticket or come back later.', way: 'pick_another' },
