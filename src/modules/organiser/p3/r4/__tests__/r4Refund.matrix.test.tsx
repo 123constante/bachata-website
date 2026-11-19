@@ -27,7 +27,7 @@ const TWO = plan([order('o1', 'Ana', 1200, { tickets: 2 }), order('o2', 'Ben', 6
 
 const mount = () => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(<QueryClientProvider client={qc}><R4NightRefund seriesId="s1" occurrenceId="n1" /></QueryClientProvider>);
+  render(<QueryClientProvider client={qc}><R4NightRefund seriesId="s1" occurrenceId="n1" date="2026-11-20" /></QueryClientProvider>);
 };
 const ok = (data: unknown) => Promise.resolve({ data, error: null });
 const http = (status: number, body: unknown) => Promise.resolve({ data: null, error: { context: new Response(JSON.stringify(body), { status }) } });
@@ -36,7 +36,7 @@ describe('R4 cancel refund: who sees what', () => {
   it('owner / admin on a cancelled night: the line, Refund all and a Refund per order', async () => {
     rpc.mockReturnValue(ok(TWO));
     mount();
-    expect((await screen.findByTestId('r4-refund-line')).textContent).toBe('2 orders to refund, £18');
+    expect((await screen.findByTestId('r4-refund-line')).textContent).toBe('2 orders to refund, \u00a318');
     expect(screen.getByTestId('r4-refund-all')).toBeTruthy();
     expect(screen.getAllByTestId('r4-refund-one')).toHaveLength(2);
     expect(rpc).toHaveBeenCalledWith('organiser_night_refund_summary_v1', { p_event_series_id: 's1', p_occurrence_id: 'n1' });
@@ -79,7 +79,7 @@ describe('R4 cancel refund: the model', () => {
   });
   it('a mixed-night order is listed with its own Refund and a note, never in the total', () => {
     const b = refundBlockOf(parseRefundSummary(plan([order('o1', 'Ana', 1000, { mixed_nights: true }), order('o2', null, 500)])));
-    expect(b?.line).toBe('1 order to refund, £5');
+    expect(b?.line).toBe('1 order to refund, \u00a35');
     expect(b?.rows[0]).toMatchObject({ canRefund: true, note: expect.stringMatching(/other nights/) });
     expect(b?.rows[1]).toMatchObject({ name: 'No name', canRefund: true, note: null });
   });
@@ -113,7 +113,7 @@ describe('R4 cancel refund: the confirm sheet', () => {
     invoke.mockReturnValue(ok({ ok: true, refunded_count: 2, failed_count: 0, free_ended: 0, free_failed: false, results: [{ order_id: 'o1', ok: true }, { order_id: 'o2', ok: true }] }));
     mount();
     fireEvent.click(await screen.findByTestId('r4-refund-all'));
-    expect(screen.getByRole('dialog').textContent).toContain('Refund 2 orders, £18?');
+    expect(screen.getByRole('dialog').textContent).toContain('Refund 2 orders, \u00a318?');
     expect(invoke).not.toHaveBeenCalled();
     fireEvent.click(screen.getByTestId('r4-refund-go'));
     await waitFor(() => expect(screen.getByTestId('r4-refund-said').textContent).toBe('2 orders refunded.'));
@@ -133,7 +133,7 @@ describe('R4 cancel refund: the confirm sheet', () => {
     mount();
     fireEvent.click(await screen.findByTestId('r4-refund-all'));
     fireEvent.click(screen.getByTestId('r4-refund-go'));
-    await waitFor(() => expect(screen.getByRole('dialog').textContent).toContain('Refund 3 orders, £27?'));
+    await waitFor(() => expect(screen.getByRole('dialog').textContent).toContain('Refund 3 orders, \u00a327?'));
     expect(screen.getByTestId('r4-refund-sheet-error').textContent).toMatch(/amount changed/);
     expect(rpc).toHaveBeenCalledTimes(2);
   });
@@ -144,7 +144,7 @@ describe('R4 cancel refund: the confirm sheet', () => {
     fireEvent.click(await screen.findByTestId('r4-refund-all'));
     fireEvent.click(screen.getByTestId('r4-refund-go'));
     await waitFor(() => expect(screen.getByTestId('r4-refund-said').textContent).toMatch(/^1 order refunded\. Not refunded yet: Ben\./));
-    await waitFor(() => expect(screen.getByTestId('r4-refund-line').textContent).toBe('1 order to refund, £6'));
+    await waitFor(() => expect(screen.getByTestId('r4-refund-line').textContent).toBe('1 order to refund, \u00a36'));
     expect(screen.getByTestId('r4-refund-all')).toBeTruthy();
   });
   it('one order: Refund asks with its amount and uses ticket-refund', async () => {
@@ -152,7 +152,7 @@ describe('R4 cancel refund: the confirm sheet', () => {
     invoke.mockReturnValue(ok({ ok: true, refunded: true }));
     mount();
     fireEvent.click((await screen.findAllByTestId('r4-refund-one'))[1]);
-    expect(screen.getByRole('dialog').textContent).toContain('Refund Ben, £6?');
+    expect(screen.getByRole('dialog').textContent).toContain('Refund Ben, \u00a36?');
     fireEvent.click(screen.getByTestId('r4-refund-go'));
     await waitFor(() => expect(screen.getByTestId('r4-refund-said').textContent).toBe('Ben refunded.'));
     expect(invoke).toHaveBeenCalledWith('ticket-refund', { body: { order_id: 'o2' } });
@@ -163,7 +163,7 @@ describe('R4 cancel refund: the confirm sheet', () => {
     mount();
     fireEvent.click(await screen.findByTestId('r4-refund-all'));
     fireEvent.click(screen.getByTestId('r4-refund-go'));
-    await waitFor(() => expect(screen.getByTestId('r4-refund-sheet-error').textContent).toMatch(/didn’t go through/));
+    await waitFor(() => expect(screen.getByTestId('r4-refund-sheet-error').textContent).toMatch(/didn\u2019t go through/));
     expect(screen.queryByTestId('r4-refund-said')).toBeNull();
   });
 });

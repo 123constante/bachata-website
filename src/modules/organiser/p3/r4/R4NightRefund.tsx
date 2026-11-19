@@ -3,12 +3,13 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { fetchNightRefundSummary, refundKeys, refundNight, refundOneOrder, type RefundOrderRow } from '../door/refundData';
 import { Sheet } from '../screens/Sheet';
+import { fullDate } from '../../shared/dateWords';
 import { REFUND_COPY, nightDoneText, refundBlockOf } from './r4RefundModel';
 
 type Ask = { kind: 'all'; orders: number; pence: number } | { kind: 'one'; order: RefundOrderRow };
 
 /** Board R4 cancel refund (flag organiserCancelRefund): the block under a cancelled night's numbers. Owner / admin only (server). */
-export function R4NightRefund({ seriesId, occurrenceId }: { seriesId: string; occurrenceId: string }) {
+export function R4NightRefund({ seriesId, occurrenceId, date }: { seriesId: string; occurrenceId: string; date: string }) {
   const { user } = useAuth();
   const q = useQuery({
     queryKey: refundKeys.night(user?.id, seriesId, occurrenceId),
@@ -62,7 +63,7 @@ export function R4NightRefund({ seriesId, occurrenceId }: { seriesId: string; oc
 
   return (
     <section className="r4-section" aria-label={REFUND_COPY.title} data-testid="r4-refund">
-      <h2 className="r4-label">{REFUND_COPY.title}</h2>
+      <h2 className="r4-label" data-testid="r4-refund-title">{REFUND_COPY.night(fullDate(date))}</h2>
       <div className="r4-card r4-refund-head">
         <p className="r4-row-t" data-testid="r4-refund-line">{b.line}</p>
         {b.allOn && summary && (

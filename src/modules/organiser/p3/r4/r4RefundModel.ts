@@ -23,6 +23,8 @@ const nameOf = (o: RefundOrderRow) => o.firstName ?? 'No name';
 
 export const REFUND_COPY = {
   title: 'Refunds',
+  /** Which night: the page's dates and tiles are the next night that is on, so the block names its own. */
+  night: (day: string) => `Refunds, cancelled ${day}`,
   line: (n: number, pence: number) => `${orders(n)} to refund, ${gbp(pence)}`,
   none: 'Nothing left to refund.',
   all: 'Refund all',
@@ -34,11 +36,11 @@ export const REFUND_COPY = {
   askOneMixed: 'This order has other nights too. The whole order is refunded.',
   go: 'Refund',
   keep: 'Keep',
-  loading: 'Loading refunds…',
-  error: 'Refunds didn’t load.',
+  loading: 'Loading refunds\u2026',
+  error: 'Refunds didn\u2019t load.',
   retry: 'Try again',
   changed: 'The amount changed since you looked. Check it, then refund again.',
-  failed: 'The refund didn’t go through. Nothing changed. Try again.',
+  failed: 'The refund didn\u2019t go through. Nothing changed. Try again.',
   notConfigured: 'Refunds are not switched on yet.',
   partial: (done: number, names: string[]) => `${orders(done)} refunded. Not refunded yet: ${names.join(', ')}. Tap Refund all to try those again.`,
   done: (n: number) => `${orders(n)} refunded.`,

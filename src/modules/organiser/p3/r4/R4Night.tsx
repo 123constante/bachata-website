@@ -138,7 +138,7 @@ function Night({ ws, place }: { ws: EventWorkspace; place: string | null }) {
         <p className="r4-err" role="alert" data-testid="r4-night-money-error">{R4_MONEY_COPY.error} <button type="button" className="r4-linkbtn" onClick={() => void moneyRead.refetch()}>{R4_MONEY_COPY.retry}</button></p>
       )}
 
-      {cancelledNight && <R4NightRefund seriesId={id} occurrenceId={cancelledNight.occurrenceId} />}
+      {cancelledNight && <R4NightRefund seriesId={id} occurrenceId={cancelledNight.occurrenceId} date={cancelledNight.date} />}
 
       {flags.organiserTicketing && nightOn && !cancelledNight && <R4GuestList seriesId={id} />}
 
