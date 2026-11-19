@@ -133,6 +133,12 @@ for (const [look, r4, seat] of [['R4', true, false], ['R4 seat-only', true, true
       expect(running.textContent).toBe('Undoing\u2026');
       fireEvent.click(running);
       expect(undoCalls().length).toBe(1);
+      // a tick on another name while Undo runs is ignored, never left as Checking...
+      const before = rpc.mock.calls.filter((c) => c[0] === 'ticket_check_in_by_id_v3').length;
+      const rows = screen.queryAllByTestId('door-row-checkin');
+      if (rows.length) fireEvent.click(rows[rows.length - 1]);
+      expect(rpc.mock.calls.filter((c) => c[0] === 'ticket_check_in_by_id_v3').length).toBe(before);
+      expect(screen.queryByText('Checking\u2026')).toBeNull();
       release({ data: { result: 'ok', undone: true }, error: null });
       await waitFor(() => expect(screen.getByTestId('door-undo').getAttribute('data-phase')).toBe('undone'));
       expect(undoCalls().length).toBe(1);

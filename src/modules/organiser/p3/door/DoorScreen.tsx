@@ -218,7 +218,8 @@ function DoorInner({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode, 
     void run(t.code, () => (t.kind === 'short' ? checkInByCode(t.code, seriesId) : checkInTicket(t.code, seriesId)));
   };
   const checkInRow = (ticketId: string) => {
-    if (busyRef.current) return;
+    // an Undo in flight blocks a tick too (run would bail and leave the row pending)
+    if (busyRef.current || undoRef.current) return;
     setPendingId(ticketId);
     void run(`id:${ticketId}`, () => checkInById(ticketId, seriesId), 'list', ticketId);
   };
