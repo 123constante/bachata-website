@@ -62,6 +62,23 @@ export default defineConfig(({ isSsrBuild }) => ({
           : undefined,
     },
   ],
+  // DEV SERVER ONLY (no effect on `vite build`). Framework mode leaves optimizeDeps.entries
+  // empty (RR's future.unstable_optimizeDeps is off) and there is no index.html, so Vite
+  // ran no up-front dependency scan. It found deps one lazy route at a time, and each find
+  // ("new dependencies optimized ... reloading") FULL-RELOADS every open page. On a cold
+  // e2e server that reload hit whatever test was mid-flight: the dashboard-switch-r4 flake
+  // ("Execution context was destroyed" / Infinity in expectNoHorizontalScroll) was the
+  // reload that @radix-ui/react-dialog, cmdk & co. triggered as the sheet opened.
+  // Scanning every client source file up front pre-bundles them all at server start.
+  optimizeDeps: {
+    entries: [
+      "app/**/*.{ts,tsx}",
+      "src/**/*.{ts,tsx}",
+      "!**/*.test.{ts,tsx}",
+      "!**/__tests__/**",
+      "!**/*.d.ts",
+    ],
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
