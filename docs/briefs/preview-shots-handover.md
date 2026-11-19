@@ -5,6 +5,8 @@ Checks run locally: check:no-preview-prefixes (0 drift), check-script-convention
 
 OWNER ACTION NEEDED: `scripts/data/automation-workflow-allowlist.json` must list `preview-shots.yml`. The guard (`check-automation-workflow-allowlist`) refuses a `claude/` PR that edits the list, and refuses an unlisted workflow, so this PR stays red on that guard until the owner lands the one-line list entry in a PR of their own.
 
+OWNER ACTION 2 (found on CI, `unit` job, tests/automationRegister.test.ts): `.github/automation/secrets-register.json` (a guard path, owner-curated) must record `preview-shots.yml` as a reader of three secrets. For each of VERCEL_AUTOMATION_BYPASS_SECRET, VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY: add `preview-shots.yml` to `readers_allowed` AND a dated `untrusted_trigger_grandfathered["preview-shots.yml"]` reason (the workflow runs on pull_request; same pattern as perf-budget.yml / unit-tests.yml). The two Supabase values are the public URL and anon key, as unit-tests.yml already reads. A worker must not self-grandfather, so this is not in the PR. Until it lands, 5 tests in automationRegister.test.ts stay red.
+
 Design notes: the job's `if:` excludes the full no-preview union (bot/, dependabot/, arc/briefs-, brief/, claude/, tmp-) because `check-no-preview-prefixes` requires it for any job that imports `resolvePreviewUrl`. So worker `claude/` PRs get no shots, by design of the repo.
 
 Not verified: a live run on a real preview (needs the PR from a non-claude branch); the comment step; Playwright capture (chromium not exercised, capture is injected in the self-test).
