@@ -25,6 +25,9 @@ export const LABEL = 'needs-rebase';
 export const CAP = 5;
 export const QUIET_MINUTES = 10;
 const MARKER = 'pr-auto-rebase:conflict';
+const BASE_BRANCH = 'main';
+// Never run repo hooks from a PR branch's checkout in the bot's environment.
+const HOOKS_OFF = ['-c', 'core.hooksPath=/dev/null'];
 
 export function commentMarker(sha) {
   return '<!-- ' + MARKER + ' sha=' + sha + ' -->';
@@ -37,11 +40,16 @@ export function decide(pr, { nowMs }) {
     return { action: hasLabel ? 'unlabel' : 'skip', reason: 'not DIRTY' };
   }
   if (pr.isDraft) return { action: 'skip', reason: 'draft' };
+  if (pr.headRefName === BASE_BRANCH) return { action: 'skip', reason: 'head is main' };
+  if (pr.baseRefName !== BASE_BRANCH) return { action: 'skip', reason: 'base is not main (stacked)' };
   if (pr.isCrossRepository) return { action: 'skip', reason: 'fork' };
   const touched = Date.parse(pr.updatedAt);
   if (Number.isFinite(touched) && (nowMs - touched) / 60000 < QUIET_MINUTES) {
     return { action: 'skip', reason: 'touched in last ' + QUIET_MINUTES + ' min' };
   }
+  const flagged =
+    hasLabel && (pr.commentBodies ?? []).some((b) => b.includes(commentMarker(pr.headOid)));
+  if (flagged) return { action: 'skip', reason: 'already flagged for this head' };
   return { action: 'rebase', reason: 'DIRTY' };
 }
 
@@ -66,6 +74,25 @@ export async function processAll(prs, deps, { dryRun = false } = {}) {
         continue;
       }
       handled += 1;
+      try {
+        await rebaseOne(pr, row);
+      } catch (e) {
+        row.result = 'ERROR: ' + String(e.message ?? e).split('\n')[0].slice(0, 200);
+      } finally {
+        if (deps.cleanup) {
+          try {
+            await deps.cleanup(pr);
+          } catch (cleanupErr) {
+            console.error('cleanup failed for #' + pr.number + ': ' + cleanupErr.message);
+          }
+        }
+      }
+    }
+    report.push(row);
+  }
+  return report;
+
+  async function rebaseOne(pr, row) {
       const r = await deps.rebase(pr);
       if (r.ok) {
         if (!dryRun) await deps.push(pr);
@@ -90,10 +117,7 @@ export async function processAll(prs, deps, { dryRun = false } = {}) {
           'conflict in ' + r.files.length + ' file(s): ' + r.files.join(', ') +
           (dryRun ? ' (dry run, nothing written)' : already ? ' (comment already posted)' : ' (labelled + commented)');
       }
-    }
-    report.push(row);
   }
-  return report;
 }
 
 function sh(args, cwd) {
@@ -101,7 +125,8 @@ function sh(args, cwd) {
 }
 
 /** Real-git rebase of one PR branch in cwd. Aborts on conflict. */
-export function gitRebase(pr, cwd, run = sh) {
+export function gitRebase(pr, cwd, rawRun = sh) {
+  const run = (args, dir) => rawRun([...HOOKS_OFF, ...args], dir);
   run(['fetch', '--quiet', 'origin', 'main'], cwd);
   run(['fetch', '--quiet', 'origin', pr.headRefName], cwd);
   run(['checkout', '--quiet', '-B', 'rebase-work', 'FETCH_HEAD'], cwd);
@@ -126,8 +151,8 @@ export function gitRebase(pr, cwd, run = sh) {
 
 const LIST_QUERY = `query($owner:String!,$name:String!){repository(owner:$owner,name:$name){
  pullRequests(states:OPEN,first:100,orderBy:{field:UPDATED_AT,direction:DESC}){nodes{
-  number isDraft isCrossRepository mergeStateStatus updatedAt headRefName headRefOid
-  labels(first:30){nodes{name}} comments(last:50){nodes{body}}}}}}`;
+  number isDraft isCrossRepository mergeStateStatus updatedAt headRefName headRefOid baseRefName
+  labels(first:30){nodes{name}}}}}}`;
 
 async function api(token, url, init = {}) {
   const res = await fetch(url, {
@@ -136,6 +161,19 @@ async function api(token, url, init = {}) {
   });
   if (!res.ok && res.status !== 422) throw new Error('GitHub ' + res.status + ' for ' + url);
   return res;
+}
+
+/** All issue-comment bodies for a PR, every page (no 50-comment window). */
+export async function fetchCommentBodies(token, base, n, apiFn = api) {
+  const bodies = [];
+  for (let page = 1; page <= 50; page++) {
+    const res = await apiFn(token, base + '/issues/' + n + '/comments?per_page=100&page=' + page);
+    const batch = await res.json();
+    if (!Array.isArray(batch)) throw new Error('comments list for #' + n + ' was not an array');
+    for (const c of batch) bodies.push(String(c.body ?? ''));
+    if (batch.length < 100) break;
+  }
+  return bodies;
 }
 
 async function listOpenPrs(token, slug) {
@@ -154,9 +192,10 @@ async function listOpenPrs(token, slug) {
       mergeStateStatus: n.mergeStateStatus,
       updatedAt: n.updatedAt,
       headRefName: n.headRefName,
+      baseRefName: n.baseRefName,
       headOid: n.headRefOid,
       labels: n.labels.nodes.map((l) => l.name),
-      commentBodies: n.comments.nodes.map((c) => c.body),
+      commentBodies: [],
     }));
     if (attempt === 1 || !nodes.some((p) => p.mergeStateStatus === 'UNKNOWN')) return nodes;
     await new Promise((r) => setTimeout(r, 4000));
@@ -190,12 +229,29 @@ export async function main(argv, env = process.env) {
     console.error('pr-auto-rebase: ' + e.message);
     return 2;
   }
+  for (const pr of prs) {
+    // Only PRs that could reach the label/comment path need their comments.
+    if (pr.mergeStateStatus !== 'DIRTY' || pr.isDraft || pr.isCrossRepository) continue;
+    try {
+      pr.commentBodies = await fetchCommentBodies(token, base, pr.number);
+    } catch (e) {
+      console.error('pr-auto-rebase: comments for #' + pr.number + ': ' + e.message + ' (PR skipped this run)');
+      pr.isDraft = true; // fail closed: without the comment list we cannot keep one-comment-per-SHA
+    }
+  }
   const cwd = process.cwd();
   const deps = {
     now: () => Date.now(),
     rebase: async (pr) => gitRebase(pr, cwd),
+    cleanup: async () => {
+      try {
+        sh([...HOOKS_OFF, 'rebase', '--abort'], cwd);
+      } catch {
+        /* no rebase in progress */
+      }
+    },
     push: async (pr) => {
-      sh(['push', 'origin', 'rebase-work:refs/heads/' + pr.headRefName, '--force-with-lease=refs/heads/' + pr.headRefName + ':' + pr.headOid], cwd);
+      sh([...HOOKS_OFF, 'push', 'origin', 'rebase-work:refs/heads/' + pr.headRefName, '--force-with-lease=refs/heads/' + pr.headRefName + ':' + pr.headOid], cwd);
     },
     label: async (n) => {
       await api(token, base + '/labels', {
@@ -233,7 +289,7 @@ async function selfTest() {
   const NOW = Date.parse('2026-11-19T12:00:00Z');
   const old = '2026-11-19T11:00:00Z';
   const mk = (over) => ({
-    number: 1, isDraft: false, isCrossRepository: false, mergeStateStatus: 'DIRTY',
+    number: 1, isDraft: false, isCrossRepository: false, baseRefName: 'main', mergeStateStatus: 'DIRTY',
     updatedAt: old, headRefName: 'b', headOid: 'sha1', labels: [], commentBodies: [], ...over,
   });
   const mkDeps = (rebaseResult) => {
@@ -264,13 +320,60 @@ async function selfTest() {
   });
   t('idempotent: same head SHA already commented -> no second comment', async () => {
     const d = mkDeps({ ok: false, files: ['a.ts'] });
-    await processAll([mk({ labels: [LABEL], commentBodies: [commentMarker('sha1') + ' old'] })], d);
-    assert(d.calls.join() === 'rebase#1', d.calls.join());
+    await processAll([mk({ commentBodies: [commentMarker('sha1') + ' old'] })], d);
+    assert(d.calls.join() === 'rebase#1,label#1', d.calls.join());
   });
   t('new head SHA gets a fresh comment', async () => {
     const d = mkDeps({ ok: false, files: ['a.ts'] });
     await processAll([mk({ headOid: 'sha2', labels: [LABEL], commentBodies: [commentMarker('sha1')] })], d);
     assert(d.calls.join() === 'rebase#1,comment#1', d.calls.join());
+  });
+  t('flagged PR (label + marker for head SHA) is skipped and does not use the cap', async () => {
+    const d = mkDeps({ ok: true, files: [] });
+    const flagged = [1, 2, 3, 4, 5, 6].map((n) => mk({ number: n, labels: [LABEL], commentBodies: [commentMarker('sha1')] }));
+    const rep = await processAll([...flagged, mk({ number: 9 })], d);
+    assert(d.calls.join() === 'rebase#9,push#9', d.calls.join());
+    assert(rep[0].reason === 'already flagged for this head', rep[0].reason);
+  });
+  t('error on one PR is recorded, cleanup runs, next PR still processed', async () => {
+    const d = mkDeps({ ok: true, files: [] });
+    d.push = async (pr) => { d.calls.push('push#' + pr.number); if (pr.number === 1) throw new Error('stale info'); };
+    d.cleanup = async (pr) => { d.calls.push('cleanup#' + pr.number); };
+    const rep = await processAll([mk({}), mk({ number: 2 })], d);
+    assert(d.calls.join() === 'rebase#1,push#1,cleanup#1,rebase#2,push#2,cleanup#2', d.calls.join());
+    assert(rep[0].result.startsWith('ERROR: stale info'), rep[0].result);
+    assert(rep[1].result === 'rebased and pushed', rep[1].result);
+  });
+  t('comments are paginated: marker on page 2 is found', async () => {
+    const pages = [
+      Array.from({ length: 100 }, (_, i) => ({ body: 'c' + i })),
+      [{ body: commentMarker('sha1') }],
+    ];
+    const seen = [];
+    const fake = async (_t, url) => {
+      seen.push(url);
+      const page = Number(/&page=(\d+)/.exec(url)[1]);
+      return { json: async () => pages[page - 1] ?? [] };
+    };
+    const bodies = await fetchCommentBodies('t', 'https://x', 5, fake);
+    assert(bodies.length === 101 && seen.length === 2, 'got ' + bodies.length + ' in ' + seen.length + ' pages');
+    assert(bodies.some((b) => b.includes(commentMarker('sha1'))), 'marker found');
+  });
+  t('PR whose base is not main (stacked) is untouched', async () => {
+    const d = mkDeps({ ok: true, files: [] });
+    await processAll([mk({ baseRefName: 'feature-x' })], d);
+    assert(d.calls.length === 0, d.calls.join());
+  });
+  t('PR whose head branch is main is untouched', async () => {
+    const d = mkDeps({ ok: true, files: [] });
+    await processAll([mk({ headRefName: 'main' })], d);
+    assert(d.calls.length === 0, d.calls.join());
+  });
+  t('every git call from gitRebase has hooks disabled', async () => {
+    const seen = [];
+    const run = (args) => { seen.push(args); return ''; };
+    gitRebase({ headRefName: 'b' }, '.', run);
+    assert(seen.length >= 4 && seen.every((a) => a[0] === '-c' && a[1] === 'core.hooksPath=/dev/null'), JSON.stringify(seen));
   });
   t('draft is untouched', async () => {
     const d = mkDeps({ ok: true, files: [] });

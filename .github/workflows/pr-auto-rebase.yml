@@ -21,7 +21,8 @@ on:
         type: boolean
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
 
 concurrency:
   group: pr-auto-rebase
@@ -55,10 +56,11 @@ jobs:
       - name: Rebase conflicted PRs
         env:
           GITHUB_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
-          DRY_RUN: ${{ inputs.dry_run }}
+          # schedule runs are real by design (inputs is empty there); manual runs default to dry.
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
         run: |
           set -o pipefail
           flag=""
           if [ "$DRY_RUN" = "true" ]; then flag="--dry-run"; fi
           node scripts/pr-auto-rebase.mjs $flag 2>&1 | tee rebase.log
-          { echo '## PR auto-rebase'; echo '```'; cat rebase.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          { echo '## PR auto-rebase'; echo '~~~~~~~~'; cat rebase.log; echo '~~~~~~~~'; } >> "$GITHUB_STEP_SUMMARY"
