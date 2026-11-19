@@ -44,7 +44,7 @@ export function menuRows(i: MenuInput): { account: MenuRow[]; browse: MenuRow[] 
     { id: 'organisers', label: 'Organisers', emoji: '\u{1F3AA}', href: '/organisers', bob: '1.6s' },
     { id: 'venues', label: 'Venues', emoji: '\u{1F3DB}\u{FE0F}', href: i.venuesHref, bob: '1.8s' },
     ...(i.rafflesOn ? [{ id: 'raffles', label: 'Raffles', emoji: '\u{1F381}', href: '/raffles', bob: '1.7s' }] : []),
-    { id: 'festivals', label: 'Festivals', emoji: '\u{1F3AA}', href: '/festivals', bob: '2.1s' },
+    { id: 'festivals', label: 'Festivals', emoji: '\u{1F389}', href: '/festivals', bob: '2.1s' },
     { id: 'cities', label: 'Cities and countries', emoji: '\u{1F30D}', href: '/cities', bob: '1.9s' },
     { id: 'community', label: 'Community', emoji: '\u{1F4AC}', href: i.communityHref, external: true, bob: '2.0s' },
   ];

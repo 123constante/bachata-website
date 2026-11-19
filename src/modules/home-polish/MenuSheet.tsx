@@ -252,8 +252,10 @@ function SearchView({ onBack, onDone }: { onBack: () => void; onDone: () => void
 
   const go = (r: SearchResult) => {
     setRecent(pushRecent(q));
-    onDone();
+    // Navigate FIRST: the header closes the sheet on the pathname change; onDone covers
+    // a result that points at the page already open.
     navigate(r.href);
+    onDone();
   };
 
   return (
