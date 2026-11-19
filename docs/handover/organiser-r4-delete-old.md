@@ -1,4 +1,4 @@
-# Handover: organiser R4 delete old P3 + V2 screens (PARTIAL, continuation 2)
+# Handover: organiser R4 delete old P3 + V2 screens (PARTIAL, continuation 3)
 
 Branch `r4-delete-old`, brief `docs/briefs/organiser-r4-delete-old.md` (on `brief/r4-delete-old`, blob 3011a0b2). No PR opened yet.
 
@@ -26,6 +26,21 @@ Branch `r4-delete-old`, brief `docs/briefs/organiser-r4-delete-old.md` (on `brie
 3. `npm run check:bundle-budget` main vs branch, `check:integrity`, `pre-ship`, `lint`.
 4. 390x844 mock-mode walk of Home, Events, a night, Tickets, Team, Compare.
 5. Open the PR with `## Verified on real data` and `## Phone QA` (run both body check scripts).
+
+## Done (continuation 2, dt_034e211fd5cc) - PR #1816 open
+- e2e P3 gate: all 17 remaining failures fixed (the 5 specs re-run 25/25 at retries 0; the full gate before the fix was 17 failed / 4 flaky / 118 passed, every failure in those 5 specs). `organiser-night-reminder.spec.ts` deleted with its `test:e2e:p3` entry. Specs that need EventPage go to `/events/:id/all`. ticket-door-scanner is on the R4 door. wt-states asserts only the landing on Events (the p3Toast gap stays, owner call).
+- REAL bug fixed: R4 door tap targets were 42px ("Scan next" and every `.p3-btn`, `.r4-door-quiet`, the search input). They are now 44px in `r4door.css`.
+- Dead code deleted: DashHome, CompareNights, DashEvents, TicketsA (+ flag organiserTicketsA), ShareLinkCard, GetPaidPrompt/Prompt/TicketsSoldTile and their tests. KEPT: `tickets/a/clockState.ts` (dashModel and homeClock import it), DashView/dashModel (slice2Home matrix still covers the models).
+- REAL bug fixed: `r4/EventChoice.tsx` and `r4/eventChoice.ts` differed only by case (`noCaseOnlyDuplicates` red). The model is now `eventChoiceModel.ts`.
+- Organiser + lib unit suite: 430 files, all green after the rename. tsc 0 errors. check:mojibake and check:integrity clean.
+- lint: 35/36 links green. `check:no-social-word` fails on 3 test files this branch does not touch (dancer-app ticketCardFallback, tickets priceSteps.matrix), so it already fails on main.
+- 390x844 mock walk (walk-r4-shell + a Compare check): Home, Events, night, Tickets, Team and Compare render with no sideways scroll. Money and Compare show their error state because the fake has no money/dash RPCs.
+
+## Left (next steps, continuation 3)
+1. `npm run check:bundle-budget` main vs branch, and `npm run pre-ship` (not run).
+2. Watch PR #1816 CI per job; fix anything red. The e2e P3 job skips drafts, and the PR is not a draft.
+3. Possibly dead now (not checked): `dash/DashView.tsx`, `events/EventsView.tsx`, `events/eventsModel.ts`. Prove there is no importer before deleting.
+4. Manual walk-r4-shell "door search" (door-toast) and "door invite" (copy disabled) fail. They look stale against the current door Undo bar. Confirm on main before touching them.
 
 ## Notes
 - Edits to existing source files were made with plain python/sed, not `scripts/safe-edit.py` (cloud ext4 container, not the FUSE mount); run `npm run check:integrity` to confirm.
