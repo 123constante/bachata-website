@@ -7,6 +7,7 @@ import { doorCodeText } from '@/modules/tickets/myTicketsModel';
 import { ticketDoorCode } from '@/modules/organiser/p3/door/doorFlags';
 import { doorDate, stepTicket, ticketCountLine } from './cardKit';
 import { BUYER_ONBOARDING_ENABLED } from '@/lib/buyerOnboardingFlag';
+import { POSTPAY_TICKETS_TAB_ENABLED } from '@/lib/postpayTicketsTabFlag';
 import { partRefundLine, ticketGreyed, ticketQrShown, ticketStatusAt, ticketStatusLines, ticketStatusTag } from '@/modules/tickets/ticketCardStatus';
 import type { CARD_COPY as CardCopy, CardTicket, CardView } from './model';
 
@@ -62,7 +63,14 @@ function TicketCarousel({ tickets }: { tickets: CardTicket[] }) {
   return (
     <section className="dt-card" data-testid="tickets-card" data-state="tickets" data-ticket-status={status} style={ticketGreyed(status) ? { opacity: 0.6 } : undefined}>
       <div className="dt-card-top">
-        <span className="dt-type" data-testid="tickets-card-type">{t.typeName}</span>
+        {POSTPAY_TICKETS_TAB_ENABLED ? (
+          <span className="dt-type" data-testid="tickets-card-type">
+            {t.eventTitle ?? t.typeName}
+            {doorDate(t.eventDate) ? <span data-testid="tickets-card-date" style={{ display: 'block', fontWeight: 400, fontSize: 13 }}>{doorDate(t.eventDate)}</span> : null}
+          </span>
+        ) : (
+          <span className="dt-type" data-testid="tickets-card-type">{t.typeName}</span>
+        )}
         {tag && <span className="dt-checked" data-testid="tickets-card-tag">{tag}</span>}
       </div>
       {reason || !t.qrToken ? (

@@ -8,6 +8,7 @@ import { readOrderStatus } from './ticketCheckoutApi';
 import { clearOrderId, readOrderId } from './orderStorage';
 import { MY_TICKETS_PATH } from './myTicketsModel';
 import { BUYER_ONBOARDING_ENABLED } from '@/lib/buyerOnboardingFlag';
+import { POSTPAY_TICKETS_TAB_ENABLED } from '@/lib/postpayTicketsTabFlag';
 
 // Local copy: the tickets module may not import from dancer-app (check-dancer-area-isolation rule c).
 const DANCER_TICKETS = '/app/tickets';
@@ -46,7 +47,7 @@ export default function TicketThanksPage() {
   if (user && orderId) {
     const q = new URLSearchParams({ o: orderId });
     if (params.get('free') === '1' && urlOk) q.set('free', '1');
-    return <Navigate to={`${BUYER_ONBOARDING_ENABLED ? DANCER_HOME_PATH : DANCER_TICKETS}?${q.toString()}`} replace />;
+    return <Navigate to={`${BUYER_ONBOARDING_ENABLED && !POSTPAY_TICKETS_TAB_ENABLED ? DANCER_HOME_PATH : DANCER_TICKETS}?${q.toString()}`} replace />;
   }
   return <ThanksFallback />;
 }

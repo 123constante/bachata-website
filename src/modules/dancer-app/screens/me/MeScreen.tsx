@@ -1,4 +1,7 @@
 import { Link } from 'react-router-dom';
+import { AccountLinkPanel } from '../tickets/AccountLinkPanel';
+import { BUYER_ONBOARDING_ENABLED } from '@/lib/buyerOnboardingFlag';
+import { POSTPAY_TICKETS_TAB_ENABLED } from '@/lib/postpayTicketsTabFlag';
 import { Card } from '@/modules/organiser/ui';
 import { APP_ACCOUNT_SETTINGS_PATH } from '@/lib/accountRouting';
 import { mainAction, nextStepCopy, profileName, roleCityLine } from './model';
@@ -67,6 +70,8 @@ const MeScreen = () => {
           {action.label}
         </Link>
       </Card>
+
+      {BUYER_ONBOARDING_ENABLED && POSTPAY_TICKETS_TAB_ENABLED && <AccountLinkPanel onLinked={() => undefined} />}
 
       <div>
         <SectionTitle as="p">My profile</SectionTitle>

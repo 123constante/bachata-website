@@ -3,6 +3,7 @@ import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { ChevronRight, Lock } from 'lucide-react';
 import { ORGANISER_HOME_PATH } from '@/lib/accountRouting';
 import { BUYER_ONBOARDING_ENABLED } from '@/lib/buyerOnboardingFlag';
+import { POSTPAY_TICKETS_TAB_ENABLED } from '@/lib/postpayTicketsTabFlag';
 import { flags } from '@/lib/featureFlags';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { useProfileSheet } from '../../shell/profileSheet';
@@ -15,6 +16,8 @@ import { useTicketCard } from './useTicketCard';
 const TicketCard = lazyWithRetry(() => import('./TicketCard'));
 
 export const FINISH_BAR = 'Finish your profile to unlock the rest';
+export const BOOKED_BAR = 'You\u2019re booked';
+export const BOOKED_PROCESSING = 'Confirming your booking\u2026';
 export const ORGANISER_CARD = 'Set up your organiser page';
 
 /**
@@ -43,6 +46,7 @@ function TicketsBody() {
   return (
     <div className="dt-screen" data-testid="tickets-screen">
       <h1 className="sr-only">Tickets</h1>
+      {POSTPAY_TICKETS_TAB_ENABLED && params.has('o') && <BookedBar kind={view.kind} title={view.kind === 'tickets' ? view.tickets[0]?.eventTitle ?? null : null} />}
       <Suspense fallback={<section className="dt-card dt-card-state" data-testid="tickets-card" data-state="loading"><p className="dt-state-line">{CARD_COPY.loading}</p></section>}>
         <TicketCard view={view} retry={retry} copy={CARD_COPY} />
       </Suspense>
@@ -53,7 +57,7 @@ function TicketsBody() {
         </Link>
       )}
       {/* Duplicate-account linking: build flag first (no RPC at all when off), then the DB flag inside. */}
-      {BUYER_ONBOARDING_ENABLED && <AccountLinkPanel onLinked={retry} orderInView={params.has('o')} />}
+      {BUYER_ONBOARDING_ENABLED && !POSTPAY_TICKETS_TAB_ENABLED && <AccountLinkPanel onLinked={retry} orderInView={params.has('o')} />}
       {sheet.incomplete && (
         <div className="dt-bar" data-testid="tickets-finish-bar">
           <span className="dt-bar-text">{FINISH_BAR}</span>
@@ -74,4 +78,24 @@ function TicketsBody() {
       )}
     </div>
   );
+}
+
+/** Spec A, top bar: "You're booked" once tickets are in; spinner + wait line while the order is still confirming. */
+export function BookedBar({ kind, title }: { kind: string; title: string | null }) {
+  if (kind === 'tickets' || kind === 'paid_email') {
+    return (
+      <div className="dt-bar" role="status" data-testid="tickets-booked-bar" data-state="booked">
+        <span className="dt-bar-text">{BOOKED_BAR}{title ? ` \u2014 ${title}` : ''}</span>
+      </div>
+    );
+  }
+  if (kind === 'pending' || kind === 'processing' || kind === 'loading') {
+    return (
+      <div className="dt-bar" role="status" aria-busy="true" data-testid="tickets-booked-bar" data-state="processing">
+        <span className="dt-spin" aria-hidden="true" />
+        <span className="dt-bar-text">{BOOKED_PROCESSING}</span>
+      </div>
+    );
+  }
+  return null;
 }
