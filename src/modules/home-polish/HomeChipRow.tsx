@@ -67,7 +67,7 @@ export function HomeChipRow({
               geo.clear();
               onNearest(false);
             }}
-            className={cn('relative -mr-1 inline-flex h-[24px] items-center gap-0.5 rounded-full px-1.5 text-foreground underline before:absolute before:-inset-x-2 before:-inset-y-[10px] before:content-['']', focusRing)}
+            className={cn(`relative -mr-1 inline-flex h-[24px] items-center gap-0.5 rounded-full px-1.5 text-foreground underline before:absolute before:-inset-x-2 before:-inset-y-[10px] before:content-['']`, focusRing)}
           >
             <X className="h-3.5 w-3.5" aria-hidden="true" />
             Cancel
