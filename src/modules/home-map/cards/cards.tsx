@@ -123,7 +123,7 @@ export function TimePills({ event, className, stack }: { event: MapEvent; classN
         {split.map((seg) => (
           <span key={seg.label} className={cn('inline-flex items-center gap-1.5', stack && 'whitespace-nowrap')}>
             <CategoryDot category={seg.category} className="h-1.5 w-1.5" />
-            <span className="font-bold" style={{ color: CATEGORY_COLORS[seg.category] }}>{seg.label}</span>
+            <span className="font-bold" style={{ color: seg.category === 'party' ? '#F2778C' : CATEGORY_COLORS[seg.category] }}>{seg.label}</span>
             <span>{seg.range}</span>
           </span>
         ))}
@@ -190,8 +190,8 @@ const FRESHNESS_HEAT: Record<FreshnessHeat, { dot: string; text: string; verb: s
   now:   { dot: '#5FBF7F', text: '#5FBF7F', verb: '#5FBF7F', live: true,  updated: false },
   fresh: { dot: '#46B7C9', text: '#46B7C9', verb: '#46B7C9', live: false, updated: true  },
   warm:  { dot: '#E8B450', text: '#E8B450', verb: '#E8B450', live: false, updated: true  },
-  cool:  { dot: '#9B7FD4', text: '#9B7FD4', verb: '#9B7FD4', live: false, updated: true  },
-  stale: { dot: '#9B7FD4', text: '#9B7FD4', verb: '#9B7FD4', live: false, updated: true  },
+  cool:  { dot: '#9B7FD4', text: '#B49BE3', verb: '#B49BE3', live: false, updated: true  },
+  stale: { dot: '#9B7FD4', text: '#B49BE3', verb: '#B49BE3', live: false, updated: true  },
 };
 
 /** Right-aligned "Added/Updated  Xm  ago" freshness stamp. A heat dot + thermal
