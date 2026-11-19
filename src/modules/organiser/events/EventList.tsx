@@ -21,7 +21,7 @@ const TONE: Record<'ok' | 'bad' | 'n', string> = {
 /** The row's section reads lifeLabel (W3 d31): the chip's words come from there too, via lifeChip. */
 const lifeOf = (s: ListedSeries): Life => seriesLife(s, s.upcoming_count);
 
-function EventRow({ series, today }: { series: ListedSeries; today: string }) {
+export function EventRow({ series, today }: { series: ListedSeries; today: string }) {
   // The chip is Home's own mapping (jobs/homeJobs lifeChip): a fact never reads differently on two screens.
   const chip = lifeChip(series, today);
   const link = (
@@ -50,7 +50,7 @@ function EventRow({ series, today }: { series: ListedSeries; today: string }) {
         </div>
         <div className="mt-[8px] flex gap-[8px]">
           <Link to={ORG_PATHS.event(series.id)} data-testid="org-event-edit" className={cn(btn, 'bg-orange-500 text-white')}>Edit</Link>
-          <Link to={ORG_PATHS.cancelEvent(series.id)} data-testid="org-event-cancel" className={cn(btn, 'bg-[var(--card2)] text-[var(--danger)]')}>Cancel</Link>
+          <Link to={ORG_PATHS.event(series.id)} data-testid="org-event-cancel" className={cn(btn, 'bg-[var(--card2)] text-[var(--danger)]')}>Cancel</Link>
         </div>
       </div>
     </div>

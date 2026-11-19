@@ -11,5 +11,5 @@ describe('readinessOf', () => {
   it('no dates', () => expect(sum({ upcoming_count: 0 }).missing).toEqual(['Name and date']));
   it('past-only series with no upcoming and no next dates is missing a date', () => expect(sum({ upcoming_count: 0, next_dates: [] }).ready).toBe(2));
   it('empty name', () => expect(sum({ name: ' ' }).missing).toContain('Name and date'));
-  it('text', () => expect(sum({ default_venue_name: null, default_cover_image_url: null }).text).toBe('1 of 3 ready — Venue missing, Poster missing'));
+  it('text', () => expect(sum({ default_venue_name: null, default_cover_image_url: null }).text).toBe('1 of 3 ready \u2014 Venue missing, Poster missing'));
 });
