@@ -48,3 +48,8 @@ Branch `r4-delete-old`, brief `docs/briefs/organiser-r4-delete-old.md` (on `brie
 
 ## Not verified
 e2e P3 gate (29 red, above), legacy e2e gate, bundle budget, pre-ship, lint chain, integrity, phone walk, real-data shapes. No PR opened yet.
+
+## Cont3 (CI reds on #1816)
+- Red 1 (phone-qa 2, invite-w2-golive roles-*): NOT a missing token source. Computed --mut/--fg on the go-live screen are fine once settled (#a39a8b on #0f0d0b). axe read text mid fade-in (0.3 s `animate-in fade-in`), fg #645e55. Fix is in the spec only: `screenChecks` waits for finite animations before axe. Roles specs 4/4 green locally (390x844).
+- Red 2 (live-preview /city/london-gb CSP og-image): job log tail showed nothing useful; main/other PR runs not compared (no gh api). Changed nothing. Needs owner/next worker to compare against main.
+- Not run: pre-ship.
