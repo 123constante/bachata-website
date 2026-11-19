@@ -50,7 +50,7 @@ describe('R4 Team: every prod shape draws one section per role held, in board or
     expect(m.waiting.every((w) => w.word === 'Asked to join')).toBe(true);
   });
 
-  it('no requests: no Waiting section rows (never an "Invited" row: no read of sent invites)', () => {
+  it('no requests: no Waiting section rows (Invited rows come from r4InvitedModel, not here)', () => {
     const m = buildR4Team({ load: 'ready', viewerRole: 'owner', members: team(SHAPES['owner alone (6 pages)']), listed: [], requests: [] });
     expect(m.waiting).toEqual([]);
   });

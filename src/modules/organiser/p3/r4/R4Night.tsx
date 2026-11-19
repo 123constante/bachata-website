@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { KEPT_BACK_STATE, cameBackForKept, dropKept, keptDraft } from '../onboarding/keptDraft';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/useAuth';
 import { flags } from '@/lib/featureFlags';
 import { londonTodayKey } from '@/lib/londonDate';
 import type { EventWorkspace } from '../../events/eventModel';
@@ -24,6 +25,8 @@ import { nightsOfChoice } from '../v2/V2Tabs';
 import { R4CancelSheet } from './R4CancelSheet';
 import { R4Chevron } from './R4Shell';
 import { r4NightOf } from './r4NightModel';
+import { fetchNightMoney, nightMoneyQueryKey } from './r4MoneyApi';
+import { moneyQuietOf, moneyTileOf, nightMoneyOf, R4_MONEY_COPY } from './r4MoneyModel';
 
 function Row({ to, label, sub, testId }: { to: string; label: string; sub?: string; testId: string }) {
   return (
@@ -64,6 +67,17 @@ function Night({ ws, place }: { ws: EventWorkspace; place: string | null }) {
     retry: false,
   });
   const door = doorRead.data?.result === 'ok' ? { sold: doorRead.data.totalCount, cameIn: doorRead.data.inCount } : null;
+  const { user } = useAuth();
+  const moneyRead = useQuery({
+    queryKey: nightMoneyQueryKey(user?.id ?? null, id),
+    queryFn: () => fetchNightMoney(id),
+    enabled: flags.organiserTicketing && !!user?.id && !!row?.next && row.next.status !== 'cancelled',
+    staleTime: 60_000,
+    retry: 1,
+  });
+  const nightMoney = nightMoneyOf(moneyRead.data, { date: row?.next?.date ?? null });
+  const moneyTile = moneyTileOf(nightMoney);
+  const moneyQuiet = moneyQuietOf(nightMoney);
   const m = r4NightOf({
     row, name: ws.series.name, place,
     repeatWords: shape.from === 'once' ? null : repeatWords(shape, today),
@@ -99,7 +113,7 @@ function Night({ ws, place }: { ws: EventWorkspace; place: string | null }) {
       {nightOn && row?.next && (
         <P3NightGoing seriesId={id} seriesName={m.title} nightKey={{ date: row.next.date }} testId="r4-night-going" />
       )}
-      {m.tiles.length > 0 && (
+      {(m.tiles.length > 0 || moneyTile) && (
         <div className="r4-tiles" data-testid="r4-night-tiles">
           {m.tiles.map((t) => (
             <div key={t.key} className="r4-card r4-tile" data-testid={`r4-night-tile-${t.key}`}>
@@ -107,7 +121,17 @@ function Night({ ws, place }: { ws: EventWorkspace; place: string | null }) {
               <div className="r4-num">{t.value}</div>
             </div>
           ))}
+          {moneyTile && (
+            <div className="r4-card r4-tile" data-testid="r4-night-tile-money">
+              <div className="r4-label">{moneyTile.label}</div>
+              <div className="r4-num">{moneyTile.value}</div>
+              {moneyQuiet && <div className="r4-tile-quiet" data-testid="r4-night-money-quiet">{moneyQuiet}</div>}
+            </div>
+          )}
         </div>
+      )}
+      {moneyRead.isError && (
+        <p className="r4-err" role="alert" data-testid="r4-night-money-error">{R4_MONEY_COPY.error} <button type="button" className="r4-linkbtn" onClick={() => void moneyRead.refetch()}>{R4_MONEY_COPY.retry}</button></p>
       )}
 
       {raffleNight && (

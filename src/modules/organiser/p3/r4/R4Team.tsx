@@ -17,6 +17,8 @@ import { P3_PATHS } from '../shell/paths';
 import { R4Chevron } from './R4Shell';
 import { ROLE_LINE } from '../dash/team/teamDashModel';
 import { R4_ADD_COPY, R4_ADD_ROLES, buildR4Team, r4AddButton, type R4AddRole, type R4TeamGroup, type R4Waiting } from './r4TeamModel';
+import { R4_INVITED_COPY, buildR4Invited, type R4InvitedModel } from './r4InvitedModel';
+import { fetchInvitesSent, invitesSentQueryKey } from './r4InvitedApi';
 
 const Plus = () => (
   <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M12 5v14" /><path d="M5 12h14" /></svg>
@@ -169,6 +171,32 @@ function WaitingSection({ rows, onOpen }: { rows: R4Waiting[]; onOpen: (w: R4Wai
   );
 }
 
+/** Boards 13-15: "Invited" under the role groups. Read-only (no revoke command exists); hidden when empty. */
+function InvitedSection({ m, onRetry }: { m: R4InvitedModel; onRetry: () => void }) {
+  if (m.state === 'hidden') return null;
+  if (m.state === 'error') {
+    return (
+      <p className="r4-err" role="alert" data-testid="r4-team-invited-error">{R4_INVITED_COPY.error} <button type="button" className="r4-linkbtn" onClick={onRetry} data-testid="r4-team-invited-retry">{R4_INVITED_COPY.retry}</button></p>
+    );
+  }
+  return (
+    <section className="r4-section" aria-labelledby="r4-team-invited" data-testid="r4-team-invited">
+      <h2 id="r4-team-invited" className="r4-label r4-h2">{R4_INVITED_COPY.title} ({m.rows.length})</h2>
+      <div className="r4-card r4-list">
+        {m.rows.map((r) => (
+          <div key={r.key} className="r4-row" data-testid="r4-team-invited-row" data-kind={r.kind}>
+            <span className="r4-row-body">
+              <span className="r4-row-t r4-ellipsis" data-testid="r4-team-invited-label">{r.label}</span>
+              {r.when && <span className="r4-row-line" data-testid="r4-team-invited-when">{r.when}</span>}
+            </span>
+            <span className="r4-pill r4-pill-grey" data-testid="r4-team-invited-role">{r.role}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 /** Board R4Team (flag organiserR4), Team T1: Add a teammate, one section per role, Waiting to join. */
 export function R4Team() {
   const ctx = useTeamContext();
@@ -180,6 +208,12 @@ export function R4Team() {
     queryFn: () => fetchIncomingAccessRequests(organiser!.id),
     enabled: !!organiser && editor,
   });
+  const sent = useQuery({
+    queryKey: invitesSentQueryKey(organiser?.id),
+    queryFn: () => fetchInvitesSent(organiser!.id),
+    enabled: !!organiser && editor,
+  });
+  const invited = buildR4Invited({ editor, read: sent.isError ? 'error' : sent.data ? 'ready' : 'loading', data: sent.data, now: new Date() });
   const [adding, setAdding] = useState(false);
   const [open, setOpen] = useState<R4Waiting | null>(null);
   const [said, setSaid] = useState<string | null>(null);
@@ -245,6 +279,7 @@ export function R4Team() {
         <p className="r4-err" role="alert" data-testid="r4-team-requests-error">We could not load join requests. <button type="button" className="r4-linkbtn" onClick={() => void requests.refetch()}>Try again</button></p>
       )}
       <WaitingSection rows={m.waiting} onOpen={setOpen} />
+      <InvitedSection m={invited} onRetry={() => void sent.refetch()} />
       {editor && (
         <div className="r4-card">
           <Link to={P3_PATHS.youTeamDoorInvite} className="r4-row" data-testid="r4-team-door-invite">
