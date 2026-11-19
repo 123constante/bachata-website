@@ -1,0 +1,96 @@
+name: Preview Shots
+
+# ADVISORY, never a required check: 390x844 (2x) screenshots of the PR's Vercel
+# preview -- home, London city page, one real upcoming event, the open menu
+# sheet, plus any routes named on a `Preview routes:` line in the PR body (max 6).
+# Read-only against prod data (one anon RPC SELECT; no sign-in, no seeding).
+# Resolves the preview first-party via scripts/lib/previewProbe.mjs, exactly as
+# perf-budget.yml's lighthouse job does. A PROVEN Deployment Protection wall is a
+# green skip with ::warning::; any other failure is a red job (still not required).
+# Comment on the PR (marker <!-- preview-shots -->) is updated in place; it holds
+# the preview URL and the artifact link, no secrets.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+    paths:
+      - 'src/**'
+      - 'app/**'
+      - 'components/**'
+      - 'pages/**'
+      - 'public/**'
+      - 'index.html'
+
+concurrency:
+  group: preview-shots-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  shots:
+    # Keep the head_ref list equal to scripts/vercel-ignore-build.sh
+    # (npm run check:no-preview-prefixes): those branches never get a preview.
+    if: github.event.pull_request.draft == false && !startsWith(github.head_ref, 'bot/') && !startsWith(github.head_ref, 'dependabot/') && !startsWith(github.head_ref, 'arc/briefs-') && !startsWith(github.head_ref, 'brief/') && !startsWith(github.head_ref, 'claude/') && !startsWith(github.head_ref, 'tmp-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      pull-requests: write
+      contents: read
+      actions: read
+      deployments: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Upgrade npm to 11 (Node 22 ships with npm 10)
+        run: npm install -g npm@11
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Take preview shots
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: node scripts/preview-shots.mjs --out preview-shots
+
+      - name: Upload shots
+        id: upload
+        if: always() && hashFiles('preview-shots/*.png') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-shots
+          path: preview-shots/*.png
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Comment on the PR
+        if: always() && hashFiles('preview-shots/status.json') != ''
+        uses: actions/github-script@v7
+        env:
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+        with:
+          script: |
+            const fs = require('fs');
+            const st = JSON.parse(fs.readFileSync('preview-shots/status.json', 'utf8'));
+            const marker = '<!-- preview-shots -->';
+            const lines = [marker, '**Preview shots** (390x844, advisory)', '', `Preview: ${st.base}`];
+            if (st.skipped) lines.push('', 'Skipped: the preview is behind Deployment Protection and the bypass did not open it.');
+            else lines.push('', `Screenshots (${st.shots.length}): ${process.env.ARTIFACT_URL || 'artifact not uploaded'}`, '', st.shots.map((s) => `- ${s}`).join('\n'));
+            lines.push('', `Head: ${context.payload.pull_request.head.sha.slice(0, 8)}`);
+            const body = lines.join('\n');
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number, per_page: 100 });
+            const mine = comments.find((c) => c.body && c.body.startsWith(marker));
+            if (mine) await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body });
+            else await github.rest.issues.createComment({ owner, repo, issue_number, body });

@@ -154,7 +154,7 @@ export const GlobalHeader = () => {
         ))}
 
         {/* Desktop nav links with animated emojis */}
-        {!searching && !flags.homePolish && (
+        {!searching && (
           <div className="hidden md:flex items-center gap-0.5 ml-4">
             {NAV_ITEMS.map((item) => {
               const href = item.fixedPath ?? buildCityPath(citySlug, item.segment);
@@ -209,22 +209,26 @@ export const GlobalHeader = () => {
               aria-haspopup="dialog"
               aria-expanded={menuOpen}
               data-testid="header-menu-button"
-              className="inline-flex items-center justify-center w-[44px] h-[44px] -mr-2 rounded-md shrink-0 text-foreground transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="inline-flex md:hidden items-center justify-center w-[44px] h-[44px] -mr-2 rounded-md shrink-0 text-foreground transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <Menu className="w-6 h-6" aria-hidden="true" />
             </button>
           </>
         )}
 
-        {!flags.homePolish && <div className="hidden md:block flex-1" />}
+        <div className="hidden md:block flex-1" />
 
-        {!flags.homePolish && (flags.searchV5 ? <SearchTrigger /> : <HeaderSearch expanded={searching} onExpandedChange={setSearching} />)}
+        {/* homePolish: phone search lives in the menu sheet; desktop keeps the old header search (owner N2, 2026-11-19). */}
+        <div className={flags.homePolish ? "max-md:hidden md:contents" : "contents"}>
+          {flags.searchV5 ? <SearchTrigger /> : <HeaderSearch expanded={searching} onExpandedChange={setSearching} />}
+        </div>
 
-        {!flags.homePolish && showAccount && (
+        {showAccount && (
           <Link
             to={ACCOUNT_HOME_PATH}
             className={cn(
               'inline-flex items-center justify-center w-[44px] h-[44px] rounded-md shrink-0 transition-colors',
+              flags.homePolish && 'max-md:hidden',
               isAccountPath(pathname) ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-foreground hover:bg-primary/5',
             )}
             aria-label="Your account"
@@ -234,10 +238,10 @@ export const GlobalHeader = () => {
           </Link>
         )}
 
-        {!flags.homePolish && showSignIn && (
+        {showSignIn && (
           <Link
             to={buildSignInHref(here)}
-            className="inline-flex items-center justify-center h-[44px] min-w-[44px] px-2 sm:px-3 rounded-md shrink-0 text-sm font-semibold text-primary no-underline transition-colors hover:bg-primary/10"
+            className={cn("inline-flex items-center justify-center h-[44px] min-w-[44px] px-2 sm:px-3 rounded-md shrink-0 text-sm font-semibold text-primary no-underline transition-colors hover:bg-primary/10", flags.homePolish && "max-md:hidden")}
             data-testid="header-sign-in-link"
           >
             Sign in

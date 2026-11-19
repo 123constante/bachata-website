@@ -16,6 +16,8 @@
 // repaints itself; a subscribing row repaints everything under it. See
 // ../homeClock.
 
+import { flags } from '@/lib/featureFlags';
+import { formatNearMiles } from '@/lib/geo/nearMeFix';
 import { memo, useState, useEffect, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, MapPinOff, RotateCw } from 'lucide-react';
@@ -43,6 +45,7 @@ import {
 import type { FreshnessHeat } from '../mapTypes';
 import { useHomeNow, useHomeNowStatic } from '../homeClock';
 import { focusRing } from './controls';
+import { isSitePlaceholderCover } from './coverPlaceholder';
 import { flags } from '@/lib/featureFlags';
 
 type Coords = { lat: number; lng: number } | null;
@@ -62,7 +65,7 @@ export function CoverThumb({
   // component is reused across list rows as the event prop changes).
   const [imgError, setImgError] = useState(false);
   useEffect(() => setImgError(false), [event.cover_image_url]);
-  const showImg = !!event.cover_image_url && !imgError;
+  const showImg = !!event.cover_image_url && !isSitePlaceholderCover(event.cover_image_url) && !imgError;
   const scene = showImg ? '' : eventScene(event);
   return (
     <span className={cn('cv block', scene, className)}>
@@ -331,7 +334,7 @@ function LiveBadge({ event, today }: { event: MapEvent; today: string }) {
 function DistanceChip({ mi }: { mi: number }) {
   return (
     <span className="shrink-0 text-xs font-semibold tabular-nums text-muted-foreground">
-      {mi < 10 ? mi.toFixed(1) : Math.round(mi)} mi
+      {flags.nearMe ? formatNearMiles(mi) : `${mi < 10 ? mi.toFixed(1) : Math.round(mi)} mi`}
     </span>
   );
 }

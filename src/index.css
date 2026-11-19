@@ -1352,6 +1352,17 @@
   background-color: #11121a;
 }
 
+/* homePolish ON: the 46px section row (BottomNav) is not rendered, so the shell
+   subtracts only the 60px header. At 106px a 46px strip of body background showed
+   under the feed on phones (owner report 2026-11-19). From md up the base rule
+   already subtracts 60px. */
+@media (max-width: 767.98px) {
+  .home-map-fill.hm-polish {
+    height: calc(100vh - 60px - env(safe-area-inset-bottom));
+    height: calc(100svh - 60px - env(safe-area-inset-bottom));
+  }
+}
+
 /* Every route's wrapper (app/InitialVisiblePageTransition.tsx, PageTransition):
    at least the screen BELOW the fixed chrome, never a bare 100vh on top of the
    header spacer (that left a dead band and a pointless scroll). Chrome is the
