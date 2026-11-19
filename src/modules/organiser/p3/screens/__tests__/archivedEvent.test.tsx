@@ -30,12 +30,11 @@ import { PricesScreen } from '../PricesScreen';
 import { DetailsScreen } from '../DetailsScreen';
 import { AllDatesScreen } from '../AllDatesScreen';
 import { HistoryScreen } from '../HistoryScreen';
-import { confirmationOf } from '../../r4/r4Notices';
 
-// Stands in for the Events screen: it shows the confirmation the Remove flow carries in router state.
+// Stands in for the Events screen: it shows the words the Remove flow carries in router state (p3Toast).
 function EventsStub() {
-  const c = confirmationOf(useLocation().state);
-  return c ? <p data-testid="p3-toast">{c}</p> : null;
+  const c = (useLocation().state as { p3Toast?: unknown } | null)?.p3Toast;
+  return typeof c === 'string' && c ? <p data-testid="p3-toast">{c}</p> : null;
 }
 
 const ok = (k: keyof typeof SHAPES) => ({ isPending: false, isError: false, data: ws(k), error: null, refetch: vi.fn() });
