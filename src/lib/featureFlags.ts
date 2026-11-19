@@ -133,6 +133,10 @@ export const flags = {
   // tilde distances, split denial copy. Needs homePolish ON to show the chip row.
   // OFF = every screen exactly as before. Turn on with VITE_ENABLE_NEAR_ME=true (Vercel env) -- no code change.
   nearMe:              import.meta.env.VITE_ENABLE_NEAR_ME === 'true',
+  // Home feed look (docs/briefs/home-feed-look.md): folder tabs joined to the map, poster-word category row
+  // (Near me inside it), poster-thumb feed rows. Needs homePolish ON (it builds on that chip row + Today tab).
+  // OFF = every screen exactly as before. Turn on with VITE_ENABLE_HOME_FEED_LOOK=true (Vercel env) -- no code change.
+  homeFeedLook:        import.meta.env.VITE_ENABLE_HOME_FEED_LOOK === 'true' && import.meta.env.VITE_ENABLE_HOME_POLISH === 'true',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the
