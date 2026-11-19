@@ -21,6 +21,7 @@ import { P3_BASE, P3_PATHS } from '../shell/paths';
 import { EVENT_PARAM } from './eventChoiceModel';
 import { useEventChoice } from './EventChoice';
 import { nightsOfChoice } from './r4Nights';
+import { R4GuestList } from './R4GuestList';
 import { R4CancelSheet } from './R4CancelSheet';
 import { R4Chevron } from './R4Shell';
 import { r4NightOf } from './r4NightModel';
@@ -132,6 +133,8 @@ function Night({ ws, place }: { ws: EventWorkspace; place: string | null }) {
       {moneyRead.isError && (
         <p className="r4-err" role="alert" data-testid="r4-night-money-error">{R4_MONEY_COPY.error} <button type="button" className="r4-linkbtn" onClick={() => void moneyRead.refetch()}>{R4_MONEY_COPY.retry}</button></p>
       )}
+
+      {flags.organiserTicketing && nightOn && <R4GuestList seriesId={id} />}
 
       {raffleNight && (
         <section className="r4-section" aria-label="Raffle" data-testid="r4-night-raffle">

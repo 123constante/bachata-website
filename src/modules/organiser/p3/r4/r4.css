@@ -145,3 +145,7 @@
 .r4-mt-24 { margin-top: 24px; }
 .r4-list > .r4-order + .r4-order { border-top: 1px solid #E9E9E9; }
 .r4-order .r4-row-t { overflow-wrap: anywhere; }
+.r4-guest-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.r4-guest-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; padding: 4px 14px; border-top: 1px solid #EDEDED; font-size: 14px; }
+.r4-guest-row:first-child { border-top: 0; }
+.r4-guest-in { color: #097C4F; font-weight: 500; white-space: nowrap; }
