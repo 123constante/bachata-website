@@ -67,6 +67,22 @@ export default defineConfig(({ isSsrBuild }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  // DEV SERVER ONLY (no effect on `vite build`). Crawl every app/src module for bare
+  // imports at startup, so all deps are pre-bundled before the first page loads. Without
+  // this the scan starts from no entries (RR's unstable_optimizeDeps is off), deps are
+  // found lazily as each route first loads, and Vite re-optimizes and force-reloads the
+  // open page. The reloaded page can mix old and new pre-bundled React copies
+  // ("Cannot read properties of null (reading 'useContext')" in Layout), which never
+  // recovers. That was the e2e flake in organiser-layout "no screen or sheet scrolls
+  // sideways" and dashboard-switch-r4 (measure() read Infinity until timeout).
+  optimizeDeps: {
+    entries: [
+      "app/**/*.{ts,tsx}",
+      "src/**/*.{ts,tsx}",
+      "!**/*.{test,spec}.{ts,tsx}",
+      "!**/*.d.ts",
+    ],
+  },
   build: {
     sourcemap: "hidden",
     // Client-build manifest feeds scripts/check-bundle-budget.mjs (perf
