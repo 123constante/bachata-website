@@ -159,7 +159,7 @@ describe('item 7: every server reason has its own copy; anything else is the saf
   // Every `reason` the deployed ticket-checkout (v3) and its RPCs can send (review section 8).
   const server: [string, string][] = [
     ['invalid_request', 'fix_form'], ['invalid_quantity', 'fix_form'], ['invalid_email', 'fix_form'],
-    ['invalid_fee', 'retry'], ['refused', 'retry'], ['rate_limited', 'retry'],
+    ['invalid_fee', 'retry'], ['refused', 'retry'], ['rate_limited', 'retry'], ['free_daily_limit', 'retry'],
     ['not_found', 'pick_another'], ['not_on_sale', 'pick_another'], ['outside_sales_window', 'pick_another'],
     ['sold_out', 'pick_another'], ['organiser_not_onboarded', 'contact_organiser'], ['stripe_error', 'retry'],
     ['internal_error', 'retry'], ['free_issue_failed', 'retry'], ['not_free', 'retry'], ['not_pending', 'retry'],
