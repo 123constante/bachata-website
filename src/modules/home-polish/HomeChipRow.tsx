@@ -59,7 +59,7 @@ export function HomeChipRow({
   } else if (geo.status === 'loading') {
     locChip = (
       <span className={cn(chipBase, 'border-border text-muted-foreground')} role="status">
-        {slow ? 'Still looking…' : 'Finding you…'}
+        {slow ? 'Still looking\u2026' : 'Finding you\u2026'}
         {slow && (
           <button
             type="button"
@@ -67,7 +67,7 @@ export function HomeChipRow({
               geo.clear();
               onNearest(false);
             }}
-            className={cn('relative -mr-1 inline-flex h-[24px] items-center gap-0.5 rounded-full px-1.5 text-foreground underline', focusRing)}
+            className={cn('relative -mr-1 inline-flex h-[24px] items-center gap-0.5 rounded-full px-1.5 text-foreground underline before:absolute before:-inset-x-2 before:-inset-y-[10px] before:content-['']', focusRing)}
           >
             <X className="h-3.5 w-3.5" aria-hidden="true" />
             Cancel

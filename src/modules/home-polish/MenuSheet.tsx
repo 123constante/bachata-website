@@ -56,6 +56,15 @@ export default function MenuSheet({ onClose }: { onClose: () => void }) {
 
   const back = () => (view === 'menu' ? onClose() : setView('menu'));
 
+  // Escape also works when focus sits on body (a tap on blank space moves it off the panel).
+  useEffect(() => {
+    const h = (e: globalThis.KeyboardEvent) => {
+      if (e.key === 'Escape' && !panelRef.current?.contains(e.target as Node)) back();
+    };
+    document.addEventListener('keydown', h);
+    return () => document.removeEventListener('keydown', h);
+  });
+
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Escape') {
       e.stopPropagation();
