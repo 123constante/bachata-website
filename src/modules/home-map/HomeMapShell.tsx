@@ -283,7 +283,7 @@ export default function HomeMapShell({
 
   return (
     <div
-      className={cn('home-map-fill home-map relative isolate w-full overflow-hidden')}
+      className={cn('home-map-fill home-map relative isolate w-full overflow-hidden', flags.homePolish && 'hm-polish')}
     >
       {/* The skip link only has something to skip when the card is on screen.
           On What's New and Calendar the map is not rendered at all, so a link
