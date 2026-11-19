@@ -181,7 +181,7 @@ async function listOpenPrs(token, slug) {
   for (let attempt = 0; attempt < 2; attempt++) {
     const res = await api(token, 'https://api.github.com/graphql', {
       method: 'POST',
-      body: JSON.stringify({ query: LIST_QUERY, variables: { owner: slug.owner, name: slug.repo } }),
+      body: JSON.stringify({ query: LIST_QUERY, variables: { owner: slug.owner, name: slug.name } }),
     });
     const json = await res.json();
     if (json.errors) throw new Error('GraphQL: ' + JSON.stringify(json.errors).slice(0, 300));
@@ -221,7 +221,7 @@ export async function main(argv, env = process.env) {
     console.error('pr-auto-rebase: cannot determine repo slug.');
     return 2;
   }
-  const base = 'https://api.github.com/repos/' + slug.owner + '/' + slug.repo;
+  const base = 'https://api.github.com/repos/' + slug.owner + '/' + slug.name;
   let prs;
   try {
     prs = await listOpenPrs(token, slug);
@@ -406,6 +406,21 @@ async function selfTest() {
     const d = mkDeps({ ok: false, files: ['a.ts'] });
     await processAll([mk({}), mk({ number: 2, mergeStateStatus: 'CLEAN', labels: [LABEL] })], d, { dryRun: true });
     assert(d.calls.join() === 'rebase#1', d.calls.join());
+  });
+  t('repo name reaches the GraphQL query (parseRepoSlug returns name, not repo)', async () => {
+    const realFetch = globalThis.fetch;
+    let vars = null;
+    globalThis.fetch = async (url, init) => {
+      if (String(url).endsWith('/graphql')) vars = JSON.parse(init.body).variables;
+      return { ok: true, status: 200, json: async () => ({ data: { repository: { pullRequests: { nodes: [] } } } }) };
+    };
+    try {
+      const code = await main(['--dry-run'], { GITHUB_TOKEN: 'x', GITHUB_REPOSITORY: 'acme/widgets' });
+      assert(code === 0, 'exit ' + code);
+      assert(vars && vars.owner === 'acme' && vars.name === 'widgets', JSON.stringify(vars));
+    } finally {
+      globalThis.fetch = realFetch;
+    }
   });
   t('no token -> exit 2, not 0', async () => {
     assert((await main([], {})) === 2, 'exit code');
