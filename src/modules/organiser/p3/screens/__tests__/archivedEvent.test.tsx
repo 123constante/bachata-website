@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { SHAPES, ws } from './wsFixtures';
 import { L } from '../../model';
 import { ARCHIVED_WHY, archivedStatus, statusOf } from '../../model/status';
@@ -30,14 +30,19 @@ import { PricesScreen } from '../PricesScreen';
 import { DetailsScreen } from '../DetailsScreen';
 import { AllDatesScreen } from '../AllDatesScreen';
 import { HistoryScreen } from '../HistoryScreen';
-import { EventsScreen } from '../EventsScreen';
+
+// Stands in for the Events screen: it shows the words the Remove flow carries in router state (p3Toast).
+function EventsStub() {
+  const c = (useLocation().state as { p3Toast?: unknown } | null)?.p3Toast;
+  return typeof c === 'string' && c ? <p data-testid="p3-toast">{c}</p> : null;
+}
 
 const ok = (k: keyof typeof SHAPES) => ({ isPending: false, isError: false, data: ws(k), error: null, refetch: vi.fn() });
 const at = (k: keyof typeof SHAPES, el: JSX.Element, path: string, url: string) => {
   wsQ.value = ok(k);
   return render(<MemoryRouter initialEntries={[url]}><Routes>
     <Route path={path} element={el} />
-    <Route path="/account/p3/events" element={<EventsScreen />} />
+    <Route path="/account/p3/events" element={<EventsStub />} />
   </Routes></MemoryRouter>);
 };
 afterEach(cleanup);

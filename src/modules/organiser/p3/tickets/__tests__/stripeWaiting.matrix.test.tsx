@@ -18,7 +18,7 @@ const api = vi.hoisted(() => ({ setTicketStatus: vi.fn(), upsertTicketType: vi.f
 vi.mock('../../../tickets/ticketsApi', async (orig) => ({ ...(await orig<typeof import('../../../tickets/ticketsApi')>()), ...api }));
 
 import { TicketsEntry } from '../TicketsEntry';
-import { GetPaidPrompt, GetPaidRow, GetPaidScreen, GetPaidStart } from '../GetPaid';
+import { GetPaidRow, GetPaidScreen, GetPaidStart } from '../GetPaid';
 
 beforeEach(() => Object.values(api).forEach((f) => f.mockReset()));
 afterEach(cleanup);
@@ -128,14 +128,6 @@ describe('Get paid start screen x state x arrival', () => {
 });
 
 describe('Home prompt and You row', () => {
-  it('waiting prompt: waiting words, Check again, Open Stripe, no Finish connecting', () => {
-    load(shape({ stripe: 'waiting' as never }));
-    show(<GetPaidPrompt />, '/account/p3');
-    expect(screen.getByTestId('tix-prompt-title').textContent).toBe(WAITING_TITLE);
-    expect(screen.getByTestId('tix-prompt-go').textContent).toBe('Check again');
-    expect(screen.getByTestId('tix-prompt-open').textContent).toBe('Open Stripe');
-    expect(document.body.textContent).not.toMatch(/Finish connecting/);
-  });
   it('You row tag', () => {
     load(shape({ stripe: 'waiting' as never }));
     show(<GetPaidRow />, '/account/p3/you');

@@ -17,7 +17,7 @@ import { ScopeSheet, useScopedRun, type ScopedDone } from '../screens/ScopeSheet
 import { Sheet } from '../screens/Sheet';
 import { VenueList } from '../screens/VenueList';
 import { P3_PATHS } from '../shell/paths';
-import { useEventChoice } from '../v2/V2Shell';
+import { useEventChoice } from './EventChoice';
 import { R4Chevron } from './R4Shell';
 import { EDIT_COPY, r4EditOf } from './r4EditModel';
 

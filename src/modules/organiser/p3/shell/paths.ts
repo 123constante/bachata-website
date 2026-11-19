@@ -19,7 +19,6 @@ const FORMAT_KIND: Record<string, string> = { one_off: 'one_date', recurring: 'w
 export const P3_PATHS = {
   home: P3_BASE,
   events: `${P3_BASE}/events`,
-  stats: `${P3_BASE}/stats`,
   /** Slice 2 (flag organiserDash): Compare nights, pushed from Home (no tab bar). */
   compare: `${P3_BASE}/compare`,
   /** Slice 3 (flag organiserDash): the read-only Who is in sheet (tonight's door list); `from` = where back goes. */
@@ -32,7 +31,7 @@ export const P3_PATHS = {
   event: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}`,
   /** One event's full settings page (the P3 EventPage) while R4 shows its own one-night screen at event(). */
   eventAll: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/all`,
-  /** R4 (flag organiserR4): the one-form Edit night and the Raffle page of the next night. */
+  /** R4: the one-form Edit night and the Raffle page of the next night. */
   eventEdit: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/edit`,
   eventRaffle: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/raffle`,
   /** One event's All dates (W2b). */
@@ -101,6 +100,3 @@ export const p3StartReview = (organiserId: string | null): string =>
  */
 export const acceptedInviteLanding = (organiserId: string, flags: { organiserP3: boolean; organiserSelfServe: boolean }): string =>
   flags.organiserP3 && flags.organiserSelfServe ? `${P3_PATHS.home}?o=${encodeURIComponent(organiserId)}` : ORG_PATHS.welcome(organiserId);
-
-export type P3Tab = 'home' | 'events' | 'stats' | 'you';
-export const P3_TABS: readonly P3Tab[] = ['home', 'events', 'stats', 'you'];

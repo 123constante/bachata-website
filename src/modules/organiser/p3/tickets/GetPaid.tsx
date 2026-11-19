@@ -21,11 +21,10 @@ import type { HomeOrganiser } from '../../shared/selfServeApi';
 import { isListedSeries } from '../../shared/homeModel';
 import { teamOf } from '../../shared/selfServeApi';
 import { P3_PATHS } from '../shell/paths';
-import { homePathOf, homeWordOf } from '../v2/paths';
 import { P3PushedShell } from '../you/surface';
 import { P3Link, RetryButton, StateCard } from '../screens/parts';
 import { hasLiveEvent, payingOrganiser, useP3Home, useStartOnboarding, useStripe, useSummary } from './data';
-import { PROMPT_BODY, PROMPT_TITLE, TONE_CLASS, getPaidRowTag, showPrompt, type PromptState } from './model';
+import { TONE_CLASS, getPaidRowTag } from './model';
 import { P3_TICKET_PATHS } from './paths';
 import { CONNECT_RETURN_EVERY_MS, CONNECT_RETURN_FOR_MS, nextTicketTarget, returnKindOf, useConnectReturn } from './connectReturn';
 
@@ -218,15 +217,6 @@ export function GetPaidRow() {
   );
 }
 
-/** Home's ONE Get paid prompt: owner / manager, a live event, payments not connected. */
-export function GetPaidPrompt() {
-  const home = useP3Home();
-  const org = payingOrganiser(home.data, null);
-  const { state } = useStripe(org?.id);
-  if (!org || !showPrompt(org.role, hasLiveEvent(org), state)) return null;
-  return <Prompt org={org} stripe={state} />;
-}
-
 /** Connected: the real next step, Add a ticket, opening the Tickets sheet of the right event. */
 function AddTicketNext({ org, idPrefix }: { org: HomeOrganiser; idPrefix: string }) {
   const next = nextTicketTarget(org);
@@ -244,48 +234,6 @@ function OpenStripeLink({ onClick, disabled, busy, testId }: { onClick: () => vo
     <button type="button" className="p3-link" style={{ minHeight: 44, textAlign: 'left' }} disabled={disabled} aria-busy={busy || undefined} onClick={onClick} data-testid={testId}>
       {busy ? 'Opening Stripe\u2026' : OPEN_STRIPE_LABEL}
     </button>
-  );
-}
-
-function Prompt({ org, stripe }: { org: HomeOrganiser; stripe: PromptState }) {
-  const { go, busy, note, switchedOff } = useStartOnboarding(org.id);
-  const { query } = useStripe(org.id);
-  return (
-    <section className="p3-card p3-stack-s p3-prompt" aria-label="Get paid" data-testid="tix-prompt" data-state={stripe}>
-      <span className={`${TONE_CLASS.party} p3-self-start`} data-testid="tix-prompt-kicker">Get paid</span>
-      <strong data-testid="tix-prompt-title">{PROMPT_TITLE[stripe]}</strong>
-      <p className="p3-note">{PROMPT_BODY[stripe]}</p>
-      {switchedOff ? (
-        <p className="p3-warn" role="status" data-testid="tix-prompt-off">{NOT_SWITCHED_ON}</p>
-      ) : (
-        <button type="button" className="p3-btn" onClick={() => (stripe === 'waiting' ? void query.refetch() : void go())} disabled={busy} aria-busy={busy || undefined} data-testid="tix-prompt-go">
-          {busy && stripe !== 'waiting' ? 'Opening Stripe\u2026' : STRIPE_COPY[stripe].action}
-        </button>
-      )}
-      {stripe === 'waiting' && !switchedOff && <OpenStripeLink onClick={() => void go()} disabled={busy} busy={busy} testId="tix-prompt-open" />}
-      {note && <p role="alert" className="p3-error" data-testid="tix-prompt-note">{note}</p>}
-      <Link className="p3-link" to={P3_TICKET_PATHS.getPaid(org.id)} data-testid="tix-prompt-more">More about getting paid</Link>
-    </section>
-  );
-}
-
-/** Home's tickets-sold tile: only once anything has sold, only on a page the person runs. */
-export function TicketsSoldTile() {
-  const home = useP3Home();
-  const org = payingOrganiser(home.data, null);
-  // Slice 2 (PQ1): the amount is the owner's. A manager's tile is the count alone (its summary keeps no pence).
-  const summary = useSummary(org?.id, isOwner(org?.role));
-  // Fail closed: the server's money_visible=false hides the amount even for a role we believed was the owner; a missing flag or loading summary is counts only.
-  const money = isOwner(org?.role) && summary.data?.moneyVisible === true;
-  const types = summary.data?.ok ? summary.data.types : null;
-  if (!org || !types) return null;
-  const t = totalsOf(types);
-  if (t.ticketsSold === 0) return null;
-  return (
-    <Link to={P3_TICKET_PATHS.getPaid(org.id)} className="p3-card p3-stat p3-tap" data-testid="tix-sold-tile">
-      <span className="p3-stat-n">{formatCount(t.ticketsSold)}</span>
-      <span className="p3-stat-l">Tickets sold{money && <> &middot; {formatPence(t.grossPence)}</>}</span>
-    </Link>
   );
 }
 
@@ -343,7 +291,7 @@ function StartFrame({ children }: { children: React.ReactNode }) {
   return (
     <div className="p3-theme p3-frame" data-testid="getpaid-start">
       <header className="p3-top">
-        <Link className="p3-link" to={homePathOf()} data-testid="getpaid-start-home" style={{ minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>&larr; {homeWordOf()}</Link>
+        <Link className="p3-link" to={P3_PATHS.home} data-testid="getpaid-start-home" style={{ minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>&larr; Home</Link>
       </header>
       <main className="p3-main"><div className="p3-stack">{children}</div></main>
     </div>
@@ -439,8 +387,8 @@ export function GetPaidStart() {
     return (
       <StartFrame>
         <StateCard title="This link is for a page that is not on your account" testId="getpaid-start-wrong">
-          <p>You may be signed in with a different email. Go to your own pages from {homeWordOf()}.</p>
-          <P3Link to={homePathOf()} testId="getpaid-start-wrong-home">Go to {homeWordOf()}</P3Link>
+          <p>You may be signed in with a different email. Go to your own pages from Home.</p>
+          <P3Link to={P3_PATHS.home} testId="getpaid-start-wrong-home">Go to Home</P3Link>
         </StateCard>
       </StartFrame>
     );

@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
-import { confirmationOf, HomeNotices } from '../screens/HomeScreen';
+import { confirmationOf, HomeNotices, useNoPageRedirect } from './r4Notices';
 import { P3_PATHS } from '../shell/paths';
-import { useEventChoice } from '../v2/V2Shell';
-import { useNoPageRedirect } from '../v2/V2Tabs';
+import { useEventChoice } from './EventChoice';
 import { R4Chevron } from './R4Shell';
 import { r4EventsOf, type R4EventRow } from './r4EventsModel';
 

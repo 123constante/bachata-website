@@ -132,7 +132,7 @@ async function openReal(page: Page) {
     return json(route, REFUSAL, 400);
   });
   await page.route('**/rest/v1/rpc/organiser_onboarding_status_v1*', (r) => json(r, STATUS));
-  await page.goto(`/account/p3/events/${FRIDAY}`);
+  await page.goto(`/account/p3/events/${FRIDAY}/all`);
   return sent;
 }
 
