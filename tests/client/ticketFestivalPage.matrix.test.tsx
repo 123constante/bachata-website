@@ -212,6 +212,8 @@ describe('festival page x ticket shape (TICKET_FESTIVAL_IN_SITE)', () => {
     await mount(LINK, 'live', [{ ...PASS, name: 'Organiser weekend pass' }]);
     await waitFor(() => expect(barPrimary()).toBe('ours'), { timeout: 3000 });
     expect(document.querySelector('[data-testid="event-tickets-page"]')).toBeNull();
+    // The bar flips to 'ours' before the pass card has rendered on a loaded runner: wait for the card itself.
+    await waitFor(() => expect(document.querySelector('[data-testid="festival-pass-ours"]')).not.toBeNull(), { timeout: 3000 });
     fireEvent.click(document.querySelector('[data-testid="festival-pass-ours"]') as HTMLElement);
     await waitFor(() => expect(document.querySelector('[data-testid="event-tickets-page"]')).not.toBeNull(), { timeout: 3000 });
     await waitFor(() => expect(document.querySelector('[data-testid="event-tickets-page"]')?.textContent).toMatch(/In-site weekender/), { timeout: 3000 });
