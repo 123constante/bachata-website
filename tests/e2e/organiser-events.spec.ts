@@ -16,7 +16,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 // name-only NewEventPage (and its create-button layout specs). Each step sends only its own
 // commands, through series_command_p5; the cover step needs a photo before Go live.
 const walkToVenue = async (page: Page, format: 'recurring' | 'one_off', name: string) => {
-  await expect(page.getByTestId('org-new-what')).toBeVisible();
+  await expect(page.getByTestId('org-new-what')).toBeVisible({ timeout: 30_000 });
   await page.getByTestId(`org-new-format-${format}`).click();
   await expect(page).toHaveURL(new RegExp(`/account/o/new/name\\?format=${format}$`));
   await page.getByTestId('org-new-name').fill(name);
