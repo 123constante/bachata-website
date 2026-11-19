@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { Suspense, type ReactNode } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useP3Home } from '../data/useP3Data';
 import { usePageScope } from '../screens/PageScope';
@@ -10,6 +10,12 @@ import { EventChoiceProvider } from './EventChoice';
 import { R4_TABS, R4_TAB_WORD, type R4Tab } from './r4Model';
 import '../theme/p3.css';
 import './r4.css';
+import { flags } from '@/lib/featureFlags';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+
+// Dashboard switch (flag dashboardSwitchR4): the top-right Switch profile sheet, in its own lazy chunk.
+const ProfileSwitcher = lazyWithRetry(() => import('@/components/account/profiles/ProfileSwitcher'));
 
 export const R4_EXIT_TO = 'https://bachatacalendar.co.uk';
 export const R4_EXIT_WORD = 'Back to bachatacalendar.co.uk';
@@ -50,7 +56,20 @@ function R4Header() {
         <span className="r4-page-name">{scope.loading ? '' : name || 'Your page'}</span>
         <span className="r4-mut"><R4Chevron dir="down" /></span>
       </Link>
-      {badge > 0 && (
+      {flags.dashboardSwitchR4 ? (
+        <span className="flex flex-none items-center">
+          {badge > 0 && (
+            <Link to={to} className="r4-todo" data-testid="r4-todo">
+              To do<span className="r4-badge" aria-label={`${badge} waiting`}>{badge}</span>
+            </Link>
+          )}
+          <ErrorBoundary fallback={<></>}>
+            <Suspense fallback={<span className="h-[44px] w-[44px]" aria-hidden="true" />}>
+              <ProfileSwitcher where={{ area: 'organiser', organiserId: pageId }} />
+            </Suspense>
+          </ErrorBoundary>
+        </span>
+      ) : badge > 0 && (
         <Link to={to} className="r4-todo" data-testid="r4-todo">
           To do<span className="r4-badge" aria-label={`${badge} waiting`}>{badge}</span>
         </Link>

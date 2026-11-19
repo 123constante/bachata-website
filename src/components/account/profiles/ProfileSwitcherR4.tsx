@@ -125,7 +125,7 @@ export function ProfileSwitcherR4({ where }: { where: SwitcherWhere }) {
           >
             <div aria-hidden="true" className="mx-auto mb-[4px] h-[5px] w-[40px] rounded-full" style={{ background: t.handle }} />
             <div className="flex items-center justify-between pl-[16px] pr-[4px]">
-              <h2 id={titleId} className="text-[15px] font-semibold">
+              <h2 id={titleId} className="text-[15px] font-semibold" style={{ color: t.fg }}>
                 {adding ? ADD_PROFILE_LABEL : SWITCH_TITLE}
               </h2>
               <button
