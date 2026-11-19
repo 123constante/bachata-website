@@ -13,7 +13,7 @@ import { pastOf, raffleWordsOf } from '../pastNights';
 import { CompareView } from '../CompareNights';
 import { tapsOfTotals } from '../DashHome';
 import { EMPTY_TOTALS } from '../../data/analyticsV2';
-import { isPushed } from '../../shell/P3Shell';
+import { isPushed } from '../../shell/pushed';
 import { P3_PATHS } from '../../shell/paths';
 
 afterEach(cleanup);

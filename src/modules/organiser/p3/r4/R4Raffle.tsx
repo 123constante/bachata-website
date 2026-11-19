@@ -8,8 +8,8 @@ import { ComingSoonRaffle, rowFor, useRaffleNights } from '../events/raffle/Raff
 import { RaffleSheet } from '../events/raffle/RaffleSheet';
 import { WorkspaceGate } from '../screens/EventPage';
 import { P3_PATHS } from '../shell/paths';
-import { useEventChoice } from '../v2/V2Shell';
-import { nightsOfChoice } from '../v2/V2Tabs';
+import { useEventChoice } from './EventChoice';
+import { nightsOfChoice } from './r4Nights';
 import { shortDay } from './r4EventsModel';
 import { RAFFLE_COPY, r4RaffleOf, type R4RaffleModel } from './r4RaffleModel';
 

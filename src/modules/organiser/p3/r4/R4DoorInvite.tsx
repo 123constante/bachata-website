@@ -5,7 +5,7 @@ import { P3_PATHS } from '../shell/paths';
 import { useEventWorkspace } from '@/modules/organiser/shared/runCommands';
 import { mintDoorInvite } from '../door/join/doorJoinApi';
 import { doorInviteUrl } from '../door/join/doorJoinModel';
-import { useEventChoice } from '../v2/V2Shell';
+import { useEventChoice } from './EventChoice';
 import { R4Chevron } from './R4Shell';
 import { R4_DOOR_INVITE_COPY as C, r4DoorInviteOf, type R4DoorInviteIn } from './r4DoorInviteModel';
 
