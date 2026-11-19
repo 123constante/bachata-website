@@ -115,13 +115,13 @@ export function CategoryDot({ category, className }: { category: MapCategory; cl
 /** Time row for a list/card. A "Class & Party" event with split times shows two
  *  coloured segments (Class teal, Party rose); everything else shows the single
  *  category dot + merged start/end range. Renders nothing if there are no times. */
-export function TimePills({ event, className }: { event: MapEvent; className?: string }) {
+export function TimePills({ event, className, stack }: { event: MapEvent; className?: string; stack?: boolean }) {
   const split = formatSplitTimes(event);
   if (split) {
     return (
-      <span className={cn('inline-flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground', className)}>
+      <span className={cn('inline-flex items-center text-xs text-muted-foreground', stack ? 'flex-col items-start gap-y-0.5' : 'flex-wrap gap-x-3 gap-y-1', className)}>
         {split.map((seg) => (
-          <span key={seg.label} className="inline-flex items-center gap-1.5">
+          <span key={seg.label} className={cn('inline-flex items-center gap-1.5', stack && 'whitespace-nowrap')}>
             <CategoryDot category={seg.category} className="h-1.5 w-1.5" />
             <span className="font-bold" style={{ color: CATEGORY_COLORS[seg.category] }}>{seg.label}</span>
             <span>{seg.range}</span>
@@ -223,7 +223,7 @@ function FreshnessClockBody({
           {verb}
         </span>
         <span className="text-xs font-bold tabular-nums" style={{ color: heat.text }}>{rel}</span>
-        {!justNow && <span className="text-[9px] text-muted-foreground">ago</span>}
+        {!justNow && <span className="text-[11px] text-muted-foreground">ago</span>}
       </span>
     </div>
   );
@@ -400,7 +400,7 @@ function LookRow({
           {/* FEED CARD CONTENT RULE (owner 2026-11-19): name, Class/Party time lines (dot + start-end),
               venue; Added/Updated stamp stays on the RIGHT as on the old card. Look may change, content may not. */}
           <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5" data-feed-times="">
-            <TimePills event={event} className="text-[13px]" />
+            <TimePills event={event} stack className="text-[13px]" />
             {(event.lat == null || event.lng == null) && <OffMapTag />}
           </span>
           {event.festivalDateRange && (
@@ -416,7 +416,7 @@ function LookRow({
         {cancelled ? (
           <CancelPill />
         ) : stamp ? (
-          <FreshnessClock event={event} />
+          <FreshnessClock event={event} className="self-start" />
         ) : mi != null ? (
           <DistanceChip mi={mi} />
         ) : null}
