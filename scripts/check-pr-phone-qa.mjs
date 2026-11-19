@@ -50,6 +50,9 @@ export const MARKER = 'TO FILL';
 /** The paths whose change can move pixels on a phone. */
 export const UI_PATH_RE = /^(?:(?:src|app)\/.+\.(?:tsx|css)|tailwind\.config\.[^/]+|public\/.+|index\.html)$/;
 
+/** Test files move no pixels: a test-only edit never needs the section. */
+export const TEST_PATH_RE = /(?:^|\/)__tests__\/|\.(?:test|spec)\.[tj]sx?$/;
+
 export const FORMAT_HELP = [
   'Required format in the PR description (this PR changes UI paths):',
   '',
@@ -62,6 +65,8 @@ export const FORMAT_HELP = [
 const PLACEHOLDER_WORDS = ['n/a', 'na', 'none', 'todo', 'tbd', '-'];
 const MIN_CHARS = 12;
 const SIZE_RE = /\b\d{3,4}\s*[x\u00d7]\s*\d{3,4}\b/i;
+/** An honest answer when the machine phone-qa walk is the proof: no size is claimed. */
+const MACHINE_RE = /\bphone-qa\b/i;
 
 const HEADING_RE = /^[ \t]{0,3}##[ \t]+phone[ \t]+qa[ \t]*#*[ \t]*$/i;
 const ANY_HEADING_RE = /^[ \t]{0,3}#{1,6}(?:[ \t]|$)/;
@@ -90,7 +95,7 @@ function contentProblem(label, raw) {
     return label + ': placeholder text ("' + value + '")';
   }
   if (label === 'Sizes checked') {
-    return SIZE_RE.test(value) ? null : label + ': names no viewport size like 390x844 ("' + value + '")';
+    return SIZE_RE.test(value) || MACHINE_RE.test(value) ? null : label + ': names no viewport size like 390x844 ("' + value + '")';
   }
   let rest = lower;
   if (label === 'Not verified') rest = rest.replace(/^\s*nothing\b/, ' ');
@@ -106,7 +111,7 @@ function contentProblem(label, raw) {
 
 /** @param {string[]} files @returns {string[]} the changed paths that are UI paths */
 export function uiPaths(files) {
-  return files.filter((f) => UI_PATH_RE.test(f));
+  return files.filter((f) => UI_PATH_RE.test(f) && !TEST_PATH_RE.test(f));
 }
 
 /** @param {string[]} files */
@@ -221,6 +226,7 @@ function selfTest(log) {
     ['null body fails', null, false],
     ['body without the section fails', 'Summary only', false],
     ['size line without a WxH fails', FILLED.replace('390x844 and 360x640', 'phone sizes'), false],
+    ['machine phone-qa wording passes Sizes checked', FILLED.replace('390x844 and 360x640', 'none walked by hand; covered by the machine phone-qa walk'), true],
     ['placeholder walked line fails', FILLED.replace('organiser page as owner, Save bar up, scrolled top to bottom', 'n/a'), false],
     ['missing Not verified line fails', FILLED.split('\n').slice(0, 3).join('\n'), false],
     ['commented-out section fails', '<!--\n' + FILLED + '\n-->', false],
@@ -243,6 +249,7 @@ function selfTest(log) {
     ['docs only is not UI', ['docs/a.md', 'README.md'], false],
     ['app route tsx is UI', ['app/InitialVisiblePageTransition.tsx'], true],
     ['src ts is not UI', ['src/lib/utils.ts'], false],
+    ['test tsx is not UI', ['src/modules/tickets/__tests__/a.matrix.test.tsx', 'src/x/b.test.tsx'], false],
     ['CI only is not UI', ['.github/workflows/phone-qa.yml', 'tests/e2e-phone/helpers.ts'], false],
   ];
   for (const [name, files, want] of scope) {

@@ -150,7 +150,7 @@ async function openReal(page: Page) {
       next_8: ['2026-10-30', '2026-11-02', '2026-11-06', '2026-11-09', '2026-11-13', '2026-11-16', '2026-11-20', '2026-11-23'],
     } });
   });
-  await page.goto(`/account/p3/events/${FRIDAY}`);
+  await page.goto(`/account/p3/events/${FRIDAY}/all`);
   return { fake, dry };
 }
 

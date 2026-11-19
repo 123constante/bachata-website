@@ -33,6 +33,8 @@ async function screenChecks(page: Page, label: string, scope = 'main', tapScope 
     .map((el) => ({ el: (el.getAttribute('data-testid') ?? el.textContent ?? el.tagName).trim().slice(0, 40), h: Math.round(el.getBoundingClientRect().height) }))
     .filter((x) => x.h < 44), tapScope);
   expect(small, `${label}: taps >= 44px`).toEqual([]);
+  // The screen fades in over 0.3 s; axe reads text that is still fading as low contrast, so let it finish first.
+  await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => Number.isFinite(a.effect?.getComputedTiming().endTime ?? 0)).map((a) => a.finished.catch(() => undefined))).then(() => undefined));
   const axe = await new AxeBuilder({ page }).include(scope).withRules(['color-contrast']).analyze();
   expect(axe.violations.flatMap((v) => v.nodes.map((n) => n.target.join(' '))), `${label}: contrast >= 4.5`).toEqual([]);
 }
