@@ -20,6 +20,6 @@ export function readinessOf(s: Pick<ListedSeries, 'name' | 'upcoming_count' | 'n
 export function readinessSummary(dots: ReadyDot[]): { ready: number; total: number; missing: string[]; text: string } {
   const missing = dots.filter((d) => !d.filled).map((d) => d.label);
   const ready = dots.length - missing.length;
-  const text = `${ready} of ${dots.length} ready` + (missing.length ? ` — ${missing.map((m) => `${m} missing`).join(', ')}` : '');
+  const text = `${ready} of ${dots.length} ready` + (missing.length ? ` \u2014 ${missing.map((m) => `${m} missing`).join(', ')}` : '');
   return { ready, total: dots.length, missing, text };
 }
