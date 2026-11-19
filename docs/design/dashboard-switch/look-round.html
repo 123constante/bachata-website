@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard switch look</title>
+<style>
+:root{--pg:#F4F4F5;--ink:#18181B;--mut:#52525B;--card:#FFFFFF;--line:#E4E4E7;--mark:#DB2777;--r4o:#C2410C}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--pg:#18181B;--ink:#F4F4F5;--mut:#A1A1AA;--card:#27272A;--line:#3F3F46;--mark:#F472B6}}
+:root[data-theme="dark"]{--pg:#18181B;--ink:#F4F4F5;--mut:#A1A1AA;--card:#27272A;--line:#3F3F46;--mark:#F472B6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--pg);color:var(--ink);font:15px/1.45 Inter,system-ui,-apple-system,sans-serif}
+.wrap{max-width:1280px;margin:0 auto;padding:16px}
+h1{font-size:24px;margin:8px 0}
+h2.opt{font-size:20px;margin:40px 0 4px;padding-top:16px;border-top:2px solid var(--line)}
+h3{font-size:16px;margin:20px 0 8px}
+p,li{color:var(--ink)} .note{color:var(--mut);font-size:14px}
+.pair{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;margin:8px 0 16px}
+.fcol{display:flex;flex-direction:column;gap:6px;max-width:100%}
+.flabel{font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--mut)}
+.flabel b{color:var(--mark)}
+.frame{width:390px;max-width:calc(100vw - 32px);height:844px;position:relative;overflow:hidden;border-radius:20px;border:1px solid var(--line);box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.legend{display:flex;flex-wrap:wrap;gap:12px;align-items:center;font-size:14px}
+.mk{display:inline-block;outline:2px dashed var(--mark);outline-offset:1px;padding:0 6px;border-radius:4px}
+.chg{outline:2px dashed var(--mark)!important;outline-offset:-2px;position:relative}
+.chg>.tag{position:absolute;right:4px;top:2px;background:var(--mark);color:#fff;font:700 10px/16px system-ui;padding:0 5px;border-radius:8px;z-index:3;pointer-events:none}
+.chglist{margin:4px 0 0;padding-left:20px;font-size:14px}
+.chglist li{margin:2px 0}
+table{border-collapse:collapse;width:100%;font-size:13px;background:var(--card)}
+th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{position:sticky;top:0;background:var(--card)}
+.tbl{overflow-x:auto;max-width:100%}
+td.k{white-space:nowrap}
+td input{width:20px;height:20px}
+.ok{color:#15803D;font-weight:700}.ch{color:var(--mark);font-weight:700}
+/* phone pieces */
+.ph{position:absolute;inset:0;display:flex;flex-direction:column}
+.top{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font-weight:700}
+.bd{position:absolute;inset:0;background:rgba(0,0,0,.5)}
+.sheet{position:absolute;left:0;right:0;bottom:0;max-height:calc(100% - 16px);overflow:auto;border-radius:16px 16px 0 0;padding:8px 0 12px}
+.sh-h{display:flex;align-items:center;justify-content:space-between;padding:0 16px}
+.sh-h h4{margin:0;font-size:16px}
+.btn44{min-height:44px;min-width:44px;font-weight:600;background:none;border:0;color:inherit;font-size:15px}
+.gh{padding:8px 16px 0;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.row{display:flex;align-items:center;gap:12px;min-height:56px;padding:0 16px;font-size:15px;width:100%;text-align:left;background:none;border:0;color:inherit;text-decoration:none}
+.row .t{flex:1;min-width:0}
+.row .t b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .t small{display:block;font-size:13px}
+.av{flex:none;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;border:2px solid currentColor;vertical-align:-1px;margin-right:6px}
+.dot.half{background:linear-gradient(90deg,currentColor 50%,transparent 50%)}
+.soon{opacity:.55;cursor:not-allowed}
+.pill{font-size:11px;font-weight:600;padding:3px 7px;border-radius:999px;line-height:1;white-space:nowrap}
+.strip{display:flex;align-items:center;gap:8px;height:44px;border-radius:999px;padding:0 12px 0 6px;font-weight:600;font-size:14px}
+svg{flex:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Dashboard switch &mdash; look round (3 options)</h1>
+<p class="note">Mockups only. Every BEFORE frame is drawn from <code>origin/main @ 1292655</code> (rows cited in <code>INVENTORY.md</code>, beside this file). Frames are 390&times;844. Sample names are placeholders. Tap targets are 44px or more, in px.</p>
+<div class="legend"><span class="mk">dashed pink + &Delta;n</span> = a changed part. Everything without the mark is frozen as live today.</div>
+
+<h3>Owner decisions every option carries (not re-asked)</h3>
+<ul class="chglist">
+<li><b>&Delta;1</b> The top-right button reads <b>Switch</b> and the sheet is titled <b>Switch profile</b> even with ONE profile (today: &ldquo;Account&rdquo; / &ldquo;Your account&rdquo;, A3/A4/A8).</li>
+<li><b>&Delta;2</b> &ldquo;Add a profile&rdquo; is in the sheet in BOTH areas (today dancer app only, B5).</li>
+<li><b>&Delta;3</b> Teacher / DJ: no dashboards. A greyed, not-tappable <b>Coming soon</b> row shows ONLY for a person who picked that role at onboarding. Today <code>SwitcherAreas</code> lists a teacher / DJ row for anyone who HOLDS the role or picked it (<code>isAreaShown</code>), with a status dot and words, and the row opens the area (A23&ndash;A26). After: held-but-not-picked = no row; picked = grey row, no dot, no link.</li>
+</ul>
+
+<div id="opts"></div>
+
+<h2 class="opt" id="keep">KEEP-LIST &mdash; every live element</h2>
+<p class="note">Tick what must survive. Columns say what each option does with it. Ticks are kept in this browser only.</p>
+<div class="tbl"><table id="keeptbl"><thead><tr><th>Keep?</th><th>#</th><th>Live element</th><th>A</th><th>B</th><th>C</th></tr></thead><tbody></tbody></table></div>
+<p class="note">54 rows = INVENTORY.md coverage count (A 32, B 7, C 15).</p>
+</div>
+
+<script>
+// ---------- themes ----------
+const T = {
+  dancer: {bg:'#202226',sf:'#2A2D32',fg:'#FFFFFF',mut:'#A3A9B3',line:'#3D4148',acc:'#F5865A',onacc:'#1D0A03',avbg:'#3D4148'},
+  site:   {bg:'#000000',sf:'#000000',fg:'#FFFFFF',mut:'#A1A1AA',line:'#27272A',acc:'#FFA600',onacc:'#000000',avbg:'#27272A'},
+  ember:  {bg:'#202226',sf:'#2A2D32',fg:'#F1F2F4',mut:'#A3A9B3',line:'#3D4148',acc:'#F0703A',onacc:'#1D0A03',avbg:'#3D4148',okbg:'rgba(62,207,142,.14)',okfg:'#7BE6B4',gold:'#F5865A'},
+  r4:     {bg:'#FDFDFD',sf:'#FFFFFF',fg:'#030303',mut:'#464646',line:'#E9E9E9',acc:'#C2410C',onacc:'#FFFAF7',avbg:'#F4F4F5',okbg:'#DCFCE7',okfg:'#166534',gold:'#C2410C'}
+};
+const ic = {
+  check:'<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+  plus:'<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  chev:'<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>',
+  down:'<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
+  x:'<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  back:'<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg>'
+};
+const C = (n, html, extra='') => n ? `<div class="chg" ${extra}><span class="tag">&Delta;${n}</span>${html}</div>` : html;
+const av = (t, name, kind, size=36) => `<span class="av" style="width:${size}px;height:${size}px;border-radius:${kind==='org'?'10px':'50%'};background:${t.avbg};color:${t.fg}">${name[0]}</span>`;
+
+// ---------- states (the 3 the brief asks for) ----------
+const STATES = {
+  one:     {label:'1 profile (dancer only)', sides:[{k:'dancer',n:'Maria'}], picked:[], held:[]},
+  dorg:    {label:'Dancer + organiser', sides:[{k:'org',n:'Ritmo London'},{k:'dancer',n:'Maria'}], picked:[], held:[]},
+  teach:   {label:'Dancer + picked Teacher at onboarding', sides:[{k:'dancer',n:'Maria'}], picked:['Teacher'], held:[]},
+};
+// BEFORE for "teach": SwitcherAreas lists Teacher (isAreaShown via sign-up steps) with status "3 left".
+
+// ---------- phone background ----------
+function bgDancer(t, btn){return `<div class="ph" style="background:${t.bg};color:${t.fg}"><div class="top"><span>Bachata Calendar</span>${btn}</div><div style="padding:12px;color:${t.mut};font-size:14px">Dancer app Home (frozen, not drawn)</div></div>`;}
+function bgOrg(t, btn){return `<div class="ph" style="background:${t.bg};color:${t.fg}"><div class="top"><span>Ritmo London</span>${btn}</div><div style="padding:12px;color:${t.mut};font-size:14px">Organiser Home (frozen, not drawn)</div></div>`;}
+
+// ---------- BEFORE sheet (live) ----------
+function beforeSheet(area, st){
+  const t = area==='dancer'?T.dancer:T.site, dancer = area==='dancer';
+  const several = st.sides.length>1;
+  const cur = dancer ? st.sides.find(s=>s.k==='dancer') : st.sides.find(s=>s.k==='org');
+  const btn = dancer
+    ? `<span class="strip" style="border:1px solid ${t.line};background:${t.sf}">${av(t,cur.n,cur.k,32)}${several?'Switch':'Account'}</span>`
+    : `<span style="width:44px;height:44px;display:flex;align-items:center;justify-content:center">${av(t,cur.n,cur.k,32)}</span>`;
+  let s = `<div class="sh-h"><h4>${several?'Switch profile':'Your account'}</h4><button class="btn44">Close</button></div>`;
+  s += `<div style="border-bottom:1px solid ${t.line}">`;
+  for (const k of ['dancer','org']) {
+    const g = st.sides.filter(x=>x.k===k); if(!g.length) continue;
+    s += `<div class="gh" style="color:${t.mut}">${k==='dancer'?'Dancer':'Organiser'}</div>`;
+    for (const x of g) s += `<div class="row">${av(t,x.n,x.k)}<span class="t"><b>${x.n}</b><small style="color:${t.mut}">${k==='dancer'?'Dancer':'Organiser'}</small></span>${x===cur?`<span style="display:flex;gap:4px;align-items:center;font-size:13px;font-weight:700">${ic.check}Showing</span>`:''}</div>`;
+  }
+  s += `</div>`;
+  if (dancer) s += `<div class="row" style="font-weight:600;border-bottom:1px solid ${t.line}">${ic.plus}Add a profile</div>`;
+  s += `<div style="border-bottom:1px solid ${t.line}">`;
+  for (const r of st.picked) s += `<div class="row"><span class="t"><b>${r}</b><small style="color:${t.mut}"><span class="dot half"></span>3 left</small></span></div>`;
+  s += `<div class="row" style="font-weight:600">Your areas</div></div>`;
+  s += `<div class="row" style="font-weight:600">Account settings</div><div class="row" style="font-weight:600">Sign out</div>`;
+  const page = dancer?bgDancer(t,btn):bgOrg(t,btn);
+  return page + `<div class="bd"></div><div class="sheet" style="background:${t.sf};color:${t.fg};${dancer?`border-top:1px solid ${t.line}`:''}">${s}</div>`;
+}
+
+// ---------- AFTER sheets ----------
+function soonRow(t, r, style){ // Δ3
+  if (style==='cardrow') return C(3,`<div class="row soon" aria-disabled="true" style="border-top:1px solid ${t.line}"><span class="av" style="width:36px;height:36px;border-radius:50%;border:1.5px dashed ${t.mut};color:${t.mut}">${r[0]}</span><span class="t"><b>${r}</b><small style="color:${t.mut}">No dashboard yet</small></span><span class="pill" style="border:1px solid ${t.mut};color:${t.mut}">Coming soon</span></div>`);
+  if (style==='r4') return C(3,`<div class="row soon" aria-disabled="true" style="min-height:52px;border-top:1px solid ${t.line}"><span class="t" style="font-weight:500;color:${t.mut}">${r}</span><span class="pill" style="border:1px solid ${t.line};color:${t.mut};font-family:ui-monospace,monospace;text-transform:uppercase;letter-spacing:.07em">Coming soon</span></div>`);
+  return C(3,`<div class="row soon" aria-disabled="true"><span class="t"><b>${r}</b><small style="color:${t.mut}">Coming soon</small></span></div>`);
+}
+
+function afterSheet(opt, area, st){
+  const dancer = area==='dancer';
+  const t = opt==='C' && !dancer ? T.r4 : (dancer?T.dancer:T.site);
+  const cur = dancer ? st.sides.find(s=>s.k==='dancer') : st.sides.find(s=>s.k==='org');
+  const one = st.sides.length===1;
+  // Button: Δ1 "Switch" even with one profile (dancer word; organiser stays icon-only, label "Switch profile").
+  let btn;
+  if (opt==='B') btn = C(dancer&&one?1:0, `<span class="strip" style="border:1px solid ${t.line};background:${t.sf}">${av(t,cur.n,cur.k,32)}Switch${ic.down}</span>`);
+  else if (dancer) btn = C(one?1:0, `<span class="strip" style="border:1px solid ${t.line};background:${t.sf}">${av(t,cur.n,cur.k,32)}Switch</span>`);
+  else btn = `<span style="width:44px;height:44px;display:flex;align-items:center;justify-content:center">${av(t,cur.n,cur.k,32)}</span>`;
+  if (opt==='B' && !dancer) btn = C(4, `<span class="strip" style="border:1px solid ${t.line};background:${t.sf}">${av(t,cur.n,cur.k,32)}Switch${ic.down}</span>`);
+  const title = C(one?1:0, `<div class="sh-h"><h4>Switch profile</h4><button class="btn44">Close</button></div>`);
+  let s = '';
+  if (opt==='A') {
+    s += title + `<div style="border-bottom:1px solid ${t.line}">`;
+    for (const k of ['dancer','org']) {
+      const g = st.sides.filter(x=>x.k===k); if(!g.length) continue;
+      s += `<div class="gh" style="color:${t.mut}">${k==='dancer'?'Dancer':'Organiser'}</div>`;
+      for (const x of g) s += `<div class="row">${av(t,x.n,x.k)}<span class="t"><b>${x.n}</b><small style="color:${t.mut}">${k==='dancer'?'Dancer':'Organiser'}</small></span>${x===cur?`<span style="display:flex;gap:4px;align-items:center;font-size:13px;font-weight:700">${ic.check}Showing</span>`:''}</div>`;
+    }
+    s += `</div>`;
+    s += C(dancer?0:2, `<div class="row" style="font-weight:600;border-bottom:1px solid ${t.line}">${ic.plus}Add a profile</div>`);
+    s += `<div style="border-bottom:1px solid ${t.line}">`;
+    for (const r of st.picked) s += soonRow(t,r,'plain');
+    s += `<div class="row" style="font-weight:600">Your areas</div></div>`;
+    s += `<div class="row" style="font-weight:600">Account settings</div><div class="row" style="font-weight:600">Sign out</div>`;
+  }
+  if (opt==='B') {
+    s += title;
+    s += C(5, `<div style="margin:8px 12px 0;border:1px solid ${t.line};border-radius:14px;overflow:hidden">` +
+      st.sides.map((x,i)=>`<div class="row" style="${i?`border-top:1px solid ${t.line}`:''};${x===cur?`background:${t.line}`:''}">${av(t,x.n,x.k,40)}<span class="t"><b>${x.n}</b><small style="color:${t.mut}">${x.k==='dancer'?'Dancer':'Organiser'}</small></span>${x===cur?`<span class="pill" style="background:${t.acc};color:${t.onacc}">Showing</span>`:ic.chev}</div>`).join('') +
+      st.picked.map(r=>soonRow(t,r,'cardrow')).join('') +
+      `<div class="row" style="border-top:1px solid ${t.line};font-weight:600"><span class="av" style="width:40px;height:40px;border-radius:50%;border:1.5px dashed ${t.mut}">${ic.plus}</span><span class="t"><b>Add a profile</b></span>${ic.chev}</div></div>`);
+    s += `<div style="margin:12px 0 0;border-top:1px solid ${t.line}"><div class="row" style="font-weight:600">Your areas</div><div class="row" style="font-weight:600">Account settings</div><div class="row" style="font-weight:600">Sign out</div></div>`;
+  }
+  if (opt==='C') {
+    const mono = `font-family:ui-monospace,'Source Code Pro',monospace;font-size:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:${t.mut};margin:0 0 8px`;
+    const card = `background:${t.sf};border:1px solid ${t.line};border-radius:11px;box-shadow:0 1px 2px rgba(0,0,0,.05);overflow:hidden`;
+    s += `<div style="padding:0 16px"><div aria-hidden="true" style="width:100px;height:8px;border-radius:999px;background:${dancer?t.line:'#D9D9D9'};margin:0 auto 8px"></div></div>`;
+    s += C(one?1:0, `<div class="sh-h"><h4 style="font-size:15px;font-weight:600">Switch profile</h4><button class="btn44" aria-label="Close">${ic.x}</button></div>`);
+    s += C(dancer?6:7, `<div style="padding:8px 16px 0;display:flex;flex-direction:column;gap:16px">` +
+      ['dancer','org'].map(k=>{const g=st.sides.filter(x=>x.k===k); if(!g.length) return ''; return `<div><h5 style="${mono}">${k==='dancer'?'Dancer':'Organiser'}</h5><div style="${card}">${g.map((x,i)=>`<div class="row" style="min-height:52px;${i?`border-top:1px solid ${t.line}`:''}">${av(t,x.n,x.k,32)}<span class="t" style="font-weight:500">${x.n}</span>${x===cur?`<span class="pill" style="border:1px solid ${t.acc};color:${t.acc};text-transform:uppercase;letter-spacing:.07em">Showing</span>`:ic.chev}</div>`).join('')}</div></div>`;}).join('') +
+      (st.picked.length?`<div><h5 style="${mono}">Coming soon</h5><div style="${card}">${st.picked.map(r=>soonRow(t,r,'r4')).join('')}</div></div>`:'') +
+      `<div style="${card}">` + C(dancer?0:2,`<div class="row" style="min-height:52px;font-weight:500">${ic.plus}<span class="t">Add a profile</span>${ic.chev}</div>`) +
+      `<div class="row" style="min-height:52px;border-top:1px solid ${t.line};font-weight:500"><span class="t">Your areas</span>${ic.chev}</div><div class="row" style="min-height:52px;border-top:1px solid ${t.line};font-weight:500"><span class="t">Account settings</span>${ic.chev}</div><div class="row" style="min-height:52px;border-top:1px solid ${t.line};font-weight:500"><span class="t">Sign out</span></div></div></div>`);
+  }
+  const page = dancer?bgDancer(t,btn):bgOrg(opt==='C'?T.r4:t,btn);
+  return page + `<div class="bd"></div><div class="sheet" style="background:${t.sf};color:${t.fg}">${s}</div>`;
+}
+
+// ---------- Switch page (screen c) ----------
+const PAGES = [{n:'Ritmo London',role:'Owner',live:true,showing:true,todo:0},{n:'Salsa Sundays Social',role:'Manager',live:false,showing:false,todo:2}];
+function shellTop(t, title){return `<div style="height:56px;display:flex;align-items:center;gap:4px;padding:0 4px;border-bottom:1px solid ${t.line};background:${t.sf}"><button class="btn44" aria-label="Back to You" style="display:flex;align-items:center;justify-content:center">${ic.back}</button><span style="font-weight:700;font-size:17px">${title}</span></div>`;}
+function beforePage(){
+  const t=T.ember;
+  let h = shellTop(t,'Switch page') + `<div style="padding:12px">`;
+  h += `<div style="background:${t.sf};border:1px solid ${t.line};border-radius:14px">` + PAGES.map(p=>`<div class="row" style="border-bottom:1px solid ${t.line};padding:8px 16px"><span class="t"><b>${p.n}</b><small style="color:${t.mut}">${p.role}</small></span>${p.todo?`<span class="pill" style="background:${t.acc};color:${t.onacc};font-size:12px;font-weight:700">${p.todo}</span>`:''}${p.live?`<span class="pill" style="border-radius:8px;background:${t.okbg};color:${t.okfg};font-size:12px">Live</span>`:''}${p.showing?`<span class="pill" style="border-radius:8px;background:${t.acc};color:${t.onacc};font-size:12px">Showing</span>`:''}</div>`).join('') + `</div>`;
+  h += `<h5 style="margin:16px 0 8px;font-size:14px;color:${t.mut}">Your other pages</h5><div style="background:${t.sf};border:1px solid ${t.line};border-radius:14px"><div class="row" style="font-weight:600;border-bottom:1px solid ${t.line}">Teacher</div><div class="row" style="font-weight:600">Dancer</div></div>`;
+  h += `<div class="row" style="justify-content:center;min-height:44px;color:${t.gold};font-weight:600;margin-top:12px">Add a page</div>`;
+  h += `<div style="margin-top:16px;border:1.5px dashed ${t.mut};border-radius:14px;padding:8px 12px"><div style="font-weight:600;padding:6px 0">Add a profile</div><div class="row" style="padding:8px 0;border-top:1px solid ${t.line}"><span class="av" style="width:36px;height:36px;border-radius:10px;border:1.5px dashed ${t.mut}">${ic.plus}</span><span class="t"><b style="font-weight:700">DJ</b><small style="color:${t.mut};font-size:14px">Get booked as a DJ</small></span>${ic.chev}</div></div><div class="row" style="justify-content:center;min-height:44px;color:${t.mut};font-size:14px;font-weight:600">Not now</div>`;
+  return `<div class="ph" style="background:${t.bg};color:${t.fg};overflow:auto">${h}</div></div>`;
+}
+function afterPage(opt){
+  const t=T.r4;
+  const mono = `font-family:ui-monospace,'Source Code Pro',monospace;font-size:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:${t.mut};margin:16px 0 8px`;
+  const card = `background:${t.sf};border:1px solid ${t.line};border-radius:11px;box-shadow:0 1px 2px rgba(0,0,0,.05);overflow:hidden`;
+  const showing = `<span class="pill" style="border:1px solid ${t.acc};color:${t.acc};text-transform:uppercase;letter-spacing:.07em">Showing</span>`;
+  const live = `<span class="pill" style="border-radius:8px;background:${t.okbg};color:${t.okfg};font-size:12px">Live</span>`;
+  const badge = n => `<span class="pill" style="background:${t.acc};color:${t.onacc};font-size:11px;min-width:20px;text-align:center">${n}</span>`;
+  let h = C(8, shellTop(t,'Switch page'));
+  h += `<div style="padding:0 16px 16px">`;
+  if (opt==='A') {
+    h += C(8, `<div style="${card};margin-top:16px">` + PAGES.map((p,i)=>`<div class="row" style="${i?`border-top:1px solid ${t.line}`:''}"><span class="t"><b style="font-weight:500">${p.n}</b><small style="color:${t.mut}">${p.role}</small></span>${p.todo?badge(p.todo):''}${p.live?live:''}${p.showing?showing:''}</div>`).join('') + `</div>`);
+    h += `<h5 style="${mono}">Your other pages</h5><div style="${card}">` + soonRow(t,'Teacher','r4') + `<div class="row" style="min-height:52px;border-top:1px solid ${t.line};font-weight:500"><span class="t">Dancer</span>${ic.chev}</div></div>`;
+    h += `<div class="row" style="justify-content:center;min-height:44px;color:${t.acc};font-weight:600;margin-top:12px">Add a page</div>`;
+    h += `<div style="margin-top:12px;border:1.5px dashed #D9D9D9;border-radius:14px;padding:8px 12px"><div style="font-weight:600;padding:6px 0">Add a profile</div><div class="row" style="padding:8px 0;border-top:1px solid ${t.line}"><span class="av" style="width:36px;height:36px;border-radius:10px;border:1.5px dashed #D9D9D9">${ic.plus}</span><span class="t"><b style="font-weight:700">DJ</b><small style="color:${t.mut};font-size:14px">Get booked as a DJ</small></span>${ic.chev}</div></div><div class="row" style="justify-content:center;min-height:44px;color:${t.mut};font-size:14px;font-weight:600">Not now</div>`;
+  }
+  if (opt==='B') {
+    for (const role of ['Owner','Manager']) {
+      const g = PAGES.filter(p=>p.role===role);
+      h += C(9, `<h5 style="${mono}">${role}</h5><div style="${card}">` + g.map(p=>`<div class="row" style="min-height:52px"><span class="t" style="font-weight:500">${p.n}</span>${p.todo?badge(p.todo):''}${p.live?live:''}${p.showing?showing:ic.chev}</div>`).join('') + `</div>`);
+    }
+    h += `<h5 style="${mono}">Your other pages</h5><div style="${card}">` + soonRow(t,'Teacher','r4') + `<div class="row" style="min-height:52px;border-top:1px solid ${t.line};font-weight:500"><span class="t">Dancer</span>${ic.chev}</div></div>`;
+    h += `<div style="${card};margin-top:16px"><div class="row" style="min-height:52px;font-weight:500;color:${t.acc}">${ic.plus}<span class="t">Add a page</span></div></div>`;
+    h += C(10, `<div class="note" style="margin-top:16px;color:${t.mut};font-size:13px">&ldquo;Add a profile&rdquo; card leaves this page: it lives in the sheet (&Delta;2). Teacher / DJ add rows go (no dashboards).</div>`);
+  }
+  if (opt==='C') {
+    h += C(9, `<h5 style="${mono}">Owner</h5><div style="${card}"><div class="row" style="min-height:52px"><span class="t" style="font-weight:500">Ritmo London</span>${live}${showing}</div></div><h5 style="${mono}">Manager</h5><div style="${card}"><div class="row" style="min-height:52px"><span class="t" style="font-weight:500">Salsa Sundays Social</span>${badge(2)}${ic.chev}</div></div>`);
+    h += `<h5 style="${mono}">Your other pages</h5><div style="${card}">` + soonRow(t,'Teacher','r4') + `<div class="row" style="min-height:52px;border-top:1px solid ${t.line};font-weight:500"><span class="t">Dancer</span>${ic.chev}</div></div>`;
+    h += C(11, `<div style="${card};margin-top:16px"><div class="row" style="min-height:52px;font-weight:500"><span class="t">Add a page</span>${ic.chev}</div><div class="row" style="min-height:52px;border-top:1px solid ${t.line};font-weight:500"><span class="t">Add a profile</span>${ic.chev}</div><div class="row" style="min-height:52px;border-top:1px solid ${t.line};font-weight:500"><span class="t">DJ or teach? Message us</span>${ic.chev}</div><div class="row" style="min-height:52px;border-top:1px solid ${t.line};font-weight:500"><span class="t">Account settings</span>${ic.chev}</div></div>`);
+  }
+  h += `</div>`;
+  return `<div class="ph" style="background:${t.bg};color:${t.fg};overflow:auto">${h}</div>`;
+}
+
+// ---------- options ----------
+const OPTS = [
+  {id:'A', name:'Option A &mdash; Same sheet, new rules (smallest change)',
+   why:'Live layout and colours kept row for row. Only the three owner decisions change, plus the Switch page moves to the Round-4 white + orange look with every row kept.',
+   delta:['&Delta;1 &ldquo;Switch&rdquo; with one profile','&Delta;2 Add a profile in the organiser sheet (same Add step: organiser / message us / Back)','&Delta;3 Teacher / DJ &rarr; grey &ldquo;Coming soon&rdquo;, picked-only','&Delta;8 Switch page: Round-4 tokens (white, #E9E9E9 cards, orange outlined SHOWING, orange to-do badge). Rows, chips and Add-a-profile card unchanged.']},
+  {id:'B', name:'Option B &mdash; Profile cards (dancer design B)',
+   why:'One card lists the profiles, then Coming-soon rows, then a dashed &ldquo;Add a profile&rdquo; as the last row of the same card. Account rows sit below. The organiser button gains the word Switch.',
+   delta:['&Delta;1 &Delta;2 &Delta;3 as above','&Delta;4 Organiser top-right button = avatar + &ldquo;Switch&rdquo; + chevron (today icon-only 44px)','&Delta;5 Group headings DANCER / ORGANISER go; one card, 40px avatars, filled SHOWING pill, chevron on the others','&Delta;8 &Delta;9 Switch page: Round-4 look, pages grouped under OWNER / MANAGER headings (role line goes)','&Delta;10 Add-a-profile card leaves the Switch page; Teacher / DJ add rows go']},
+  {id:'C', name:'Option C &mdash; Round-4 look everywhere it can go',
+   why:'The organiser sheet and the Switch page take Round-4 screen 5 as drawn: drag handle, &times; close, mono uppercase headings, white cards, outlined orange SHOWING. The dancer sheet keeps its dark surface but takes the same card structure.',
+   delta:['&Delta;1 &Delta;2 &Delta;3 as above (Coming soon gets its own heading)','&Delta;6 Dancer sheet: card groups, handle, &times; close (dark surface kept)','&Delta;7 Organiser sheet: Round-4 white + orange, same structure','&Delta;8 &Delta;9 Switch page: OWNER / MANAGER groups','&Delta;11 Add a page / Add a profile / &ldquo;DJ or teach? Message us&rdquo; / Account settings become one link card (Round-4 &ldquo;All my pages&rdquo; card); the dashed card and Not now go']}
+];
+const frame = (label, html, chg) => `<div class="fcol"><div class="flabel">${chg?'<b>AFTER</b>':'BEFORE (live)'} &middot; ${label}</div><div class="frame">${html}</div></div>`;
+let out = '';
+for (const o of OPTS) {
+  out += `<h2 class="opt" id="opt-${o.id}">${o.name}</h2><p>${o.why}</p><ul class="chglist">${o.delta.map(d=>`<li>${d}</li>`).join('')}</ul>`;
+  out += `<h3>(a) Dancer switch sheet &mdash; dancer + organiser</h3><div class="pair">${frame('Dancer app sheet',beforeSheet('dancer',STATES.dorg))}${frame('Dancer app sheet',afterSheet(o.id,'dancer',STATES.dorg),1)}</div>`;
+  out += `<h3>(b) Same sheet in the organiser area &mdash; dancer + organiser</h3><div class="pair">${frame('Organiser area sheet',beforeSheet('org',STATES.dorg))}${frame('Organiser area sheet',afterSheet(o.id,'org',STATES.dorg),1)}</div>`;
+  out += `<h3>(c) Organiser Switch page (P3) &mdash; 2 pages, Teacher picked, DJ missing</h3><div class="pair">${frame('/account/o/switch',beforePage())}${frame('/account/o/switch',afterPage(o.id),1)}</div>`;
+  out += `<h3>States &mdash; dancer sheet</h3><div class="pair">${frame(STATES.one.label,beforeSheet('dancer',STATES.one))}${frame(STATES.one.label,afterSheet(o.id,'dancer',STATES.one),1)}</div><div class="pair">${frame(STATES.teach.label,beforeSheet('dancer',STATES.teach))}${frame(STATES.teach.label,afterSheet(o.id,'dancer',STATES.teach),1)}</div>`;
+}
+document.getElementById('opts').innerHTML = out;
+
+// ---------- KEEP-LIST (54 rows = INVENTORY.md) ----------
+const K = 'k', X = 'changed';
+const KEEP = [
+ ['A1','Button hidden until profiles load',K,K,K],
+ ['A2','Strip button: 44px pill, avatar + word',K,K,K],
+ ['A3','Word &ldquo;Account&rdquo; with one profile','&Delta;1 Switch','&Delta;1 Switch','&Delta;1 Switch'],
+ ['A4','aria-label &ldquo;Your account&rdquo; with one profile','&Delta;1','&Delta;1','&Delta;1'],
+ ['A5','Avatar = current profile, else glyph',K,K,K],
+ ['A6','Bottom sheet, dim backdrop, max 480px',K,K,K],
+ ['A7','Dark dancer surface',K,K,K],
+ ['A8','Title &ldquo;Your account&rdquo; with one profile','&Delta;1','&Delta;1','&Delta;1'],
+ ['A9','&ldquo;Close&rdquo; text button 44px',K,K,'&times; icon 44px'],
+ ['A10','Esc / backdrop closes',K,K,K],
+ ['A11','Loading your profiles&hellip;',K,K,K],
+ ['A12','Could not load your profiles&hellip;',K,K,K],
+ ['A13','DANCER / ORGANISER group headings',K,'&Delta;5 gone','&Delta;6/7 mono caps'],
+ ['A14','Profile row 56px, avatar 36',K,'&Delta;5 avatar 40','&Delta;6/7 52px in card'],
+ ['A15','Profile name (placeholder &ldquo;Your dancer profile&rdquo;)',K,K,K],
+ ['A16','Kind line Dancer / Organiser',K,K,'&Delta; gone (heading says it)'],
+ ['A17','&check; Showing on current',K,'&Delta;5 filled pill','&Delta; outlined orange pill'],
+ ['A18','Organisers first, then dancer',K,K,'dancer group first'],
+ ['A19','+ Add a profile row (dancer area)',K,'&Delta;5 dashed, inside card','&Delta; in link card'],
+ ['A20','Add step: Run events? Become an organiser',K,K,K],
+ ['A21','Add step: DJ or teach? Message us',K,K,K],
+ ['A22','Add step: Back',K,K,K],
+ ['A23','Teacher / DJ rows for held OR picked','&Delta;3 picked only','&Delta;3 picked only','&Delta;3 picked only'],
+ ['A24','Status words Complete / N left','&Delta;3 gone','&Delta;3 gone','&Delta;3 gone'],
+ ['A25','Status dot','&Delta;3 gone','&Delta;3 gone','&Delta;3 gone'],
+ ['A26','Teacher / DJ row opens its area + discard guard','&Delta;3 not tappable','&Delta;3 not tappable','&Delta;3 not tappable'],
+ ['A27','Your areas link',K,K,K],
+ ['A28','Account settings',K,K,K],
+ ['A29','Sign out',K,K,K],
+ ['A30','Sign out? + reassurance line',K,K,K],
+ ['A31','Cancel / Yes, sign out / Signing out&hellip;',K,K,K],
+ ['A32','Dividers between blocks',K,'card edges','card edges'],
+ ['B1','Organiser button icon-only 44px',K,'&Delta;4 + word Switch',K],
+ ['B2','44px placeholder while loading',K,K,K],
+ ['B3','Tick follows ?o=',K,K,K],
+ ['B4','Organiser sheet: site black tokens',K,K,'&Delta;7 Round-4 white'],
+ ['B5','No Add a profile in organiser sheet','&Delta;2 added','&Delta;2 added','&Delta;2 added'],
+ ['B6','Settings &rarr; /account/settings',K,K,K],
+ ['B7','Sign-out confirm in primary orange',K,K,'Round-4 orange'],
+ ['C1','Title Switch page + Back','&Delta;8 restyle','&Delta;8 restyle','&Delta;8 restyle'],
+ ['C2','Skeleton Loading your pages',K,K,K],
+ ['C3','Error / offline + Retry',K,K,K],
+ ['C4','Card of page rows 56px','&Delta;8 restyle','&Delta;9 grouped','&Delta;9 grouped'],
+ ['C5','Page name',K,K,K],
+ ['C6','Role line Owner / Manager',K,'&Delta;9 heading','&Delta;9 heading'],
+ ['C7','To-do badge on OTHER pages','orange',' orange','orange'],
+ ['C8','Live chip',K,K,K],
+ ['C9','Showing chip','outlined orange','outlined orange','outlined orange'],
+ ['C10','Tap = remember + open hub',K,K,K],
+ ['C11','Your other pages (Teacher / DJ / Dancer)','&Delta;3 Teacher/DJ soon','&Delta;3','&Delta;3'],
+ ['C12','Add a page link',K,'in a card','&Delta;11 link card'],
+ ['C13','Add a profile dashed card + Not now + Undo',K,'&Delta;10 gone','&Delta;11 one row'],
+ ['C14','R1 Team chip row',K,K,K],
+ ['C15','Welcome &ldquo;Switch any time from&hellip;&rdquo;',K,K,K],
+];
+const cell = v => v===K ? '<td class="ok">keep</td>' : `<td class="ch">${v}</td>`;
+let read = {}; try { read = JSON.parse(localStorage.getItem('dsl-keep')||'{}'); } catch(e) {}
+document.querySelector('#keeptbl tbody').innerHTML = KEEP.map(r=>`<tr><td><input type="checkbox" aria-label="Keep ${r[0]}" data-k="${r[0]}" ${read[r[0]]?'checked':''}></td><td class="k">${r[0]}</td><td>${r[1]}</td>${cell(r[2])}${cell(r[3])}${cell(r[4])}</tr>`).join('');
+document.querySelectorAll('#keeptbl input').forEach(i=>i.addEventListener('change',()=>{read[i.dataset.k]=i.checked; try{localStorage.setItem('dsl-keep',JSON.stringify(read));}catch(e){}}));
+</script>
+</body>
+</html>
