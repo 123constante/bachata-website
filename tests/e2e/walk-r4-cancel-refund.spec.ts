@@ -43,7 +43,6 @@ test('owner, cancelled night: refund block, sheet, partial result', async ({ pag
   const sent = await open(page);
   await expect(page.getByTestId('r4-refund-line')).toHaveText('3 orders to refund, \u00a357', { timeout: 10_000 });
   await expect(page.getByTestId('r4-refund-title')).toHaveText(/^Refunds, cancelled Friday 9 October$/);
-  await expect(page.getByTestId('r4-guests')).toHaveCount(0);
   await expect(page.getByTestId('r4-refund-row')).toHaveCount(5);
   for (const b of await page.locator('[data-testid=r4-refund-all], [data-testid=r4-refund-one]').all()) expect((await b.boundingBox())!.height).toBeGreaterThanOrEqual(42);
   await expectNoHorizontalScroll(page);

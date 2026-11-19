@@ -9,7 +9,7 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: (...a: unkno
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }));
 
 import { R4NightRefund } from '../R4NightRefund';
-import { cancelledFocusOf, refundBlockOf, refundNightOf } from '../r4RefundModel';
+import { cancelledNightsOf, refundBlockOf, refundNightsOf } from '../r4RefundModel';
 import { parseRefundSummary } from '../../door/refundData';
 import type { WorkspaceDate } from '../../../shared/seriesModel';
 
@@ -46,14 +46,16 @@ describe('R4 cancel refund: who sees what', () => {
   it.each([['manager'], ['door staff']])('%s: the server says not_allowed, nothing is drawn', async () => {
     rpc.mockReturnValue(ok({ ok: false, reason: 'not_allowed' }));
     mount();
-    await waitFor(() => expect(screen.queryByTestId('r4-refund-loading')).toBeNull());
+    await waitFor(() => expect(rpc).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 50));
     expect(screen.queryByTestId('r4-refund')).toBeNull();
     expect(screen.queryByRole('button')).toBeNull();
   });
   it('night not cancelled (server answers night_cancelled false): nothing', async () => {
     rpc.mockReturnValue(ok({ ok: true, night_cancelled: false, orders_to_refund: 0, pence_to_refund: 0, free_orders_to_end: 0, orders: [] }));
     mount();
-    await waitFor(() => expect(screen.queryByTestId('r4-refund-loading')).toBeNull());
+    await waitFor(() => expect(rpc).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 50));
     expect(screen.queryByTestId('r4-refund')).toBeNull();
   });
   it('everything refunded: says so, no Refund all, rows say Refunded', async () => {
@@ -72,10 +74,12 @@ describe('R4 cancel refund: who sees what', () => {
 });
 
 describe('R4 cancel refund: the model', () => {
-  it('free orders are not listed: only what the server lists, and a free-only night has nothing to refund', () => {
-    const b = refundBlockOf(parseRefundSummary(plan([], { free_orders_to_end: 3 })));
-    expect(b?.rows).toEqual([]);
-    expect(b?.allOn).toBe(false);
+  it('free orders are not listed: a free-only (or empty) cancelled night draws no block at all', () => {
+    expect(refundBlockOf(parseRefundSummary(plan([], { free_orders_to_end: 3 })))).toBeNull();
+  });
+  it('an order with no readable amount is never called Refunded: it keeps its Refund, no amount shown', () => {
+    const b = refundBlockOf(parseRefundSummary(plan([{ ...order('o1', 'Ana', 0), remaining_pence: null as unknown as number }])));
+    expect(b?.rows[0]).toMatchObject({ canRefund: true, amount: '' });
   });
   it('a mixed-night order is listed with its own Refund and a note, never in the total', () => {
     const b = refundBlockOf(parseRefundSummary(plan([order('o1', 'Ana', 1000, { mixed_nights: true }), order('o2', null, 500)])));
@@ -92,18 +96,20 @@ describe('R4 cancel refund: the model', () => {
     expect(() => parseRefundSummary({ ok: true })).toThrow();
   });
   const d = (id: string, date: string, status: string) => ({ id, occurrence_date: date, lifecycle_status: status } as WorkspaceDate);
-  it('flag off: no cancelled night, so no block, no refund read, and the door list as before', () => {
-    expect(refundNightOf(false, [d('a', '2026-11-20', 'cancelled')], '2026-11-19')).toBeNull();
-    expect(refundNightOf(true, [d('a', '2026-11-20', 'cancelled')], '2026-11-19')).toEqual({ occurrenceId: 'a', date: '2026-11-20' });
+  it('flag off: no nights, so no block and no refund read', () => {
+    expect(refundNightsOf(false, [d('a', '2026-11-20', 'cancelled')], '2026-11-19')).toEqual([]);
+    expect(refundNightsOf(true, [d('a', '2026-11-20', 'cancelled')], '2026-11-19')).toEqual([{ occurrenceId: 'a', date: '2026-11-20' }]);
   });
   it.each([
-    ['next date cancelled', [d('a', '2026-11-20', 'cancelled'), d('b', '2026-11-27', 'scheduled')], { occurrenceId: 'a', date: '2026-11-20' }],
-    ['next date on, a later one cancelled', [d('a', '2026-11-20', 'scheduled'), d('b', '2026-11-27', 'cancelled')], null],
-    ['only a past cancelled date', [d('a', '2026-11-01', 'cancelled')], null],
-    ['cancelled one-off tonight', [d('a', '2026-11-19', 'cancelled')], { occurrenceId: 'a', date: '2026-11-19' }],
-    ['no dates', [], null],
-  ] as const)('focus night: %s', (_c, dates, want) => {
-    expect(cancelledFocusOf(dates as unknown as WorkspaceDate[], '2026-11-19')).toEqual(want);
+    ['next date cancelled', [d('a', '2026-11-20', 'cancelled'), d('b', '2026-11-27', 'scheduled')], ['a']],
+    ['next date on, a later one cancelled', [d('a', '2026-11-20', 'scheduled'), d('b', '2026-11-27', 'cancelled')], ['b']],
+    ['cancelled last week, not refunded before it passed', [d('a', '2026-11-12', 'cancelled'), d('b', '2026-11-26', 'scheduled')], ['a']],
+    ['cancelled more than 28 days ago', [d('a', '2026-10-01', 'cancelled')], []],
+    ['cancelled one-off tonight', [d('a', '2026-11-19', 'cancelled')], ['a']],
+    ['five cancelled: the three nearest today', ['2026-10-29', '2026-11-05', '2026-11-12', '2026-11-26', '2026-12-24'].map((x, i) => d(String(i), x, 'cancelled')), ['2', '3', '1']],
+    ['no dates', [], []],
+  ] as const)('cancelled nights: %s', (_c, dates, want) => {
+    expect(cancelledNightsOf(dates as unknown as WorkspaceDate[], '2026-11-19').map((n) => n.occurrenceId)).toEqual(want);
   });
 });
 
@@ -156,6 +162,35 @@ describe('R4 cancel refund: the confirm sheet', () => {
     fireEvent.click(screen.getByTestId('r4-refund-go'));
     await waitFor(() => expect(screen.getByTestId('r4-refund-said').textContent).toBe('Ben refunded.'));
     expect(invoke).toHaveBeenCalledWith('ticket-refund', { body: { order_id: 'o2' } });
+  });
+  it('no answer at all (network): never says nothing happened; closes, says it could not confirm, re-reads', async () => {
+    rpc.mockReturnValue(ok(TWO));
+    invoke.mockReturnValue(Promise.resolve({ data: null, error: { message: 'Failed to fetch' } }));
+    mount();
+    fireEvent.click(await screen.findByTestId('r4-refund-all'));
+    fireEvent.click(screen.getByTestId('r4-refund-go'));
+    await waitFor(() => expect(screen.getByTestId('r4-refund-said').textContent).toMatch(/couldn\u2019t confirm/));
+    expect(screen.queryByTestId('r4-refund-sheet')).toBeNull();
+    await waitFor(() => expect(rpc).toHaveBeenCalledTimes(2));
+  });
+  it('409 changed and the re-read fails: does not re-ask with the old numbers', async () => {
+    rpc.mockReturnValueOnce(ok(TWO)).mockReturnValue(Promise.resolve({ data: null, error: { message: 'x' } }));
+    invoke.mockReturnValue(http(409, { ok: false, reason: 'changed' }));
+    mount();
+    fireEvent.click(await screen.findByTestId('r4-refund-all'));
+    fireEvent.click(screen.getByTestId('r4-refund-go'));
+    await waitFor(() => expect(screen.queryByTestId('r4-refund-sheet')).toBeNull(), { timeout: 4000 });
+    expect(screen.getByTestId('r4-refund-said').textContent).toMatch(/amount changed/);
+    expect(invoke).toHaveBeenCalledTimes(1);
+  });
+  it('free tickets not closed: the result says so, not as a plain success', async () => {
+    rpc.mockReturnValue(ok(TWO));
+    invoke.mockReturnValue(ok({ ok: true, refunded_count: 2, failed_count: 0, free_ended: 0, free_failed: true, results: [{ order_id: 'o1', ok: true }, { order_id: 'o2', ok: true }] }));
+    mount();
+    fireEvent.click(await screen.findByTestId('r4-refund-all'));
+    fireEvent.click(screen.getByTestId('r4-refund-go'));
+    await waitFor(() => expect(screen.getByTestId('r4-refund-said').textContent).toMatch(/^2 orders refunded\. Free tickets/));
+    expect(screen.getByTestId('r4-refund-said').className).toBe('r4-err');
   });
   it('a failed send keeps the sheet open with the reason, nothing claimed', async () => {
     rpc.mockReturnValue(ok(TWO));

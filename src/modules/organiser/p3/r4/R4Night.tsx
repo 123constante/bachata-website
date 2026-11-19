@@ -24,7 +24,7 @@ import { nightsOfChoice } from './r4Nights';
 import { R4GuestList } from './R4GuestList';
 import { R4CancelSheet } from './R4CancelSheet';
 import { R4NightRefund } from './R4NightRefund';
-import { refundNightOf } from './r4RefundModel';
+import { refundNightsOf } from './r4RefundModel';
 import { R4Chevron } from './R4Shell';
 import { r4NightOf } from './r4NightModel';
 import { fetchNightMoney, nightMoneyQueryKey } from './r4MoneyApi';
@@ -62,8 +62,9 @@ function Night({ ws, place }: { ws: EventWorkspace; place: string | null }) {
   const plan = cancelPlan(ws, today);
   const draft = row?.lifecycle === 'draft';
   const nightOn = !!row?.next && row.next.status !== 'cancelled' && !draft;
-  // R4 cancel refund (flag): the night in focus is cancelled -> the refund block shows and the door list does not
-  const cancelledNight = refundNightOf(flags.organiserTicketing && flags.organiserCancelRefund, ws.dates, today);
+  // R4 cancel refund (flag): recent cancelled nights with paid orders get a refund block. The door list needs no
+  // hiding: the server's door night is always a scheduled one (_ticket_door_night_at_v1), never a cancelled night.
+  const refundNights = refundNightsOf(flags.organiserTicketing && flags.organiserCancelRefund, ws.dates, today);
   const doorRead = useQuery({
     queryKey: ['r4-door', id],
     queryFn: () => fetchDoorNight(id, null),
@@ -138,9 +139,9 @@ function Night({ ws, place }: { ws: EventWorkspace; place: string | null }) {
         <p className="r4-err" role="alert" data-testid="r4-night-money-error">{R4_MONEY_COPY.error} <button type="button" className="r4-linkbtn" onClick={() => void moneyRead.refetch()}>{R4_MONEY_COPY.retry}</button></p>
       )}
 
-      {cancelledNight && <R4NightRefund seriesId={id} occurrenceId={cancelledNight.occurrenceId} date={cancelledNight.date} />}
+      {refundNights.map((n) => <R4NightRefund key={n.occurrenceId} seriesId={id} occurrenceId={n.occurrenceId} date={n.date} />)}
 
-      {flags.organiserTicketing && nightOn && !cancelledNight && <R4GuestList seriesId={id} />}
+      {flags.organiserTicketing && nightOn && <R4GuestList seriesId={id} />}
 
       {raffleNight && (
         <section className="r4-section" aria-label="Raffle" data-testid="r4-night-raffle">

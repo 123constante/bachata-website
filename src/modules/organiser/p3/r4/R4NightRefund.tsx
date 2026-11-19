@@ -1,16 +1,18 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { fetchNightRefundSummary, refundKeys, refundNight, refundOneOrder, type RefundOrderRow } from '../door/refundData';
 import { Sheet } from '../screens/Sheet';
 import { fullDate } from '../../shared/dateWords';
-import { REFUND_COPY, nightDoneText, refundBlockOf } from './r4RefundModel';
+import { REFUND_COPY, nameOf, nightDoneText, refundBlockOf } from './r4RefundModel';
+import { nightMoneyQueryKey } from './r4MoneyApi';
 
 type Ask = { kind: 'all'; orders: number; pence: number } | { kind: 'one'; order: RefundOrderRow };
 
 /** Board R4 cancel refund (flag organiserCancelRefund): the block under a cancelled night's numbers. Owner / admin only (server). */
 export function R4NightRefund({ seriesId, occurrenceId, date }: { seriesId: string; occurrenceId: string; date: string }) {
   const { user } = useAuth();
+  const qc = useQueryClient();
   const q = useQuery({
     queryKey: refundKeys.night(user?.id, seriesId, occurrenceId),
     queryFn: () => fetchNightRefundSummary(seriesId, occurrenceId),
@@ -25,12 +27,20 @@ export function R4NightRefund({ seriesId, occurrenceId, date }: { seriesId: stri
   if (q.isError && !q.data) {
     return <p className="r4-err" role="alert" data-testid="r4-refund-error">{REFUND_COPY.error} <button type="button" className="r4-linkbtn" onClick={() => void q.refetch()}>{REFUND_COPY.retry}</button></p>;
   }
-  if (!q.data) return q.isPending && user?.id ? <p className="r4-note" data-testid="r4-refund-loading">{REFUND_COPY.loading}</p> : null;
+  // quiet while loading: most cancelled nights have no paid order and draw nothing at all
+  if (!q.data) return null;
   const b = refundBlockOf(q.data);
   if (!b) return null;
   const summary = q.data.kind === 'ok' ? q.data : null;
 
   const close = () => { if (!busy) { setAsk(null); setSheetErr(null); } };
+  // A refusal with a reason sent nothing. No answer at all (network, gateway) may have reached Stripe: say we could
+  // not confirm, close the sheet and let the re-read list show what happened before anyone presses again.
+  const unclear = (out: { kind: 'not_configured' } | { kind: 'failed'; reason: string | null }) => {
+    if (out.kind === 'not_configured') setSheetErr(REFUND_COPY.notConfigured);
+    else if (out.reason) setSheetErr(REFUND_COPY.failed);
+    else { setAsk(null); setSaid({ text: REFUND_COPY.unsure, ok: false }); }
+  };
   const go = async () => {
     if (!ask) return;
     setBusy(true); setSheetErr(null);
@@ -39,8 +49,9 @@ export function R4NightRefund({ seriesId, occurrenceId, date }: { seriesId: stri
         const list = summary?.orders ?? [];
         const out = await refundNight(seriesId, occurrenceId, { pence: ask.pence, orders: ask.orders });
         if (out.kind === 'changed') {
-          // nothing was sent: read the new totals and ask again with them
+          // nothing was sent: read the new totals and ask again with them (never re-ask with numbers that did not reload)
           const fresh = await q.refetch();
+          if (fresh.isError) { setAsk(null); setSaid({ text: `${REFUND_COPY.changed} ${REFUND_COPY.error}`, ok: false }); return; }
           const s = fresh.data?.kind === 'ok' ? fresh.data : null;
           if (s && s.nightCancelled && s.ordersToRefund > 0) setAsk({ kind: 'all', orders: s.ordersToRefund, pence: s.penceToRefund });
           else setAsk(null);
@@ -49,13 +60,14 @@ export function R4NightRefund({ seriesId, occurrenceId, date }: { seriesId: stri
           return;
         }
         if (out.kind === 'ok') { setSaid(nightDoneText(out.value, list)); setAsk(null); }
-        else setSheetErr(out.kind === 'not_configured' ? REFUND_COPY.notConfigured : REFUND_COPY.failed);
+        else unclear(out);
       } else {
         const out = await refundOneOrder(ask.order.orderId);
-        if (out.kind === 'ok') { setSaid({ text: REFUND_COPY.doneOne(ask.order.firstName ?? 'No name'), ok: true }); setAsk(null); }
-        else setSheetErr(out.kind === 'not_configured' ? REFUND_COPY.notConfigured : REFUND_COPY.failed);
+        if (out.kind === 'ok') { setSaid({ text: REFUND_COPY.doneOne(nameOf(ask.order)), ok: true }); setAsk(null); }
+        else unclear(out);
       }
       void q.refetch();
+      void qc.invalidateQueries({ queryKey: nightMoneyQueryKey(user?.id ?? null, seriesId) });
     } finally {
       setBusy(false);
     }

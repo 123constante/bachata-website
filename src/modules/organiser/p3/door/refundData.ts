@@ -11,7 +11,7 @@ import { classifyEdge, refundOrder, type EdgeOutcome } from '../../tickets/ticke
 type Resp = PromiseLike<{ data: unknown; error: { message?: string; code?: string } | null }>;
 const db = () => supabase as unknown as { rpc(fn: string, args: Record<string, unknown>): Resp };
 
-export interface RefundOrderRow { orderId: string; firstName: string | null; tickets: number | null; remainingPence: number; refunded: boolean; mixedNights: boolean }
+export interface RefundOrderRow { orderId: string; firstName: string | null; tickets: number | null; remainingPence: number | null; refunded: boolean; mixedNights: boolean }
 export type NightRefundSummary =
   | { kind: 'not_allowed' }
   | { kind: 'wrong_night' }
@@ -38,7 +38,7 @@ export function parseRefundSummary(d: unknown): NightRefundSummary {
       orderId: o.order_id as string,
       firstName: str(o.first_name),
       tickets: int(o.tickets),
-      remainingPence: int(o.remaining_pence) ?? 0,
+      remainingPence: int(o.remaining_pence),
       refunded: o.refunded === true,
       mixedNights: o.mixed_nights === true,
     }));
@@ -77,13 +77,13 @@ export async function refundNight(seriesId: string, occurrenceId: string, expect
 }
 
 export function nightDoneOf(v: unknown): NightRefundOutcome {
-  const b = (v ?? {}) as { ok?: unknown; reason?: unknown; results?: unknown; free_failed?: unknown };
+  const b = (v ?? {}) as { ok?: unknown; reason?: unknown; results?: unknown; free_failed?: unknown; refunded_count?: unknown };
   if (b.ok !== true) return b.reason === 'changed' ? { kind: 'changed' } : { kind: 'failed', reason: typeof b.reason === 'string' ? b.reason : null };
   const results = Array.isArray(b.results) ? (b.results as { order_id?: unknown; ok?: unknown }[]) : [];
   return {
     kind: 'ok',
     value: {
-      refunded: results.filter((x) => x.ok === true).length,
+      refunded: Array.isArray(b.results) ? results.filter((x) => x.ok === true).length : int(b.refunded_count) ?? 0,
       failed: results.filter((x) => x.ok !== true && typeof x.order_id === 'string').map((x) => x.order_id as string),
       freeFailed: b.free_failed === true,
     },

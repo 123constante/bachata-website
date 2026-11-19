@@ -9,17 +9,35 @@ import { gbp } from './r4MoneyModel';
  * them out). The fee goes back to buyers; nothing here promises buyers anything.
  */
 
-/** The night in focus is the earliest date from today on; it is a cancelled night when that date is cancelled. */
-export function cancelledFocusOf(dates: readonly WorkspaceDate[], today: string): { occurrenceId: string; date: string } | null {
-  const first = [...dates].filter((d) => d.occurrence_date >= today).sort((a, b) => a.occurrence_date.localeCompare(b.occurrence_date))[0];
-  return first && first.lifecycle_status === 'cancelled' ? { occurrenceId: first.id, date: first.occurrence_date } : null;
+/** How far back a cancelled night keeps its refund block (a night cancelled late, or not refunded before it passed). */
+export const REFUND_LOOKBACK_DAYS = 28;
+/** At most this many cancelled nights get a block (each is one summary read). */
+export const REFUND_MAX_NIGHTS = 3;
+
+const minusDays = (day: string, n: number) => {
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d - n)).toISOString().slice(0, 10);
+};
+
+/**
+ * The cancelled nights that may still have money to give back: cancelled dates from REFUND_LOOKBACK_DAYS ago on,
+ * nearest to today first. A night with nothing listed draws nothing (refundBlockOf), so most cost one quiet read.
+ */
+export function cancelledNightsOf(dates: readonly WorkspaceDate[], today: string): { occurrenceId: string; date: string }[] {
+  const from = minusDays(today, REFUND_LOOKBACK_DAYS);
+  const dist = (d: string) => Math.abs(Date.parse(d) - Date.parse(today));
+  return dates
+    .filter((d) => d.lifecycle_status === 'cancelled' && d.occurrence_date >= from)
+    .sort((a, b) => dist(a.occurrence_date) - dist(b.occurrence_date) || a.occurrence_date.localeCompare(b.occurrence_date))
+    .slice(0, REFUND_MAX_NIGHTS)
+    .map((d) => ({ occurrenceId: d.id, date: d.occurrence_date }));
 }
 
-/** The screen's gate: flag off (organiserTicketing && organiserCancelRefund) = no cancelled night, so no block and the door list as before. */
-export const refundNightOf = (on: boolean, dates: readonly WorkspaceDate[], today: string) => (on ? cancelledFocusOf(dates, today) : null);
+/** The screen's gate: flag off (organiserTicketing && organiserCancelRefund) = no nights, no read, page as before. */
+export const refundNightsOf = (on: boolean, dates: readonly WorkspaceDate[], today: string) => (on ? cancelledNightsOf(dates, today) : []);
 
 const orders = (n: number) => `${n} ${n === 1 ? 'order' : 'orders'}`;
-const nameOf = (o: RefundOrderRow) => o.firstName ?? 'No name';
+export const nameOf = (o: Pick<RefundOrderRow, 'firstName'>) => o.firstName ?? 'No name';
 
 export const REFUND_COPY = {
   title: 'Refunds',
@@ -32,7 +50,7 @@ export const REFUND_COPY = {
   refunded: 'Refunded',
   mixed: 'Also on other nights. Refund it on its own.',
   askAll: (n: number, pence: number) => `Refund ${orders(n)}, ${gbp(pence)}?`,
-  askOne: (o: RefundOrderRow) => `Refund ${nameOf(o)}, ${gbp(o.remainingPence)}?`,
+  askOne: (o: RefundOrderRow) => (o.remainingPence === null ? `Refund ${nameOf(o)}?` : `Refund ${nameOf(o)}, ${gbp(o.remainingPence)}?`),
   askOneMixed: 'This order has other nights too. The whole order is refunded.',
   go: 'Refund',
   keep: 'Keep',
@@ -41,6 +59,8 @@ export const REFUND_COPY = {
   retry: 'Try again',
   changed: 'The amount changed since you looked. Check it, then refund again.',
   failed: 'The refund didn\u2019t go through. Nothing changed. Try again.',
+  unsure: 'We couldn\u2019t confirm the refund. Check the list before you try again.',
+  freeFailed: 'Free tickets for this night were not closed yet. Tap Refund all again later, or ask us.',
   notConfigured: 'Refunds are not switched on yet.',
   partial: (done: number, names: string[]) => `${orders(done)} refunded. Not refunded yet: ${names.join(', ')}. Tap Refund all to try those again.`,
   done: (n: number) => `${orders(n)} refunded.`,
@@ -50,9 +70,9 @@ export const REFUND_COPY = {
 export interface RefundRowView { order: RefundOrderRow; name: string; tickets: string; amount: string; canRefund: boolean; note: string | null }
 export interface RefundBlock { line: string; allOn: boolean; rows: RefundRowView[] }
 
-/** null = draw nothing (not owner/admin, wrong night, night not cancelled). */
+/** null = draw nothing (not owner/admin, wrong night, night not cancelled, no paid order on it). */
 export function refundBlockOf(s: NightRefundSummary | undefined): RefundBlock | null {
-  if (!s || s.kind !== 'ok' || !s.nightCancelled) return null;
+  if (!s || s.kind !== 'ok' || !s.nightCancelled || s.orders.length === 0) return null;
   return {
     line: s.ordersToRefund > 0 ? REFUND_COPY.line(s.ordersToRefund, s.penceToRefund) : REFUND_COPY.none,
     allOn: s.ordersToRefund > 0,
@@ -60,8 +80,9 @@ export function refundBlockOf(s: NightRefundSummary | undefined): RefundBlock | 
       order: o,
       name: nameOf(o),
       tickets: o.tickets === null ? '' : `${o.tickets} ${o.tickets === 1 ? 'ticket' : 'tickets'}`,
-      amount: gbp(o.remainingPence),
-      canRefund: !o.refunded && o.remainingPence > 0,
+      amount: o.remainingPence === null ? '' : gbp(o.remainingPence),
+      // an unknown amount is not a refunded order: only the server's own refunded flag (or nothing left) says Refunded
+      canRefund: !o.refunded && o.remainingPence !== 0,
       note: !o.refunded && o.mixedNights ? REFUND_COPY.mixed : null,
     })),
   };
@@ -69,7 +90,8 @@ export function refundBlockOf(s: NightRefundSummary | undefined): RefundBlock | 
 
 /** What a Refund all press says, given the orders it was about (for names of the ones that failed). */
 export function nightDoneText(d: NightRefundDone, list: readonly RefundOrderRow[]): { text: string; ok: boolean } {
-  if (d.failed.length === 0) return { text: REFUND_COPY.done(d.refunded), ok: true };
+  const free = d.freeFailed ? ` ${REFUND_COPY.freeFailed}` : '';
+  if (d.failed.length === 0) return { text: REFUND_COPY.done(d.refunded) + free, ok: !d.freeFailed };
   const byId = new Map(list.map((o) => [o.orderId, nameOf(o)]));
-  return { text: REFUND_COPY.partial(d.refunded, d.failed.map((id) => byId.get(id) ?? 'No name')), ok: false };
+  return { text: REFUND_COPY.partial(d.refunded, d.failed.map((id) => byId.get(id) ?? nameOf({ firstName: null }))) + free, ok: false };
 }
