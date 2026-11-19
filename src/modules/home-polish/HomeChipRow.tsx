@@ -14,7 +14,7 @@ import { denialCopy, isIOSUserAgent, isStandaloneDisplay, showRetry } from '@/li
 import { isRoughFix } from '@/lib/geo/nearMeFix';
 
 const chipBase =
-  "relative inline-flex h-[32px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-[13px] font-bold transition-colors before:absolute before:inset-x-0 before:-inset-y-[6px] before:content-['']";
+  "relative inline-flex h-[34px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-[13px] font-bold transition-colors before:absolute before:inset-x-0 before:-inset-y-[6px] before:content-['']";
 
 export interface ChipGeo {
   status: GeolocationStatus;
