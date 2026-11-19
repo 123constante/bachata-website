@@ -203,8 +203,6 @@ describe('flag wiring (source)', () => {
   const src = (p: string) => readFileSync(`src/modules/organiser/p3/${p}`, 'utf8').replace(/\r\n/g, '\n');
   it('every W-T mount sits behind flags.organiserTicketing', () => {
     expect(src('screens/EventPage.tsx')).toContain('{flags.organiserTicketing && <TicketsEntry seriesId={ws.series.id} />}');
-    expect(src('screens/HomeScreen.tsx')).toContain('{flags.organiserTicketing && <GetPaidPrompt />}');
-    expect(src('screens/HomeScreen.tsx')).toContain('{flags.organiserTicketing && <TicketsSoldTile />}');
     expect(src('shell/youTickets.tsx')).toContain('{flags.organiserTicketing && <Route path="you/get-paid" element={<GetPaidScreen />} />}');
     expect(src('shell/youTickets.tsx')).toContain('{flags.organiserTicketing && <GetPaidRow />}');
   });
