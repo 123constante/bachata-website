@@ -2,8 +2,7 @@ import { Suspense, useEffect, useId, useState, type CSSProperties, type ReactNod
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { ChevronRight, Plus, X } from 'lucide-react';
-import { ACCOUNT_SETTINGS_PATH, APP_ACCOUNT_SETTINGS_PATH, ORGANISER_HOME_PATH, switcherItems, type SwitcherWhere } from '@/lib/accountRouting';
-import { ACCOUNT_SETTINGS_LABEL } from '@/modules/dancer-app/copy/sharedCopy';
+import { ACCOUNT_SETTINGS_LABEL, ACCOUNT_SETTINGS_PATH, APP_ACCOUNT_SETTINGS_PATH, ORGANISER_HOME_PATH, switcherItems, type SwitcherWhere } from '@/lib/accountRouting';
 import { dancerMessageUsUrl } from '@/lib/contactLinks';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { SideAvatar, sideKind, sideTitle } from './SideAvatar';

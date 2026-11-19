@@ -4,12 +4,12 @@ import { OrganiserFake, PHONE, expectNoHorizontalScroll, json } from './helpers/
 // Dashboard switch, Round-4 everywhere (docs/briefs/dashboard-switch-build.md) at 390x844 on the real app over the
 // route-mocked organiser fake. Flag OFF (the CI default) asserts today's screens are unchanged; flag ON asserts the
 // new look. Shots for the PR: DASH_SWITCH_SHOTS=<folder> (before-* with the flag off, after-* with it on):
-//   VITE_ENABLE_DASHBOARD_SWITCH_R4=true VITE_ENABLE_ORGANISER_P3=true npx playwright test tests/e2e/dashboard-switch-r4.spec.ts
+//   VITE_ENABLE_DASHBOARD_SWITCH_R4=true npx playwright test tests/e2e/dashboard-switch-r4.spec.ts
+// The P3 area (R4 header, Switch page) is walked in dashboard-switch-r4-p3.spec.ts (test:e2e:p3).
 // Shapes (prod, 2026-11-19): one organiser page is the common case (20 of 22 organisers); a dancer + organiser
 // account; Teacher picked at sign-up (10 accounts) vs Teacher merely held (127 active teaching roles).
 
 const ON = process.env.VITE_ENABLE_DASHBOARD_SWITCH_R4 === 'true';
-const P3_ON = process.env.VITE_ENABLE_ORGANISER_P3 === 'true';
 const SHOTS = process.env.DASH_SWITCH_SHOTS;
 const shot = async (page: Page, name: string, fullPage = false) => {
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/${ON ? 'after' : 'before'}-${name}.png`, fullPage });
@@ -76,24 +76,17 @@ test.describe('dashboard switch 390x844', () => {
 
   test('organiser area sheet', async ({ page }) => {
     await fake(page, { organiser: true, picked: [] });
-    await page.goto(P3_ON ? '/account/p3' : '/account/o');
+    // The R1 organiser shell (P3 off, as this gate step runs); the R4 header is walked in dashboard-switch-r4-p3.spec.ts.
+    await page.goto('/account/o');
     const btn = page.getByTestId('profile-switcher-button');
-    if (P3_ON && !ON) {
-      // Today the Round-4 organiser header has no Switch profile sheet (only the page name, which opens Switch page).
-      await expect(page.getByTestId('r4-header')).toBeVisible();
-      await expect(btn).toHaveCount(0);
-      await shot(page, 'organiser-header');
-      return;
-    }
     await expect(btn).toBeVisible();
-    if (P3_ON) await shot(page, 'organiser-header');
     await btn.click();
     await expect(page.getByTestId('profile-switcher-sheet')).toBeVisible();
     // + Add a profile is in the organiser sheet only with the flag on.
     await expect(page.getByTestId('profile-switcher-add')).toHaveCount(ON ? 1 : 0);
     await expect(page.getByTestId('profile-switcher-sign-out')).toHaveCount(ON ? 0 : 1);
     await expect(page.getByTestId('profile-switcher-your-areas')).toBeVisible();
-    await shot(page, 'organiser-sheet');
+    await shot(page, 'organiser-r1-sheet');
     await expectNoHorizontalScroll(page);
   });
 
@@ -108,22 +101,5 @@ test.describe('dashboard switch 390x844', () => {
     await shot(page, 'settings-foot', true);
     await out.click();
     await expect(page.getByTestId('settings-signout-yes')).toBeVisible();
-  });
-
-  test('organiser Switch page (P3 area)', async ({ page }) => {
-    test.skip(!P3_ON, 'needs VITE_ENABLE_ORGANISER_P3=true (the P3 walks run it)');
-    await fake(page, { organiser: true, picked: ['teacher'] });
-    await page.goto('/account/p3/you/switch');
-    await expect(page.getByTestId('switch-list')).toBeVisible();
-    await expect(page.getByTestId('switch-add-page')).toBeVisible();
-    if (ON) {
-      await expect(page.getByTestId('switch-soon-teacher')).toBeVisible();
-      await expect(page.getByTestId('switch-area-teacher')).toHaveCount(0);
-      await expect(page.getByTestId('add-profile-card')).toHaveCount(0);
-    } else {
-      await expect(page.getByTestId('switch-area-teacher')).toBeVisible();
-    }
-    await shot(page, 'switch-page');
-    await expectNoHorizontalScroll(page);
   });
 });
