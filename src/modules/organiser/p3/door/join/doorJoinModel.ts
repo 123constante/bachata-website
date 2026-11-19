@@ -71,8 +71,8 @@ export const DOOR_JOIN_COPY = {
   signedOut: 'Sign in to open the door for this night.',
   signedOutWhy: 'This link gives you the door screen for one night: Scan and Search, names only. After you sign in you come straight back here.',
   signIn: 'Sign in',
-  checking: 'Checking your sign-in…',
-  accepting: 'Opening the door…',
+  checking: 'Checking your sign-in\u2026',
+  accepting: 'Opening the door\u2026',
   ok: 'You are on the door.',
   okUntil: (when: string) => `Access ends ${when}.`,
   openDoor: 'Open the door screen',
@@ -81,7 +81,7 @@ export const DOOR_JOIN_COPY = {
   revoked: 'The organiser has taken you off the door for this night. Ask them if you think this is a mistake.',
   profile: 'Add your name first, so the organiser knows who is on the door. It takes a minute, then you come back here.',
   finishProfile: 'Add your name',
-  error: 'We couldn’t open the door. Check your connection and try again.',
+  error: 'We couldn\u2019t open the door. Check your connection and try again.',
   retry: 'Try again',
   home: 'Go to Bachata Calendar',
 } as const;
@@ -114,8 +114,8 @@ export function parseMint(raw: unknown): MintAnswer | null {
 
 export const DOOR_MINT_WHY: Record<Exclude<MintResult, 'ok'>, string> = {
   not_allowed: 'Only the owner or a manager of the page that sells tickets for this event can make a door link.',
-  organiser_ambiguous: 'This event is sold by more than one organiser page, so we can’t tell whose door this is. Ask us to sort it out.',
+  organiser_ambiguous: 'This event is sold by more than one organiser page, so we can\u2019t tell whose door this is. Ask us to sort it out.',
   occurrence_not_live: 'We can\u2019t tell when this night starts, so the link would have no end. Add a start time to the night first.',
   occurrence_ended: 'This night has ended. Pick a night coming up.',
 };
-export const DOOR_MINT_FAILED = 'We couldn’t make the link. Nothing was changed. Try again.';
+export const DOOR_MINT_FAILED = 'We couldn\u2019t make the link. Nothing was changed. Try again.';

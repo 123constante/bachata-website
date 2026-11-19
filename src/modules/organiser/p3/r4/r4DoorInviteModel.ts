@@ -44,7 +44,7 @@ export interface R4DoorInviteModel {
 export const R4_DOOR_INVITE_COPY = {
   intro: 'Send this link to whoever works the door. They get one simple screen: Scan and Search. Nothing else.',
   copy: 'Copy door invite link',
-  copying: 'Making the link…',
+  copying: 'Making the link\u2026',
   copied: 'Link copied. Send it to your door person.',
   copyFailed: 'The link is below. Copy it by hand: press and hold it.',
   linkLabel: 'Link',
@@ -52,7 +52,7 @@ export const R4_DOOR_INVITE_COPY = {
   shareText: 'Your door link for tonight. Open it on your phone to scan tickets.',
   oneUse: 'Each link works for one person. Make a new one for each door person.',
   noNight: 'There is no night coming up to invite door staff to.',
-  noOccurrence: 'We couldn’t find this night yet. Try again in a moment.',
+  noOccurrence: 'We couldn\u2019t find this night yet. Try again in a moment.',
   ends: 'Access ends 12 hours after the event.',
   names: 'They see names only, never money.',
   preview: 'See what door staff see',
