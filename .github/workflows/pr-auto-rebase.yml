@@ -1,0 +1,66 @@
+name: PR Auto Rebase
+
+# A conflicted PR must not sit (owner decision 2026-11-19). Every 15 minutes,
+# rebase DIRTY PRs onto main; clean -> force-with-lease push to the PR branch;
+# real conflict -> `needs-rebase` label + one comment per head SHA.
+# Logic and self-test: scripts/pr-auto-rebase.mjs.
+#
+# Token: BOT_PR_TOKEN, as the other automation workflows. A GITHUB_TOKEN push
+# would not retrigger pull_request checks, so it must not be used for the push.
+# Like pr-mergeable-guard.yml this is NOT a pull_request workflow.
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Decide and report only; push, label and comment nothing'
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: pr-auto-rebase
+  cancel-in-progress: false
+
+jobs:
+  rebase:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.BOT_PR_TOKEN }}
+          persist-credentials: true
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Prove the script can fail (self-test)
+        run: npm run pr-auto-rebase:self-test
+
+      - name: Git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Rebase conflicted PRs
+        env:
+          GITHUB_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
+          # schedule runs are real by design (inputs is empty there); manual runs default to dry.
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+        run: |
+          set -o pipefail
+          flag=""
+          if [ "$DRY_RUN" = "true" ]; then flag="--dry-run"; fi
+          node scripts/pr-auto-rebase.mjs $flag 2>&1 | tee rebase.log
+          { echo '## PR auto-rebase'; echo '~~~~~~~~'; cat rebase.log; echo '~~~~~~~~'; } >> "$GITHUB_STEP_SUMMARY"
