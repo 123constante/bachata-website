@@ -83,6 +83,7 @@ export async function main(argv, deps = {}) {
     env = process.env,
     resolve = resolvePreviewUrl,
     walled = previewIsWalled,
+    bypassFor = () => bypassHeaders({ required: true }),
     fetchFn = fetch,
     capture = playwrightCapture,
     log = console.log,
@@ -104,7 +105,7 @@ export async function main(argv, deps = {}) {
   }
   try {
     const base = (await resolve()).replace(/\/$/, '');
-    const bypass = bypassHeaders({ required: true });
+    const bypass = bypassFor();
     mkdir(outDir);
     if (isPreviewHost(base) && (await walled(base, { bypass }))) {
       log(
@@ -148,6 +149,7 @@ export async function selfTest() {
     env,
     resolve: async () => 'https://p.vercel.app',
     walled: async () => false,
+    bypassFor: () => null,
     fetchFn: async () => ({ ok: true, json: async () => rows }),
     log: quiet,
     write: quiet,
