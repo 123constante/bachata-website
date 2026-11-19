@@ -12,7 +12,7 @@ Left: `npm run pre-ship` (timed out at 10 min in the worker); 390x844 walk on th
 tsc run on 105970e: 0 errors in branch files (unchanged since).
 
 ## Continuation 3 (dt_1a315b1b02de)
-Done: `npm run pre-ship` run to the end on 2f6a... head (see PR). Reds: check:no-social-word (known, red on main), test:unit (cacheTags, eventViewCompat.contract, integrityCouldNotRun: none touch tickets; sandbox-shaped, not re-run on main), typecheck ratchet 139 vs 106 (the one error in a branch file, TicketPickerB1.tsx:158 `PromoState.key`, is on a line this PR did not change; the rest are in untouched files). Nothing fixed: out of scope.
+Done: `npm run pre-ship` run to the end on f2c8093 (code unchanged since 105970e). Reds: check:no-social-word (known, red on main), test:unit (cacheTags, eventViewCompat.contract, integrityCouldNotRun: none touch tickets; sandbox-shaped, not re-run on main), typecheck ratchet 139 vs 106 (the one error in a branch file, TicketPickerB1.tsx:158 `PromoState.key`, is on a line this PR did not change; the rest are in untouched files). Nothing fixed: out of scope.
 390x844 walk: the flag is a build-time env and previews are walled, so I walked a local vite dev server with VITE_ENABLE_TICKET_PICKER_B1=true and the ticket RPC stubbed (temporary route, removed). Screenshots: docs/briefs/free-row-walk/. Mixed night (GBP10 + Free): both rows, per-line summary, total GBP10. Free-only night (two free types): summary lines both Free, total Free.
 Not seen: the free-only Continue/"Get my free tickets" button text (needs a signed-in user and the prod origin; button is disabled on localhost), and the real Vercel preview.
 Left: owner decision on the pre-existing reds.
