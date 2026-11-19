@@ -2,7 +2,7 @@
 
 Repo: Website only. One PR, no migration, no flag change. Look: white + #C2410C, 390x844, plain words, no emoji, tap targets explicit 44px. Do NOT edit R4Shell.tsx or R4Night.tsx (other windows). End with the [worker-done] marker.
 
-## Owner pick (2026-11-19)
+## Owner pick (2026-11-19, DESIGN-REGISTRY row "R4Events removed toast"; design = the old toast wording, no new mockup)
 After a person removes an event, the Events screen shows the message "Removed from your events." (same words as the old screen).
 
 ## Reference
