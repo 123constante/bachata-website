@@ -27,6 +27,7 @@ import type { UseMapListResult } from './useMapList';
 import { focusRing } from './cards/controls';
 import { flags } from '@/lib/featureFlags';
 import EventMap from './EventMap';
+import { nearestVenues, type LatLng } from './nearFit';
 
 // Constrain the teaser to the city (Greater London for London) so a fling
 // rubber-bands back rather than drifting to empty ocean (EventMap applies
@@ -121,6 +122,14 @@ export default function HomeMapCard({
   // Chips are counts too, so they go with the title on a bad fetch.
   const showLadder = !notReady && (state.tab !== 'tonight' || tonightIsEmpty);
 
+  // NEAR ME FIT (flags homeFeedLook + homePolish): only once a fix has landed. Denied, idle or
+  // loading leave the card exactly as it was; fewer than 5 venues (or none) just frames fewer.
+  const geoCoords = state.geo.status === 'granted' ? state.geo.coords : null;
+  const nearFit = useMemo(() => {
+    if (!flags.homePolish || !flags.homeFeedLook || !geoCoords) return null;
+    return { user: geoCoords as LatLng, venues: nearestVenues(state.pins, geoCoords) };
+  }, [geoCoords, state.pins]);
+
   const openMap = useCallback(() => navigate(mapHref), [navigate, mapHref]);
 
   return (
@@ -148,6 +157,7 @@ export default function HomeMapCard({
         center={cityCentre(citySlug)}
         maxBounds={cityBounds(citySlug)}
         minZoom={10}
+        nearFit={nearFit}
       />
 
       {flags.homePolish ? (

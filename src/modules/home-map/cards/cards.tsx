@@ -46,7 +46,6 @@ import type { FreshnessHeat } from '../mapTypes';
 import { useHomeNow, useHomeNowStatic } from '../homeClock';
 import { focusRing } from './controls';
 import { isSitePlaceholderCover } from './coverPlaceholder';
-import { flags } from '@/lib/featureFlags';
 
 type Coords = { lat: number; lng: number } | null;
 

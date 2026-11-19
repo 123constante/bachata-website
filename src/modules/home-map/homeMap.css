@@ -518,3 +518,38 @@
 @media (min-width: 768px) {
   .home-map-fill.hm-look .hm-mapcard { margin-inline: 0.75rem; }
 }
+
+/* ---- Near me wait: radar sweep over the whole screen (no words, never takes a tap) ---- */
+.hm-sweep { position: fixed; inset: 0; z-index: 60; pointer-events: none; overflow: hidden; }
+.hm-sweep-arm {
+  position: absolute; width: 300vmax; height: 300vmax; margin: -150vmax 0 0 -150vmax; border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0deg 300deg, hsl(38 95% 55% / .05) 320deg, hsl(38 95% 55% / .34) 360deg);
+  animation: hm-sweep-spin 2.4s linear infinite;
+}
+@keyframes hm-sweep-spin { to { transform: rotate(360deg); } }
+
+/* ---- Near me fit: blue "You" pin, two expanding rings, label pill ---- */
+.home-map .hm-youpin-wrap { background: none; border: 0; }
+.home-map .hm-youpin { position: relative; display: block; width: 40px; height: 40px; }
+.home-map .hm-youpin .core { position: absolute; left: 50%; top: 30px; width: 14px; height: 14px; transform: translate(-50%,-50%);
+  border-radius: 50%; background: #3b8cff; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.45); }
+.home-map .hm-youpin .r1, .home-map .hm-youpin .r2 { position: absolute; left: 50%; top: 30px; width: 14px; height: 14px;
+  transform: translate(-50%,-50%); border-radius: 50%; border: 2px solid #3b8cff; animation: hm-you-ring 1.6s ease-out infinite; }
+.home-map .hm-youpin .r2 { animation-delay: .8s; }
+@keyframes hm-you-ring { 0% { transform: translate(-50%,-50%) scale(1); opacity: .8; } 100% { transform: translate(-50%,-50%) scale(3.2); opacity: 0; } }
+.home-map .hm-youpin-lbl { position: absolute; left: 50%; top: 0; transform: translateX(-50%); padding: 1px 7px; border-radius: 999px;
+  background: #3b8cff; color: #fff; font: 700 11px/16px Roboto, system-ui, sans-serif; white-space: nowrap; }
+
+/* ---- Map breathes: slow drift on the card ground, venue dots twinkle ---- */
+.hm-look .hm-mapcard .leaflet-tile-pane { transform-origin: 50% 50%; animation: hm-map-breathe 6s ease-in-out infinite alternate; }
+@keyframes hm-map-breathe { from { transform: scale(1); } to { transform: scale(1.07); } }
+.hm-look .hm-mapcard .rdot-i { animation: hm-dot-twinkle 2.4s ease-in-out infinite; }
+.hm-look .hm-mapcard .leaflet-marker-icon:nth-child(3n+2) .rdot-i { animation-delay: .8s; }
+.hm-look .hm-mapcard .leaflet-marker-icon:nth-child(3n) .rdot-i { animation-delay: 1.6s; }
+@keyframes hm-dot-twinkle { 0%,100% { box-shadow: 0 0 0 0 rgba(255,255,255,.25); } 50% { box-shadow: 0 0 0 4px rgba(255,255,255,.25); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .hm-sweep { display: none; }
+  .hm-sweep-arm, .home-map .hm-youpin .r1, .home-map .hm-youpin .r2,
+  .hm-look .hm-mapcard .leaflet-tile-pane, .hm-look .hm-mapcard .rdot-i { animation: none; }
+}

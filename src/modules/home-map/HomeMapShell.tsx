@@ -32,7 +32,7 @@
 // breakpoint). `.home-map` scopes the cover-scene CSS; `.home-map-fill` supplies
 // the shell height + the responsive layout.
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import type { UseMapListResult } from './useMapList';
@@ -46,6 +46,7 @@ import {
   RetryNotice,
 } from './cards/cards';
 import { AllEventsList } from './cards/AllEventsList';
+import { NearMeSweep } from './NearMeSweep';
 import { LocateControl } from './cards/LocateControl';
 import { FooterLinks } from '@/components/layout/FooterLinks';
 import { MAP_PLACEHOLDERS } from './mapPlaceholders';
@@ -254,6 +255,7 @@ export default function HomeMapShell({
   // sets this -- effects run after React has finished hydrating, so the resulting
   // re-render can never land inside a still-hydrating Suspense boundary. Never
   // convert this to useSyncExternalStore / a render-time check.
+  const cardRef = useRef<HTMLDivElement>(null);
   const [mapMounted, setMapMounted] = useState(false);
   useEffect(() => setMapMounted(true), []);
 
@@ -360,8 +362,10 @@ export default function HomeMapShell({
         </div>
       )}
 
+      {flags.homePolish && flags.homeFeedLook && showMapCard && <NearMeSweep waiting={state.geo.status === 'loading'} anchorRef={cardRef} />}
       {showMapCard && (
       <div
+        ref={cardRef}
         className="hm-mapcard relative overflow-hidden"
         role="region"
         aria-label="Event map"
