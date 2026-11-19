@@ -201,13 +201,16 @@ export function AllEventsList({
   // Restore Nearest only if the browser ALREADY says granted -- never an auto-prompt.
   // In an effect (post-hydration): the server and first client render both start at false.
   const geoRequest = state.geo.request;
+  const geoStatusRef = useRef(state.geo.status);
+  geoStatusRef.current = state.geo.status;
   useEffect(() => {
     if (!polish || !readNearestPref()) return;
     let live = true;
     void locationAlreadyGranted().then((ok) => {
       if (!live || !ok) return;
       setNearestRaw(true);
-      geoRequest();
+      // Cached coordinates already restored a fix: do not force a fresh one.
+      if (geoStatusRef.current === 'idle') geoRequest();
     });
     return () => {
       live = false;

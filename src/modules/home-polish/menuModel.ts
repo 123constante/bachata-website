@@ -51,6 +51,15 @@ export function menuRows(i: MenuInput): { account: MenuRow[]; browse: MenuRow[] 
   return { account, browse };
 }
 
+/** End-of-feed link block: Organisers, Venues, Raffles -- taken from the menu's own rows. */
+export function feedEndRows(venuesHref: string, rafflesOn: boolean): MenuRow[] {
+  const { browse } = menuRows({
+    role: 'signedOut', signInHref: '', venuesHref, communityHref: '', rafflesOn,
+    accountHref: '', organiserHomeHref: '', sellTicketsHref: '',
+  });
+  return browse.filter((r) => r.id === 'organisers' || r.id === 'venues' || r.id === 'raffles');
+}
+
 export const RATE_US_URL = 'https://g.page/r/Cc1SYPxlRrkmEBE/review';
 
 export const SUPPORT_LINKS: { label: string; href: string }[] = [

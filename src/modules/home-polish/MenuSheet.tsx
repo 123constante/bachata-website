@@ -35,14 +35,16 @@ export default function MenuSheet({ onClose }: { onClose: () => void }) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const opener = useRef<Element | null>(typeof document !== 'undefined' ? document.activeElement : null);
 
-  // Lock the page behind the sheet; give focus back to the menu button on close.
+  // Lock the page behind the sheet; give focus back to the menu button on close -- but
+  // only when the sheet closed on the SAME page (a row tap navigates; focus belongs to the new page).
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const back = opener.current;
+    const openedOn = window.location.pathname;
     return () => {
       document.body.style.overflow = prev;
-      if (back instanceof HTMLElement) back.focus();
+      if (back instanceof HTMLElement && window.location.pathname === openedOn) back.focus();
     };
   }, []);
 
@@ -199,10 +201,10 @@ function MenuView({ onClose, onSearch, onSupport }: { onClose: () => void; onSea
         </nav>
 
         <footer className="mt-6 space-y-2 text-[13px]">
-          <button type="button" disabled aria-describedby="theme-note" className="flex min-h-[44px] w-full items-center gap-2 rounded-xl border border-border px-3 text-muted-foreground opacity-70">
+          <button type="button" disabled className="flex min-h-[44px] w-full items-center gap-2 rounded-xl border border-border px-3 text-muted-foreground opacity-70">
             <Moon className="h-4 w-4" aria-hidden="true" />
-            Dark theme
-            <span id="theme-note" className="ml-auto text-[12px]">Light theme coming soon</span>
+            Light theme
+            <span className="ml-auto text-[12px]">Coming soon</span>
           </button>
           <div className="grid grid-cols-2 gap-2">
             <a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer" className={cn('flex min-h-[44px] items-center justify-center rounded-xl border border-border font-semibold text-foreground no-underline', ring)}>Instagram</a>
@@ -276,7 +278,10 @@ function SearchView({ onBack, onDone }: { onBack: () => void; onDone: () => void
         />
       </div>
       <div className="px-3 pb-6 pt-2">
-        {!hasQuery ? (
+        {q.trim().length >= 2 && !hasQuery ? (
+          // Inside the 220ms debounce: say so rather than flash the recent list.
+          <p role="status" className="pt-2 text-sm text-muted-foreground">Searching&hellip;</p>
+        ) : !hasQuery ? (
           recent.length > 0 ? (
             <section aria-label="Recent searches">
               <div className="flex items-center justify-between">

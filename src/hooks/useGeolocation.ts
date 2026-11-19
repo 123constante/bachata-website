@@ -57,6 +57,8 @@ export function useGeolocation(): UseGeolocationResult {
   const [reason, setReason] = useState<GeolocationDenialReason>(null);
   const [coords, setCoords] = useState<Coords | null>(null);
   const highAccuracyRetried = useRef(false);
+  // Bumped by clear(): a request still in flight when the reader cancels must not land later.
+  const generation = useRef(0);
 
   useEffect(() => {
     const cached = readCached();
@@ -80,8 +82,10 @@ export function useGeolocation(): UseGeolocationResult {
     setStatus('loading');
     setReason(null);
     highAccuracyRetried.current = false;
+    const gen = ++generation.current;
 
     const onSuccess = (pos: GeolocationPosition) => {
+      if (gen !== generation.current) return;
       const next: Coords = {
         lat: pos.coords.latitude,
         lng: pos.coords.longitude,
@@ -93,6 +97,7 @@ export function useGeolocation(): UseGeolocationResult {
     };
 
     const onError = (err: GeolocationPositionError) => {
+      if (gen !== generation.current) return;
       const mapped = mapReason(err?.code);
       // Retry once with high-accuracy on timeout. The low-accuracy Wi-Fi/IP
       // path often stalls indoors on cellular; GPS is slower but more
@@ -123,6 +128,7 @@ export function useGeolocation(): UseGeolocationResult {
   }, []);
 
   const clear = useCallback(() => {
+    generation.current += 1;
     setCoords(null);
     setStatus('idle');
     setReason(null);

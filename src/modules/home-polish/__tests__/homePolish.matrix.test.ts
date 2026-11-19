@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, beforeEach } from 'vitest';
-import { menuRows, SUPPORT_LINKS, type MenuRole } from '../menuModel';
+import { feedEndRows, menuRows, SUPPORT_LINKS, type MenuRole } from '../menuModel';
 import { matchesCats, formatMiles, readNearestPref, writeNearestPref, type ChipCat } from '../chips';
 import { searchGroupOf } from '../searchFilter';
 import { clearRecent, pushRecent, readRecent } from '../recentSearches';
@@ -32,6 +32,14 @@ describe('menu rows per role', () => {
     }
     expect(browse.find((r) => r.id === 'community')?.external).toBe(true);
   });
+  it.each([[true, ['organisers', 'venues', 'raffles']], [false, ['organisers', 'venues']]] as const)(
+    'end-of-feed block mirrors the menu rows (raffles %s)',
+    (on, ids) => {
+      const rows = feedEndRows('/city/london-gb/venues', on);
+      expect(rows.map((r) => r.id)).toEqual(ids);
+      expect(rows.find((r) => r.id === 'venues')?.href).toBe('/city/london-gb/venues');
+    },
+  );
   it('support has exactly the three Stripe links', () => {
     expect(SUPPORT_LINKS.map((s) => s.label)).toEqual(['£3', '£5', '£10']);
     for (const s of SUPPORT_LINKS) expect(s.href.startsWith('https://buy.stripe.com/')).toBe(true);

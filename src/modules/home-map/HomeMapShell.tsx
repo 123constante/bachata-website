@@ -65,6 +65,7 @@ import { ATTR } from './basemapTiles';
 import { Link } from 'react-router-dom';
 import { flags } from '@/lib/featureFlags';
 import { buildCityPath } from '@/lib/cityPath';
+import { feedEndRows } from '@/modules/home-polish/menuModel';
 
 // Leaflet + every viewport-branched map control. Lazy AND mapMounted-gated, so
 // the module is never even imported on the server.
@@ -185,16 +186,13 @@ function TonightBody({ state }: { state: UseMapListResult }) {
 
 /** homePolish end-of-feed link block (critique add): where to go next once the feed runs out. */
 function FeedEndLinks({ citySlug }: { citySlug?: string | null }) {
-  const links = [
-    { label: 'Organisers', emoji: '\u{1F3AA}', href: '/organisers' },
-    { label: 'Venues', emoji: '\u{1F3DB}\u{FE0F}', href: buildCityPath(citySlug ?? null, 'venues') },
-    ...(flags.rafflesPage ? [{ label: 'Raffles', emoji: '\u{1F381}', href: '/raffles' }] : []),
-  ];
+  // The SAME rows the menu sheet shows (one mapping, never two copies).
+  const links = feedEndRows(buildCityPath(citySlug ?? null, 'venues'), flags.rafflesPage);
   return (
     <nav aria-label="More to explore" className="mt-6 grid grid-cols-3 gap-2">
       {links.map((l) => (
         <Link
-          key={l.label}
+          key={l.id}
           to={l.href}
           className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-border bg-muted/30 px-2 text-[13px] font-bold text-foreground no-underline hover:bg-muted/50"
         >
