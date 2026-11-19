@@ -126,6 +126,10 @@ export const flags = {
   // (Near me inside it), poster-thumb feed rows. Needs homePolish ON (it builds on that chip row + Today tab).
   // OFF = every screen exactly as before. Turn on with VITE_ENABLE_HOME_FEED_LOOK=true (Vercel env) -- no code change.
   homeFeedLook:        import.meta.env.VITE_ENABLE_HOME_FEED_LOOK === 'true' && import.meta.env.VITE_ENABLE_HOME_POLISH === 'true',
+  // Dashboard switch, Round-4 everywhere (docs/briefs/dashboard-switch-build.md): the Switch profile sheet in the
+  // dancer app and organiser area, the organiser Switch page and the Sign out link at the foot of Account settings.
+  // OFF = every screen exactly as before. Turn on with VITE_ENABLE_DASHBOARD_SWITCH_R4=true (Vercel env) -- no code change.
+  dashboardSwitchR4:   import.meta.env.VITE_ENABLE_DASHBOARD_SWITCH_R4 === 'true',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the
