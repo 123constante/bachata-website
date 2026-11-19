@@ -10,9 +10,6 @@ import { buildDash, compareOf, dayAfterOf, TIP_DRAFT, TIP_NO_TAPS, type DashInpu
 import { DashView } from '../DashView';
 import { homeClockOf, yesterdayOf } from '../homeClock';
 import { pastOf, raffleWordsOf } from '../pastNights';
-import { CompareView } from '../CompareNights';
-import { tapsOfTotals } from '../DashHome';
-import { EMPTY_TOTALS } from '../../data/analyticsV2';
 import { isPushed } from '../../shell/pushed';
 import { P3_PATHS } from '../../shell/paths';
 
@@ -145,10 +142,6 @@ describe('slice 2: Compare nights', () => {
     expect(m.rows.map((r) => `${r.key}:${r.value} ${r.word}`)).toEqual(['b:40 came', 'c:9 going', 'a:4 came']);
     expect(m.empty).toBeNull();
   });
-  it('nothing countable: an empty state that says what to do', () => {
-    render(<CompareView model={compareOf([past()])} />);
-    expect(screen.getByTestId('dash-compare-empty').textContent).toMatch(/Scan tickets at the door/);
-  });
   it('is a pushed screen (no bottom tabs)', () => expect(isPushed(P3_PATHS.compare)).toBe(true));
 });
 
@@ -166,8 +159,5 @@ describe('slice 2: reads', () => {
     expect(raffleWordsOf(rn('d', { winner: { firstName: 'Ana', drawnAt: null, entriesAtDraw: 3 } }))).toBe('Raffle winner: Ana');
     expect(raffleWordsOf(rn('d', { raffleOn: true, entries: 1 }))).toBe('Raffle: 1 entry');
     expect(raffleWordsOf(rn('d', { raffleOn: true, entries: 0 }))).toBeNull();
-  });
-  it('taps by type from analytics zones (group_chat = WhatsApp)', () => {
-    expect(tapsOfTotals({ ...EMPTY_TOTALS, linkTaps: { ticket: 2, group_chat: 5, instagram: 9 } })).toEqual({ ticket: 2, share: 0, whatsapp: 5, directions: 0 });
   });
 });

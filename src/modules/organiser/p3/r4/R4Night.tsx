@@ -18,7 +18,7 @@ import { WorkspaceGate } from '../screens/EventPage';
 import type { SendOnce } from '../screens/CancelEventSheet';
 import { useToast } from '../screens/Toast';
 import { P3_BASE, P3_PATHS } from '../shell/paths';
-import { EVENT_PARAM } from './eventChoice';
+import { EVENT_PARAM } from './eventChoiceModel';
 import { useEventChoice } from './EventChoice';
 import { nightsOfChoice } from './r4Nights';
 import { R4CancelSheet } from './R4CancelSheet';
