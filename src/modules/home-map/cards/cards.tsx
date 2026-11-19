@@ -369,7 +369,6 @@ function LookRow({
 }) {
   const cancelled = event.is_cancelled;
   const hour = event.start_time ? event.start_time.slice(11, 16) : '';
-  const cat = deriveCategory(event);
   const open = () => onSelect(event.occurrence_id);
   return (
     <div
@@ -398,20 +397,29 @@ function LookRow({
             <span className={cn('min-w-0 truncate text-[15px] font-bold leading-tight', cancelled && 'line-through')}>{event.name}</span>
             {isTodayRow(event, today) && <LiveBadge event={event} today={today} />}
           </span>
+          {/* FEED CARD CONTENT RULE (owner 2026-11-19): name, Class/Party time lines (dot + start-end),
+              venue; Added/Updated stamp stays on the RIGHT as on the old card. Look may change, content may not. */}
+          <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5" data-feed-times="">
+            <TimePills event={event} className="text-[13px]" />
+            {(event.lat == null || event.lng == null) && <OffMapTag />}
+          </span>
+          {event.festivalDateRange && (
+            <span className="mt-0.5 block text-[13px] font-semibold text-primary">{event.festivalDateRange}</span>
+          )}
           {event.venue_name && (
-            <span className="mt-0.5 block truncate text-[13px] text-[hsl(var(--hm-look-dim))]">
+            <span className="mt-0.5 block truncate text-[13px] text-[hsl(var(--hm-look-dim))]" data-feed-venue="">
               {event.venue_name}
               {event.area ? `, ${event.area}` : ''}
             </span>
           )}
-          <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[13px] text-[hsl(var(--hm-look-dim))]">
-            <span className="font-bold" style={{ color: `color-mix(in srgb, ${CATEGORY_COLORS[cat]} 80%, white)` }}>{CATEGORY_LABEL[cat]}</span>
-            {formatTimeRange(event) && <span>{formatTimeRange(event)}</span>}
-            {mi != null && <span className="font-semibold tabular-nums">{flags.nearMe ? formatNearMiles(mi) : `${mi < 10 ? mi.toFixed(1) : Math.round(mi)} mi`}</span>}
-            {cancelled && <span className="font-bold uppercase text-[#E2415C]">Cancelled</span>}
-            {stamp && !cancelled && <span className="font-semibold text-[hsl(var(--hm-look-amber))]">New</span>}
-          </span>
         </span>
+        {cancelled ? (
+          <CancelPill />
+        ) : stamp ? (
+          <FreshnessClock event={event} />
+        ) : mi != null ? (
+          <DistanceChip mi={mi} />
+        ) : null}
       </a>
       <button
         type="button"
