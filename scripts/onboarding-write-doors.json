@@ -41,6 +41,10 @@
   },
   "not_event_writes": [
     {
+      "name": "ticket_undo_check_in_v1",
+      "reason": "Organiser R4 slice c (admin 20261119000746): door Undo takes back one ticket's check-in for tonight; a door action like ticket_check_in_by_id_v3, not an event edit. Gated by door permission (team or door seat for that night) inside the RPC, audited in ticket_check_in_undos."
+    },
+    {
       "name": "organiser_night_reminder_set_v1",
       "reason": "Slice 5: the buyer-reminder switch on one night (admin 20261117213327); a send setting, not an event edit. Gated by team role (owner/manager) inside the RPC."
     },
