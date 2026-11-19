@@ -129,10 +129,6 @@ function Body({ c }: { c: EventChoice }) {
           )}
         </div>
       )}
-      <div className="r4-section">
-        <button type="button" className="r4-btn r4-btn-42" disabled aria-describedby="r4-tix-msg-why" data-testid="r4-tix-message">Message everyone who bought</button>
-        <p id="r4-tix-msg-why" className="r4-hint">{m.messageWhy}</p>
-      </div>
       <div className="r4-card r4-list" data-testid="r4-tix-rows">
         <div>
           <Link to={P3_PATHS.eventPrices(row.id)} className="r4-row" data-testid="r4-tix-batches">
