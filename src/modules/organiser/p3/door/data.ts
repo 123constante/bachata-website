@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import type { CheckIn } from './model';
+import { undoKindOf, type CheckIn, type UndoAnswer } from './model';
 
 /*
  * The door reads: the v3 door functions (admin migration 20270323020000_festival_day_tickets_s2a_v1,
@@ -68,6 +68,20 @@ export async function checkInById(ticketId: string, seriesId: string): Promise<C
   const { data, error } = await db().rpc('ticket_check_in_by_id_v3', { p_ticket_id: ticketId, p_event_series_id: seriesId, p_occurrence_id: NO_NIGHT });
   if (error) throw error.code === '42501' ? new SignedOutError() : error;
   return parseCheckIn(data);
+}
+
+/*
+ * Door Undo (admin 20261119000746_organiser_r4_backend_v1, live on prod): takes back ONE ticket's
+ * check-in for the night the server picks (sent null, as above). Idempotent: a second call answers
+ * ok with undone false. Audited server-side (ticket_check_in_undos). Who may undo is the database's
+ * call (anyone who may scan that night, a door seat included). Signature read from prod pg_proc:
+ * ticket_undo_check_in_v1(p_ticket_id uuid, p_event_series_id uuid, p_occurrence_id uuid).
+ */
+export async function undoCheckIn(ticketId: string, seriesId: string): Promise<UndoAnswer> {
+  const { data, error } = await db().rpc('ticket_undo_check_in_v1', { p_ticket_id: ticketId, p_event_series_id: seriesId, p_occurrence_id: NO_NIGHT });
+  if (error) throw error.code === '42501' ? new SignedOutError() : error;
+  const r = (data ?? {}) as Record<string, unknown>;
+  return { kind: undoKindOf(r.result, r.undone), in_count: num(r.in_count), total_count: num(r.total_count) };
 }
 
 export interface DoorRow { ticketId: string; firstName: string | null; quantity: number | null; typeName: string | null; checkedInAt: string | null }

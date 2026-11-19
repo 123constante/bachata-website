@@ -96,7 +96,8 @@ describe('R4 door: Search tab x shape x short codes', () => {
     fireEvent.click(screen.getByTestId('door-tab-list'));
     const btns = await screen.findAllByTestId('door-row-checkin');
     await act(async () => { fireEvent.click(btns[0]); });
-    expect((await screen.findByTestId('door-toast')).textContent).toContain('Zoe is in. 2 of 3 in.');
+    // slice c: the toast after a tick carries Undo, so it is the Undo bar (door.undo.matrix)
+    expect((await screen.findByTestId('door-undo-text')).textContent).toContain('Zoe is in. 2 of 3 in.');
     expect(screen.queryByTestId('door-result')).toBeNull();
     expect(rpc.mock.calls.filter(([fn]) => fn === 'ticket_check_in_by_id_v3')).toHaveLength(1);
   });

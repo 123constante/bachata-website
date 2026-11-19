@@ -284,3 +284,38 @@ export function cameraSteps(b: DoorBrowser): string[] {
   if (b === 'chrome') return [`Tap the padlock (or the settings icon) next to the address.`, 'Tap Permissions, then Camera.', 'Choose Allow.', back];
   return ['Open your browser settings for this site and set Camera to Allow.', back];
 }
+
+/**
+ * Door Undo (organiser R4 slice c): what ticket_undo_check_in_v1 answered, in the screen's words.
+ * undone = the check-in was taken back; already = ok but nothing to take back (a second tap, or
+ * someone else undid it); ended = wrong_night (the night has ended); not_allowed = not on this
+ * night's team; refused = any other refusal; error = the call itself failed (retry).
+ */
+export type UndoKind = 'undone' | 'already' | 'ended' | 'not_allowed' | 'refused' | 'error';
+export const UNDO_KINDS: readonly UndoKind[] = ['undone', 'already', 'ended', 'not_allowed', 'refused', 'error'];
+
+export interface UndoAnswer { kind: Exclude<UndoKind, 'error'>; in_count: number | null; total_count: number | null }
+
+/** The one mapping from the RPC's result + undone to the words below. */
+export function undoKindOf(result: unknown, undone: unknown): Exclude<UndoKind, 'error'> {
+  if (result === 'ok') return undone === true ? 'undone' : 'already';
+  if (result === 'wrong_night') return 'ended';
+  if (result === 'not_allowed') return 'not_allowed';
+  return 'refused';
+}
+
+export const UNDO_LABEL = 'Undo';
+export const UNDO_RETRY_LABEL = 'Try again';
+
+/** The line shown after Undo; `who` is a first name (never money, same as the door). */
+export function undoText(kind: UndoKind, who: string | null): string {
+  const name = who?.trim() || 'This ticket';
+  switch (kind) {
+    case 'undone': return `Undone. ${name} is no longer checked in.`;
+    case 'already': return `Already undone. ${name} is not checked in.`;
+    case 'ended': return 'This night has ended, so it cannot be undone';
+    case 'not_allowed': return `You cannot undo check-ins for this event. Ask the event${RSQ}s organiser.`;
+    case 'refused': return 'This check-in cannot be undone.';
+    case 'error': return 'Could not undo. Check the signal, then tap Try again.';
+  }
+}

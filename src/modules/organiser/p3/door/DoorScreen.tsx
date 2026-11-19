@@ -27,13 +27,17 @@ import {
   parseCode,
   personOf,
   r4ToastText,
+  undoText,
+  UNDO_LABEL,
+  UNDO_RETRY_LABEL,
+  type UndoKind,
   type CameraState,
   type CheckIn,
   type DoorResult,
   type NextAction,
   type TypedCode,
 } from './model';
-import { checkInById, checkInByCode, checkInTicket, doorKeys, fetchDoorList, isSignedOut, type DoorList } from './data';
+import { checkInById, checkInByCode, checkInTicket, doorKeys, fetchDoorList, isSignedOut, undoCheckIn, type DoorList } from './data';
 import { browserDeps, buzz, useScanner, type ScannerDeps } from './camera';
 
 /*
@@ -69,6 +73,12 @@ const SITE_HOME = { to: '/', label: 'Back to Bachata Calendar' } as const;
 
 /** The toast after a Search-tab tick on the R4 look (boards R4DoorSearch): "<name> is in. N of M in." */
 interface Toast { id: number; text: string }
+/**
+ * Door Undo (R4 slice c): the last list check-in that let someone in, while it can be taken back.
+ * Only a list tick carries the ticket id; a scanned or typed code's answer has none (the v3
+ * check-in replies do not return it), so Undo shows after a list check-in only.
+ */
+interface Undo { ticketId: string; name: string | null; text: string; phase: 'ready' | 'running' | UndoKind }
 
 export function Door({ seatOnly = false, ...p }: DoorProps & { seatOnly?: boolean }) {
   return <SeatOnly.Provider value={seatOnly}><DoorInner {...p} /></SeatOnly.Provider>;
@@ -99,11 +109,14 @@ function DoorInner({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode, 
   const [rechecking, setRechecking] = useState(false);
   const [recheckNote, setRecheckNote] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
+  const [undo, setUndo] = useState<Undo | null>(null);
+  const undoRef = useRef(false);
   useEffect(() => {
-    if (!toast) return undefined;
+    // a toast carrying Undo stays until OK: 4 seconds is too short to notice a wrong tick
+    if (!toast || undo) return undefined;
     const t = window.setTimeout(() => setToast((x) => (x?.id === toast.id ? null : x)), 4000);
     return () => window.clearTimeout(t);
-  }, [toast]);
+  }, [toast, undo]);
   const gate = useRef(createScanGate());
   const busyRef = useRef(false);
   // the code whose answer is on screen: held in front of the camera it never re-fires (an ok
@@ -117,11 +130,12 @@ function DoorInner({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode, 
   const noneSold = list.data?.result === 'ok' && list.data.totalCount === 0;
   const out = signedOut || isSignedOut(list.error);
 
-  const run = useCallback(async (code: string, call: () => Promise<CheckIn>, from: Tab = 'scan') => {
+  const run = useCallback(async (code: string, call: () => Promise<CheckIn>, from: Tab = 'scan', ticketId: string | null = null) => {
     // one check at a time, whatever started it: no double submit
-    if (busyRef.current) return;
+    if (busyRef.current || undoRef.current) return;
     busyRef.current = true;
     setBusy(true);
+    setUndo(null);
     try {
       const c = await call();
       setRecheckNote(null);
@@ -131,6 +145,7 @@ function DoorInner({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode, 
         setShown(null);
         setToast({ id: Date.now(), text: r4ToastText(c) });
       } else setShown({ kind: c.result, c, from });
+      if (ticketId && c.result === 'ok') setUndo({ ticketId, name: c.first_name, text: r4ToastText(c), phase: 'ready' });
       buzz(RESULT_TABLE[c.result].vibrate);
       if (c.in_count != null && c.total_count != null) setCounts({ in: c.in_count, total: c.total_count });
       if (c.result === 'ok' || c.result === 'already_in') void qc.invalidateQueries({ queryKey: doorKeys.list(uid, seriesId) });
@@ -205,8 +220,31 @@ function DoorInner({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode, 
   const checkInRow = (ticketId: string) => {
     if (busyRef.current) return;
     setPendingId(ticketId);
-    void run(`id:${ticketId}`, () => checkInById(ticketId, seriesId), 'list');
+    void run(`id:${ticketId}`, () => checkInById(ticketId, seriesId), 'list', ticketId);
   };
+  const undoLast = async () => {
+    // one Undo at a time, and never while a check is running: a double tap sends one call
+    if (!undo || undoRef.current || busyRef.current) return;
+    undoRef.current = true;
+    const { ticketId, name } = undo;
+    setUndo((u) => (u ? { ...u, phase: 'running' } : u));
+    let phase: UndoKind;
+    try {
+      const a = await undoCheckIn(ticketId, seriesId);
+      phase = a.kind;
+      if (a.in_count != null && a.total_count != null) setCounts({ in: a.in_count, total: a.total_count });
+      if (a.kind === 'undone' || a.kind === 'already') {
+        setShown(null);
+        void qc.invalidateQueries({ queryKey: doorKeys.list(uid, seriesId) });
+      }
+    } catch (e) {
+      if (isSignedOut(e)) { setSignedOut(true); undoRef.current = false; setUndo(null); return; }
+      phase = 'error';
+    }
+    undoRef.current = false;
+    setUndo((u) => (u && u.ticketId === ticketId ? { ...u, name, phase } : u));
+  };
+  const closeUndo = () => { if (!undoRef.current) { setUndo(null); setToast(null); } };
 
   return (
     <div className={`p3-theme p3-frame p3-door${r4 ? ' r4-door' : ''}`} data-testid="door-screen" data-look={r4 ? 'r4' : undefined}>
@@ -260,12 +298,34 @@ function DoorInner({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode, 
           />
         )}
       </main>
-      {r4 && toast && tab === 'list' && (
+      {undo && tab === 'list' && !out && <UndoBar undo={undo} onUndo={() => { void undoLast(); }} onClose={closeUndo} />}
+      {r4 && toast && !undo && tab === 'list' && (
         <div className="r4-door-toast" role="status" data-testid="door-toast">
           <span>{toast.text}</span>
           <button type="button" onClick={() => setToast(null)} data-testid="door-toast-close">OK</button>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Undo after a list check-in: the check-in line, then Undo (44px); after it, the answer in plain words. */
+function UndoBar({ undo, onUndo, onClose }: { undo: Undo; onUndo: () => void; onClose: () => void }) {
+  const running = undo.phase === 'running';
+  const canTap = undo.phase === 'ready' || running || undo.phase === 'error';
+  const text = undo.phase === 'ready' || running ? undo.text : undoText(undo.phase, undo.name);
+  return (
+    <div className="p3-door-undo" role="status" data-testid="door-undo" data-phase={undo.phase}>
+      <span data-testid="door-undo-text">{text}</span>
+      <span className="p3-door-undo-acts">
+        {canTap && (
+          <button
+            type="button" className="p3-door-undo-btn" data-testid="door-undo-btn" disabled={running} aria-busy={running || undefined}
+            onClick={onUndo}
+          >{running ? <>Undoing&hellip;</> : undo.phase === 'error' ? UNDO_RETRY_LABEL : UNDO_LABEL}</button>
+        )}
+        <button type="button" className="p3-door-undo-ok" onClick={onClose} disabled={running} data-testid="door-undo-close">OK</button>
+      </span>
     </div>
   );
 }
