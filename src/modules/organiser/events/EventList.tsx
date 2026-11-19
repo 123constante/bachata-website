@@ -3,7 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { londonTodayKey } from '@/lib/londonDate';
+import { flags } from '@/lib/featureFlags';
 import { lifeChip } from '@/modules/organiser/jobs/homeJobs';
+import { readinessOf, readinessSummary } from './readiness';
 import { seriesLife, type Life } from '@/modules/organiser/shared/lifeLabel';
 import { useOrganiserChoice } from '@/modules/organiser/switch/useOrganiserChoice';
 import { ORG_PATHS } from '../shell';
@@ -22,13 +24,36 @@ const lifeOf = (s: ListedSeries): Life => seriesLife(s, s.upcoming_count);
 function EventRow({ series, today }: { series: ListedSeries; today: string }) {
   // The chip is Home's own mapping (jobs/homeJobs lifeChip): a fact never reads differently on two screens.
   const chip = lifeChip(series, today);
-  return (
+  const link = (
     <Link to={ORG_PATHS.event(series.id)} data-testid="org-event-row" data-series-id={series.id}
       className="flex min-h-[56px] items-center gap-[12px] px-[16px] py-[8px]">
       <span className="line-clamp-2 min-w-0 flex-1 break-words text-[15px] font-semibold leading-[19px] text-[var(--fg)]">{series.name}</span>
       <span data-testid="org-event-chip" className={cn('shrink-0 rounded-full px-[8px] py-[2px] text-[12px] font-semibold', TONE[chip.tone])}>{chip.label}</span>
       <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
     </Link>
+  );
+  if (!flags.organiserEditorV2) return link;
+  const dots = readinessOf(series);
+  const sum = readinessSummary(dots);
+  const btn = 'flex h-[44px] flex-1 items-center justify-center rounded-[10px] text-[14px] font-semibold';
+  return (
+    <div data-testid="org-event-row-v2">
+      {link}
+      <div className="px-[16px] pb-[12px]">
+        <div data-testid="org-event-ready" className="flex items-center gap-[6px]">
+          <span aria-hidden="true" className="flex shrink-0 gap-[4px]">
+            {dots.map((d) => (
+              <span key={d.key} data-filled={d.filled} className={cn('h-[8px] w-[8px] rounded-full', d.filled ? 'bg-orange-500' : 'bg-[var(--card2)] ring-1 ring-[var(--mut)]/40')} />
+            ))}
+          </span>
+          <span className="min-w-0 text-[12px] leading-[16px] text-[var(--mut)]">{sum.text}</span>
+        </div>
+        <div className="mt-[8px] flex gap-[8px]">
+          <Link to={ORG_PATHS.event(series.id)} data-testid="org-event-edit" className={cn(btn, 'bg-orange-500 text-white')}>Edit</Link>
+          <Link to={ORG_PATHS.cancelEvent(series.id)} data-testid="org-event-cancel" className={cn(btn, 'bg-[var(--card2)] text-[var(--danger)]')}>Cancel</Link>
+        </div>
+      </div>
+    </div>
   );
 }
 
