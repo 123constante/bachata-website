@@ -13,3 +13,7 @@ Branch `feat/organiser-r4-money-per-night`. Brief: `docs/briefs/organiser-r4-mon
 ## Left / next steps
 - Owner phone test with the flag on against a real ticketed event (prod has 2 paid orders on 3 ticketed series, so most real nights show no tile).
 - Booking fees never seen in prod yet (0 orders with a fee): the quiet line for fees is fixture-only.
+
+## Status
+- PR #1803. tsc run on the final head: 0 errors in branch files (139 total = origin/main).
+- Not verified: signed-in prod walk, 360x640, real phone, Vercel preview (needs owner: Vercel token).
