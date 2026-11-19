@@ -1,5 +1,6 @@
 // Pure auth-routing decisions for the magic-link flow, kept out of the page
 // components so they can be unit-tested without a Supabase client.
+import { isDoorReturnTo } from "./doorLink";
 import { WHATSAPP_GET_LISTED_URL, dancerMessageUsUrl } from "@/lib/contactLinks";
 import { AREA_PATHS } from "@/lib/areaPaths";
 import { P3_START_PATH } from "@/lib/p3StartPath";
@@ -96,8 +97,8 @@ export function shouldHonorReturnTo(input: {
   if (!input.isSignupFlow) return true;
   // A ticket buyer's sign-up returns to their tickets whatever the organiser flag says. Exact paths only.
   if (isBuyerTicketsReturnTo(input.returnTo)) return true;
-  // A door invite link (organiser R4 slice a) is the whole task: a new account comes back to it whatever the flags.
-  if (/^\/door\/join\/[0-9a-f]{64}$/.test(input.returnTo)) return true;
+  // A door invite link or a seat-only door (organiser R4 slice a) is the whole task: a new account comes back to it whatever the flags.
+  if (isDoorReturnTo(input.returnTo)) return true;
   if (!input.organiserSelfServe) return false;
   return !input.organiserSignup || isTaskReturnTo(input.returnTo);
 }

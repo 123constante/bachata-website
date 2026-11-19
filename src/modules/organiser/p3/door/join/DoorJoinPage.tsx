@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
 import { buildSignInHref } from '@/lib/authRouting';
 import { acceptDoorSeat } from './doorJoinApi';
-import { DOOR_JOIN_COPY as C, DOOR_PATHS, DOOR_TOKEN_RE, accessEndsWord, joinStepOf, type JoinIn } from './doorJoinModel';
+import { DOOR_JOIN_COPY as C, DOOR_PATHS, DOOR_TOKEN_RE, joinStepOf, type JoinIn } from './doorJoinModel';
 
 type Accept = JoinIn['accept'];
 
@@ -12,7 +12,8 @@ type Accept = JoinIn['accept'];
  * /door/join/:token -- a door person opens the organiser's link here (organiser R4 slice a).
  * Live whatever the organiser flags: a link must work for the person it was sent to. Signed out:
  * sign in (the site's own sign-in page), come back to this same link, then it accepts once.
- * The token never reaches a log, a Referer header, or the history once it is used up.
+ * The token never reaches a log or a Referer header, and leaves the history once it is used up or accepted
+ * (signed out, it rides in the sign-in returnTo: the only way back to the same link).
  */
 export default function DoorJoinPage({ accept = acceptDoorSeat }: { accept?: typeof acceptDoorSeat }) {
   useNoindexMeta(true);
@@ -21,7 +22,8 @@ export default function DoorJoinPage({ accept = acceptDoorSeat }: { accept?: typ
     meta.name = 'referrer';
     meta.content = 'no-referrer';
     document.head.appendChild(meta);
-    return () => { meta.remove(); };
+    // Removing a referrer meta does not undo it: hand the document back the browser default first.
+    return () => { meta.content = 'strict-origin-when-cross-origin'; meta.remove(); };
   }, []);
   const { token = '' } = useParams<{ token: string }>();
   const navigate = useNavigate();
@@ -55,7 +57,6 @@ export default function DoorJoinPage({ accept = acceptDoorSeat }: { accept?: typ
   useEffect(() => {
     if (step === 'ok' && seriesId) navigate(DOOR_PATHS.seat(seriesId), { replace: true });
   }, [step, seriesId, navigate]);
-  const ends = typeof res === 'object' ? accessEndsWord(res.expiresAt) : null;
   const here = DOOR_PATHS.join(token);
 
   return (
@@ -71,8 +72,8 @@ export default function DoorJoinPage({ accept = acceptDoorSeat }: { accept?: typ
         </>
       ) : step === 'ok' && seriesId ? (
         <>
-          <p style={{ fontSize: 17, fontWeight: 500, margin: '0 0 8px' }} data-testid="door-join-msg">{C.ok}</p>
-          {ends && <p style={{ fontSize: 15, margin: '0 0 20px', color: '#57534e' }} data-testid="door-join-ends">{C.okUntil(ends)}</p>}
+          {/* Shown only for the moment before the effect above moves on; the button is the fallback. */}
+          <p style={{ fontSize: 17, fontWeight: 500, margin: '0 0 20px' }} data-testid="door-join-msg">{C.ok}</p>
           <button type="button" style={BTN} onClick={() => navigate(DOOR_PATHS.seat(seriesId), { replace: true })} data-testid="door-join-open">{C.openDoor}</button>
         </>
       ) : step === 'profile' ? (

@@ -17,6 +17,8 @@ const CASES: Array<[string, Partial<R4DoorInviteIn>, Want]> = [
   ['next night known, not tapped yet', {}, { load: 'ready', pick: 'Friday Social, Friday 20 November', why: null, can: true, preview: 's1', pickable: true, link: null }],
   ['one event on the page', { many: false }, { load: 'ready', pick: 'Friday Social, Friday 20 November', why: null, can: true, preview: 's1', pickable: false, link: null }],
   ['night id not found yet', { occurrenceId: null }, { load: 'ready', pick: 'Friday Social, Friday 20 November', why: C.noOccurrence, can: false, preview: 's1', pickable: true, link: null }],
+  ['dates still loading: Copy waits, says nothing', { occurrenceId: null, nightRead: 'loading' }, { load: 'ready', pick: 'Friday Social, Friday 20 November', why: null, can: false, preview: 's1', pickable: true, link: null }],
+  ['dates read failed: says so (Try again is on screen)', { occurrenceId: null, nightRead: 'error' }, { load: 'ready', pick: 'Friday Social, Friday 20 November', why: C.nightFailed, can: false, preview: 's1', pickable: true, link: null }],
   ['no night coming up', { event: ev(null), occurrenceId: null }, { load: 'ready', pick: 'Friday Social, no night coming up', why: C.noNight, can: false, preview: 's1', pickable: true, link: null }],
   ['no name yet', { event: ev('2026-11-20', '  ') }, { load: 'ready', pick: 'No name yet, Friday 20 November', why: null, can: true, preview: 's1', pickable: true, link: null }],
   ['ticketing off: no door preview', { doorOn: false }, { load: 'ready', pick: 'Friday Social, Friday 20 November', why: null, can: true, preview: null, pickable: true, link: null }],
@@ -42,6 +44,11 @@ describe('R4DoorInvite model x shape', () => {
   });
   it('the LINK card says when access ends, in London time', () => {
     expect(r4DoorInviteOf({ ...base, mint: { result: 'ok', token: TOKEN, expiresAt: '2026-11-21T11:30:00Z' } }).link?.ends).toBe('Saturday 21 November, 11:30am');
+  });
+  it('Try again for the dates read shows only when that read failed', () => {
+    expect(r4DoorInviteOf({ ...base, occurrenceId: null, nightRead: 'error' }).nightRetry).toBe(true);
+    expect(r4DoorInviteOf({ ...base, occurrenceId: null, nightRead: 'loading' }).nightRetry).toBe(false);
+    expect(r4DoorInviteOf({ ...base, nightRead: 'error' }).nightRetry).toBe(false);
   });
   it('the old "not ready yet" copy is gone', () => {
     expect(JSON.stringify(C)).not.toMatch(/not ready yet/);

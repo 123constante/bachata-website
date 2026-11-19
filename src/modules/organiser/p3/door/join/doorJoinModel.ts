@@ -8,21 +8,14 @@
  *   ticket_door_seat_invite_v1(p_event_series_id, p_occurrence_id) -> { result, token, expires_at }
  *     result: ok | not_allowed | organiser_ambiguous | occurrence_not_live | occurrence_ended
  * The raw token (64 hex) is returned ONCE by the invite call; only its hash is stored.
+ * The signed-out return carries the token in the sign-in returnTo (the only way back to the same link);
+ * it is single use, and the address bar drops it once the link is used up or accepted.
  * There is no anon preview of a door link, so a signed-out visitor is told to sign in without
  * naming the event: the page cannot know it until the accept call runs.
  */
 
-/** Door base: the seat-only door screen and the accept page live outside the organiser area. */
-export const DOOR_BASE = '/door';
-export const DOOR_PATHS = {
-  join: (token: string) => `${DOOR_BASE}/join/${encodeURIComponent(token)}`,
-  /** The bare accept path the address bar is left on once a token has been used up. */
-  joinDone: `${DOOR_BASE}/join`,
-  seat: (seriesId: string) => `${DOOR_BASE}/${encodeURIComponent(seriesId)}`,
-} as const;
-
-/** ticket_door_seat_invite_v1 mints encode(gen_random_bytes(32), 'hex'). */
-export const DOOR_TOKEN_RE = /^[0-9a-f]{64}$/;
+import { DOOR_TOKEN_RE } from '@/lib/doorLink';
+export { DOOR_BASE, DOOR_PATHS, DOOR_TOKEN_RE, doorInviteUrl } from '@/lib/doorLink';
 
 export type AcceptResult = 'ok' | 'unknown_invite' | 'invite_ended' | 'invite_used' | 'seat_revoked' | 'profile_incomplete';
 export interface AcceptAnswer { result: AcceptResult; seriesId: string | null; expiresAt: string | null }
@@ -74,7 +67,6 @@ export const DOOR_JOIN_COPY = {
   checking: 'Checking your sign-in\u2026',
   accepting: 'Opening the door\u2026',
   ok: 'You are on the door.',
-  okUntil: (when: string) => `Access ends ${when}.`,
   openDoor: 'Open the door screen',
   ended: 'This link has stopped working. Ask the organiser for a new one.',
   used: 'Someone else has already used this link. Each link works for one person. Ask the organiser for a new one.',

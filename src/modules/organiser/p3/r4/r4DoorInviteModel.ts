@@ -7,7 +7,7 @@
  * door person opens it at /door/join/:token (door/join/DoorJoinPage). Access ends 12 hours after the
  * night (the server's _door_seat_window_v1), and the door screen shows first names, never money.
  */
-import { DOOR_MINT_FAILED, DOOR_MINT_WHY, DOOR_PATHS, accessEndsWord, type MintAnswer } from '../door/join/doorJoinModel';
+import { DOOR_MINT_FAILED, DOOR_MINT_WHY, accessEndsWord, doorInviteUrl, type MintAnswer } from '../door/join/doorJoinModel';
 
 export interface R4DoorInviteIn {
   load: 'loading' | 'error' | 'ready';
@@ -18,6 +18,8 @@ export interface R4DoorInviteIn {
   doorOn: boolean;
   /** The next night's occurrence id (from the event's dates), or null while unknown / not found. */
   occurrenceId?: string | null;
+  /** The read of the event's dates that gives occurrenceId. */
+  nightRead?: 'loading' | 'error' | 'ready';
   /** The mint on tap: not tried, running, failed (unknown answer), or the server's answer. */
   mint?: 'idle' | 'running' | 'failed' | MintAnswer;
   /** The site's origin, for the full link. */
@@ -37,6 +39,8 @@ export interface R4DoorInviteModel {
   facts: string[];
   /** The door screen of the chosen event, or null when there is none to show. */
   previewFor: string | null;
+  /** The dates read failed: the page offers Try again for it. */
+  nightRetry: boolean;
   /** The LINK card, once a link was made. */
   link: { url: string; ends: string | null } | null;
 }
@@ -52,7 +56,9 @@ export const R4_DOOR_INVITE_COPY = {
   shareText: 'Your door link for tonight. Open it on your phone to scan tickets.',
   oneUse: 'Each link works for one person. Make a new one for each door person.',
   noNight: 'There is no night coming up to invite door staff to.',
-  noOccurrence: 'We couldn\u2019t find this night yet. Try again in a moment.',
+  noOccurrence: 'This night is not in the event\u2019s dates. Pick the event again, or check its dates.',
+  nightFailed: 'We couldn\u2019t load this night. Nothing was changed.',
+  retry: 'Try again',
   ends: 'Access ends 12 hours after the event.',
   names: 'They see names only, never money.',
   preview: 'See what door staff see',
@@ -62,7 +68,7 @@ export const R4_DOOR_INVITE_COPY = {
 const dayWord = (iso: string) =>
   new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).replace(',', '');
 
-const OFF = { canCopy: false, busy: false, link: null } as const;
+const OFF = { canCopy: false, busy: false, link: null, nightRetry: false } as const;
 
 export function r4DoorInviteOf(i: R4DoorInviteIn): R4DoorInviteModel {
   const C = R4_DOOR_INVITE_COPY;
@@ -73,7 +79,10 @@ export function r4DoorInviteOf(i: R4DoorInviteIn): R4DoorInviteModel {
   const mint = i.mint ?? 'idle';
   const busy = mint === 'running';
   const ok = typeof mint === 'object' && mint.result === 'ok' && mint.token ? mint : null;
+  const read = i.nightRead ?? 'ready';
   const copyWhy = !nd ? C.noNight
+    : read === 'loading' && !i.occurrenceId ? null
+    : read === 'error' && !i.occurrenceId ? C.nightFailed
     : !i.occurrenceId ? C.noOccurrence
     : mint === 'failed' ? DOOR_MINT_FAILED
     : typeof mint === 'object' && mint.result !== 'ok' ? DOOR_MINT_WHY[mint.result]
@@ -85,8 +94,9 @@ export function r4DoorInviteOf(i: R4DoorInviteIn): R4DoorInviteModel {
     canCopy: !!nd && !!i.occurrenceId && !busy,
     busy,
     copyWhy,
+    nightRetry: !!nd && read === 'error' && !i.occurrenceId,
     facts: [C.ends, C.names],
     previewFor: i.doorOn ? i.event.id : null,
-    link: ok ? { url: `${i.origin ?? ''}${DOOR_PATHS.join(ok.token as string)}`, ends: accessEndsWord(ok.expiresAt) } : null,
+    link: ok ? { url: doorInviteUrl(i.origin ?? '', ok.token as string), ends: accessEndsWord(ok.expiresAt) } : null,
   };
 }
