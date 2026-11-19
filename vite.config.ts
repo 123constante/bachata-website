@@ -62,6 +62,26 @@ export default defineConfig(({ isSsrBuild }) => ({
           : undefined,
     },
   ],
+  // DEV SERVER ONLY (optimizeDeps never touches `vite build`). The reactRouter()
+  // plugin gives the dep scanner NO entries (its unstable_optimizeDeps future flag is
+  // off), so Vite found each bare import only when a page first loaded the module
+  // that uses it, re-bundled, and answered "optimized dependencies changed.
+  // reloading" -- a full page reload in the middle of whatever was on screen. The
+  // e2e suite runs on a fresh dev server per shard, so the first spec to reach a
+  // lazy route had its page reloaded under it (dancer-home.spec.ts:189 lost
+  // /account/o twice: "2 x navigated to /account/o", then element(s) not found).
+  // Scanning the whole client source up front bundles every dep before the first
+  // request, so no reload can happen mid-test. Tests are excluded: they are never
+  // served to the browser.
+  optimizeDeps: {
+    entries: [
+      "app/**/*.{ts,tsx}",
+      "src/**/*.{ts,tsx}",
+      "!**/*.{test,spec}.{ts,tsx}",
+      "!**/__tests__/**",
+      "!**/*.d.ts",
+    ],
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
