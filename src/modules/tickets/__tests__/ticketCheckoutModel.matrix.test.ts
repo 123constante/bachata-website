@@ -178,7 +178,7 @@ describe('replies and every error reason', () => {
   it('free_daily 429 maps to its own copy with no "held" suffix; hourly 429 unchanged', () => {
     const daily = parseCheckoutReply({ ok: false, reason: 'rate_limited', limit: 'free_daily', message: 'x' }, 429);
     expect(daily).toMatchObject({ kind: 'error', reason: 'free_daily_limit' });
-    expect(reasonCopy('free_daily_limit').text).toBe('You have reached today’s limit of 5 free bookings for this email. Try again tomorrow.');
+    expect(reasonCopy('free_daily_limit').text).toBe("You have reached today's limit of 5 free bookings for this email. Try again tomorrow.");
     expect(reasonCopy('free_daily_limit').text).not.toMatch(/held/);
     expect(parseCheckoutReply({ ok: false, reason: 'rate_limited' }, 429)).toMatchObject({ reason: 'rate_limited' });
   });
