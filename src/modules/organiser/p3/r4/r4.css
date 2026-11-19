@@ -149,4 +149,6 @@
 .r4-guest-list { list-style: none; margin: 8px 0 0; padding: 0; }
 .r4-guest-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; padding: 4px 14px; border-top: 1px solid #EDEDED; font-size: 14px; }
 .r4-guest-row:first-child { border-top: 0; }
+.r4-refund-head { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; }
+.r4-refund-head .r4-row-t { margin: 0; font-size: 15px; }
 .r4-guest-in { color: #097C4F; font-weight: 500; white-space: nowrap; }
