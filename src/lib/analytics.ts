@@ -31,6 +31,8 @@ type AnalyticsEventMap = {
   feedback_sent: { channel?: string };
   /** Flyer reader (organiser P3 New event): what the reader filled and what the organiser
    *  changed before saving, as draft field names only, never flyer text. */
+  /** Location request failed: the reason only, never coordinates. */
+  geo_error: { reason: string };
   flyer_read_saved: { flyer_read_filled: string[]; flyer_read_changed: string[] };
 };
 

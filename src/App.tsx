@@ -7,6 +7,8 @@ import { pack, unpack } from "@/lib/dehydrateCodec";
 import { BrowserRouter } from "react-router-dom";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { AuthProvider } from "@/hooks/useAuth";
+import { flags } from "@/lib/featureFlags";
+import { GeolocationProvider } from "@/hooks/GeolocationProvider";
 import { CityProvider } from "@/contexts/CityContext";
 import { AppChrome } from "@/components/AppChrome";
 import { SearchProvider } from "@/components/search/SearchProvider";
@@ -140,7 +142,13 @@ export const AppShell = () => (
     <ScrollToTop />
     <CityProvider>
       <SearchProvider>
-        <AppChrome />
+        {flags.nearMe ? (
+          <GeolocationProvider>
+            <AppChrome />
+          </GeolocationProvider>
+        ) : (
+          <AppChrome />
+        )}
       </SearchProvider>
     </CityProvider>
   </>

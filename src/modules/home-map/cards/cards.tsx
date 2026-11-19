@@ -16,6 +16,8 @@
 // repaints itself; a subscribing row repaints everything under it. See
 // ../homeClock.
 
+import { flags } from '@/lib/featureFlags';
+import { formatNearMiles } from '@/lib/geo/nearMeFix';
 import { memo, useState, useEffect, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, MapPinOff, RotateCw } from 'lucide-react';
@@ -331,7 +333,7 @@ function LiveBadge({ event, today }: { event: MapEvent; today: string }) {
 function DistanceChip({ mi }: { mi: number }) {
   return (
     <span className="shrink-0 text-xs font-semibold tabular-nums text-muted-foreground">
-      {mi < 10 ? mi.toFixed(1) : Math.round(mi)} mi
+      {flags.nearMe ? formatNearMiles(mi) : `${mi < 10 ? mi.toFixed(1) : Math.round(mi)} mi`}
     </span>
   );
 }
