@@ -89,7 +89,7 @@ describe('parse: Sizes checked machine wording', () => {
     ['skipped the phone-qa', 'skipped the phone-qa suite entirely'],
     ['phone-qa was skipped', 'phone-qa was skipped on this change'],
     ['phone-qa did not run', 'phone-qa did not run at all here'],
-    ['curly didn’t', 'we didn’t run the phone-qa suite'],
+    ['curly didn\u2019t', 'we didn\u2019t run the phone-qa suite'],
   ])('rejects %s', (_n, value) => {
     expect(parse(section(value)).problems.some((p) => p.startsWith('Sizes checked'))).toBe(true);
   });

@@ -68,15 +68,16 @@ const SIZE_RE = /\b\d{3,4}\s*[x\u00d7]\s*\d{3,4}\b/i;
 /** An honest answer when the machine phone-qa walk is the proof: no size is claimed. */
 const MACHINE_RE = /\bphone[-\s_]?qa\b/i;
 /** A negation or failure word near "phone-qa" ("not phone-qa", "phone-qa was skipped") is not a claim. */
-const NEG = "(?:not|no|never|without|skipped|failed|unable|cannot|can'?t|couldn'?t|wasn'?t|didn'?t|hasn'?t|haven'?t)";
+const NEG_SRC = "(?:not|no|never|without|skipped|failed|unable|cannot|can'?t|couldn'?t|wasn'?t|didn'?t|hasn'?t|haven'?t)";
+const PQ_SRC = String.raw`phone[-\s_]?qa`;
 const NEGATED_MACHINE_RE = new RegExp(
-  '\b' + NEG + '\b[^.;,:!?]{0,20}\bphone[-\s_]?qa\b|\bphone[-\s_]?qa\b[^.;,:!?]{0,30}\b' + NEG + '\b',
+  String.raw`\b${NEG_SRC}\b[^.;,:!?]{0,20}\b${PQ_SRC}\b|\b${PQ_SRC}\b[^.;,:!?]{0,30}\b${NEG_SRC}\b`,
   'i',
 );
 
 /** The machine wording counts only as a real sentence: "phone-qa" plus MIN_CHARS other chars, not negated. */
 function machineClaim(raw) {
-  const value = raw.replace(/[‘’]/g, "'");
+  const value = raw.replace(/[\u2018\u2019]/g, "'");
   if (!MACHINE_RE.test(value) || NEGATED_MACHINE_RE.test(value)) return false;
   return stripPunct(value.replace(/\bphone[-\s_]?qa\b/gi, ' ')).length >= MIN_CHARS;
 }
