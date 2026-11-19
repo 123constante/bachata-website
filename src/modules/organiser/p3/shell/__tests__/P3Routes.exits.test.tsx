@@ -55,7 +55,7 @@ describe('route matrix: each screen renders inside P3, one top bar, Back stays i
   ])('%s', async (_n, path, testId, back) => {
     const { container } = at(path);
     const page = await screen.findByTestId(testId);
-    expect(screen.getByTestId('p3-shell').contains(page)).toBe(true);
+    expect(screen.getByTestId('r4-shell').contains(page)).toBe(true);
     expect(container.querySelectorAll('header').length).toBe(1);
     expect(container.querySelectorAll('main').length).toBe(1);
     expect(screen.getByTestId('org-back').getAttribute('href')).toBe(back);

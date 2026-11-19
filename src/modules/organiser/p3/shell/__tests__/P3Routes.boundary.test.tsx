@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 /*
  * p3-prefix-d D2: a P3 lazy route whose chunk fails to load (here: the door screen and the event
@@ -35,10 +36,14 @@ import P3Routes from '../P3Routes';
 import { P3_BASE, P3_PATHS } from '../paths';
 
 function at(path: string) {
+  // R4's shell holds the event choice (a query): nothing fetches here
+  const qc = new QueryClient({ defaultOptions: { queries: { enabled: false, retry: false } } });
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <Routes><Route path={`${P3_BASE}/*`} element={<P3Routes />} /></Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={qc}>
+      <MemoryRouter initialEntries={[path]}>
+        <Routes><Route path={`${P3_BASE}/*`} element={<P3Routes />} /></Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -47,7 +52,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 describe('a P3 lazy route that fails to load', () => {
   it.each([
     ['the door (own frame)', `${P3_BASE}/events/ser-1/door`, P3_PATHS.event('ser-1')],
-    ['the event page (inside the tab frame)', `${P3_BASE}/events/ser-1`, P3_PATHS.events],
+    ['the event page (inside the tab frame; R4 keeps it at /all)', P3_PATHS.eventAll('ser-1'), P3_PATHS.event('ser-1')],
   ])('%s shows the message, Try again and a back link', async (_n, path, back) => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     at(path);

@@ -78,10 +78,6 @@ export const flags = {
   // Organiser dashboard slice 1 (admin #1535): hero + date rail Home. OFF = the current Home.
   // Turn on with VITE_ENABLE_ORGANISER_DASH=true (Vercel env) -- no code change.
   organiserDash:       import.meta.env.VITE_ENABLE_ORGANISER_DASH === 'true',
-  // Organiser shell V2 (docs/briefs/BRIEF-organiser-v1-shell.md): slim top bar with Back to Bachata Calendar and an event
-  // switcher, tabs Events + Team / Tickets / Guest list / Raffle, the V2 look. Needs organiserP3 and organiserDash.
-  // OFF = today's P3 shell exactly as is. Turn on with VITE_ENABLE_ORGANISER_SHELL_V2=true (Vercel env) -- no code change.
-  organiserShellV2:    import.meta.env.VITE_ENABLE_ORGANISER_SHELL_V2 === 'true',
   // Claim-first organiser invite (docs/briefs/claim-first-organiser-invite.md): /invite shows the
   // organisation to take over FIRST, then a separate "Now about you" step. OFF = /invite exactly as before.
   // Turn on with VITE_ENABLE_CLAIM_FIRST_INVITE=true (Vercel env) -- no code change.
@@ -91,10 +87,6 @@ export const flags = {
   // only after #1577 is applied.
   organiserGuestListLive: import.meta.env.VITE_ENABLE_ORGANISER_GUEST_LIST_LIVE === 'true',
   organiserTicketing:  import.meta.env.VITE_ENABLE_ORGANISER_TICKETING === 'true',
-  // Organiser Tickets screen option A (docs/briefs/organiser-tickets-option-a.md): one big number that follows the
-  // clock of the night, plus the "Back to bachatacalendar.co.uk" exit wording. Needs organiserTicketing, organiserP3
-  // and organiserShellV2. OFF = every screen exactly as before. Turn on with VITE_ENABLE_ORGANISER_TICKETS_A=true.
-  organiserTicketsA:   import.meta.env.VITE_ENABLE_ORGANISER_TICKETS_A === 'true',
   // T3 price steps (docs/briefs/ticket-t3-price-steps-editor.md): the "Price changes" block in the
   // ticket editor. Needs organiserTicketing. OFF = the editor is exactly as before.
   // Turn on with VITE_ENABLE_TICKET_PRICE_STEPS_EDITOR=true (Vercel env) -- no code change.
@@ -110,9 +102,6 @@ export const flags = {
   // organiser_raffle_night_set_v1) is NOT applied to prod yet: OFF = the night sheet's Raffle row is a Coming soon
   // card and no raffle RPC is called. Turn on with VITE_ENABLE_ORGANISER_RAFFLE_LIVE=true only after #1576 is applied.
   organiserRaffleLive: import.meta.env.VITE_ENABLE_ORGANISER_RAFFLE_LIVE === 'true',
-  // Organiser Round 4 (docs/briefs/organiser-round4-restyle.md): white + orange shell, Home through the day, tabs
-  // Home / Events / Tickets / Team. Needs organiserP3 and organiserDash. OFF = every screen exactly as before.
-  organiserR4:         import.meta.env.VITE_ENABLE_ORGANISER_R4 === 'true',
   // Buyer ticket checkout (S4, docs/ticketing-buyer-journey.md): the Tickets block on
   // /event/:id and the /tickets/thanks return page. OFF = no block, no route. Turn on with
   // VITE_ENABLE_PUBLIC_TICKETING=true (Vercel env) -- no code change.
@@ -137,6 +126,10 @@ export const flags = {
   // (Near me inside it), poster-thumb feed rows. Needs homePolish ON (it builds on that chip row + Today tab).
   // OFF = every screen exactly as before. Turn on with VITE_ENABLE_HOME_FEED_LOOK=true (Vercel env) -- no code change.
   homeFeedLook:        import.meta.env.VITE_ENABLE_HOME_FEED_LOOK === 'true' && import.meta.env.VITE_ENABLE_HOME_POLISH === 'true',
+  // Dashboard switch, Round-4 everywhere (docs/briefs/dashboard-switch-build.md): the Switch profile sheet in the
+  // dancer app and organiser area, the organiser Switch page and the Sign out link at the foot of Account settings.
+  // OFF = every screen exactly as before. Turn on with VITE_ENABLE_DASHBOARD_SWITCH_R4=true (Vercel env) -- no code change.
+  dashboardSwitchR4:   import.meta.env.VITE_ENABLE_DASHBOARD_SWITCH_R4 === 'true',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the

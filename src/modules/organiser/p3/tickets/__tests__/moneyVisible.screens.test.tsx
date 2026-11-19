@@ -14,7 +14,7 @@ import { dataMock, failed, load, ok, pending, q, show } from './harness';
 vi.mock('@/lib/londonDate', async (orig) => ({ ...(await orig<typeof import('@/lib/londonDate')>()), londonTodayKey: () => '2026-10-27' }));
 vi.mock('../data', (orig) => dataMock(orig as never));
 
-import { GetPaidScreen, TicketsSoldTile } from '../GetPaid';
+import { GetPaidScreen } from '../GetPaid';
 import { TicketsEntry } from '../TicketsEntry';
 
 afterEach(cleanup);
@@ -34,13 +34,6 @@ describe.each([[true], [false]] as const)('owner, money_visible %s', (visible) =
     if (visible) expect(block?.textContent).toMatch(POUND);
     else expect(block).toBeNull();
     expect(screen.queryByTestId('tix-money-refused')).toBeNull();
-  });
-  it('Home tickets tile keeps the count', () => {
-    loadOwner(visible);
-    show(<TicketsSoldTile />, '/account/p3');
-    const text = screen.getByTestId('tix-sold-tile').textContent ?? '';
-    expect(text).toMatch(/^34Tickets sold/);
-    expect(POUND.test(text)).toBe(visible);
   });
   it('Sales report and orders view', async () => {
     loadOwner(visible);
@@ -93,16 +86,10 @@ describe.each(CELLS)('%s', (_n, role, kind, money) => {
     load({ ...SHAPES.selling, role });
     setSummary(kind);
   };
-  it('GetPaid money block and Home tile', () => {
+  it('GetPaid money block', () => {
     arrange();
     show(<GetPaidScreen />, '/account/p3/you/get-paid');
     expect(!!screen.queryByTestId('tix-money')?.textContent?.match(POUND)).toBe(money);
-    cleanup();
-    arrange();
-    show(<TicketsSoldTile />, '/account/p3');
-    const tile = screen.queryByTestId('tix-sold-tile');
-    if (kind !== 'loading') expect(POUND.test(tile?.textContent ?? '')).toBe(money);
-    else expect(POUND.test(tile?.textContent ?? '')).toBe(false);
   });
   it('orders read, Refund button, RefundSheet and counts-only note', async () => {
     arrange();

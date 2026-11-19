@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nightsOfChoice } from '../V2Tabs';
-import { homePathOf, homeWordOf, tabSearchOf } from '../paths';
+import { nightsOfChoice } from '../r4Nights';
 
 const base = { id: 's1', name: 'Series', kind: 'weekly', kindWord: 'Weekly', cover: null, upcoming: 0, sub: '', alsoRunBy: [], nextTime: '8pm', nextStart: null, place: null, status: { past: false, key: 'ok', label: 'Live' } };
 const page = { id: 'o', name: 'P', role: 'owner', series: [] } as never;
@@ -19,18 +18,5 @@ describe('nightsOfChoice: every lifecycle x dates shape', () => {
   });
   it('no event, no nights', () => {
     expect(nightsOfChoice({ event: null, today: '2026-11-17', page }).length).toBe(0);
-  });
-});
-
-describe('tabSearchOf', () => {
-  it.each([['', ''], ['?e=a', '?e=a'], ['?o=x&e=a&q=z', '?e=a&o=x'], ['?q=z&filter=live', ''], ['?e=&o=x', '?o=x']])('%j -> %j', (i, o) => {
-    expect(tabSearchOf(i)).toBe(o);
-  });
-});
-
-describe('home path with the V2 flags off', () => {
-  it('is Home', () => {
-    expect(homeWordOf()).toBe('Home');
-    expect(homePathOf()).toBe('/account/p3');
   });
 });

@@ -14,7 +14,7 @@ import { dataMock, failed, load, ok, pending, q, show } from './harness';
 
 vi.mock('../data', (orig) => dataMock(orig as never));
 
-import { GetPaidPrompt, GetPaidRow, GetPaidScreen, TicketsSoldTile } from '../GetPaid';
+import { GetPaidRow, GetPaidScreen } from '../GetPaid';
 
 afterEach(cleanup);
 
@@ -148,41 +148,6 @@ describe('Get paid states', () => {
   });
 });
 
-describe('Home: the ONE Get paid prompt', () => {
-  it.each([
-    ['owner, none, live', shape({ stripe: 'none' }), 'Get paid for tickets'],
-    ['manager, started, live', shape({ stripe: 'started' }), 'Finish connecting payments'],
-    ['manager, started, live: payouts are the owner\'s, no prompt', shape({ stripe: 'started', role: 'manager' }), null],
-    ['owner, connected', shape({ stripe: 'connected' }), null],
-    ['contributor, none', shape({ stripe: 'none', role: 'contributor' }), null],
-    ['owner, none, nothing live', shape({ stripe: 'none', lifecycle: 'draft' }), null],
-  ])('%s', (_, s, title) => {
-    load(s);
-    show(<GetPaidPrompt />, '/account/p3');
-    expect(screen.queryByTestId('tix-prompt-title')?.textContent ?? null).toBe(title);
-    if (title) expect(screen.getByTestId('tix-prompt-more').getAttribute('href')).toBe(P3_TICKET_PATHS.getPaid('org-1'));
-  });
-  it('the prompt waits for the account read (never a flicker)', () => {
-    load(shape({ stripe: 'none' }));
-    q.stripe = { query: pending(), state: null };
-    show(<GetPaidPrompt />, '/account/p3');
-    expect(screen.queryByTestId('tix-prompt')).toBeNull();
-  });
-  it('tickets-sold tile only once anything has sold', () => {
-    load(SHAPES.selling);
-    show(<TicketsSoldTile />, '/account/p3');
-    expect(screen.getByTestId('tix-sold-tile').textContent).toBe('34Tickets sold \u00B7 \u00A3328');
-    cleanup();
-    // A manager's tile: the count, never an amount (and never a \u00A30 from a counts-only summary).
-    load({ ...SHAPES.selling, role: 'manager' });
-    show(<TicketsSoldTile />, '/account/p3');
-    expect(screen.getByTestId('tix-sold-tile').textContent).toBe('34Tickets sold');
-    cleanup();
-    load(SHAPES.bare);
-    show(<TicketsSoldTile />, '/account/p3');
-    expect(screen.queryByTestId('tix-sold-tile')).toBeNull();
-  });
-});
 
 describe("You's Get paid row", () => {
   it.each([['none', 'Not connected'], ['started', 'Not finished'], ['connected', 'Paid out via Stripe']] as const)('%s -> %s', (stripe, tag) => {
@@ -203,8 +168,6 @@ describe('flag wiring (source)', () => {
   const src = (p: string) => readFileSync(`src/modules/organiser/p3/${p}`, 'utf8').replace(/\r\n/g, '\n');
   it('every W-T mount sits behind flags.organiserTicketing', () => {
     expect(src('screens/EventPage.tsx')).toContain('{flags.organiserTicketing && <TicketsEntry seriesId={ws.series.id} />}');
-    expect(src('screens/HomeScreen.tsx')).toContain('{flags.organiserTicketing && <GetPaidPrompt />}');
-    expect(src('screens/HomeScreen.tsx')).toContain('{flags.organiserTicketing && <TicketsSoldTile />}');
     expect(src('shell/youTickets.tsx')).toContain('{flags.organiserTicketing && <Route path="you/get-paid" element={<GetPaidScreen />} />}');
     expect(src('shell/youTickets.tsx')).toContain('{flags.organiserTicketing && <GetPaidRow />}');
   });

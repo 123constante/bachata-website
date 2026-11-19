@@ -2,7 +2,7 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { FRIDAY, NOW, OrganiserFake, PHONE, expectNoHorizontalScroll, json } from './helpers/organiserFake';
 
-// The ticket door scanner (layout C) at 390x844 against the route-mocked organiser fake, with
+// The ticket door scanner (the R4 door, the only look since R4 replaced P3) at 390x844 against the route-mocked organiser fake, with
 // ticket_check_in_v3 and ticket_door_list_v3 answered in their live shapes (admin migration
 // 20270308040000). The camera is Chromium's fake device (no QR in it), so every answer comes
 // through the code box, the path a guest without a scannable QR takes. Dark set (door rooms are dark). Mounts only with
@@ -136,7 +136,9 @@ test("tonight's list: rows, search, 0 sold", async ({ page }) => {
   await open(page, 'ok');
   await page.getByTestId('door-tab-list').click();
   await expect(page.getByTestId('door-row')).toHaveCount(8);
-  await expect(page.getByTestId('door-row').first()).toHaveText(/Aisha.*Not in/);
+  // R4 door (the only door since R4 replaced P3): a not-in row is the name with an empty tick, no In pill.
+  await expect(page.getByTestId('door-row').first()).toHaveText(/Aisha/);
+  await expect(page.getByTestId('door-row').first().getByTestId('door-row-status')).toHaveCount(0);
   await geometry(page);
   await page.screenshot({ path: `${OUT}/9-list.png` });
   await page.getByTestId('door-search').fill('zz');
