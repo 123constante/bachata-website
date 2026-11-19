@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
-import { confirmationOf, HomeNotices, useNoPageRedirect } from './r4Notices';
+import { confirmationOf, HomeNotices, RemovedToast, useNoPageRedirect } from './r4Notices';
 import { P3_PATHS } from '../shell/paths';
 import { useEventChoice } from './EventChoice';
 import { R4Chevron } from './R4Shell';
@@ -39,10 +39,11 @@ export function R4Events() {
   const m = useMemo(() => r4EventsOf(c.rows, c.today), [c.rows, c.today]);
 
   if (r.to) return <Navigate to={r.to} replace />;
-  if (r.loading || c.loading) return <div className="r4-stack" data-testid="r4-events-loading" aria-busy="true"><div className="r4-skel" /><div className="r4-skel" /></div>;
+  if (r.loading || c.loading) return <div className="r4-stack" data-testid="r4-events-loading" aria-busy="true"><RemovedToast /><div className="r4-skel" /><div className="r4-skel" /></div>;
 
   return (
     <div className="r4-stack" data-testid="r4-events">
+      <RemovedToast />
       <HomeNotices confirmation={confirmation} />
       <h1 className="r4-h1">Events</h1>
       <Link to={P3_PATHS.createFor(c.page?.id)} className="r4-btn r4-btn-link" data-testid="r4-events-add">
