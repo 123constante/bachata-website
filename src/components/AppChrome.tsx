@@ -4,6 +4,7 @@ import { GlobalBackground } from '@/components/GlobalBackground';
 import { GlobalHeader } from '@/components/GlobalHeader';
 import { isSignupFocusPath } from '@/lib/focusMode';
 import { BottomNav } from '@/components/BottomNav';
+import { flags } from '@/lib/featureFlags';
 import { GlobalFooter } from '@/components/layout/GlobalFooter';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -96,7 +97,7 @@ export function AppChrome({ children }: { children?: React.ReactNode }) {
       {/* Spacer that matches the sticky header height so NO page is blocked behind it. */}
       {!ownChrome && <div className="h-[60px] shrink-0" aria-hidden="true" />}
       {/* Mobile section row: sticky just under the header (md:hidden inside). Not on /app (own chrome). */}
-      {siteChrome && <BottomNav />}
+      {siteChrome && !flags.homePolish && <BottomNav />}
       {/* Stays mounted on /app too: it publishes ProfileGateContext (its banner is hidden there by BANNER_HIDDEN_ON). */}
       {signedIn && (
         // A reminder must never take the page down with it: on any failure it renders nothing.

@@ -7,6 +7,7 @@ import { useRef, type KeyboardEvent } from 'react';
 import { Search, Filter, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { MapTab } from '../mapTypes';
+import { flags } from '@/lib/featureFlags';
 
 /** Shared id for the single tab panel both surfaces render: every tab points its
  *  aria-controls here and the panel is labelled by the active tab. */
@@ -34,7 +35,8 @@ const emitTabSelected = (tab: MapTab) => {
 // shared by mobile + desktop; the /city/:slug/calendar deep-link still opens Cal.
 const TABS: { id: MapTab; label: string }[] = [
   { id: 'all', label: 'All Events' },
-  { id: 'tonight', label: 'Tonight' },
+  // homePolish (owner click 2026-11-19): Tonight is renamed Today; the look is unchanged.
+  { id: 'tonight', label: flags.homePolish ? 'Today' : 'Tonight' },
   { id: 'news', label: "What's New" },
   { id: 'cal', label: 'Calendar' },
 ];

@@ -25,6 +25,7 @@ import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { UseMapListResult } from './useMapList';
 import { focusRing } from './cards/controls';
+import { flags } from '@/lib/featureFlags';
 import EventMap from './EventMap';
 
 // Constrain the teaser to the city (Greater London for London) so a fling
@@ -149,10 +150,39 @@ export default function HomeMapCard({
         minZoom={10}
       />
 
-      {/* The hook: a gradient bar over the FOOT of the map, not a strip below it
+      {flags.homePolish ? (
+        <>
+          {/* homePolish option 3 "Map only" (owner click 2026-11-19): one live chip at
+              the top, then a foot strip with the venue count + a 44px amber Open map.
+              Pins stay clear of the strip because it is a solid-ish bar at the foot. */}
+          {!notReady && (
+            <span className="pointer-events-none absolute left-2 top-2 z-[500] rounded-full bg-black/70 px-2.5 py-1 text-[12px] font-bold text-white">
+              {state.stats.tonight} tonight in {cityName}
+            </span>
+          )}
+          <div className="hm-hook pointer-events-none absolute inset-x-0 bottom-0 z-[500] flex items-center gap-2 px-2 pb-1.5 pt-4">
+            <p className="truncate text-[13px] font-bold text-white">
+              {notReady ? title : `${drawn} venues`}
+            </p>
+            <Link
+              to={mapHref}
+              aria-label={`Open the full map: ${drawn} venues in ${cityName}`}
+              className={cn(
+                'pointer-events-auto ml-auto inline-flex h-[44px] items-center gap-0.5 rounded-full bg-primary px-4',
+                'text-[13px] font-bold text-primary-foreground',
+                focusRing,
+              )}
+            >
+              Open map
+              <ChevronRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+          </div>
+        </>
+      ) : (
+      /* The hook: a gradient bar over the FOOT of the map, not a strip below it
           and not a badge. pointer-events:none on the bar itself, so the gradient
           never eats a drag that starts low in the card -- only the CTA inside it
-          takes pointer events. */}
+          takes pointer events. */
       <div className="hm-hook pointer-events-none absolute inset-x-0 bottom-0 z-[500] px-3 pb-2 pt-7">
         <p className="truncate text-[13.5px] font-bold tracking-tight text-white">{title}</p>
         <div className="mt-1.5 flex items-center gap-1.5">
@@ -184,6 +214,7 @@ export default function HomeMapCard({
           </Link>
         </div>
       </div>
+      )}
     </div>
   );
 }

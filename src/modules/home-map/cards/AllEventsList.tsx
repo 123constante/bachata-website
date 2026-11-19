@@ -31,6 +31,16 @@ import { useListImpressions } from '@/lib/listImpressions';
 import { focusRing } from './controls';
 import { resolvePageCity } from '@/lib/pageCity';
 import EmptyCityNote from '@/components/listing/LazyEmptyCityNote';
+import { flags } from '@/lib/featureFlags';
+import { HomeChipRow } from '@/modules/home-polish/HomeChipRow';
+import {
+  FAR_MI,
+  matchesCats,
+  readNearestPref,
+  writeNearestPref,
+  locationAlreadyGranted,
+  type ChipCat,
+} from '@/modules/home-polish/chips';
 
 /** Date-group header. Today's group is dominant (amber TODAY pill + foreground
  *  label + amber rule/count); every later day is muted, so the eye lands on
@@ -172,8 +182,39 @@ export function AllEventsList({
   // first render, then rolls over (see useMapList / homeClock).
   const today = state.today;
   const trackImpression = useListImpressions('home');
-  const [nearest, setNearest] = useState(false);
+  const [nearest, setNearestRaw] = useState(false);
   const coords = state.geo.coords;
+  // homePolish: Party/Class/Fest filters (multi) + a remembered Nearest preference.
+  const polish = flags.homePolish;
+  const [cats, setCats] = useState<ReadonlySet<ChipCat>>(() => new Set());
+  const toggleCat = (c: ChipCat) =>
+    setCats((prev) => {
+      const next = new Set(prev);
+      if (next.has(c)) next.delete(c);
+      else next.add(c);
+      return next;
+    });
+  const setNearest = (on: boolean) => {
+    setNearestRaw(on);
+    if (polish) writeNearestPref(on);
+  };
+  // Restore Nearest only if the browser ALREADY says granted -- never an auto-prompt.
+  // In an effect (post-hydration): the server and first client render both start at false.
+  const geoRequest = state.geo.request;
+  useEffect(() => {
+    if (!polish || !readNearestPref()) return;
+    let live = true;
+    void locationAlreadyGranted().then((ok) => {
+      if (!live || !ok) return;
+      setNearestRaw(true);
+      geoRequest();
+    });
+    return () => {
+      live = false;
+    };
+    // Mount-only on purpose: a restore, not a subscription.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const tomorrow = addDaysToKey(today, 1);
   // Memoised: partitionRemote -> localFeedGroups is real work
   // over the whole feed (up to ~380 rows), and this component re-renders on
@@ -182,7 +223,11 @@ export function AllEventsList({
   // the chain on every hover-driven render.
   const citySlug = state.citySlug ?? null;
   const city = useMemo(() => resolvePageCity(citySlug), [citySlug]);
-  const { local, remote } = useMemo(() => partitionRemote(state.listEvents, citySlug), [state.listEvents, citySlug]);
+  const { local, remote } = useMemo(() => {
+    const parts = partitionRemote(state.listEvents, citySlug);
+    if (!polish || cats.size === 0) return parts;
+    return { local: parts.local.filter((e) => matchesCats(e, cats)), remote: parts.remote.filter((e) => matchesCats(e, cats)) };
+  }, [state.listEvents, citySlug, polish, cats]);
   const groups = useMemo(() => localFeedGroups(local), [local]);
 
   // Windowed SSR (see mapListDerivations.INITIAL_FEED_DAYS). The server and the
@@ -268,11 +313,19 @@ export function AllEventsList({
   // React can populate from an abandoned concurrent render. It was optimising
   // scroll-expansion work whose cost never showed above the measurement noise on
   // this feed, so the correct trade is to not have it.
+  // homePolish: when even the NEAREST row is over ~60 mi away, say so and keep date order.
+  const far = useMemo(() => {
+    if (!polish || !nearest || !hasDistances) return false;
+    let min = Infinity;
+    for (const mi of distances.values()) if (mi != null && mi < min) min = mi;
+    return min > FAR_MI;
+  }, [polish, nearest, hasDistances, distances]);
+
   const orderedGroups = useMemo(
     () =>
       shownGroups.map((g) => {
         const items = g.items.map((e) => ({ e, mi: distances.get(e.occurrence_id) ?? null }));
-        if (nearest && coords) {
+        if (nearest && coords && !far) {
           items.sort((a, b) => {
             if (a.mi == null && b.mi == null) return 0;
             if (a.mi == null) return 1;
@@ -282,7 +335,7 @@ export function AllEventsList({
         }
         return { ...g, items };
       }),
-    [shownGroups, nearest, coords, distances],
+    [shownGroups, nearest, coords, distances, far],
   );
 
   // Both empty, not just the local stream: a feed carrying only remote
@@ -292,6 +345,22 @@ export function AllEventsList({
   const cityNote = !city.isLondon && groups.length === 0 && !state.q ? (
     <EmptyCityNote cityName={city.name} citySlug={city.slug} />
   ) : null;
+  const chipRow = polish ? (
+    <HomeChipRow geo={state.geo} nearest={nearest} onNearest={setNearest} cats={cats} onToggleCat={toggleCat} />
+  ) : null;
+  if (polish && cats.size > 0 && groups.length === 0 && remote.length === 0) {
+    return (
+      <div className="space-y-3">
+        {chipRow}
+        <EmptyState>
+          No events match these filters.{' '}
+          <button type="button" onClick={() => setCats(new Set())} className={cn('inline-flex min-h-[44px] items-center font-bold text-primary underline', focusRing)}>
+            Clear filters
+          </button>
+        </EmptyState>
+      </div>
+    );
+  }
   if (groups.length === 0 && remote.length === 0) {
     if (cityNote) return cityNote;
     return (
@@ -304,8 +373,17 @@ export function AllEventsList({
   return (
     <div className="space-y-3">
       {cityNote}
-      {state.geo.status === 'idle' && <LocationStrip onUse={state.geo.request} />}
-      {coords && hasDistances && (
+      {chipRow}
+      {far && (
+        <div role="status" className="flex items-center justify-between gap-2 rounded-xl border border-border px-3 py-1 text-sm text-muted-foreground">
+          <span>These events are far from you.</span>
+          <button type="button" onClick={() => setNearest(false)} className={cn('inline-flex min-h-[44px] items-center font-bold text-primary underline', focusRing)}>
+            Clear
+          </button>
+        </div>
+      )}
+      {!polish && state.geo.status === 'idle' && <LocationStrip onUse={state.geo.request} />}
+      {!polish && coords && hasDistances && (
         <div className="flex items-center justify-end gap-1.5 text-[11px] font-bold">
           <span className="text-muted-foreground">Sort</span>
           <div className="inline-flex overflow-hidden rounded-full border border-border">
