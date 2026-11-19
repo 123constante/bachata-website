@@ -150,3 +150,17 @@ describe("normalizeLandingRole", () => {
     expect(normalizeLandingRole(3)).toBeNull();
   });
 });
+
+describe("shouldHonorReturnTo: a door invite link (organiser R4 slice a)", () => {
+  const link = `/door/join/${"c".repeat(64)}`;
+  it.each([
+    ["sign-up, organiser flags off", { isSignupFlow: true, organiserSelfServe: false }, true],
+    ["sign-up, organiser sign-up", { isSignupFlow: true, organiserSelfServe: true, organiserSignup: true }, true],
+    ["sign-in", { isSignupFlow: false, organiserSelfServe: false }, true],
+  ] as const)("%s comes back to the link", (_n, f, want) => {
+    expect(shouldHonorReturnTo({ returnTo: link, ...f })).toBe(want);
+  });
+  it("only a real link shape is honoured by that rule", () => {
+    expect(shouldHonorReturnTo({ returnTo: "/door/join/nope", isSignupFlow: true, organiserSelfServe: false })).toBe(false);
+  });
+});
