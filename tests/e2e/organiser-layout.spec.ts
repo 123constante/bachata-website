@@ -190,6 +190,7 @@ test.describe('tap targets @390', () => {
       await expectNoHorizontalScroll(page);
     }
     await page.goto(`/account/o/change/${FRIDAY}/${OCC}/lineup`);
+    await expect(page.getByTestId('session-row').first()).toBeVisible();
     await page.getByTestId('session-row-open').first().click();
     await page.getByTestId('session-add-person').click();
     await page.getByTestId('people-search').fill('ev');

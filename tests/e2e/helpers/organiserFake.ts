@@ -741,7 +741,12 @@ export async function setKeyboard(page: Page, px: number) {
  * really too wide never settles at 0 and still fails.
  */
 export async function expectNoHorizontalScroll(page: Page) {
-  const measure = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  // A navigation still in flight (hydration redirect) destroys the execution context mid-evaluate;
+  // read that as "not settled yet" so the poll retries instead of failing the test.
+  const measure = () =>
+    page
+      .evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+      .catch((e: Error) => (/Execution context was destroyed|navigation/i.test(e.message) ? Number.POSITIVE_INFINITY : Promise.reject(e)));
   await expect.poll(measure, { message: 'document is wider than the screen after the page transition settled' }).toBeLessThanOrEqual(0);
   await page.waitForTimeout(300);
   expect(await measure()).toBeLessThanOrEqual(0);
