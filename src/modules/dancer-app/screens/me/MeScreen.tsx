@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { AccountLinkPanel } from '../tickets/AccountLinkPanel';
+import { Suspense } from 'react';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { BUYER_ONBOARDING_ENABLED } from '@/lib/buyerOnboardingFlag';
 import { POSTPAY_TICKETS_TAB_ENABLED } from '@/lib/postpayTicketsTabFlag';
 import { Card } from '@/modules/organiser/ui';
@@ -9,6 +10,9 @@ import { useMyDancerEdit } from '../../api/useMyDancerEdit';
 import { ACCOUNT_SETTINGS_LABEL, HIDDEN_STATE_LINE, HIDDEN_STATE_WORD } from '../../copy/sharedCopy';
 import { DisabledRow, LINK_GHOST_SM, LINK_PRIMARY, LinkRow, ScreenTitle, SectionTitle } from '../blocks';
 import { Avatar, QueryGate, StrengthBar } from './ui';
+
+// Lazy: the panel is flag-gated and must not add a first-load chunk to the app shell.
+const AccountLinkPanel = lazyWithRetry(() => import('../tickets/AccountLinkPanel').then((m) => ({ default: m.AccountLinkPanel })));
 
 /**
  * /app/me (mockup "5 Me"). Everything here is read from the server's own shape:
@@ -71,7 +75,7 @@ const MeScreen = () => {
         </Link>
       </Card>
 
-      {BUYER_ONBOARDING_ENABLED && POSTPAY_TICKETS_TAB_ENABLED && <AccountLinkPanel onLinked={() => undefined} />}
+      {BUYER_ONBOARDING_ENABLED && POSTPAY_TICKETS_TAB_ENABLED && <Suspense fallback={null}><AccountLinkPanel onLinked={() => undefined} /></Suspense>}
 
       <div>
         <SectionTitle as="p">My profile</SectionTitle>
