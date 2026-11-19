@@ -366,17 +366,39 @@ export function AllEventsList({
     <EmptyCityNote cityName={city.name} citySlug={city.slug} />
   ) : null;
   const posterSel: PosterSel = nearest ? 'near' : (([...cats][0] as ChipCat | undefined) ?? 'all');
+  // Shuffle (homeFeedLook): rows slide out (~0.2s), the filter applies, rows slide in staggered (CSS, keyed on posterSel).
+  // Skipped under prefers-reduced-motion. The location request is never delayed.
+  const [leaving, setLeaving] = useState(false);
+  const leaveTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(leaveTimer.current), []);
+  const applyAfterOut = (apply: () => void) => {
+    const still = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.clearTimeout(leaveTimer.current);
+    if (still) {
+      apply();
+      return;
+    }
+    setLeaving(true);
+    leaveTimer.current = window.setTimeout(() => {
+      apply();
+      setLeaving(false);
+    }, 200);
+  };
   const onPosterSelect = (next: PosterSel) => {
     if (next === 'near') {
-      setCats(new Set());
-      setNearest(true);
       // Location is asked for ONLY on this tap (a no-op if already granted / in flight).
       if (state.geo.status !== 'granted' && state.geo.status !== 'loading') state.geo.request();
+      applyAfterOut(() => {
+        setCats(new Set());
+        setNearest(true);
+      });
       return;
     }
     if (nearest && state.geo.status === 'loading') state.geo.clear();
-    setNearest(false);
-    setCats(next === 'all' ? new Set() : new Set<ChipCat>([next]));
+    applyAfterOut(() => {
+      setNearest(false);
+      setCats(next === 'all' ? new Set() : new Set<ChipCat>([next]));
+    });
   };
   const chipRow = look ? (
     <PosterRow geo={state.geo} sel={posterSel} onSelect={onPosterSelect} />
@@ -446,6 +468,7 @@ export function AllEventsList({
           </div>
         </div>
       )}
+      <div key={look ? posterSel : 'static'} className={cn(look && 'hm-shuffle', look && leaving && 'is-leaving', 'space-y-3')} data-shuffle={look ? posterSel : undefined}>
       {orderedGroups.map((g) => (
         <section key={g.key}>
           <GroupHeader label={g.label} count={g.items.length} isToday={g.key === today} isTomorrow={g.key === tomorrow} sticky={stickyHeaders} />
@@ -466,6 +489,7 @@ export function AllEventsList({
           </div>
         </section>
       ))}
+      </div>
       {hasMore && <div ref={sentinelRef} aria-hidden="true" className="h-px w-full" />}
       {/* AFTER the sentinel deliberately: growing the window appends day-groups
           above this point, so the section never moves under the reader. */}

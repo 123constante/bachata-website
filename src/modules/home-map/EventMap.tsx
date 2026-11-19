@@ -78,6 +78,7 @@ import { optimizedImageUrl } from '@/lib/imageCdn';
 import { cancelledLabel } from '@/lib/cancelLabel';
 import { MapDisposer } from '@/lib/leaflet-safety';
 import type { MapEvent } from './mapTypes';
+import { fitBox, padBox } from './nearFit';
 import {
   categoryColor,
   eventScene,
@@ -163,6 +164,9 @@ interface EventMapProps {
   minZoom?: number;
   /** The user's location ("you are here" dot); null hides/removes it. */
   userCoords?: { lat: number; lng: number } | null;
+  /** Near me on the teaser card: draws the blue "You" pin, moves the map ONCE to frame it plus the
+   *  given venues, then fences panning to that box padded by 50 percent. null = off. */
+  nearFit?: { user: { lat: number; lng: number }; venues: { lat: number; lng: number }[] } | null;
   /** TEASER MODE (the homepage card). The map stays a real, live, DRAGGABLE map
    *  -- the pan feel is the half worth keeping -- and everything that lets
    *  someone half-use it in a 148px card goes: no zoom of any kind, no keyboard
@@ -411,6 +415,7 @@ export default function EventMap({
   maxBounds,
   minZoom = 9,
   userCoords,
+  nearFit = null,
   teaser = false,
   onTeaserTap,
   onVenueSelect,
@@ -1073,6 +1078,36 @@ export default function EventMap({
       userMarkerRef.current = null;
     }
   }, [userCoords]);
+
+  // ---- Near me fit: "You" pin + ONE animated move + fenced panning --------------
+  // Keyed on the coordinates so a re-render with the same fix never re-frames.
+  const nearKey = nearFit ? `${nearFit.user.lat},${nearFit.user.lng}|${nearFit.venues.map((v) => `${v.lat},${v.lng}`).join(';')}` : '';
+  useEffect(() => {
+    const m = mapRef.current;
+    if (!m || !nearFit) return;
+    const ll: L.LatLngExpression = [nearFit.user.lat, nearFit.user.lng];
+    const pin = L.marker(ll, {
+      icon: L.divIcon({
+        className: 'hm-youpin-wrap',
+        html: '<span class="hm-youpin" data-testid="near-you-pin"><b class="hm-youpin-lbl">You</b><i class="r1"></i><i class="r2"></i><i class="core"></i></span>',
+        iconSize: [40, 40],
+        iconAnchor: [20, 30],
+      }),
+      interactive: false,
+      keyboard: false,
+      zIndexOffset: 10000,
+    }).addTo(m);
+    didInitialFit.current = true; // the later fit-to-pins must not undo this frame
+    const box = fitBox(nearFit.user, nearFit.venues);
+    m.fitBounds(box, { padding: [28, 28], maxZoom: 15, animate: !prefersReducedMotion() });
+    m.setMaxBounds(padBox(box, 0.5));
+    m.options.maxBoundsViscosity = 0.9;
+    return () => {
+      pin.remove();
+      try { m.setMaxBounds(maxBounds as L.LatLngBoundsExpression); } catch { /* map already torn down */ }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nearKey]);
 
   // ---- (re)build markers when the pin set changes --------------------------
   // One marker per physical venue-coordinate (groupPinsByLocation). Icons are

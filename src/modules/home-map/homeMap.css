@@ -458,35 +458,98 @@
 }
 .hm-look .hm-feed { background: transparent; }
 /* Poster category row: no boxes, one line, next word peeks at the right edge. */
-.hm-look .hm-poster-row {
-  display: flex; align-items: stretch; gap: 14px; overflow-x: auto; margin-inline: -12px; padding-inline: 12px;
-  scrollbar-width: none; -ms-overflow-style: none;
-}
-.hm-look .hm-poster-row::-webkit-scrollbar { display: none; }
-.hm-look .hm-poster-row::after { content: ""; flex: 0 0 12px; }
+.hm-look .hm-poster-row { display: flex; gap: 4px; padding: 8px 0 12px; isolation: isolate; }
+/* Ticket tear (owner pick 2026-11-19, version 6: fly in + shine + wiggle). Five stubs share the row; 44px px tap height. */
 .hm-look .hm-poster-word {
-  position: relative; flex: 0 0 auto; min-height: 44px; display: inline-flex; align-items: center;
-  font-family: var(--hm-poster); font-weight: 800; font-size: 24px; line-height: 1; letter-spacing: .02em;
-  text-transform: uppercase; white-space: nowrap; background: none; border: 0; padding: 0 2px;
-  color: hsl(var(--hm-look-poster-dim));
+  position: relative; flex: 1 1 0; min-width: 0; min-height: 44px; display: flex; align-items: center; justify-content: center;
+  padding: 0 2px; overflow: hidden; border: 0; font: 700 13px/1 Roboto, system-ui, sans-serif; white-space: nowrap;
+  color: hsl(var(--hm-look-ink, 285 40% 95%)); background: hsl(288 30% 20%); border-radius: 4px 14px 14px 4px;
+  transform-origin: 20% 100%;
+  transition: transform .45s cubic-bezier(.34,1.56,.64,1), box-shadow .3s, background .25s, color .25s;
 }
-.hm-look .hm-poster-word[aria-pressed="true"] { color: hsl(var(--hm-look-amber)); }
-.hm-look .hm-poster-word[aria-pressed="true"]::after {
-  content: ""; position: absolute; left: 0; right: 0; bottom: 2px; height: 4px; border-radius: 2px;
-  background: hsl(var(--hm-look-amber));
+.hm-look .hm-poster-word[aria-pressed="true"] {
+  background: hsl(var(--hm-look-amber)); color: #1a0d00; transform: translateY(-5px) rotate(-4deg);
+  box-shadow: 0 8px 0 -2px rgba(0,0,0,.35);
+  animation: hm-fly-a .55s cubic-bezier(.34,1.56,.64,1), hm-wig 4.5s ease-in-out 1.2s infinite;
 }
-.hm-look .hm-poster-word:focus-visible { outline: 2px solid hsl(var(--hm-look-amber)); outline-offset: 2px; border-radius: 4px; }
+.hm-look .hm-poster-word[aria-pressed="true"][data-pop="1"] {
+  animation: hm-fly-b .55s cubic-bezier(.34,1.56,.64,1), hm-wig 4.5s ease-in-out 1.2s infinite;
+}
+.hm-look .hm-poster-word::before {
+  content: ""; position: absolute; top: -20%; bottom: -20%; width: 40%; left: -60%; pointer-events: none; opacity: 0;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,.65), transparent); transform: skewX(-18deg);
+}
+.hm-look .hm-poster-word[aria-pressed="true"]::before { animation: hm-sweep-a .7s ease-out .25s; }
+.hm-look .hm-poster-word[aria-pressed="true"][data-pop="1"]::before { animation: hm-sweep-b .7s ease-out .25s; }
+.hm-look .hm-poster-word:focus-visible { outline: 2px solid hsl(var(--hm-look-amber)); outline-offset: 2px; }
+@keyframes hm-fly-a { 0% { transform: translate(var(--fx,40px),10px) rotate(14deg) scale(.9); opacity: .3 } 60% { transform: translate(-3px,-9px) rotate(-6deg) scale(1.04); opacity: 1 } 100% { transform: translateY(-5px) rotate(-4deg) } }
+@keyframes hm-fly-b { 0% { transform: translate(var(--fx,40px),10px) rotate(14deg) scale(.9); opacity: .3 } 60% { transform: translate(-3px,-9px) rotate(-6deg) scale(1.04); opacity: 1 } 100% { transform: translateY(-5px) rotate(-4deg) } }
+@keyframes hm-sweep-a { 0% { left: -60%; opacity: 1 } 99% { opacity: 1 } 100% { left: 130%; opacity: 0 } }
+@keyframes hm-sweep-b { 0% { left: -60%; opacity: 1 } 99% { opacity: 1 } 100% { left: 130%; opacity: 0 } }
+@keyframes hm-wig { 0%,86%,100% { transform: translateY(-5px) rotate(-4deg) } 90% { transform: translateY(-5px) rotate(-6.5deg) } 94% { transform: translateY(-6px) rotate(-2deg) } 97% { transform: translateY(-5px) rotate(-5deg) } }
 .hm-look .hm-poster-status { font-size: 13px; line-height: 1.3; color: hsl(var(--hm-look-dim)); }
 /* Feed rows (option C). */
 .hm-look .hm-look-row { background: hsl(var(--hm-look-card)); border-radius: 14px; }
 .hm-look .hm-look-row .hm-look-thumb { width: 68px; height: 68px; border-radius: 10px; flex: 0 0 68px; }
 .hm-look .hm-look-day { font-family: var(--hm-poster); font-weight: 800; line-height: 1; text-transform: uppercase; }
-.hm-look .hm-look-pin {
-  display: inline-grid; place-items: center; width: 44px; height: 44px; flex: 0 0 44px; border-radius: 12px;
-  color: hsl(var(--hm-look-amber)); background: none; border: 0;
+/* Distance (option M): stamp above, big number, small "mi", slow ping ring every 2.4s. */
+.hm-look .hm-look-mcol { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 52px; align-self: stretch; flex: 0 0 auto; }
+.hm-look .hm-look-dist { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.hm-look .hm-look-numw { position: relative; display: grid; place-items: center; min-width: 48px; height: 34px; }
+.hm-look .hm-look-num { position: relative; z-index: 1; font-family: var(--hm-poster); font-weight: 800; font-size: 26px; line-height: 1; color: #e6dcec; font-variant-numeric: tabular-nums; }
+.hm-look .hm-look-mi { font-size: 11px; line-height: 1; color: hsl(var(--hm-look-dim)); }
+.hm-look .hm-look-ping { position: absolute; width: 30px; height: 30px; border-radius: 50%; border: 2px solid hsl(var(--hm-look-amber)); opacity: 0; animation: hm-ping 2.4s ease-out infinite; }
+@keyframes hm-ping { 0% { transform: scale(.7); opacity: .7 } 100% { transform: scale(2.1); opacity: 0 } }
+/* Shuffle: rows out (~0.2s) then in (0.42s, 70ms stagger). */
+@keyframes hm-row-in { from { transform: translateX(34px) scale(.97); opacity: 0 } to { transform: none; opacity: 1 } }
+@keyframes hm-row-out { to { transform: translateX(-34px) scale(.97); opacity: 0 } }
+.hm-look .hm-shuffle .hm-look-row { animation: hm-row-in .42s cubic-bezier(.2,.8,.2,1) both; }
+.hm-look .hm-shuffle.is-leaving .hm-look-row { animation: hm-row-out .2s ease-in both; }
+.hm-look .hm-shuffle section > div > :nth-child(2) .hm-look-row { animation-delay: 70ms; }
+.hm-look .hm-shuffle section > div > :nth-child(3) .hm-look-row { animation-delay: 140ms; }
+.hm-look .hm-shuffle section > div > :nth-child(4) .hm-look-row { animation-delay: 210ms; }
+.hm-look .hm-shuffle section > div > :nth-child(n+5) .hm-look-row { animation-delay: 280ms; }
+.hm-look .hm-shuffle.is-leaving section > div > * .hm-look-row { animation-delay: 0ms; }
+@media (prefers-reduced-motion: reduce) {
+  .hm-look .hm-poster-word, .hm-look .hm-poster-word::before, .hm-look .hm-look-ping, .hm-look .hm-shuffle .hm-look-row { animation: none !important; transition: none; }
+  .hm-look .hm-look-ping { display: none; }
 }
-.hm-look .hm-look-pin:focus-visible { outline: 2px solid hsl(var(--hm-look-amber)); outline-offset: -2px; }
 .hm-look .hm-look-sticky, .hm-look .hm-look-sticky::before { background-color: hsl(var(--hm-look-ground)); }
 @media (min-width: 768px) {
   .home-map-fill.hm-look .hm-mapcard { margin-inline: 0.75rem; }
+}
+
+/* ---- Near me wait: radar sweep over the whole screen (no words, never takes a tap) ---- */
+.hm-sweep { position: fixed; inset: 0; z-index: 60; pointer-events: none; overflow: hidden; }
+.hm-sweep-arm {
+  position: absolute; width: 300vmax; height: 300vmax; margin: -150vmax 0 0 -150vmax; border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0deg 300deg, hsl(38 95% 55% / .05) 320deg, hsl(38 95% 55% / .34) 360deg);
+  animation: hm-sweep-spin 2.4s linear infinite;
+}
+@keyframes hm-sweep-spin { to { transform: rotate(360deg); } }
+
+/* ---- Near me fit: blue "You" pin, two expanding rings, label pill ---- */
+.home-map .hm-youpin-wrap { background: none; border: 0; }
+.home-map .hm-youpin { position: relative; display: block; width: 40px; height: 40px; }
+.home-map .hm-youpin .core { position: absolute; left: 50%; top: 30px; width: 14px; height: 14px; transform: translate(-50%,-50%);
+  border-radius: 50%; background: #3b8cff; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.45); }
+.home-map .hm-youpin .r1, .home-map .hm-youpin .r2 { position: absolute; left: 50%; top: 30px; width: 14px; height: 14px;
+  transform: translate(-50%,-50%); border-radius: 50%; border: 2px solid #3b8cff; animation: hm-you-ring 1.6s ease-out infinite; }
+.home-map .hm-youpin .r2 { animation-delay: .8s; }
+@keyframes hm-you-ring { 0% { transform: translate(-50%,-50%) scale(1); opacity: .8; } 100% { transform: translate(-50%,-50%) scale(3.2); opacity: 0; } }
+.home-map .hm-youpin-lbl { position: absolute; left: 50%; top: 0; transform: translateX(-50%); padding: 1px 7px; border-radius: 999px;
+  background: #3b8cff; color: #fff; font: 700 11px/16px Roboto, system-ui, sans-serif; white-space: nowrap; }
+
+/* ---- Map breathes: slow drift on the card ground, venue dots twinkle ---- */
+.hm-look .hm-mapcard .leaflet-tile-pane { transform-origin: 50% 50%; animation: hm-map-breathe 6s ease-in-out infinite alternate; }
+@keyframes hm-map-breathe { from { transform: scale(1); } to { transform: scale(1.07); } }
+.hm-look .hm-mapcard .rdot-i { animation: hm-dot-twinkle 2.4s ease-in-out infinite; }
+.hm-look .hm-mapcard .leaflet-marker-icon:nth-child(3n+2) .rdot-i { animation-delay: .8s; }
+.hm-look .hm-mapcard .leaflet-marker-icon:nth-child(3n) .rdot-i { animation-delay: 1.6s; }
+@keyframes hm-dot-twinkle { 0%,100% { box-shadow: 0 0 0 0 rgba(255,255,255,.25); } 50% { box-shadow: 0 0 0 4px rgba(255,255,255,.25); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .hm-sweep { display: none; }
+  .hm-sweep-arm, .home-map .hm-youpin .r1, .home-map .hm-youpin .r2,
+  .hm-look .hm-mapcard .leaflet-tile-pane, .hm-look .hm-mapcard .rdot-i { animation: none; }
 }

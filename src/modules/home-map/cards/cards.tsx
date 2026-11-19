@@ -46,7 +46,6 @@ import type { FreshnessHeat } from '../mapTypes';
 import { useHomeNow, useHomeNowStatic } from '../homeClock';
 import { focusRing } from './controls';
 import { isSitePlaceholderCover } from './coverPlaceholder';
-import { flags } from '@/lib/featureFlags';
 
 type Coords = { lat: number; lng: number } | null;
 
@@ -342,9 +341,23 @@ function DistanceChip({ mi }: { mi: number }) {
   );
 }
 
+/** homeFeedLook distance (option M): big number, small "mi" under it, slow ping ring (CSS, reduced-motion safe).
+ *  Keeps the "~" prefix when flags.nearMe is on, exactly as DistanceChip does. */
+function LookDistance({ mi }: { mi: number }) {
+  const num = `${flags.nearMe ? '~' : ''}${mi < 10 ? mi.toFixed(1) : String(Math.round(mi))}`;
+  return (
+    <span className="hm-look-dist" data-testid="look-distance" aria-label={`${num} miles away`}>
+      <span className="hm-look-numw" aria-hidden="true">
+        <span className="hm-look-ping" />
+        <span className="hm-look-num">{num}</span>
+      </span>
+      <span className="hm-look-mi" aria-hidden="true">mi</span>
+    </span>
+  );
+}
+
 /** homeFeedLook row (option C): 68px poster thumb (gradient + start hour when there is no poster),
- *  title 15px, venue 13px, meta 13px, and a 44px map-pin target on the right. The pin selects the
- *  occurrence on the map exactly as a row tap does; it is a SIBLING of the link (no nested interactive).
+ *  title 15px, venue 13px, meta 13px, and the Updated stamp above a big distance number on the right. A row tap only opens the event (no map jump).
  *  The feed carries no price, so the meta line is type + time only. */
 function LookRow({
   event,
@@ -415,21 +428,13 @@ function LookRow({
         </span>
         {cancelled ? (
           <CancelPill />
-        ) : stamp ? (
-          <FreshnessClock event={event} className="self-start" />
-        ) : mi != null ? (
-          <DistanceChip mi={mi} />
+        ) : stamp || mi != null ? (
+          <span className="hm-look-mcol" data-feed-right="">
+            {stamp && <FreshnessClock event={event} className="self-end" />}
+            {mi != null && <LookDistance mi={mi} />}
+          </span>
         ) : null}
       </a>
-      <button
-        type="button"
-        onClick={open}
-        aria-label={`Show ${event.name} on the map`}
-        disabled={event.lat == null || event.lng == null}
-        className={cn('hm-look-pin disabled:opacity-30', focusRing)}
-      >
-        <MapPin className="h-5 w-5" aria-hidden="true" />
-      </button>
     </div>
   );
 }

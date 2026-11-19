@@ -2,7 +2,7 @@
 // Replaces the homePolish chip row when the flag is ON. Near me asks for location ONLY when tapped.
 // Tap areas are 44px (min-height in px; the phone root font is ~13.5px). Styles: .hm-poster-* in homeMap.css.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { CHIP_CATS, type ChipCat } from './chips';
 import type { ChipGeo } from './HomeChipRow';
 import { denialCopy, isIOSUserAgent, isStandaloneDisplay } from '@/lib/geo/denialCopy';
@@ -26,6 +26,8 @@ export function PosterRow({
 }) {
   // "Still looking" once a fix has taken over ~8s (same threshold as the chip row).
   const [slow, setSlow] = useState(false);
+  const [fx, setFx] = useState(40);
+  const [pop, setPop] = useState(0);
   useEffect(() => {
     if (geo.status !== 'loading') {
       setSlow(false);
@@ -51,7 +53,8 @@ export function PosterRow({
   const words: { id: PosterSel; label: string }[] = [
     { id: 'all', label: 'All' },
     { id: 'near', label: nearLabel },
-    ...CHIP_CATS.map((c) => ({ id: c.id as PosterSel, label: c.label })),
+    // Ticket tear shows the category in full: FESTIVAL, never Fest (chips.ts keeps 'Fest' for the old chip row).
+    ...CHIP_CATS.map((c) => ({ id: c.id as PosterSel, label: c.id === 'fest' ? 'Festival' : c.label })),
   ];
   return (
     <>
@@ -61,7 +64,15 @@ export function PosterRow({
             key={w.id}
             type="button"
             aria-pressed={sel === w.id}
-            onClick={() => onSelect(nextPosterSel(sel, w.id))}
+            onClick={() => {
+              const next = nextPosterSel(sel, w.id);
+              const idx = (id: PosterSel) => words.findIndex((x) => x.id === id);
+              setFx(idx(next) > idx(sel) ? -40 : 40);
+              setPop((n) => n + 1);
+              onSelect(next);
+            }}
+            style={{ '--fx': `${fx}px` } as CSSProperties}
+            data-pop={sel === w.id ? pop % 2 : undefined}
             className="hm-poster-word"
           >
             {w.label}

@@ -22,7 +22,7 @@ describe('PosterRow', () => {
   it('renders All, Near me, Party, Class, Fest with exactly one pressed', () => {
     render(<PosterRow geo={geo} sel="party" onSelect={() => {}} />);
     const labels = screen.getAllByRole('button').map((b) => b.textContent);
-    expect(labels).toEqual(['All', 'Near me', 'Party', 'Class', 'Fest']);
+    expect(labels).toEqual(['All', 'Near me', 'Party', 'Class', 'Festival']);
     expect(screen.getAllByRole('button').filter((b) => b.getAttribute('aria-pressed') === 'true')).toHaveLength(1);
   });
   it('tap reports the next selection', () => {
