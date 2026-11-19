@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
@@ -59,10 +59,23 @@ export function DoorScreen({ r4 = false }: { r4?: boolean }) {
   return <Door seriesId={seriesId} nightName={ws.data?.series.name} r4={r4} />;
 }
 
+/**
+ * A door-seat holder (organiser R4 slice a): someone an organiser invited by link to work the door for
+ * one night, with no organiser role. Their door screen (/door/:seriesId) has no way into the
+ * organiser area: every way out goes to the site's home page instead.
+ */
+const SeatOnly = createContext(false);
+const SITE_HOME = { to: '/', label: 'Back to Bachata Calendar' } as const;
+
 /** The toast after a Search-tab tick on the R4 look (boards R4DoorSearch): "<name> is in. N of M in." */
 interface Toast { id: number; text: string }
 
-export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode, nightName = null, r4 = false }: { seriesId: string; deps?: ScannerDeps; shortCodes?: boolean; nightName?: string | null; r4?: boolean }) {
+export function Door({ seatOnly = false, ...p }: DoorProps & { seatOnly?: boolean }) {
+  return <SeatOnly.Provider value={seatOnly}><DoorInner {...p} /></SeatOnly.Provider>;
+}
+interface DoorProps { seriesId: string; deps?: ScannerDeps; shortCodes?: boolean; nightName?: string | null; r4?: boolean }
+function DoorInner({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode, nightName = null, r4 = false }: DoorProps) {
+  const seat = useContext(SeatOnly);
   const { user } = useAuth();
   const uid = user?.id;
   const qc = useQueryClient();
@@ -200,9 +213,9 @@ export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode
       {r4 ? (
         <>
           <div className="r4-door-exit">
-            <Link className="r4-door-exit-link" to={P3_PATHS.event(seriesId)} data-testid="door-back">
+            <Link className="r4-door-exit-link" to={seat ? SITE_HOME.to : P3_PATHS.event(seriesId)} data-testid="door-back">
               <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 6-6 6 6 6" /></svg>
-              Back to the event
+              {seat ? SITE_HOME.label : 'Back to the event'}
             </Link>
           </div>
           <header className="r4-door-head">
@@ -212,7 +225,7 @@ export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode
         </>
       ) : (
         <header className="p3-top p3-door-top">
-          <Link className="p3-link" to={P3_PATHS.event(seriesId)} data-testid="door-back">&larr; Event</Link>
+          <Link className="p3-link" to={seat ? SITE_HOME.to : P3_PATHS.event(seriesId)} data-testid="door-back">&larr; {seat ? 'Bachata Calendar' : 'Event'}</Link>
           <h1 data-testid="door-title">{nightName?.trim() ? <>{nightName.trim()}<small> &middot; Door</small></> : 'Door'}</h1>
         </header>
       )}
@@ -342,6 +355,7 @@ function CameraHelp({ cam, tries, startCamera, openList, counts }: { cam: 'ask' 
 }
 
 function ResultCard({ shown, act, recheck, rechecking, recheckNote, r4 = false }: { shown: Shown; act: (a: NextAction) => void; recheck?: () => void; rechecking?: boolean; recheckNote?: string | null; r4?: boolean }) {
+  const seat = useContext(SeatOnly);
   const row = RESULT_TABLE[shown.kind];
   const who = personOf(shown.c);
   const head = useRef<HTMLElement>(null);
@@ -367,7 +381,7 @@ function ResultCard({ shown, act, recheck, rechecking, recheckNote, r4 = false }
             <button type="button" className="p3-btn p3-door-big" onClick={recheck} disabled={rechecking} data-testid="door-act-recheck">
               {rechecking ? 'Checking\u2026' : 'Check again'}
             </button>
-            <Link className="p3-btn p3-btn-line p3-door-big" to={P3_PATHS.events} data-testid="door-notallowed-back">Back to events</Link>
+            <Link className="p3-btn p3-btn-line p3-door-big" to={seat ? SITE_HOME.to : P3_PATHS.events} data-testid="door-notallowed-back">{seat ? SITE_HOME.label : 'Back to events'}</Link>
           </div>
         )}
         {shown.kind === 'not_allowed' && recheck && recheckNote && (
@@ -436,13 +450,18 @@ function CodeBox({ inputRef, busy, onCode, shortCodes }: { inputRef: React.RefOb
 }
 
 function EmptySold({ seriesId }: { seriesId: string }) {
+  const seat = useContext(SeatOnly);
   return (
     <div className="p3-door-pad">
       <div className="p3-door-count" data-testid="door-count">0 of 0 in</div>
       <div className="p3-card p3-door-empty" data-testid="door-empty">
         <strong>No tickets sold yet</strong>
-        <p className="p3-note">There is nothing to scan until someone buys. Set up tickets and share the event from the event page.</p>
-        <Link className="p3-btn p3-door-wide p3-door-btnlink" to={P3_PATHS.event(seriesId)}>Go to the event page</Link>
+        {seat ? <p className="p3-note">There is nothing to scan until someone buys a ticket.</p> : (
+          <>
+            <p className="p3-note">There is nothing to scan until someone buys. Set up tickets and share the event from the event page.</p>
+            <Link className="p3-btn p3-door-wide p3-door-btnlink" to={P3_PATHS.event(seriesId)}>Go to the event page</Link>
+          </>
+        )}
       </div>
     </div>
   );

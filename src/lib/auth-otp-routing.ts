@@ -96,6 +96,8 @@ export function shouldHonorReturnTo(input: {
   if (!input.isSignupFlow) return true;
   // A ticket buyer's sign-up returns to their tickets whatever the organiser flag says. Exact paths only.
   if (isBuyerTicketsReturnTo(input.returnTo)) return true;
+  // A door invite link (organiser R4 slice a) is the whole task: a new account comes back to it whatever the flags.
+  if (/^\/door\/join\/[0-9a-f]{64}$/.test(input.returnTo)) return true;
   if (!input.organiserSelfServe) return false;
   return !input.organiserSignup || isTaskReturnTo(input.returnTo);
 }
@@ -105,7 +107,8 @@ const BUYER_TICKETS_RETURN_TOS = ["/account/my-tickets", "/app/tickets"];
 const isBuyerTicketsReturnTo = (returnTo: string): boolean => BUYER_TICKETS_RETURN_TOS.includes(returnTo);
 
 // The task path itself and anything under it.
-const TASK_PATHS = ["/invite", "/account", "/app", "/finish-profile"];
+// /door: a door invite link (organiser R4 slice a) and a door-seat holder's door screen.
+const TASK_PATHS = ["/invite", "/account", "/app", "/finish-profile", "/door"];
 // Only UNDER it: /organisers/<page> holds the claim card; /organisers alone is the browse directory.
 const TASK_PREFIXES = ["/organisers/"];
 
