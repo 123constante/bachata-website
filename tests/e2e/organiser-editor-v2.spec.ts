@@ -55,7 +55,7 @@ test('event page: long name not cut, dates list, save bar, undo, save', async ({
 test('unsaved sheet on leave', async ({ page }) => {
   await open(page);
   await page.getByTestId('v2-name').fill(`${LONG} x`);
-  await page.getByTestId('v2-date-row').first().click();
+  await page.getByTestId('p3-edit-back').click();
   await expect(page.getByTestId('v2-unsaved')).toBeVisible();
   await page.screenshot({ path: `${OUT}/unsaved.png` });
   await page.getByTestId('v2-unsaved-keep').click();
@@ -76,6 +76,45 @@ test('night screen: name for this night, back to usual, save sends set_override'
   await expect(page.getByTestId('v2-toast')).toHaveText('Saved');
   const env = fake.envelopes('occurrence_command_p5').at(-1) as { command: { kind: string; payload: Record<string, unknown> } };
   expect(env.command).toEqual({ kind: 'occurrence.set_override', payload: { title: 'Halloween special' } });
+});
+
+test('one save bar: event change kept on a night; night venue + session cancel; one save sends all in order', async ({ page }) => {
+  const fake = await open(page);
+  await page.getByTestId('v2-about').fill('New about text');
+  // moving to a night of the same event keeps the draft and does not ask
+  await page.getByTestId('v2-date-row').filter({ hasNotText: 'Cancelled' }).first().click();
+  await expect(page.getByTestId('v2-night')).toBeVisible();
+  await expect(page.getByTestId('v2-unsaved')).toHaveCount(0);
+  await expect(page.getByTestId('v2-save-summary')).toHaveText('About');
+  // venue for this night
+  await page.getByTestId('v2-night-venue').click();
+  await page.getByTestId('v2-night-venues').locator('button').filter({ hasNot: page.locator('[aria-pressed=true]') }).last().click();
+  await expect(page.getByTestId('v2-night-venue-state')).toHaveText('Changed for this night');
+  // sessions on the NEXT night (the fake versions a night's programme apart from its override; prod chains one version,
+  // which the unit test 'runner chains the occurrence version' covers)
+  await page.getByTestId('p3-edit-back').click();
+  await page.getByTestId('v2-date-row').filter({ hasNotText: 'Cancelled' }).nth(1).click();
+  await expect(page.getByTestId('v2-night')).toBeVisible();
+  const first = page.getByTestId('v2-night-session').first();
+  await expect(first).toBeVisible();
+  await first.getByTestId('v2-session-cancel').click();
+  await expect(first.getByTestId('v2-session-warning')).toBeVisible();
+  await expectNoHorizontalScroll(page);
+  await tapTargets(page);
+  await page.screenshot({ path: `${OUT}/night-s1c.png`, fullPage: true });
+  await expect(page.getByTestId('v2-save-summary')).toHaveText('About and 2 more');
+  // back on the event page the bar still holds the night's changes
+  await page.getByTestId('p3-edit-back').click();
+  await expect(page.getByTestId('v2-event')).toBeVisible();
+  await expect(page.getByTestId('v2-save-summary')).toHaveText('About and 2 more');
+  await page.screenshot({ path: `${OUT}/event-s1c-savebar.png` });
+  await page.getByTestId('v2-save').click();
+  await expect(page.getByTestId('v2-toast')).toHaveText('Saved');
+  expect((fake.envelopes().at(-1) as { command: { payload: Record<string, unknown> } }).command.payload.default_description).toBe('New about text');
+  const occ = fake.envelopes('occurrence_command_p5').at(-1) as { command: { kind: string; payload: Record<string, unknown> } };
+  expect(occ.command.kind).toBe('occurrence.set_override');
+  expect(occ.command.payload.venue_id).toBeTruthy();
+  expect(fake.sent('organiser_set_occurrence_programme_v1').length).toBe(1);
 });
 
 test('cancelled night: box and bring back', async ({ page }) => {
