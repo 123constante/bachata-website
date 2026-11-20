@@ -8,7 +8,7 @@ Nothing in the brief was unbuildable.
 - `tests/client/AccountSettingsSignOutC.test.tsx` (new). **Deviation from the brief path** (`src/pages/__tests__/`): `check-dancer-area-isolation.mjs` goes red for a new file there (not a seam); `tests/**` is exempt. Not adding a seam: that is an orchestrator decision.
 
 ## Coverage
-coverage 5 of 5 checklist lines built (flag-on single link at bottom; tap -> "Sign out?" two-step -> signOutToHome; failure shows SIGN_OUT_FAILED; card section button gone; Sign out of all devices unchanged; flag off unchanged).
+coverage 6 of 6 checklist lines built (flag-on single link at bottom; tap -> "Sign out?" two-step -> signOutToHome; failure shows SIGN_OUT_FAILED; card section button gone; Sign out of all devices unchanged; flag off unchanged).
 Test matrix C x R4 (4 cases) counts controls, checks position, plus flow and failure. Red on old source: 2 of 6 fail (C on, count/position and the confirm flow), verified by stashing the source change.
 
 PR: #1873
