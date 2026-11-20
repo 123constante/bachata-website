@@ -67,3 +67,23 @@ export const homeBView = (
 
 export const morePlansLabel = (n: number): string => (n === 1 ? '1 more plan' : `${n} more plans`);
 export const attendedLabel = (n: number): string => (n === 1 ? '1 night attended' : `${n} nights attended`);
+
+/**
+ * Layout C (brief dancer-layout-c-s1): the SAME Option B mapping, split by job.
+ * `ready` = the profile-steps card under "Get ready" (null once the four steps are done);
+ * `goOut` = the night / "Nothing planned yet" card under "Go out" (only once they are done).
+ * Share, more plans and nights attended are homeBView's rows unchanged.
+ */
+export type HomeCView = HomeBView & {
+  ready: Extract<HomeFocus, { kind: 'profile' }> | null;
+  goOut: Exclude<HomeFocus, { kind: 'profile' }> | null;
+};
+
+export const homeCView = (
+  p: MyDancerEdit,
+  o: { went: number | null; night: HeroNight | null; goingCount: number | null },
+): HomeCView => {
+  const b = homeBView(p, o);
+  const f = b.focus;
+  return { ...b, ready: f.kind === 'profile' ? f : null, goOut: f.kind === 'profile' ? null : f };
+};

@@ -15,8 +15,11 @@ import { RateNudge } from './RateNudge';
 import type { HomeGoing } from './homeParts';
 import { useMyDancerEdit } from '../../api/useMyDancerEdit';
 import { HomeAView } from './homeOptionA';
-import { HomeBError, HomeBLoading, HomeBView } from './homeOptionB';
+import { HomeBError, HomeBLoading, HomeBView, HomeCView } from './homeOptionB';
 import { DANCER_DASH_B_ENABLED } from './dashBFlag';
+import { DANCER_LAYOUT_C_ENABLED } from './layoutCFlag';
+import { flags } from '@/lib/featureFlags';
+import { TICKET_TEASER_ENABLED } from '../teaser/teaserFlag';
 import { ClaimCard } from './claimCard';
 import { useMyNumbers } from '../../api/useMyNumbers';
 import NoProfileWayOut from '../options/NoProfileWayOut';
@@ -47,6 +50,12 @@ const writeFlag = (store: 'session' | 'local', key: string) => {
 // CalendarGoingFeed pattern. Switch off, the /app/* first load carries none of the going
 // module (perf-budgets.json, dancer-app row).
 const HomeGoingFeed = lazyWithRetry(() => import('./homeGoing'));
+
+// Layout C "Your ticket": the Tickets tab's card, lazy so no ticket read rides the first load.
+const HomeTicket = lazyWithRetry(() => import('./homeTicket'));
+
+/** Option B's loading / error cards: B on, or layout C on (C is built on B). */
+const B_CARDS = DANCER_DASH_B_ENABLED || DANCER_LAYOUT_C_ENABLED;
 
 /** The going feed's chunk is on its way: the same as the list loading. */
 const HOME_GOING_LOADING: HomeGoing = {
@@ -80,8 +89,8 @@ const HomeBodyView = ({ profile, going }: { profile: MyDancerEdit; going: HomeGo
   const numbers = useMyNumbers();
   const [noticeGone, setNoticeGone] = useState(() => (user?.id ? readFlag('local', noticeKey(user.id)) : true));
 
-  return (
-    <div style={{ display: 'grid', gap: 12 }}>
+  const alerts = (
+    <>
       {!profile.is_active && (
         <Card variant="padded" role="status" data-testid="paused-banner" className="border-[var(--danger)]">
           <b>{HIDDEN_STATE_LINE}</b>
@@ -111,6 +120,28 @@ const HomeBodyView = ({ profile, going }: { profile: MyDancerEdit; going: HomeGo
           </div>
         </Card>
       )}
+    </>
+  );
+
+  if (DANCER_LAYOUT_C_ENABLED) {
+    // Layout C wins over the A/B switch: h1, alerts, then Get ready / Go out / Be found.
+    return (
+      <HomeCView
+        profile={profile}
+        went={numbers.data ? numbers.data.went : null}
+        night={going?.hero ?? null}
+        goingCount={going?.goingCount ?? null}
+        focusLoading={going !== null && going.isLoading}
+        alerts={alerts}
+        rate={going && going.nudge.length > 0 ? <RateNudge candidates={going.nudge} todayKey={going.todayKey || londonTodayKey()} /> : null}
+        ticket={flags.publicTicketing && !TICKET_TEASER_ENABLED ? <Suspense fallback={null}><HomeTicket /></Suspense> : null}
+      />
+    );
+  }
+
+  return (
+    <div style={{ display: 'grid', gap: 12 }}>
+      {alerts}
 
       {DANCER_DASH_B_ENABLED ? (
         <HomeBView
@@ -161,7 +192,7 @@ const HomeScreen = () => {
 
   let body: ReactNode;
   if (profile.isLoading) {
-    body = DANCER_DASH_B_ENABLED ? <HomeBLoading /> : <Message>Loading your home&hellip;</Message>;
+    body = B_CARDS ? <HomeBLoading /> : <Message>Loading your home&hellip;</Message>;
   } else if (profile.error instanceof DancerApiError && profile.error.code === 'no_profile') {
     // D4 (unclaimed): the claim button re-runs the existing no-arg claim; its answer is drawn in the card.
     // Walk bug 1: never trapped here -- NoProfileWayOut gives Account settings, Sign out, the organiser area.
@@ -173,7 +204,7 @@ const HomeScreen = () => {
     );
   } else if (profile.error || !profile.data) {
     const message = profile.error instanceof Error ? profile.error.message : 'We couldn\u2019t load your home.';
-    body = DANCER_DASH_B_ENABLED ? (
+    body = B_CARDS ? (
       <HomeBError message={message} onRetry={() => void profile.refetch()} />
     ) : (
       <Message>
