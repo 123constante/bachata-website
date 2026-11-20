@@ -7,7 +7,7 @@ import { detailsDraftOf, detailsPlan } from '../data/details';
 import { useLeave, type Ask } from '../screens/EditTray';
 import { useVenueCity } from '../screens/DetailsScreen';
 import { V2 } from './copy';
-import { changeList, summaryOf, writePlan, type EventFields } from './editorModel';
+import { changeList, knownDraft, summaryOf, writePlan, type EventFields } from './editorModel';
 import { useEditorDraft } from './editorDraft';
 import { UnsavedSheet, useV2Save, useV2Toast } from './SaveBar';
 
@@ -21,7 +21,9 @@ export const fieldsOf = (ws: EventWorkspace): EventFields => ({ name: ws.series.
 export function useEditor(ws: EventWorkspace, opts: { uploading?: boolean } = {}) {
   const id = ws.series.id;
   const today = londonTodayKey();
-  const { draft, update, clear } = useEditorDraft(id);
+  const { draft: held, update, clear } = useEditorDraft(id);
+  // a night no longer on the event is neither counted nor sent (Save would do nothing while the bar stays)
+  const draft = knownDraft(held, ws.dates);
   const base = fieldsOf(ws);
   const f: EventFields = { ...base, ...draft.event };
   const dayOf = (occ: string) => { const d = ws.dates.find((x) => x.id === occ); return d ? fullDate(d.occurrence_date, today) : occ; };

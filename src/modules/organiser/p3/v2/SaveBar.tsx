@@ -7,39 +7,37 @@ import { dateDetailQueryKey, occurrenceProgrammeQueryKey, runOccurrenceCommand, 
 import { commandErrorMessage } from '../../shared/selfServeErrors';
 import { Sheet } from '../screens/Sheet';
 import { V2 } from './copy';
-import { runPlan, summaryOf, type WriteStep } from './editorModel';
+import { runHeld, summaryOf, type SaveHold, type WriteStep } from './editorModel';
 
 /**
  * The v2 save run: the plan in order, one idempotency key per step kept across a retry (a retry after a
- * partial failure starts after the steps that landed and resends their keys, never a second write).
+ * partial failure skips the steps that landed, even after a refetch reshapes the plan, and starts from the
+ * series and occurrence versions they left; see runHeld).
  */
 export function useV2Save(seriesId: string, seriesVersion: number) {
   const once = useSendOnce(seriesId);
   const qc = useQueryClient();
-  const held = useRef<{ sig: string; keys: string[]; done: number; occ: Record<string, number> } | null>(null);
+  const held = useRef<SaveHold | null>(null);
+  // a second tap before the re-render that disables Save must not start a second run
+  const running = useRef(false);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const run = async (steps: WriteStep[]): Promise<boolean> => {
-    if (!steps.length || busy) return false;
-    const sig = JSON.stringify(steps.map((s) => [s.id, s.command, s.payload ?? null]));
-    if (held.current?.sig !== sig) held.current = { sig, keys: steps.map(() => newIdempotencyKey()), done: 0, occ: {} };
-    const h = held.current;
+    if (!steps.length || running.current) return false;
+    running.current = true;
     setBusy(true);
     setError(null);
     try {
-      const r = await runPlan(steps, h.done, seriesVersion, async (step, v, occV) => {
-        const key = h.keys[steps.indexOf(step)];
+      const r = await runHeld(steps, held.current, seriesVersion, async (step, v, occV, key) => {
         if (step.target === 'programme') return saveOccurrenceProgramme(step.id, occV ?? step.version ?? 0, step.payload ?? []);
         if (!step.command) return null;
         if (step.target === 'series') return once(step.command, v, key);
         return runOccurrenceCommand(envelope(step.id, occV, step.command, key));
-      }, h.occ);
-      h.done = r.done;
-      h.occ = r.occ;
+      }, newIdempotencyKey);
+      held.current = r.hold;
       setFailed(r.failed);
       if (r.error) { setError(commandErrorMessage(r.error)); return false; }
-      held.current = null;
       return true;
     } finally {
       invalidatePublicEventCaches(qc);
@@ -49,6 +47,7 @@ export function useV2Save(seriesId: string, seriesVersion: number) {
         void qc.invalidateQueries({ queryKey: occurrenceProgrammeQueryKey(s.id) });
         void qc.invalidateQueries({ queryKey: dateDetailQueryKey(s.id) });
       }
+      running.current = false;
       setBusy(false);
     }
   };

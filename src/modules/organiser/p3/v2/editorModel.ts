@@ -41,6 +41,14 @@ export const draftEmpty = (d: EditorDraft): boolean =>
   !Object.keys(d.event).length && !Object.values(d.nights).some((p) => nightKeys(p).length) && !Object.keys(d.sessions ?? {}).length;
 export { sameV2Editor } from './scope';
 
+/** Finding 4: only nights still on the event. Save skips the others, so the save bar must not count them. */
+export function knownDraft(d: EditorDraft, dates: readonly Pick<WorkspaceDate, 'id'>[]): EditorDraft {
+  const on = (m: Record<string, unknown> | undefined) => Object.keys(m ?? {}).every((k) => dates.some((x) => x.id === k));
+  if (on(d.nights) && on(d.sessions)) return d;
+  const keep = <T,>(m: Record<string, T> | undefined) => Object.fromEntries(Object.entries(m ?? {}).filter(([k]) => dates.some((x) => x.id === k)));
+  return { ...d, nights: keep(d.nights), sessions: keep(d.sessions) };
+}
+
 /** Only the event fields that differ from the saved ones (typing back to the saved value is no change). */
 export function eventChanges(base: EventFields, draft: Partial<EventFields>): (keyof EventFields)[] {
   return (Object.keys(EVENT_LABELS) as (keyof EventFields)[]).filter((k) => k in draft && norm(draft[k]) !== norm(base[k]));
@@ -146,6 +154,30 @@ export async function runPlan(steps: readonly WriteStep[], from: number, seriesV
     }
   }
   return { done: steps.length, failed: [], error: null, seriesVersion: v, occ };
+}
+
+/**
+ * What a run that stopped part-way keeps for the retry (findings 1, 2): one idempotency key per step content,
+ * the steps that landed (never sent again, even when a refetch reshapes the plan), and the series and
+ * occurrence versions those landed steps left. A step is known by its content, not its place in the plan.
+ */
+export interface SaveHold { keys: Record<string, string>; landed: string[]; occ: Record<string, number>; seriesVersion: number | null }
+export const stepSig = (s: WriteStep): string => JSON.stringify([s.target, s.id, s.command, s.payload ?? null]);
+export type HeldSend = (step: WriteStep, seriesVersion: number | null, occurrenceVersion: number | null, key: string) =>
+  ReturnType<StepSend>;
+
+/** Runs the plan minus the steps that landed; returns the hold to keep (null once every step landed). */
+export async function runHeld(steps: readonly WriteStep[], hold: SaveHold | null, seriesVersion: number | null, send: HeldSend,
+  newKey: () => string): Promise<{ hold: SaveHold | null; failed: string[]; error: unknown | null }> {
+  const h: SaveHold = hold ?? { keys: {}, landed: [], occ: {}, seriesVersion: null };
+  const sigs = new Map(steps.map((s) => [s, stepSig(s)] as const));
+  const todo = steps.filter((s) => !h.landed.includes(sigs.get(s)!));
+  const keys = { ...h.keys };
+  for (const s of todo) keys[sigs.get(s)!] ??= newKey();
+  const r = await runPlan(todo, 0, h.seriesVersion ?? seriesVersion, (s, v, o) => send(s, v, o, keys[sigs.get(s)!]), h.occ);
+  if (!r.error) return { hold: null, failed: [], error: null };
+  const landed = [...h.landed, ...todo.slice(0, r.done).map((s) => sigs.get(s)!)];
+  return { hold: { keys, landed, occ: r.occ, seriesVersion: r.seriesVersion }, failed: r.failed, error: r.error };
 }
 
 /** Finding 15a: an end at or before the start saves as ends next day. Times 'HH:MM'. */
