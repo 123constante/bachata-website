@@ -1,5 +1,17 @@
+import { levelWord, typeWord, type PItem } from '../../events/programmeSeriesModel';
+
 /** Editor v2 (S1): every owner-facing line, in one place. Punctuation as \u escapes (cp1252 mojibake rule). */
 export const V2 = {
+  // event page header and rows (prototype)
+  events: 'Events',
+  add: 'Add',
+  added: 'Added',
+  loading: 'Loading\u2026',
+  done: 'Done',
+  to: (end: string) => `to ${end}`,
+  photos: (n: number) => `${n} ${n === 1 ? 'photo' : 'photos'}`,
+  videoCount: (n: number) => `${n} ${n === 1 ? 'video' : 'videos'}`,
+  noSessions: 'No sessions yet. Add a class or a party so dancers see what is on.',
   eventCard: 'The event',
   name: 'Name',
   about: 'About',
@@ -91,3 +103,19 @@ export const V2 = {
     past: 'This night has passed, so its sessions cannot change.',
   },
 } as const;
+
+/** The programme row's second line, "Class \u00b7 Ana, Ben \u00b7 Beginner": type, people, levels (prototype). */
+export function sessionLine(s: Pick<PItem, 'type' | 'people' | 'levels'>): string {
+  const people = s.people.map((p) => p.name.trim()).filter(Boolean).join(', ');
+  const levels = s.levels.map(levelWord).join(', ');
+  return [typeWord(s.type), people, levels].filter(Boolean).join(' \u00b7 ');
+}
+
+/** The Repeat row on one line each: "Every Friday" over "Last date Friday 25 December" (no wrapped sentence). */
+export function repeatParts(words: string): { head: string; rest: string; full: string } {
+  const full = words.trim().replace(/\.$/, '');
+  const at = full.indexOf(', ');
+  if (at < 0) return { head: full, rest: '', full };
+  const rest = full.slice(at + 2);
+  return { head: full.slice(0, at), rest: rest.charAt(0).toUpperCase() + rest.slice(1), full };
+}

@@ -15,14 +15,37 @@ async function open(page: Page) {
   const s = fake.series.get(FRIDAY)!;
   s.name = LONG;
   s.cancelled['2026-10-16'] = 'Venue issue';
+  // a programme shaped like prod: end times, people, levels, a night-after session and one with no title or end time
+  const ws = fake.workspace.bind(fake);
+  fake.workspace = (x) => {
+    const w = ws(x);
+    (w.series as { program: unknown }).program = [{ sections: [{ items: [
+      { item: { type: 'party', title: 'Late party', start_time: '01:00', end_time: '03:00' }, people: [{ profile_id: 'p3', display_name: 'DJ Rafa', profile_type: 'dj', role: 'djing' }] },
+      { item: { type: 'class', title: 'Beginners bachata', start_time: '20:00', end_time: '21:00', level_keys: ['beginner'] },
+        people: [{ profile_id: 'p1', display_name: 'Ana Lopez', profile_type: 'teacher', role: 'teaching' }, { profile_id: 'p2', display_name: 'Ben Cole', profile_type: 'teacher', role: 'teaching' }] },
+      { item: { type: 'party', title: '', start_time: '21:00' } },
+    ] }] }];
+    (w.series.series as { organiser_ids?: string[] }).organiser_ids = [fake.organisers[0].id];
+    return w;
+  };
   await fake.install(page);
+  // Who runs it: the organiser names read (organiser_profiles id=in.(...)), registered after the fake so it answers first
+  await page.route(/\/rest\/v1\/organiser_profiles\?.*id=in\./, (route) => route.fulfill({
+    json: [{ id: fake.organisers[0].id, name: fake.organisers[0].name, avatar_url: null }],
+  }));
   await page.goto(`/account/p3/events/${FRIDAY}/edit`);
   await expect(page.getByTestId('v2-event')).toBeVisible({ timeout: 20_000 });
   return fake;
 }
 
+async function setText(page: Page, row: 'v2-name' | 'v2-about', text: string) {
+  await page.getByTestId(row).click();
+  await page.getByTestId(`${row}-input`).fill(text);
+  await page.getByTestId('v2-sheet-done').click();
+}
+
 async function tapTargets(page: Page) {
-  for (const b of await page.locator('.v2-row, .v2-link, [data-testid=v2-undo], [data-testid=v2-save]').all()) {
+  for (const b of await page.locator('.v2-row, .v2-link, .v2-r, .v2-chg, .v2-sess, [data-testid=v2-undo], [data-testid=v2-save]').all()) {
     if (!(await b.isVisible())) continue;
     expect((await b.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   }
@@ -30,7 +53,7 @@ async function tapTargets(page: Page) {
 
 test('event page: long name not cut, dates list, save bar, undo, save', async ({ page }) => {
   const fake = await open(page);
-  await expect(page.getByTestId('v2-name')).toHaveValue(LONG);
+  await expect(page.getByTestId('v2-name')).toContainText(LONG);
   const rows = page.getByTestId('v2-date-row');
   expect(await rows.count()).toBeLessThanOrEqual(6);
   await expect(page.getByTestId('v2-dates')).toContainText('Cancelled');
@@ -38,25 +61,67 @@ test('event page: long name not cut, dates list, save bar, undo, save', async ({
   await tapTargets(page);
   await page.screenshot({ path: `${OUT}/event.png`, fullPage: true });
 
-  await page.getByTestId('v2-about').fill('New about text');
+  await setText(page, 'v2-about', 'New about text');
   await expect(page.getByTestId('v2-save-summary')).toHaveText('About');
   await page.screenshot({ path: `${OUT}/event-savebar.png` });
   await page.getByTestId('v2-undo').click();
   await expect(page.getByTestId('v2-toast')).toHaveText('Undone: About');
   await expect(page.getByTestId('v2-savebar')).toHaveCount(0);
 
-  await page.getByTestId('v2-about').fill('New about text');
+  await setText(page, 'v2-about', 'New about text');
   await page.getByTestId('v2-save').click();
   await expect(page.getByTestId('v2-toast')).toHaveText('Saved');
   const env = fake.envelopes().at(-1) as { command: { payload: Record<string, unknown> } };
   expect(env.command.payload.default_description).toBe('New about text');
 });
 
+test('event page looks like the prototype: header, rows with chevrons, programme, no save bar until a change', async ({ page }) => {
+  const fake = await open(page);
+  // header: chevron back, "Events" over the name, the state pill; no shell exit line, no "Edit event" title
+  await expect(page.getByTestId('r4-back')).toBeHidden();
+  await expect(page.getByTestId('r4-header')).toBeHidden();
+  await expect(page.getByText('Edit event')).toHaveCount(0);
+  await expect(page.locator('.v2-tt1')).toHaveText('Events');
+  await expect(page.getByTestId('v2-event-subline')).toHaveText(LONG);
+  await expect(page.getByTestId('v2-pill')).toHaveText(/live/i);
+  // rows: label, one-line value, chevron; no open text boxes on the page
+  await expect(page.locator('.v2-main textarea, .v2-main input')).toHaveCount(0);
+  for (const id of ['v2-name', 'v2-about', 'v2-music', 'v2-venue', 'v2-who']) {
+    const r = page.getByTestId(id);
+    expect((await r.boundingBox())!.height).toBeLessThanOrEqual(46);
+  }
+  await expect(page.getByTestId('v2-music')).toContainText('Bachata');
+  await expect(page.getByTestId('v2-who')).toContainText(fake.organisers[0].name);
+  await expect(page.getByTestId('v2-repeat')).toContainText(/^RepeatEvery FridayLast date/);
+  expect((await page.getByTestId('v2-repeat').boundingBox())!.height).toBeLessThanOrEqual(60);
+  // programme: time over "to" time, title, "Class \u00b7 people \u00b7 level"; late session last; untitled named by type
+  const rows = page.getByTestId('v2-session-row');
+  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(0)).toContainText('20:00to 21:00Beginners bachataClass \u00b7 Ana Lopez, Ben Cole \u00b7 Beginner');
+  await expect(rows.nth(1)).toContainText('21:00Party');
+  await expect(rows.nth(2)).toContainText('01:00to 03:00Late party');
+  await expect(page.getByTestId('v2-add-session')).toHaveText('Add a session');
+  await expect(page.getByText('Teachers and DJs are set inside each session.')).toBeVisible();
+  // the save bar only after a real change; typing the same name back is no change
+  await expect(page.getByTestId('v2-savebar')).toHaveCount(0);
+  await setText(page, 'v2-name', LONG);
+  await expect(page.getByTestId('v2-savebar')).toHaveCount(0);
+  await expectNoHorizontalScroll(page);
+  await tapTargets(page);
+  await page.screenshot({ path: `${OUT}/event-proto.png` });
+  await page.getByTestId('v2-guest-list').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${OUT}/event-proto-lower.png` });
+  await page.getByTestId('v2-name').click();
+  await page.screenshot({ path: `${OUT}/event-name-sheet.png` });
+});
+
 test('unsaved sheet on leave', async ({ page }) => {
   await open(page);
-  await page.getByTestId('v2-name').fill(`${LONG} x`);
+  await setText(page, 'v2-name', `${LONG} x`);
   await page.getByTestId('p3-edit-back').click();
   await expect(page.getByTestId('v2-unsaved')).toBeVisible();
+  // Save / Throw away / Keep editing only: no extra Close
+  await expect(page.getByTestId('p3-sheet').getByRole('button', { name: 'Close' })).toBeHidden();
   await page.screenshot({ path: `${OUT}/unsaved.png` });
   await page.getByTestId('v2-unsaved-keep').click();
   await expect(page.getByTestId('v2-event')).toBeVisible();
@@ -80,7 +145,7 @@ test('night screen: name for this night, back to usual, save sends set_override'
 
 test('one save bar: event change kept on a night; night venue + session cancel; one save sends all in order', async ({ page }) => {
   const fake = await open(page);
-  await page.getByTestId('v2-about').fill('New about text');
+  await setText(page, 'v2-about', 'New about text');
   // moving to a night of the same event keeps the draft and does not ask
   await page.getByTestId('v2-date-row').filter({ hasNotText: 'Cancelled' }).first().click();
   await expect(page.getByTestId('v2-night')).toBeVisible();
