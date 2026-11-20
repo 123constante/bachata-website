@@ -53,7 +53,7 @@ export const V2 = {
   // save bar
   undo: 'Undo',
   save: 'Save',
-  saving: 'Saving…',
+  saving: 'Saving\u2026',
   notSaved: (part: string) => `Not saved: ${part}. Try again.`,
   undone: (summary: string) => `Undone: ${summary}`,
   saved: 'Saved',
