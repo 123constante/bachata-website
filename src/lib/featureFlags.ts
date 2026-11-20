@@ -135,6 +135,10 @@ export const flags = {
   // dancer app and organiser area, the organiser Switch page and the Sign out link at the foot of Account settings.
   // OFF = every screen exactly as before. Turn on with VITE_ENABLE_DASHBOARD_SWITCH_R4=true (Vercel env) -- no code change.
   dashboardSwitchR4:   import.meta.env.VITE_ENABLE_DASHBOARD_SWITCH_R4 === 'true',
+  // Course rule card (docs/briefs/course-rule-card.md on brief/course-rule): "Sign up before you come" /
+  // "Drop in welcome" above the Week rows on a course page, from event.signup_rule (admin #2037).
+  // OFF = the course page is exactly as before. Turn on with VITE_ENABLE_COURSE_SIGNUP_RULE=true (Vercel env).
+  courseSignupRule:    import.meta.env.VITE_ENABLE_COURSE_SIGNUP_RULE === 'true',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the
