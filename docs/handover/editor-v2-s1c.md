@@ -149,3 +149,5 @@ Remaining differences to the prototype (side by side, 390x844, shots `docs/desig
 - The picture row shows "Picture for this night" / "Usual flyer" words, no thumbnail (prototype has none either on the row).
 
 Walk: `tests/e2e/organiser-editor-v2.spec.ts`, all three flags on (plus DASH), 6/6 passed locally.
+
+Night round status: code head bb1716f. tsc run on bb1716f: 0 errors in branch files (tsc -p tsconfig.app.json; repo total 160 in this sandbox, none under p3/v2 or the walk spec). Not verified: /code-review of this round, full pre-ship and lint chain, a real phone, the preview with the flag on, CI result for bb1716f (still running at hand-off).
