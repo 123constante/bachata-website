@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { fetchNightRefundSummary, refundKeys, refundNight, refundOneOrder, type RefundOrderRow } from '../door/refundData';
@@ -21,6 +21,7 @@ export function R4NightRefund({ seriesId, occurrenceId, date }: { seriesId: stri
   });
   const [ask, setAsk] = useState<Ask | null>(null);
   const [busy, setBusy] = useState(false);
+  const going = useRef(false); // a second tap before the re-render must not send twice
   const [sheetErr, setSheetErr] = useState<string | null>(null);
   const [said, setSaid] = useState<{ text: string; ok: boolean } | null>(null);
 
@@ -42,7 +43,8 @@ export function R4NightRefund({ seriesId, occurrenceId, date }: { seriesId: stri
     else { setAsk(null); setSaid({ text: REFUND_COPY.unsure, ok: false }); }
   };
   const go = async () => {
-    if (!ask) return;
+    if (!ask || going.current) return;
+    going.current = true;
     setBusy(true); setSheetErr(null);
     try {
       if (ask.kind === 'all') {
@@ -69,6 +71,7 @@ export function R4NightRefund({ seriesId, occurrenceId, date }: { seriesId: stri
       void q.refetch();
       void qc.invalidateQueries({ queryKey: nightMoneyQueryKey(user?.id ?? null, seriesId) });
     } finally {
+      going.current = false;
       setBusy(false);
     }
   };

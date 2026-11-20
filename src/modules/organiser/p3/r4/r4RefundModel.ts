@@ -45,6 +45,8 @@ export const REFUND_COPY = {
   night: (day: string) => `Refunds, cancelled ${day}`,
   line: (n: number, pence: number) => `${orders(n)} to refund, ${gbp(pence)}`,
   none: 'Nothing left to refund.',
+  noPaid: 'No paid tickets to refund.',
+  doneUnclear: 'Done. Refresh to check the list.',
   all: 'Refund all',
   one: 'Refund',
   refunded: 'Refunded',
@@ -74,7 +76,7 @@ export interface RefundBlock { line: string; allOn: boolean; rows: RefundRowView
 export function refundBlockOf(s: NightRefundSummary | undefined): RefundBlock | null {
   if (!s || s.kind !== 'ok' || !s.nightCancelled || s.orders.length === 0) return null;
   return {
-    line: s.ordersToRefund > 0 ? REFUND_COPY.line(s.ordersToRefund, s.penceToRefund) : REFUND_COPY.none,
+    line: s.ordersToRefund > 0 ? REFUND_COPY.line(s.ordersToRefund, s.penceToRefund) : s.orders.every((o) => o.refunded) ? REFUND_COPY.none : REFUND_COPY.noPaid,
     allOn: s.ordersToRefund > 0,
     rows: s.orders.map((o) => ({
       order: o,
@@ -91,6 +93,7 @@ export function refundBlockOf(s: NightRefundSummary | undefined): RefundBlock | 
 /** What a Refund all press says, given the orders it was about (for names of the ones that failed). */
 export function nightDoneText(d: NightRefundDone, list: readonly RefundOrderRow[]): { text: string; ok: boolean } {
   const free = d.freeFailed ? ` ${REFUND_COPY.freeFailed}` : '';
+  if (d.failed.length === 0 && d.refunded === 0) return { text: REFUND_COPY.doneUnclear + free, ok: !d.freeFailed };
   if (d.failed.length === 0) return { text: REFUND_COPY.done(d.refunded) + free, ok: !d.freeFailed };
   const byId = new Map(list.map((o) => [o.orderId, nameOf(o)]));
   return { text: REFUND_COPY.partial(d.refunded, d.failed.map((id) => byId.get(id) ?? nameOf({ firstName: null }))) + free, ok: false };
