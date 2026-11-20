@@ -45,7 +45,10 @@ import { OrgSurfaceProvider } from '../../../shell/surface';
 const page = (id: string) => ({ id, name: `Page ${id}`, series: [], role: 'owner' });
 const req = (status: 'open' | 'declined') => ({
   requestId: `r-${status}`, organiserId: `o-${status}`, organiserName: `Org ${status}`, status,
-  createdAt: '2026-10-20T10:00:00Z', resolvedAt: status === 'declined' ? '2026-10-21T10:00:00Z' : null,
+  // Relative to now: a declined card is shown for DECLINED_VISIBLE_DAYS (30) after the answer, so a fixed
+  // 2026-10-21 date stopped rendering it on 2026-11-20 and turned this test red.
+  createdAt: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+  resolvedAt: status === 'declined' ? new Date(Date.now() - 2 * 86_400_000).toISOString() : null,
 });
 
 type Shape = { name: string; organisers: unknown[]; requests: unknown[]; title: string; back: boolean };
