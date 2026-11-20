@@ -76,3 +76,22 @@ gate sits on `events/:seriesId/edit` (R4EditNight's route), NOT on `events/:seri
 
 - Continuation A: PR #1865 updated. tsc run on 8844afc: 0 errors in branch files (tsconfig.app.json total 141 = main).
 - Preview: the Vercel check on PR #1865 for the head of claude/editor-v2-s1c (flag off on preview).
+
+## Fix round (brief docs/briefs/editor-v2-s1c-fixround.md, review of ce1c1e5)
+Tests: `p3/v2/__tests__/editorModel.fixround.test.ts`, written first; 5 failed on the unfixed code.
+- **1 + 2 (fixed):** new pure `runHeld` + `SaveHold` (editorModel). The hold keys each step by its content (`stepSig`),
+  not by its place in the plan. Steps that landed are never sent again, even after a refetch drops or reshapes the plan,
+  and their keys are reused. A retry starts from the series version and occurrence versions the landed steps left,
+  not from the prop. `useV2Save` keeps the hold in a ref.
+- **3 (not reproducible, dropped):** prod `occurrence_command_p5` -> `apply_aggregate_write_p5` -> `_command_result_ok_p5`
+  returns `{ok, data, new_version, audit_id}` (read-only check, 2026-11-20). An idempotent replay returns the stored
+  payload, which has the same shape. A test pins that shape; it passed on the unfixed code, so nothing was changed.
+- **4 (fixed):** `knownDraft(draft, ws.dates)` in useEditor. A night no longer on the event is neither counted
+  (dirty / save bar) nor sent.
+- **Nit, flag gate (fixed):** EditTray now calls `v2KeepsDraft` (scope.ts), which is false while the flag is off. scope.ts is a
+  5th file, outside the brief's list of 4 files. `sameV2Editor` lives there and the gate needs the flag.
+- **Nit, busy (fixed):** `useV2Save` has a synchronous `running` ref, so a double tap cannot start two runs.
+- **Nit, leave go() re-block (not reproducible, dropped):** under the data router, `go` is `blocker.proceed()`, which does
+  not run shouldBlock again. Without it, `requestLeave` asks only when there is no router guard, and `navigate` has no blocker.
+  EditTray's own leave sheet uses the same order (`onUndo(); go()`).
+- Branch merged with origin/main (it was behind).
