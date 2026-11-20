@@ -24,12 +24,22 @@ export const NIGHT_LABELS: Record<keyof NightPatch, string> = {
 };
 export const NIGHT_ABOUT_MAX = 2000;
 
+/** One night's sessions as edited (the full programme the writer takes back), read at `version`. */
+export interface NightSessions { version: number; payload: Record<string, unknown>[]; rows: readonly unknown[] }
+
 export interface EditorDraft {
   event: Partial<EventFields>;
   /** occurrence id -> that night's patch */
   nights: Record<string, NightPatch>;
+  /** occurrence id -> that night's changed sessions (absent = untouched) */
+  sessions?: Record<string, NightSessions>;
 }
-export const EMPTY_DRAFT: EditorDraft = { event: {}, nights: {} };
+export const EMPTY_DRAFT: EditorDraft = { event: {}, nights: {}, sessions: {} };
+
+/** True when the draft holds nothing to save. */
+export const draftEmpty = (d: EditorDraft): boolean =>
+  !Object.keys(d.event).length && !Object.values(d.nights).some((p) => nightKeys(p).length) && !Object.keys(d.sessions ?? {}).length;
+export { sameV2Editor } from './scope';
 
 /** Only the event fields that differ from the saved ones (typing back to the saved value is no change). */
 export function eventChanges(base: EventFields, draft: Partial<EventFields>): (keyof EventFields)[] {
@@ -38,15 +48,19 @@ export function eventChanges(base: EventFields, draft: Partial<EventFields>): (k
 const norm = (v: unknown) => (typeof v === 'string' ? v.trim() : v ?? null);
 
 /** Every change the save bar holds, as labels: event-wide first, then nights by date. */
-export function changeList(base: EventFields, draft: EditorDraft, dayOf: (occId: string) => string): string[] {
+/** `orderOf` sorts nights (an ISO date; defaults to `dayOf`, whose words do not sort by date). */
+export function changeList(base: EventFields, draft: EditorDraft, dayOf: (occId: string) => string, orderOf: (occId: string) => string = dayOf): string[] {
   const out = eventChanges(base, draft.event).map((k) => EVENT_LABELS[k]);
-  for (const occ of Object.keys(draft.nights).sort((a, b) => dayOf(a).localeCompare(dayOf(b)))) {
+  for (const occ of sortedNights(draft.nights, orderOf)) {
     const keys = nightKeys(draft.nights[occ]);
     for (const k of keys) out.push(`${NIGHT_LABELS[k]} (${dayOf(occ)})`);
   }
+  for (const occ of sortedNights(draft.sessions, orderOf)) out.push(`${V2.nightSessions} (${dayOf(occ)})`);
   return dedupe(out);
 }
 const dedupe = (xs: string[]) => xs.filter((x, i) => xs.indexOf(x) === i);
+const sortedNights = (m: Record<string, unknown> | undefined, orderOf: (occId: string) => string) =>
+  Object.keys(m ?? {}).sort((a, b) => orderOf(a).localeCompare(orderOf(b)));
 const nightKeys = (p: NightPatch | undefined) =>
   (p ? (Object.keys(p) as (keyof NightPatch)[]).filter((k) => k !== 'city_id') : []);
 
@@ -58,16 +72,19 @@ export function summaryOf(list: readonly string[]): string {
   return `${list[0]} and ${list.length - 1} more`;
 }
 
-export type StepTarget = 'series' | 'occurrence';
+export type StepTarget = 'series' | 'occurrence' | 'programme';
 export interface WriteStep {
   /** What the save bar names when this step fails. */
   part: string;
   target: StepTarget;
   /** series id or occurrence id */
   id: string;
-  /** the occurrence's version; series steps chain the series version at run time */
+  /** the occurrence's version as read; the runner chains it when an earlier step bumped it */
   version: number | null;
-  command: OwnerCommand;
+  /** series / occurrence steps; null for a programme step */
+  command: OwnerCommand | null;
+  /** programme steps: the full sessions list for organiser_set_occurrence_programme_v1 */
+  payload?: Record<string, unknown>[];
   /** 0 event-wide, 1 night overrides, 2 sessions */
   order: 0 | 1 | 2;
 }
@@ -77,18 +94,24 @@ export interface WriteStep {
  * set_override, then sessions. A night patch with no keys sends nothing; an untouched draft is [].
  */
 export function writePlan(seriesId: string, eventCommands: readonly OwnerCommand[], draft: EditorDraft,
-  dates: readonly Pick<WorkspaceDate, 'id' | 'version'>[], dayOf: (occId: string) => string): WriteStep[] {
+  dates: readonly Pick<WorkspaceDate, 'id' | 'version'>[], dayOf: (occId: string) => string, orderOf: (occId: string) => string = dayOf): WriteStep[] {
   const steps: WriteStep[] = eventCommands.map((command) => ({ part: eventPartOf(command), target: 'series', id: seriesId, version: null, command, order: 0 }));
-  for (const occ of Object.keys(draft.nights).sort((a, b) => dayOf(a).localeCompare(dayOf(b)))) {
+  for (const occ of sortedNights(draft.nights, orderOf)) {
     const patch = draft.nights[occ];
     if (!nightKeys(patch).length) continue;
     const d = dates.find((x) => x.id === occ);
     if (!d) continue;
     steps.push({ part: dayOf(occ), target: 'occurrence', id: occ, version: d.version, command: overrideCommand(patch), order: 1 });
   }
+  for (const occ of sortedNights(draft.sessions, orderOf)) {
+    if (!dates.some((x) => x.id === occ)) continue;
+    const s = (draft.sessions ?? {})[occ];
+    steps.push({ part: `${V2.nightSessions} (${dayOf(occ)})`, target: 'programme', id: occ, version: s.version, command: null, payload: s.payload, order: 2 });
+  }
   return steps.sort((a, b) => a.order - b.order);
 }
-function eventPartOf(c: OwnerCommand): string {
+function eventPartOf(c: OwnerCommand | null): string {
+  if (!c) return V2.eventCard;
   const p = c.payload ?? {};
   const parts: string[] = [];
   if ('name' in p || 'series_name' in p) parts.push(V2.name);
@@ -98,23 +121,31 @@ function eventPartOf(c: OwnerCommand): string {
 }
 
 export interface RunResult { done: number; failed: string[]; error: unknown | null }
-export type StepSend = (step: WriteStep, seriesVersion: number | null) => Promise<{ new_version?: number } | null | undefined>;
+export type StepSend = (step: WriteStep, seriesVersion: number | null, occurrenceVersion: number | null) =>
+  Promise<{ new_version?: number; version?: number } | null | undefined>;
 
 /**
  * Runs the plan in order from `from` (a retry starts after the steps that landed). Stops at the first
  * failure: the bar stays and names that part and every part after it ("Not saved: <part>").
  */
-export async function runPlan(steps: readonly WriteStep[], from: number, seriesVersion: number | null, send: StepSend): Promise<RunResult & { seriesVersion: number | null }> {
+export async function runPlan(steps: readonly WriteStep[], from: number, seriesVersion: number | null, send: StepSend,
+  occStart: Readonly<Record<string, number>> = {}): Promise<RunResult & { seriesVersion: number | null; occ: Record<string, number> }> {
   let v = seriesVersion;
+  // a night's override and its sessions share the occurrence version: the second step sends what the first left
+  // (a retry passes back `occ` from the run that stopped, so the sessions step still sends the bumped version)
+  const occ: Record<string, number> = { ...occStart };
   for (let i = from; i < steps.length; i += 1) {
+    const s = steps[i];
     try {
-      const res = await send(steps[i], v);
-      if (steps[i].target === 'series' && typeof res?.new_version === 'number') v = res.new_version;
+      const res = await send(s, v, s.target === 'series' ? null : occ[s.id] ?? s.version);
+      if (s.target === 'series' && typeof res?.new_version === 'number') v = res.new_version;
+      const nv = res?.new_version ?? res?.version;
+      if (s.target !== 'series' && typeof nv === 'number') occ[s.id] = nv;
     } catch (error) {
-      return { done: i, failed: dedupe(steps.slice(i).map((s) => s.part)), error, seriesVersion: v };
+      return { done: i, failed: dedupe(steps.slice(i).map((s) => s.part)), error, seriesVersion: v, occ };
     }
   }
-  return { done: steps.length, failed: [], error: null, seriesVersion: v };
+  return { done: steps.length, failed: [], error: null, seriesVersion: v, occ };
 }
 
 /** Finding 15a: an end at or before the start saves as ends next day. Times 'HH:MM'. */
@@ -150,8 +181,8 @@ export function nightSessionsOff(d: Pick<WorkspaceDate, 'occurrence_date' | 'lif
   return null;
 }
 
-/** The roles a night may set (the writer takes only these). Dancers per night come later. */
-export const NIGHT_ROLES = ['teaching', 'djing'] as const;
+/** The roles a night may set (the writer takes only these; `dancing` live in prod since admin 2026-11). */
+export const NIGHT_ROLES = ['teaching', 'djing', 'dancing'] as const;
 
 export type DateTag = 'cancelled' | 'ended' | 'changed' | null;
 export function dateTagOf(d: Pick<WorkspaceDate, 'lifecycle_status' | 'has_override' | 'override_keys' | 'session_overrides_count' | 'added_sessions_count'>, seriesStatus: string): DateTag {

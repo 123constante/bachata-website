@@ -1,16 +1,15 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { EventWorkspace } from '../../events/eventModel';
-import { useVenueOptions, venueName } from '../../shared/publicVenues';
+import { venueName } from '../../shared/publicVenues';
 import { fullDate } from '../../shared/dateWords';
-import { londonTodayKey } from '@/lib/londonDate';
 import { useSendOnce } from '../../shared/runCommands';
-import { detailsDraftOf, detailsPlan } from '../data/details';
 import { cancelPlan } from '../data/eventPage';
 import { repeatShapeOf } from '../data/dates';
+import { allItems } from '../../events/programmeSeriesModel';
+import { seriesTree } from '../data/sessions';
 import { repeatWords } from '../model/repeat';
-import { GuardedBack, useLeave, type Ask } from '../screens/EditTray';
-import { useVenueCity } from '../screens/DetailsScreen';
+import { GuardedBack } from '../screens/EditTray';
 import type { SendOnce } from '../screens/CancelEventSheet';
 import { Sheet } from '../screens/Sheet';
 import { VenueList } from '../screens/VenueList';
@@ -18,31 +17,20 @@ import { P3_PATHS } from '../shell/paths';
 import { TicketsEntry } from '../tickets/TicketsEntry';
 import { R4CancelSheet } from '../r4/R4CancelSheet';
 import { V2 } from './copy';
-import { DATE_TAG_WORD, UPCOMING_PAGE, changeList, dateTagOf, summaryOf, upcomingOf, writePlan, type EventFields } from './editorModel';
-import { SaveBar, UnsavedSheet, useV2Save, useV2Toast } from './SaveBar';
+import { DATE_TAG_WORD, UPCOMING_PAGE, dateTagOf, upcomingOf, type EventFields } from './editorModel';
+import { SaveBar } from './SaveBar';
+import { useEditor } from './useEditor';
 import './v2.css';
-
-const fieldsOf = (ws: EventWorkspace): EventFields => ({ name: ws.series.name ?? '', about: ws.series.default_description ?? '', venueId: ws.series.default_venue_id });
 
 /** Editor v2 event page (flag organiserEditorV2, weekly and one-off): every edit waits behind one save bar. */
 export function EventPageV2({ ws }: { ws: EventWorkspace }) {
-  const id = ws.series.id;
-  const today = londonTodayKey();
+  const ed = useEditor(ws);
+  const { id, today, base, f, venues, city, changes, save, toast, why, undo, doSave } = ed;
   const weekly = ws.series.format === 'recurring';
-  const base = fieldsOf(ws);
-  const [draft, setDraft] = useState<Partial<EventFields>>({});
-  const f: EventFields = { ...base, ...draft };
-  const changes = changeList(base, { event: draft, nights: {} }, (x) => x);
-  const dirty = changes.length > 0;
-  const venues = useVenueOptions();
-  const city = useVenueCity(draft.venueId !== undefined && draft.venueId !== base.venueId ? f.venueId : null, venues.data);
-  const detailsBase = detailsDraftOf(ws);
-  const eventCommands = detailsPlan(detailsBase, { ...detailsBase, name: f.name, description: f.about, venueId: f.venueId }, city.id);
-  const steps = writePlan(id, eventCommands, { event: draft, nights: {} }, ws.dates, (x) => x);
-  const save = useV2Save(id, ws.series.version);
-  const toast = useV2Toast();
-  const [ask, setAsk] = useState<Ask>(null);
-  useLeave(dirty, setAsk);
+  const dirty = ed.dirty;
+  const draft = ed.draft.event;
+  const setDraft = (fn: (d: Partial<EventFields>) => Partial<EventFields>) => ed.update((x) => ({ ...x, event: fn(x.event) }));
+  const sessions = allItems(seriesTree(ws));
   const [picking, setPicking] = useState(false);
   const [more, setMore] = useState(false);
   const [cancel, setCancel] = useState(false);
@@ -53,11 +41,7 @@ export function EventPageV2({ ws }: { ws: EventWorkspace }) {
   const oneOffCancelled = !weekly && ws.dates[0]?.lifecycle_status === 'cancelled';
   const upcoming = upcomingOf(ws.dates, today);
   const shown = more ? upcoming : upcoming.slice(0, UPCOMING_PAGE);
-  const why = dirty && city.problem ? city.problem : null;
   const nameTooLong = f.name.trim().length === 0 ? 'Add a name.' : null;
-
-  const undo = () => { const s = summaryOf(changes); setDraft({}); save.forget(); if (s) toast.show(V2.undone(s)); };
-  const doSave = async () => { const ok = await save.run(steps); if (ok) { setDraft({}); toast.show(V2.saved); } return ok; };
 
   return (
     <div className="r4-stack r4-form" data-testid="v2-event" data-id={id}>
@@ -106,6 +90,12 @@ export function EventPageV2({ ws }: { ws: EventWorkspace }) {
       <section className="r4-card v2-card" aria-labelledby="v2-card-prog">
         <h2 id="v2-card-prog" className="r4-label v2-card-h">{V2.programme}</h2>
         <p className="v2-row-help">{V2.programmeLine}</p>
+        {sessions.map((s) => (
+          <Link key={s.key} to={P3_PATHS.eventAll(id)} className="v2-row" data-testid="v2-session-row">
+            <span className="v2-row-t">{s.title || 'Session'}</span>
+            <span className="v2-row-help">{[s.start, s.end].filter(Boolean).join('–')}</span>
+          </Link>
+        ))}
         <Link to={P3_PATHS.eventAll(id)} className="v2-row" data-testid="v2-add-session"><span className="v2-row-t">{V2.addSession}</span></Link>
       </section>
 
@@ -157,14 +147,10 @@ export function EventPageV2({ ws }: { ws: EventWorkspace }) {
       </section>
 
       {toast.node}
-      <SaveBar changes={changes} busy={save.busy} failed={save.failed} why={why ?? (dirty ? nameTooLong : null)} onUndo={undo} onSave={() => void doSave()} />
+      <SaveBar changes={changes} busy={save.busy} failed={save.failed} why={why} onUndo={undo} onSave={() => void doSave()} />
       {save.error && !save.failed.length && <p className="r4-err" role="alert">{save.error}</p>}
 
-      {ask?.kind === 'leave' && (
-        <UnsavedSheet busy={save.busy} onKeep={() => setAsk(null)}
-          onThrow={() => { const go = ask.go; setDraft({}); setAsk(null); go(); }}
-          onSave={() => { const go = ask.go; void doSave().then((ok) => { setAsk(null); if (ok) go(); }); }} />
-      )}
+      {ed.leaveSheet}
       {picking && (
         <Sheet title={V2.venue} onClose={() => setPicking(false)}>
           <VenueList venues={venues} testId="v2-venues">

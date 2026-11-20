@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { envelope, newIdempotencyKey } from '../../shared/seriesCommands';
 import { invalidatePublicEventCaches } from '@/modules/organiser/shared/publicCache';
 import { eventWorkspaceQueryKey, useSendOnce } from '../../shared/runCommands';
-import { runOccurrenceCommand } from '../../shared/selfServeApi';
+import { dateDetailQueryKey, occurrenceProgrammeQueryKey, runOccurrenceCommand, saveOccurrenceProgramme } from '../../shared/selfServeApi';
 import { commandErrorMessage } from '../../shared/selfServeErrors';
 import { Sheet } from '../screens/Sheet';
 import { V2 } from './copy';
@@ -16,24 +16,27 @@ import { runPlan, summaryOf, type WriteStep } from './editorModel';
 export function useV2Save(seriesId: string, seriesVersion: number) {
   const once = useSendOnce(seriesId);
   const qc = useQueryClient();
-  const held = useRef<{ sig: string; keys: string[]; done: number } | null>(null);
+  const held = useRef<{ sig: string; keys: string[]; done: number; occ: Record<string, number> } | null>(null);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const run = async (steps: WriteStep[]): Promise<boolean> => {
     if (!steps.length || busy) return false;
-    const sig = JSON.stringify(steps.map((s) => [s.id, s.command]));
-    if (held.current?.sig !== sig) held.current = { sig, keys: steps.map(() => newIdempotencyKey()), done: 0 };
+    const sig = JSON.stringify(steps.map((s) => [s.id, s.command, s.payload ?? null]));
+    if (held.current?.sig !== sig) held.current = { sig, keys: steps.map(() => newIdempotencyKey()), done: 0, occ: {} };
     const h = held.current;
     setBusy(true);
     setError(null);
     try {
-      const r = await runPlan(steps, h.done, seriesVersion, async (step, v) => {
+      const r = await runPlan(steps, h.done, seriesVersion, async (step, v, occV) => {
         const key = h.keys[steps.indexOf(step)];
+        if (step.target === 'programme') return saveOccurrenceProgramme(step.id, occV ?? step.version ?? 0, step.payload ?? []);
+        if (!step.command) return null;
         if (step.target === 'series') return once(step.command, v, key);
-        return runOccurrenceCommand(envelope(step.id, step.version, step.command, key));
-      });
+        return runOccurrenceCommand(envelope(step.id, occV, step.command, key));
+      }, h.occ);
       h.done = r.done;
+      h.occ = r.occ;
       setFailed(r.failed);
       if (r.error) { setError(commandErrorMessage(r.error)); return false; }
       held.current = null;
@@ -41,6 +44,11 @@ export function useV2Save(seriesId: string, seriesVersion: number) {
     } finally {
       invalidatePublicEventCaches(qc);
       void qc.invalidateQueries({ queryKey: eventWorkspaceQueryKey(seriesId) });
+      for (const s of steps) {
+        if (s.target === 'series') continue;
+        void qc.invalidateQueries({ queryKey: occurrenceProgrammeQueryKey(s.id) });
+        void qc.invalidateQueries({ queryKey: dateDetailQueryKey(s.id) });
+      }
       setBusy(false);
     }
   };

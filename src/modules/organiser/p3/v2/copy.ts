@@ -50,6 +50,13 @@ export const V2 = {
   nightGuestList: 'Guest list for this night',
   nightSessions: 'Sessions that night',
   addNightSession: 'Add a session for this night only',
+  noNightSessions: 'No sessions that night. Add one for this night only below.',
+  sessionCancel: 'Cancel for this night',
+  sessionRemove: 'Remove',
+  sessionBringBack: 'Bring back',
+  sessionOff: 'Not on this night.',
+  nightReadFail: 'Could not load this night’s own values.',
+  uploading: 'Uploading…',
   // save bar
   undo: 'Undo',
   save: 'Save',
