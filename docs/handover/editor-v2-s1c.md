@@ -37,3 +37,5 @@ gate sits on `events/:seriesId/edit` (R4EditNight's route), NOT on `events/:seri
 7. One save bar across event page + night: today each screen has its own bar; leaving with changes asks.
 8. Cancel reasons: decision 2 prerequisite (two rows in cancellation_reasons) is an admin-repo job; flag stays off until then.
 9. `/code-review` once on save-plan + guard code; `npm run lint`, `npm run pre-ship`; prod shape survey; flag-OFF screenshot vs main.
+
+- PR: #1865. Head before this note: 0e3e905. tsc run on 0e3e905: 0 errors in branch files.
