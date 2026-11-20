@@ -224,7 +224,7 @@ describe('escalateRed: sets the pause label on THE pinned issue and posts ONE no
       const p = u.pathname.replace(/^\/repos\/o\/r/, '');
       const body = init.body ? JSON.parse(init.body) : undefined;
       log.push({ m, p, body });
-      if (m === 'GET' && p === '/issues') return new Response(JSON.stringify([{ number: 9, title: PAUSE_ISSUE_TITLE, state: 'open', labels: [], user: { login: 'o' } }]), { status: 200 });
+      if (m === 'GET' && p === '/search/issues') return new Response(JSON.stringify({ total_count: 1, incomplete_results: false, items: [{ number: 9, title: PAUSE_ISSUE_TITLE, state: 'open', labels: [], user: { login: 'o' } }] }), { status: 200 });
       if (m === 'GET' && p === '/issues/9/comments') return new Response(JSON.stringify(comments), { status: 200 });
       if (m === 'POST' && p === '/issues/9/labels') return new Response('[]', { status: 200 });
       if (m === 'POST' && p === '/issues/9/comments') { comments.push({ id: 99, body: body.body }); return new Response('{"id":99}', { status: 201 }); }
