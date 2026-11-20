@@ -151,6 +151,7 @@ jobs:
       - name: Run OG image guard
         env:
           OG_CHECK_BASE: https://www.bachatacalendar.co.uk
+          OG_WHOLE_FLYER_MODE: ${{ vars.OG_WHOLE_FLYER_MODE }}
           CI_BYPASS_HEADER: ${{ secrets.CI_BYPASS_HEADER }}
         run: npm run check:og
 
@@ -274,5 +275,6 @@ jobs:
       - name: Run OG image guard (preview)
         env:
           OG_CHECK_BASE: ${{ steps.preview.outputs.url }}
+          OG_WHOLE_FLYER_MODE: ${{ vars.OG_WHOLE_FLYER_MODE }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: npm run check:og

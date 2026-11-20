@@ -172,7 +172,7 @@ function ghFetch(comments) {
   const fetch = vi.fn(async (u, init = {}) => {
     const url = String(u);
     if (url.startsWith("https://ntfy.example")) { calls.ntfy++; return okRes('{"id":"m9"}'); }
-    if (url.includes("/issues?state=all")) return jres([PAUSE_OPEN]);
+    if (url.includes("/search/issues?")) return jres({ total_count: 1, incomplete_results: false, items: [PAUSE_OPEN] });
     if (url.includes("/issues/9/comments")) {
       if (init.method === "POST") { calls.posts++; const c = { id: 1000 + calls.posts, body: JSON.parse(init.body).body }; comments.push(c); return jres(c); }
       const page = Number(/[?&]page=(\d+)/.exec(url)?.[1] ?? 1);

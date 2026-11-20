@@ -49,9 +49,15 @@ never merges). A new workflow that merges/approves/writes without a reader turns
 
 - The re-assert and the "nothing removes the label" grep are TRIPWIRES that catch mistakes
   and most attacks, not guarantees.
-- The reader lists issues newest first, up to 5 pages of 100. When 500+ newer issues/PRs
-  exist the switch issue falls out of the window and every reader reports `pause issue
-  missing` = PAUSED (fail closed, loud). Re-create or re-think before that happens.
+- The reader finds the switch with the Search API (`GET /search/issues`, query
+  `repo:<repo> is:issue in:title "AUTOMATION PAUSE SWITCH" author:<owner>`), issues only, so
+  no number of newer issues/PRs can push it out (the old newest-500 listing could, and did on
+  2026-11-20: every reader said `pause issue missing`). The exact-title and owner-author checks
+  still run on every result. Fail closed: `incomplete_results` not `false`, a non-object body,
+  `items` not an array, more than 10 pages, or any read error = PAUSED.
+- The search index lags a NEW issue by seconds to minutes: a freshly re-created switch reads
+  `pause issue missing` (= PAUSED) until GitHub indexes it. Search has its own rate limit
+  (30 requests/min per token); a 403/429 there is a read error = PAUSED.
 - If the token of a Dependabot-triggered run cannot read issues, Dependabot auto-merge never
   enables (`reason=HTTP 403` in the step log).
 - The interim message channel is ONE comment on the switch issue per notice key; no push

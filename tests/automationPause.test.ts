@@ -16,13 +16,15 @@ type Item = Record<string, unknown>;
 const json = (b: unknown, status = 200, headers: Record<string, string> = {}) => new Response(status === 204 ? null : typeof b === 'string' ? b : JSON.stringify(b), { status, headers });
 // The repo in R is o/r, so the OWNER login is `o` (the reader's author check, fix-1361-r1).
 const issue = (over: Item = {}): Item => ({ number: 9, title: PAUSE_ISSUE_TITLE, state: 'open', labels: [], user: { login: 'o' }, ...over });
-/** A fake fetch serving ONE page of the issues list (or a status / a throw). Records every URL. */
+/** The Search API envelope the reader reads (`GET /search/issues`); a non-array passes through as-is. */
+const search = (items: unknown, incomplete: unknown = false) => (Array.isArray(items) ? { total_count: items.length, incomplete_results: incomplete, items } : items && (items as Item).raw ? [issue()] : items);
+/** A fake fetch serving ONE page of the pause search (or a status / a throw). Records every URL. */
 function listFetch(items: unknown, { status = 200, raw = null as string | null, throwErr = null as Error | null } = {}) {
   const urls: string[] = [];
   const f = async (url: string) => {
     urls.push(url);
     if (throwErr) throw throwErr;
-    return raw != null ? new Response(raw, { status }) : json(items, status);
+    return raw != null ? new Response(raw, { status }) : json(search(items), status);
   };
   return { f, urls };
 }
@@ -43,7 +45,13 @@ describe('readPause: the fail-closed decision table', () => {
     ['exactly one but CLOSED -> paused', [issue({ state: 'closed' })], true, /closed/],
     ['two matching -> paused (ambiguous)', [issue(), issue({ number: 11 })], true, /ambiguous/],
     ['one open + one closed matching -> ambiguous', [issue(), issue({ number: 11, state: 'closed' })], true, /ambiguous/],
-    ['body not an array -> paused', { message: 'x' }, true, /not an array/],
+    ['an array where an issue item should be -> paused', [[issue()]], true, /labels/],
+    ['body is a bare array (the old list shape, not the search envelope) -> paused', { raw: true }, true, /not an object/],
+    ['body without incomplete_results -> paused', { total_count: 1, items: [issue()] }, true, /incomplete/],
+    ['incomplete_results true -> paused', { total_count: 1, incomplete_results: true, items: [issue()] }, true, /incomplete/],
+    ['incomplete_results "false" (string) -> paused', { total_count: 1, incomplete_results: 'false', items: [issue()] }, true, /incomplete/],
+    ['items not an array -> paused', { total_count: 0, incomplete_results: false, items: null }, true, /items is not an array/],
+    ['body is a message object -> paused', { message: 'x' }, true, /incomplete/],
     ['labels field missing -> paused', [{ number: 9, title: PAUSE_ISSUE_TITLE, state: 'open' }], true, /labels/],
     ['labels not an array -> paused', [issue({ labels: 'automation-paused' })], true, /labels/],
     ['a non-matching item with bad labels still fails closed', [issue(), { number: 3, title: 'x', state: 'open', labels: null }], true, /labels/],
@@ -104,35 +112,63 @@ describe('readPause: the fail-closed decision table', () => {
     const { f, urls } = listFetch([issue()]);
     await readPause({ ...R, fetch: f });
     expect(urls).toHaveLength(1);
-    expect(urls[0]).toMatch(/^https:\/\/api\.github\.com\/repos\/o\/r\/issues\?state=all&per_page=100&sort=created&direction=desc$/);
+    const u = new URL(urls[0]);
+    expect(`${u.origin}${u.pathname}`).toBe('https://api.github.com/search/issues');
+    expect(u.searchParams.get('q')).toBe(`repo:o/r is:issue in:title "${PAUSE_ISSUE_TITLE}" author:o`);
+    expect(u.searchParams.get('per_page')).toBe('100');
+  });
+  it('found when 2000 newer PRs exist: the search is not a newest-N window (mutation guard vs the 5-page listing)', async () => {
+    // A fake API: the plain issues LIST serves 2000 newer PRs before the switch (as the real repo
+    // now does); the SEARCH serves the switch itself. A reader that walks the list fails closed.
+    const urls: string[] = [];
+    const f = async (url: string) => {
+      urls.push(url);
+      const u = new URL(url);
+      if (u.pathname === '/search/issues') return json(search([issue({ number: 1360 })]));
+      if (u.pathname === '/repos/o/r/issues') {
+        const page = Number(u.searchParams.get('page') || 1);
+        const items = page <= 20 ? Array.from({ length: 100 }, (_, i) => issue({ number: 5000 - page * 100 - i, title: `PR ${i}`, pull_request: {} })) : [issue({ number: 1360 })];
+        return json(items, 200, { link: `<https://api.github.com/repos/o/r/issues?state=all&per_page=100&page=${page + 1}>; rel="next"` });
+      }
+      return json({ message: 'unhandled' }, 404);
+    };
+    const r = await readPause({ ...R, fetch: f });
+    expect(r).toEqual({ paused: false, reason: '', issue: 1360 });
+    expect(urls).toHaveLength(1);
   });
   it('follows Link rel=next (pages), finds the issue on page 2', async () => {
     const urls: string[] = [];
     const f = async (url: string) => {
       urls.push(url);
-      if (urls.length === 1) return json([issue({ number: 1, title: 'x' })], 200, { link: '<https://api.github.com/repositories/1/issues?page=2>; rel="next", <https://api.github.com/repositories/1/issues?page=2>; rel="last"' });
-      return json([issue({ number: 9 })]);
+      if (urls.length === 1) return json(search([issue({ number: 1, title: 'x' })]), 200, { link: '<https://api.github.com/search/issues?q=x&page=2>; rel="next", <https://api.github.com/search/issues?q=x&page=2>; rel="last"' });
+      return json(search([issue({ number: 9 })]));
     };
     const r = await readPause({ ...R, fetch: f });
     expect(r).toEqual({ paused: false, reason: '', issue: 9 });
-    expect(urls[1]).toBe('https://api.github.com/repositories/1/issues?page=2');
+    expect(urls[1]).toBe('https://api.github.com/search/issues?q=x&page=2');
   });
   it('a next link off api.github.com is refused (fail closed)', async () => {
-    const f = async () => json([], 200, { link: '<https://evil.example/x>; rel="next"' });
+    const f = async () => json(search([]), 200, { link: '<https://evil.example/x>; rel="next"' });
     const r = await readPause({ ...R, fetch: f });
     expect(r.paused).toBe(true);
   });
-  it('stops at 5 pages; the issue on page 6 is NOT seen -> paused (missing)', async () => {
+  it('a search longer than 10 pages (the API cap) is not fully read -> paused, even if the issue was seen', async () => {
     let n = 0;
-    const f = async () => { n++; return json(n === 6 ? [issue()] : [issue({ number: n, title: 'x' })], 200, { link: `<https://api.github.com/x?page=${n + 1}>; rel="next"` }); };
+    const f = async () => { n++; return json(search(n === 1 ? [issue()] : [issue({ number: 100 + n, title: 'x' })]), 200, { link: `<https://api.github.com/x?page=${n + 1}>; rel="next"` }); };
     const r = await readPause({ ...R, fetch: f });
-    expect(n).toBe(5);
+    expect(n).toBe(10);
     expect(r.paused).toBe(true);
+    expect(r.reason).toMatch(/not fully read/);
+  });
+  it('the same issue on two pages counts once (no false "ambiguous")', async () => {
+    let n = 0;
+    const f = async () => { n++; return json(search([issue()]), 200, n === 1 ? { link: '<https://api.github.com/x?page=2>; rel="next"' } : {}); };
+    expect(await readPause({ ...R, fetch: f })).toEqual({ paused: false, reason: '', issue: 9 });
   });
   it('NO caching: two calls make two requests and see a flip', async () => {
     let paused = false;
     const urls: string[] = [];
-    const f = async (u: string) => { urls.push(u); return json([issue({ labels: paused ? [{ name: PAUSE_LABEL }] : [] })]); };
+    const f = async (u: string) => { urls.push(u); return json(search([issue({ labels: paused ? [{ name: PAUSE_LABEL }] : [] })])); };
     expect((await readPause({ ...R, fetch: f })).paused).toBe(false);
     paused = true;
     expect((await readPause({ ...R, fetch: f })).paused).toBe(true);
@@ -206,7 +242,7 @@ describe('postPauseNotice: ONE comment per key on the pinned issue', () => {
     const f = async (u: string, init: { method?: string; body?: string } = {}) => {
       const m = init.method || 'GET';
       log.push({ m, u, body: init.body });
-      if (m === 'GET' && /\/issues\?/.test(u)) return json([issue()]);
+      if (m === 'GET' && /\/search\/issues\?/.test(u)) return json(search([issue()]));
       if (m === 'GET' && /\/issues\/9\/comments/.test(u)) return json(existing.map((body, id) => ({ id, body })));
       if (m === 'POST' && /\/issues\/9\/comments$/.test(u)) return json({ id: 1 }, 201);
       return json({}, 500);
@@ -324,6 +360,7 @@ function fakeGitHub(onMerge: () => void = () => {}) {
     if (m === 'GET' && /^\/commits\/(m+|e+)\/status$/.test(p)) return ok({ statuses: [] });
     if (m === 'GET' && p === '/issues/events') return ok([]);
     if (m === 'GET' && p === '/issues') return ok([]);
+    if (m === 'GET' && p === '/search/issues') return ok({ total_count: 0, incomplete_results: false, items: [] });
     if (m === 'GET' && p === '/labels') return ok(Object.values(STATE_LABELS).map((name) => ({ name })));
     if (m === 'GET' && p === '/pulls') return ok(page === 1 ? nums.map(pr) : []);
     if (m === 'GET' && /^\/compare\//.test(p)) return ok({ behind_by: 0, ahead_by: 1 });
@@ -400,8 +437,8 @@ describe('drill A15: a pause set mid-run stops the NEXT merge in the same run', 
   it('the REAL reader is the default: with no injection run() reads the pinned-issue list through opts.fetch', async () => {
     const gh = fakeGitHub();
     await run(ENV, { ...FOUNDATIONS_OK.opts, now: NOW, fetch: gh.fetchImpl, quiet: true });
-    // The fake answers /issues with [] -> "pause issue missing" -> paused: nothing written.
-    expect(gh.log.some((l) => l.m === 'GET' && l.p === '/issues')).toBe(true);
+    // The fake answers the pause search with no items -> "pause issue missing" -> paused: nothing written.
+    expect(gh.log.some((l) => l.m === 'GET' && l.p === '/search/issues')).toBe(true);
     expect(gh.merges()).toEqual([]);
     expect(gh.log.filter((l) => l.m !== 'GET')).toEqual([]);
   });
@@ -433,11 +470,11 @@ describe('drill A15: a pause set mid-run stops the NEXT merge in the same run', 
     const auths: string[] = [];
     const f = async (url: string, init: { method?: string; headers?: Record<string, string> } = {}) => {
       const u = new URL(url);
-      if (u.pathname === '/repos/o/r/issues' && u.searchParams.get('state') === 'all' && u.searchParams.get('direction') === 'desc') {
+      if (u.pathname === '/search/issues' && (u.searchParams.get('q') || '').includes(`"${PAUSE_ISSUE_TITLE}"`)) {
         const auth = String((init.headers || {}).authorization);
         auths.push(auth);
         if (auth !== 'Bearer t') return new Response('{"message":"Bad credentials"}', { status: 401 });
-        return new Response(JSON.stringify([{ number: 5, title: PAUSE_ISSUE_TITLE, state: 'open', labels: labels.map((name) => ({ name })), user: { login: 'o' } }]), { status: 200 });
+        return new Response(JSON.stringify(search([{ number: 5, title: PAUSE_ISSUE_TITLE, state: 'open', labels: labels.map((name) => ({ name })), user: { login: 'o' } }])), { status: 200 });
       }
       return gh.fetchImpl(url, init);
     };
