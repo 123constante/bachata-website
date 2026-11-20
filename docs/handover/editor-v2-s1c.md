@@ -124,3 +124,28 @@ Checks: vitest p3/v2 54 pass; walk spec 6/6 at 390x844 (flags SELF_SERVE, P3, DA
 tsc run on 21ab2a7: 0 errors in branch files (tsconfig.app.json total 141 = main).
 Not verified: `/code-review` of this round; full `npm run pre-ship` / `npm run lint`; a real phone; preview with the flag on (flag off on preview).
 Next: night screen brief (docs/briefs/editor-v2-match-proto-night.md); then the round-3 sheets listed above.
+
+## Match the prototype: one-night screen (brief docs/briefs/editor-v2-match-proto-night.md)
+
+Files: `NightV2.tsx`, `v2.css`, `copy.ts`, `__tests__/eventPage.proto.test.ts`, walk spec. `editorModel.ts`, `SaveBar.tsx`, `useEditor.tsx` untouched. Flag still default off.
+
+Done (brief items 1-8):
+1. Header: chevron back (to the v2 event page, keeps the draft), event name over "<date> only", red "Cancel this night" top right (disabled with a reason line while the night has unsaved changes). Grey info box "Changes here are for <date> only."
+2. Share this night: two small side-by-side outlined buttons, Copy link and Share. **"Copy changes from another date" left out**: S1 has no reader for another date's own changes in the editor draft, so it would be a control that cannot work.
+3. Separate cards with grey caps labels: "Name and about" (Name for this night / About this night rows), "Venue", "Picture". Each row: label, value, small "Usual" (or orange "Changed for this night" tag + Back to usual), chevron. Name and About open a sheet with the existing input.
+4. Picture: no raw file input on screen; the row is a `<label>` for a visually hidden (still keyboard-focusable) file input, 52px tall.
+5. Sessions card: start time over "to" end time, title, "Type . people" line, orange "Cancel" per row, orange "Add a session for this night only" footer, footnote "Tap a session to change its title, time, level or people." A cancelled session shows struck-through time/title and "Bring back" in the same row.
+6. Guest list: own card, "Guest list for this night" over "Link for <date> only", chevron.
+7. Cancelled: red-bordered box "This night is cancelled. Dancers see Cancelled and your reason: <reason>" (reason from event_view_p5 cancellation_reason_label; "Dancers see Cancelled." when none) + "Bring this night back"; everything below Share is dimmed and not tappable.
+8. Tickets: prototype card with the existing placeholder line. **Real per-night ticket rows are a later slice (S2).**
+
+Remaining differences to the prototype (side by side, 390x844, shots `docs/design/editor-v2/shots/night-proto*.png`, `night-cancelled.png`, `night-name-sheet.png`):
+- Tapping a session (and "Add a session for this night only") opens the full settings page (`/all`, per-date sheets there), not an in-place session sheet as in the prototype.
+- Guest list row goes to the event hub, not a per-night guest-list sheet with the link.
+- No "Copy changes from another date" button (see 2).
+- Tickets card shows the placeholder, not ticket rows / ticket link / "Add a ticket for this night only".
+- The prototype's "Ticket link" row is not on the night screen.
+- Share shows disabled where the browser has no share sheet (desktop Chromium); phones show it enabled.
+- The picture row shows "Picture for this night" / "Usual flyer" words, no thumbnail (prototype has none either on the row).
+
+Walk: `tests/e2e/organiser-editor-v2.spec.ts`, all three flags on (plus DASH), 6/6 passed locally.

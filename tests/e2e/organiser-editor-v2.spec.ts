@@ -45,7 +45,7 @@ async function setText(page: Page, row: 'v2-name' | 'v2-about', text: string) {
 }
 
 async function tapTargets(page: Page) {
-  for (const b of await page.locator('.v2-row, .v2-link, .v2-r, .v2-chg, .v2-sess, [data-testid=v2-undo], [data-testid=v2-save]').all()) {
+  for (const b of await page.locator('.v2-row, .v2-link, .v2-r, .v2-chg, .v2-sess, .v2-btn, .v2-topcx, .v2-nr-go, .v2-sess-go, [data-testid=v2-undo], [data-testid=v2-save]').all()) {
     if (!(await b.isVisible())) continue;
     expect((await b.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   }
@@ -132,8 +132,28 @@ test('night screen: name for this night, back to usual, save sends set_override'
   await page.getByTestId('v2-date-row').first().click();
   await expect(page.getByTestId('v2-night')).toBeVisible();
   await expect(page.getByTestId('v2-night-title-state')).toHaveText('Usual');
+  // prototype: header (name over "<date> only", Cancel this night), grey info box, two small share buttons
+  await expect(page.getByTestId('v2-night-date')).toHaveText(/ only$/);
+  await expect(page.getByTestId('v2-night-cancel')).toBeVisible();
+  await expect(page.getByTestId('v2-night-only')).toHaveText(/^Changes here are for .+ only\.$/);
+  const copyBox = (await page.getByTestId('v2-night-copy').boundingBox())!;
+  const shareBox = (await page.getByTestId('v2-night-share').boundingBox())!;
+  expect(Math.abs(copyBox.y - shareBox.y)).toBeLessThan(2);
+  await expect(page.locator('input[type=file]')).not.toBeInViewport();
+  await expect(page.getByTestId('v2-night-session').first().getByTestId('v2-session-cancel')).toHaveText('Cancel');
+  await expectNoHorizontalScroll(page);
+  await tapTargets(page);
+  await page.screenshot({ path: `${OUT}/night-proto.png` });
+  await page.screenshot({ path: `${OUT}/night-proto-full.png`, fullPage: true });
+  await page.getByTestId('v2-night-sessions').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${OUT}/night-proto-sessions.png` });
+  await page.getByTestId('v2-night-title').click();
   await page.locator('#v2-n-title').fill('Halloween special');
+  await page.screenshot({ path: `${OUT}/night-name-sheet.png` });
+  await page.getByTestId('v2-sheet-done').click();
   await expect(page.getByTestId('v2-night-title-state')).toHaveText('Changed for this night');
+  await expect(page.getByTestId('v2-night-title')).toContainText('Halloween special');
+  await expect(page.getByTestId('v2-night-cancel')).toBeDisabled();
   await expectNoHorizontalScroll(page);
   await tapTargets(page);
   await page.screenshot({ path: `${OUT}/night.png`, fullPage: true });
@@ -186,6 +206,9 @@ test('cancelled night: box and bring back', async ({ page }) => {
   const fake = await open(page);
   await page.getByTestId('v2-date-row').filter({ hasText: 'Cancelled' }).first().click();
   await expect(page.getByTestId('v2-night-cancelled')).toContainText('This night is cancelled.');
+  await expect(page.getByTestId('v2-night-cancelled')).toContainText('Dancers see Cancelled');
+  await expect(page.getByTestId('v2-night-cancel')).toHaveCount(0);
+  await expectNoHorizontalScroll(page);
   await expect(page.getByTestId('v2-night-sessions-why')).toBeVisible();
   await page.screenshot({ path: `${OUT}/night-cancelled.png`, fullPage: true });
   await page.getByTestId('v2-night-bring-back').click();
