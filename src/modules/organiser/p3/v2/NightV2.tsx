@@ -5,6 +5,7 @@ import type { EventWorkspace } from '../../events/eventModel';
 import { fullDate } from '../../shared/dateWords';
 import { londonTodayKey } from '@/lib/londonDate';
 import { cancelCommand, envelope, newIdempotencyKey, uncancelCommand } from '../../shared/seriesCommands';
+import { invalidatePublicEventCaches } from '@/modules/organiser/shared/publicCache';
 import { eventWorkspaceQueryKey } from '../../shared/runCommands';
 import { runOccurrenceCommand } from '../../shared/selfServeApi';
 import { commandErrorMessage } from '../../shared/selfServeErrors';
@@ -80,6 +81,7 @@ function Night({ ws, occurrenceId }: { ws: EventWorkspace; occurrenceId: string 
       await runOccurrenceCommand(envelope(date.id, date.version, command, newIdempotencyKey()));
       setCancelling(false);
     } catch (e) { setErr(commandErrorMessage(e)); } finally {
+      invalidatePublicEventCaches(qc);
       void qc.invalidateQueries({ queryKey: eventWorkspaceQueryKey(id) });
       setBusy(false);
     }

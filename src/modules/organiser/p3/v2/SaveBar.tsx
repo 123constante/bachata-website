@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { envelope, newIdempotencyKey } from '../../shared/seriesCommands';
+import { invalidatePublicEventCaches } from '@/modules/organiser/shared/publicCache';
 import { eventWorkspaceQueryKey, useSendOnce } from '../../shared/runCommands';
 import { runOccurrenceCommand } from '../../shared/selfServeApi';
 import { commandErrorMessage } from '../../shared/selfServeErrors';
@@ -38,6 +39,7 @@ export function useV2Save(seriesId: string, seriesVersion: number) {
       held.current = null;
       return true;
     } finally {
+      invalidatePublicEventCaches(qc);
       void qc.invalidateQueries({ queryKey: eventWorkspaceQueryKey(seriesId) });
       setBusy(false);
     }
