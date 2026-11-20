@@ -99,3 +99,28 @@ Tests: `p3/v2/__tests__/editorModel.fixround.test.ts`, written first; 5 failed o
   Vitest on p3: 7654 pass. Walk: 5/5 at 390x844. PR #1865 body updated; both label checks exit 0.
 - Not verified: `/code-review` of the fix round, a full pre-ship/lint, a real phone, CI on the final head (running when pushed).
 - Next: owner review of PR #1865, then round B (picture input styling, line-up per night, event-page removal warning).
+
+## Match the prototype: event page (brief docs/briefs/editor-v2-match-proto-event.md)
+Done (EventPageV2.tsx, v2.css, copy.ts, `__tests__/eventPage.proto.test.ts`, walk spec; editorModel/SaveBar/useEditor untouched):
+1. Header: chevron back (GuardedBack restyled), grey "Events" over the event name, state pill from `r4EventRowOf` (same mapping as the Events list and hub). The shell's exit line and page header are hidden while the v2 event page is on screen (`:has(.v2-page)` in v2.css). No "Edit event" title.
+2. THE EVENT: grey caps label above the card; 44px rows with label / one-line value (ellipsis) / chevron. Name and About open a sheet holding the inputs (with Done); Venue opens the existing VenueList sheet; Music and Who runs it (names from `fetchOrganiserPages`) open today's screens. No text boxes on the page.
+3. Repeat: "Every Friday" over a grey "Last date Friday 25 December" (`repeatParts`), orange underlined "Change repeat". No wrapped sentence.
+4. PROGRAMME: bold start time over grey "to" end time, title (untitled sessions use the type word), "Class · people · level" line; late (before 06:00) sessions sort last; orange "Add a session"; footnote under the card.
+5. Prototype greys, card edges and px sizes (14/15/13/12px, 44px rows).
+6. Save bar only after a real change (typing the same name back shows nothing, walked). Bar restyled by CSS only: summary + Undo link, full-width Save. Leave sheet: Save / Throw away changes / Keep editing; the sheet's Close is hidden by CSS.
+
+Side by side with the prototype (390x844, shots `docs/design/editor-v2/shots/event-proto.png`, `event-proto-lower.png`, `event-savebar.png`, `unsaved.png`, `event-name-sheet.png`). Remaining differences:
+- Repeat row: two lines (rule + last date) where the prototype shows one short line; the second line truncates next to "Change repeat" at 390.
+- Music, Who runs it, Flyer/Gallery/Videos, Repeat, Add a session and session rows still open today's screens, not prototype sheets (round 3 items).
+- Tickets card is today's TicketsEntry (S2 slot), not the prototype's "Sell tickets here" block.
+- Name/About sheets use the shared Sheet header with a "Close" link (prototype: grab handle and an x).
+- Bottom card has "Guest list" (prototype "Guest list link"); weekly "Cancel the event" row not shown (bulk cancel not built).
+- Prototype "Upcoming dates" shows all dates; build shows 6 + "Show more dates".
+- Night screen unchanged (next brief).
+
+Prod shapes (read-only, 2026-11-20): weekly/one-off statuses live/draft/paused/ended/archived; names up to 53 chars; About up to 3628 chars; 375 series with sessions, up to 32 per series, 231 with no end time, 241 with no title, titles up to 349 chars; up to 11 people on one session. All handled by one-line ellipsis rows / type-word fallback / no "to" line.
+
+Checks: vitest p3/v2 54 pass; walk spec 6/6 at 390x844 (flags SELF_SERVE, P3, DASH, EDITOR_V2); eslint on touched files 0 errors; check:mojibake clean.
+tsc run on 21ab2a7: 0 errors in branch files (tsconfig.app.json total 141 = main).
+Not verified: `/code-review` of this round; full `npm run pre-ship` / `npm run lint`; a real phone; preview with the flag on (flag off on preview).
+Next: night screen brief (docs/briefs/editor-v2-match-proto-night.md); then the round-3 sheets listed above.
