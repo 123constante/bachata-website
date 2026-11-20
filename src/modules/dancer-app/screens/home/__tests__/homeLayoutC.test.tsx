@@ -38,7 +38,11 @@ vi.mock('../../../api/useMyNumbers', () => ({ useMyNumbers: () => ({ data: h.wen
 vi.mock('../../../analytics/events', () => ({ trackDancerEvent: () => false }));
 vi.mock('../homeGoing', async () => {
   const { useEffect } = await import('react');
-  return { default: ({ onGoing }: { onGoing: (g: HomeGoing) => void }) => { useEffect(() => onGoing(h.feed as HomeGoing), [onGoing]); return null; } };
+  const Feed = ({ onGoing }: { onGoing: (g: HomeGoing) => void }) => {
+    useEffect(() => onGoing(h.feed as HomeGoing), [onGoing]);
+    return null;
+  };
+  return { default: Feed };
 });
 vi.mock('../RateNudge', () => ({ RateNudge: () => <a data-testid="rate-nudge" href="/app/nights">Rate last night</a> }));
 vi.mock('../homeTicket', () => ({ default: () => <section data-testid="home-c-ticket">Your ticket</section> }));
