@@ -93,7 +93,7 @@ export function EventPageV2({ ws }: { ws: EventWorkspace }) {
         {sessions.map((s) => (
           <Link key={s.key} to={P3_PATHS.eventAll(id)} className="v2-row" data-testid="v2-session-row">
             <span className="v2-row-t">{s.title || 'Session'}</span>
-            <span className="v2-row-help">{[s.start, s.end].filter(Boolean).join('–')}</span>
+            <span className="v2-row-help">{[s.start, s.end].filter(Boolean).join('\u2013')}</span>
           </Link>
         ))}
         <Link to={P3_PATHS.eventAll(id)} className="v2-row" data-testid="v2-add-session"><span className="v2-row-t">{V2.addSession}</span></Link>

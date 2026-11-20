@@ -55,8 +55,8 @@ export const V2 = {
   sessionRemove: 'Remove',
   sessionBringBack: 'Bring back',
   sessionOff: 'Not on this night.',
-  nightReadFail: 'Could not load this night’s own values.',
-  uploading: 'Uploading…',
+  nightReadFail: 'Could not load this night\u2019s own values.',
+  uploading: 'Uploading\u2026',
   // save bar
   undo: 'Undo',
   save: 'Save',

@@ -13,7 +13,7 @@ const sess = (v: number) => ({ version: v, payload: [{ series_item_id: 's1', rem
 
 describe('sessions in the write plan (order 2)', () => {
   const d: EditorDraft = { event: {}, nights: { o2: { title: 'X' } }, sessions: { o2: sess(5), o1: sess(3) } };
-  it('names each night’s sessions in the change list, by date', () => {
+  it('names each night\u2019s sessions in the change list, by date', () => {
     expect(changeList(base, d, dayOf, orderOf)).toEqual([
       'Name for this night (Tue 1 Dec)', 'Sessions that night (Tue 24 Nov)', 'Sessions that night (Tue 1 Dec)',
     ]);
