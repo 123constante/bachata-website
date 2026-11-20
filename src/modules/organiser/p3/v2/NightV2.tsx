@@ -234,7 +234,7 @@ function Night({ ws, occurrenceId }: { ws: EventWorkspace; occurrenceId: string 
         )}
         <div className="r4-field" data-testid="v2-night-picture">
           <label htmlFor="v2-n-pic" className="v2-label-above">{V2.nightPicture}</label>
-          {shownPic && <img src={shownPic} alt="" className="v2-thumb" />}
+          {shownPic && <img src={shownPic} alt="" loading="lazy" className="v2-thumb" />}
           <input id="v2-n-pic" type="file" accept={FLYER_ACCEPT} className="r4-in v2-tap" disabled={off || uploading} onChange={(e) => void upload(e.target.files?.[0])} data-testid="v2-night-picture-file" />
           <div className="v2-row" style={{ padding: 0 }}>
             <span className="v2-row-help v2-row-t" data-testid="v2-night-picture-state">{uploading ? V2.uploading : nightFieldState('cover_image_url', date.override_keys, patch) === 'changed' ? V2.changed : V2.usual}</span>
