@@ -75,3 +75,4 @@ gate sits on `events/:seriesId/edit` (R4EditNight's route), NOT on `events/:seri
 - PR: #1865. Head before this note: 0e3e905. tsc run on 0e3e905: 0 errors in branch files.
 
 - Continuation A: PR #1865 updated. tsc run on 8844afc: 0 errors in branch files (tsconfig.app.json total 141 = main).
+- Preview: the Vercel check on PR #1865 for the head of claude/editor-v2-s1c (flag off on preview).
