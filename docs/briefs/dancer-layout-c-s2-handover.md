@@ -49,3 +49,7 @@ Branch `claude/dancer-layout-c-s2`. Flag `VITE_ENABLE_DANCER_LAYOUT_C` (default 
 | Preview Nights Rate this night | same sheet (unchanged) | prototype |
 
 0 OLD rows. Coverage 10 of 10 checklist lines built (the "prototype-only note" line needs nothing).
+
+## Gates
+- tsc run on d9528b7: 0 errors in branch files.
+- PR #1874; CI checks were in progress at hand-off (wallclock-budget, no-preview-reason green; the rest running).
