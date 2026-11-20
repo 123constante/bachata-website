@@ -7,6 +7,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useAuth } from '@/hooks/useAuth';
 import { flags } from '@/lib/featureFlags';
 import { TICKET_TEASER_ENABLED } from '../screens/teaser/teaserFlag';
+import { DANCER_LAYOUT_C_ENABLED } from '../screens/home/layoutCFlag';
 import { FOCUS_NOT_NOW_LABEL } from '@/lib/focusMode';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import '../theme/dancer.css';
@@ -137,8 +138,14 @@ export const DancerAppShell = () => {
         </TeaserContext.Provider>
       </div>
       {!focus && (
-        <nav className={ticketsOn && !teaser ? 'da-tabs dt-tabs-5' : 'da-tabs'} aria-label="Dancer app" data-testid="dancer-app-tabs">
-          {shellTabs(ticketsOn && !teaser).map((tab) => (
+        <nav
+          className={ticketsOn && !teaser && !DANCER_LAYOUT_C_ENABLED ? 'da-tabs dt-tabs-5' : 'da-tabs'}
+          // Layout C: three tabs, so three columns (the sheet's default grid is four).
+          style={DANCER_LAYOUT_C_ENABLED ? { gridTemplateColumns: 'repeat(3, 1fr)' } : undefined}
+          aria-label="Dancer app"
+          data-testid="dancer-app-tabs"
+        >
+          {shellTabs(ticketsOn && !teaser, DANCER_LAYOUT_C_ENABLED).map((tab) => (
             <ShellTab key={tab.id} tab={tab} isActive={active === tab.id} locked={tabsLocked && tab.id !== 'tickets'} marked={teaser && tab.id === 'me'} guardRef={guardRef} />
           ))}
         </nav>

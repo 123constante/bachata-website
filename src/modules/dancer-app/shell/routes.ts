@@ -55,8 +55,22 @@ export const DANCER_TABS: readonly DancerTab[] = [
 /** The Tickets tab: FIRST, and only while flags.publicTicketing is on (the shell passes the flag in). */
 export const TICKETS_TAB: DancerTab = { id: 'tickets', label: 'Tickets', path: DANCER_TICKETS };
 
-/** The tabs the shell draws: the four, with Tickets in front while ticketing is on. */
-export const shellTabs = (ticketsOn: boolean): readonly DancerTab[] => (ticketsOn ? [TICKETS_TAB, ...DANCER_TABS] : DANCER_TABS);
+/** Layout C (DANCER_LAYOUT_C_ENABLED, brief dancer-layout-c-s2): Home, Nights, Me only. No Options, no Tickets tab. */
+export const LAYOUT_C_TABS: readonly DancerTab[] = DANCER_TABS.filter((t) => t.id !== 'options');
+
+/**
+ * The tabs the shell draws: the four, with Tickets in front while ticketing is on. Layout C
+ * (the shell passes the flag in; this file stays import-free) = always the three.
+ */
+export const shellTabs = (ticketsOn: boolean, layoutC = false): readonly DancerTab[] =>
+  layoutC ? LAYOUT_C_TABS : ticketsOn ? [TICKETS_TAB, ...DANCER_TABS] : DANCER_TABS;
+
+/**
+ * Layout C: the two route ids that are no longer tabs still answer (old links, the catch-all
+ * path list), each by sending the visit on: Options -> Me (its rows moved there), Tickets ->
+ * Home (the ticket card moved there, slice S1). The query string is kept (checkout ?o=).
+ */
+export const LAYOUT_C_REDIRECTS: Partial<Record<DancerRouteId, string>> = { options: '/app/me', tickets: DANCER_HOME };
 
 /** True on /app and everything under it. Case-folded, as the router matches. */
 export const isDancerAppPath = (pathname: string): boolean => {
