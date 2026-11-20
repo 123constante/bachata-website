@@ -5,6 +5,9 @@ Size: 5 files, 250 lines
 ## Aim
 Show a small rule card ABOVE the Week rows on a course event page, telling dancers whether they can drop in or must sign up first. Behind a flag, default OFF. Course page only. No button.
 
+## First step
+Before building, write `INVENTORY.md` in the PR: every block, badge, line and control on the live course page (BentoGrid LAYOUT and the blocks it renders), file:line cited, GAPs listed, ending with a coverage count. It is the keep-list: your build must leave every item unchanged.
+
 ## Design (owner picked, 2026-11-20; DESIGN-REGISTRY row "Course rule card position + final look")
 Final look mockup: https://claude.ai/artifact/S2872KfPuH4FUBvdk8LEPv (option 8 card). Build to that mockup. Rules:
 - `sign_up_first`: headline "Sign up before you come", sentence "You can't just turn up. Book your place first."
