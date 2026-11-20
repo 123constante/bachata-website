@@ -29,6 +29,4 @@ The event page payload from `event_view_p5` (`shape:'snapshot_compat'`) will car
 `src/components/calendar/*`, `EventCalendar.tsx`, `useCalendarEvents.tsx`, `src/components/ui/dialog.tsx`. Read `src/modules/event-page/CLAUDE.md` first. No model change: read the rule straight from the snapshot in BentoPage.
 
 ## Done when
-- Unit tests pass, `npx tsc --noEmit -p .` zero errors in your files, `npm run lint` clean on your files.
-- With the flag on and a fixture rule, a 390x844 render shows the card above the Week rows; with the flag off the page is identical to main.
-- PR opened (bot, body from `~/.claude/docs/pr-body-template.md` shape) with before/after phone screenshots if you can take them; say under Not verified what you could not.
+Tests, tsc and lint are clean on your files; with the flag on and a fixture rule a 390x844 render shows the card above the Week rows, and with the flag off the page is identical to main; the PR is open (bot, body in the PR-body-template shape, before/after phone screenshots if you can take them, Not verified listed).
