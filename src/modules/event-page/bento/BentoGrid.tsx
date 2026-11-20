@@ -12,6 +12,7 @@ export type BentoBlockId =
   | 'video'
   | 'organiser-card'
   | 'schedule'
+  | 'signup-rule'
   | 'dates'
   | 'description'
   | 'raffle'
@@ -53,6 +54,7 @@ export const BLOCK_COLORS: Record<BentoBlockId, string> = {
   video: BENTO_SURFACE,
   'organiser-card': BENTO_SURFACE,
   schedule: BENTO_SURFACE,
+  'signup-rule': BENTO_SURFACE,
   dates: BENTO_SURFACE,
   description: BENTO_SURFACE,
   raffle: BENTO_SURFACE,
@@ -70,6 +72,7 @@ export const BLOCK_TITLES: Record<BentoBlockId, string> = {
   video: 'Video',
   'organiser-card': 'Organiser',
   schedule: 'Schedule',
+  'signup-rule': '',
   dates: 'Dates',
   description: 'About',
   raffle: 'Raffle',
@@ -116,6 +119,11 @@ export const LAYOUT: BlockSpec[] = [
   // Full-width, content-sized — height grows with the number of organisers.
   { id: 'organiser-card', minW: 4, preferredW: 4 },
   { id: 'schedule', minW: 4, preferredW: 4 },
+  // Course rule card (drop in / sign up first) sits directly above the Week
+  // rows. BentoPage hides it unless flags.courseSignupRule is on, the event is
+  // a course and the snapshot carries a rule -- so with the flag off the packer
+  // skips it and every other block lands exactly where it did before.
+  { id: 'signup-rule', minW: 4, preferredW: 4 },
   { id: 'dates', minW: 4, preferredW: 4 },
   { id: 'description', minW: 4, preferredW: 4 },
   // Raffle is a static "coming soon" placeholder — no data, no minH, so it
