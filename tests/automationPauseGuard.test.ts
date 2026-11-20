@@ -154,10 +154,10 @@ describe('inert PR/issue text: hostile titles, branches and bodies stay data', (
         { number: 10, title: h, state: 'open', labels: [{ name: PAUSE_LABEL }], body: h },
         { number: 11, title: `${PAUSE_ISSUE_TITLE}${h}`, state: 'open', labels: [], pull_request: { head: { ref: h } } },
       ];
-      const f = async (u: string) => { urls.push(u); return new Response(JSON.stringify(items), { status: 200 }); };
+      const f = async (u: string) => { urls.push(u); return new Response(JSON.stringify({ total_count: items.length, incomplete_results: false, items }), { status: 200 }); };
       const code = await cli([], { GH_TOKEN: 't', GITHUB_REPOSITORY: 'o/r' }, { fetch: f, out: (s: string) => lines.push(s) });
       expect(code).toBe(0); // the hostile label is not `automation-paused`; the hostile issue is not the switch
-      expect(urls.every((u) => u.startsWith('https://api.github.com/repos/o/r/'))).toBe(true);
+      expect(urls.every((u) => u.startsWith('https://api.github.com/search/issues?') && new URL(u).searchParams.get('q')!.startsWith('repo:o/r '))).toBe(true);
       expect(lines.join('\n')).not.toContain(h);
     }
   });
@@ -170,7 +170,7 @@ describe('the --guard CLI re-asserts a bot removal with ONE notice and exit 0', 
       const m = init.method || 'GET';
       log.push({ m, u, body: init.body });
       const ok = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s });
-      if (m === 'GET' && /\/issues\?/.test(u)) return ok([{ number: 9, title: PAUSE_ISSUE_TITLE, state: 'open', labels: labelPresent ? [{ name: PAUSE_LABEL }] : [], user: { login: 'o' } }]);
+      if (m === 'GET' && /\/search\/issues\?/.test(u)) return ok({ total_count: 1, incomplete_results: false, items: [{ number: 9, title: PAUSE_ISSUE_TITLE, state: 'open', labels: labelPresent ? [{ name: PAUSE_LABEL }] : [], user: { login: 'o' } }] });
       if (m === 'GET' && /\/issues\/9\/events/.test(u)) return ok(events);
       if (m === 'GET' && /\/issues\/9\/comments/.test(u)) return ok(existing.map((body, id) => ({ id, body })));
       if (m === 'POST' && /\/issues\/9\/labels$/.test(u)) return failLabelPost ? ok({}, 403) : ok([{ name: PAUSE_LABEL }]);

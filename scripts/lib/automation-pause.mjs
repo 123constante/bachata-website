@@ -8,10 +8,14 @@
  * the label. NO caching: every call hits the API, which is what makes "read again before each
  * merge" real. Node built-ins only (workflows call this without npm ci).
  *
- * Listing order: newest first (direction=desc), up to 5 pages of 100. This repo already has well
- * over 500 issues+PRs, so an oldest-first walk capped at 5 pages could never reach a NEW pinned
- * issue (it would read as "missing" = paused forever). Once 500 newer items exist the issue falls
- * off the window and the reader fails CLOSED ("pause issue missing"): loud, never silently running.
+ * Lookup: the Search API, issues only, title phrase + author qualifier per allowed author
+ * (`repo:R is:issue in:title "AUTOMATION PAUSE SWITCH" author:<owner>`). PRs and other issues can
+ * never push the switch out of the result, so there is NO window that shrinks as the repo grows
+ * (the old newest-500 listing lost the switch once 500 newer items existed). Search matches the
+ * phrase loosely, so the exact-title and author checks below still run on every item. Fail closed:
+ * `incomplete_results` not exactly false, `items` not an array, a page cap hit (1000 results),
+ * or any read error = PAUSED. The search index lags a NEW issue by seconds-minutes: a freshly
+ * re-created switch reads "missing" (= PAUSED) until GitHub indexes it.
  *
  * AUTHOR CHECK: only an issue CREATED by the repo owner or by a login in PAUSE_ISSUE_AUTHOR_BOTS
  * counts as THE pause issue. A same-title issue by anyone else is ignored (logged as a ::warning::)
@@ -25,13 +29,13 @@ export const PAUSE_ISSUE_TITLE = 'AUTOMATION PAUSE SWITCH';
 export const PAUSE_LABEL = 'automation-paused';
 const API = 'https://api.github.com';
 const REPO_RE = /^[\w.-]+\/[\w.-]+$/;
-const MAX_PAGES = 5;
+const SEARCH_MAX_PAGES = 10; // the Search API never returns more than 1000 results
 
 /**
  * Bot accounts allowed to CREATE the pause issue besides the repo owner (the owner comes from the
  * `owner/` half of GITHUB_REPOSITORY, i.e. github.repository_owner). Deliberately EMPTY: every
- * login here could create a fresh UNLABELLED pause issue once the owner's falls out of the
- * 500-item window, and so un-pause the very automation that is paused. kiki-claude-bot (BOT_LOGIN
+ * login here could create a fresh UNLABELLED pause issue (e.g. after the owner's is closed or
+ * deleted), and so un-pause the very automation that is paused. kiki-claude-bot (BOT_LOGIN
  * in scripts/lib/autopilot.mjs) is that automation, so it is NOT listed. Add a login only with the
  * owner's Approve, for a bot that can never be the thing being paused.
  */
@@ -93,27 +97,45 @@ function checkArgs(repo, token, fetchImpl) {
 
 const labelNames = (labels) => labels.map((l) => (typeof l === 'string' ? l : l && typeof l.name === 'string' ? l.name : ''));
 
+/** The Search API author qualifier for one allowed login (`app/<name>` for a `<name>[bot]`). */
+function authorQualifier(login) {
+  const m = /^(.+)\[bot\]$/i.exec(login);
+  return m ? `app/${m[1]}` : login;
+}
+
+/** The search URL for THE pause issue created by `author` (exported for tests). */
+export function pauseSearchUrl(repo, author) {
+  const q = `repo:${repo} is:issue in:title "${PAUSE_ISSUE_TITLE}" author:${authorQualifier(author)}`;
+  return `${API}/search/issues?q=${encodeURIComponent(q)}&sort=created&order=desc&per_page=100`;
+}
+
 /** Finds THE pause issue. Throws (fail-closed reason) on any read error or odd shape. */
 async function findPauseIssue({ repo, token, fetch: fetchImpl, timeoutMs, log = (s) => console.log(s) }) {
-  let url = `${API}/repos/${repo}/issues?state=all&per_page=100&sort=created&direction=desc`;
-  const matches = [];
-  for (let page = 1; url && page <= MAX_PAGES; page++) {
-    const { data, next } = await request(fetchImpl, url, token, { timeoutMs });
-    if (!Array.isArray(data)) throw new Error('issues response is not an array');
-    for (const it of data) {
-      if (!it || typeof it !== 'object') throw new Error('issues response has a non-object item');
-      if (!Array.isArray(it.labels)) throw new Error(`item #${it.number} labels field missing or not an array`);
-      if ('pull_request' in it) continue;
-      if (typeof it.title !== 'string' || it.title.trim() !== PAUSE_ISSUE_TITLE) continue;
-      const author = it.user && typeof it.user.login === 'string' ? it.user.login : null;
-      if (isAllowedPauseAuthor(author, repo)) matches.push(it);
-      else {
-        try { log(`::warning::automation pause: issue #${it.number} is titled "${PAUSE_ISSUE_TITLE}" but was created by ${author ? JSON.stringify(author) : 'an unreadable author'}, not the owner or an allowed bot: IGNORED`); } catch { /* logging never changes the read */ }
+  const authors = [repo.split('/')[0], ...PAUSE_ISSUE_AUTHOR_BOTS];
+  const matches = new Map();
+  for (const author of authors) {
+    let url = pauseSearchUrl(repo, author);
+    for (let page = 1; url && page <= SEARCH_MAX_PAGES; page++) {
+      const { data, next } = await request(fetchImpl, url, token, { timeoutMs });
+      if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('search response is not an object');
+      if (data.incomplete_results !== false) throw new Error('search results incomplete (incomplete_results is not false)');
+      if (!Array.isArray(data.items)) throw new Error('search items is not an array');
+      for (const it of data.items) {
+        if (!it || typeof it !== 'object') throw new Error('search response has a non-object item');
+        if (!Array.isArray(it.labels)) throw new Error(`item #${it.number} labels field missing or not an array`);
+        if ('pull_request' in it) continue;
+        if (typeof it.title !== 'string' || it.title.trim() !== PAUSE_ISSUE_TITLE) continue;
+        const login = it.user && typeof it.user.login === 'string' ? it.user.login : null;
+        if (isAllowedPauseAuthor(login, repo)) matches.set(Number.isInteger(it.number) ? it.number : `?${matches.size}`, it);
+        else {
+          try { log(`::warning::automation pause: issue #${it.number} is titled "${PAUSE_ISSUE_TITLE}" but was created by ${login ? JSON.stringify(login) : 'an unreadable author'}, not the owner or an allowed bot: IGNORED`); } catch { /* logging never changes the read */ }
+        }
       }
+      url = next;
     }
-    url = next;
+    if (url) throw new Error(`search for the pause issue longer than ${SEARCH_MAX_PAGES} pages: not fully read`);
   }
-  return matches;
+  return [...matches.values()];
 }
 
 /**
