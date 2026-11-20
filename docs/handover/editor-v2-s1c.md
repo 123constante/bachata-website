@@ -95,3 +95,7 @@ Tests: `p3/v2/__tests__/editorModel.fixround.test.ts`, written first; 5 failed o
   not run shouldBlock again. Without it, `requestLeave` asks only when there is no router guard, and `navigate` has no blocker.
   EditTray's own leave sheet uses the same order (`onUndo(); go()`).
 - Branch merged with origin/main (it was behind).
+- tsc run on ca2eefd: 0 errors in branch files (`tsc -p tsconfig.app.json`; 160 errors overall, all pre-existing).
+  Vitest on p3: 7654 pass. Walk: 5/5 at 390x844. PR #1865 body updated; both label checks exit 0.
+- Not verified: `/code-review` of the fix round, a full pre-ship/lint, a real phone, CI on the final head (running when pushed).
+- Next: owner review of PR #1865, then round B (picture input styling, line-up per night, event-page removal warning).
