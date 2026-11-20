@@ -67,11 +67,11 @@ export function EventPageV2({ ws }: { ws: EventWorkspace }) {
         <p className="v2-sub-line" data-testid="v2-event-subline" title={base.name}>{base.name}</p>
       </div>
 
-      <section className="r4-card" aria-labelledby="v2-card-event">
-        <h2 id="v2-card-event" className="v2-card-h">{V2.eventCard}</h2>
+      <section className="r4-card v2-card" aria-labelledby="v2-card-event">
+        <h2 id="v2-card-event" className="r4-label v2-card-h">{V2.eventCard}</h2>
         <div className="r4-field">
           <label htmlFor="v2-name" className="r4-field-l">{V2.name}</label>
-          <input id="v2-name" className="r4-in v2-tap" type="text" value={f.name} disabled={save.busy} autoComplete="off"
+          <textarea id="v2-name" className="r4-in v2-tap" rows={3} value={f.name} disabled={save.busy} autoComplete="off"
             onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} data-testid="v2-name" />
           {draft.name !== undefined && nameTooLong && <p className="r4-err" role="alert">{nameTooLong}</p>}
         </div>
@@ -99,32 +99,32 @@ export function EventPageV2({ ws }: { ws: EventWorkspace }) {
           </div>
         )}
         <Link to={P3_PATHS.eventOrganisers(id)} className="v2-row" data-testid="v2-who">
-          <span className="v2-row-t">{V2.whoRuns}</span><span className="v2-row-help">{ws.organiserIds.length}</span>
+          <span className="v2-row-t">{V2.whoRuns}</span>{ws.organiserIds.length > 0 && <span className="v2-row-help">{ws.organiserIds.length}</span>}
         </Link>
       </section>
 
-      <section className="r4-card" aria-labelledby="v2-card-prog">
-        <h2 id="v2-card-prog" className="v2-card-h">{V2.programme}</h2>
+      <section className="r4-card v2-card" aria-labelledby="v2-card-prog">
+        <h2 id="v2-card-prog" className="r4-label v2-card-h">{V2.programme}</h2>
         <p className="v2-row-help">{V2.programmeLine}</p>
         <Link to={P3_PATHS.eventAll(id)} className="v2-row" data-testid="v2-add-session"><span className="v2-row-t">{V2.addSession}</span></Link>
       </section>
 
-      <section className="r4-card" aria-labelledby="v2-card-tickets" data-testid="v2-tickets-frame">
-        <h2 id="v2-card-tickets" className="v2-card-h">{V2.tickets}</h2>
+      <section className="r4-card v2-card" aria-labelledby="v2-card-tickets" data-testid="v2-tickets-frame">
+        <h2 id="v2-card-tickets" className="r4-label v2-card-h">{V2.tickets}</h2>
         {/* S2 slot: S2 replaces today's TicketsEntry here. */}
         <TicketsEntry seriesId={id} />
       </section>
 
-      <section className="r4-card" aria-labelledby="v2-card-pics">
-        <h2 id="v2-card-pics" className="v2-card-h">{V2.pictures}</h2>
+      <section className="r4-card v2-card" aria-labelledby="v2-card-pics">
+        <h2 id="v2-card-pics" className="r4-label v2-card-h">{V2.pictures}</h2>
         <Link to={P3_PATHS.eventDetails(id)} className="v2-row"><span className="v2-row-t">{V2.flyer}</span><span className="v2-row-help">{ws.series.default_cover_image_url ? 'Added' : 'Not set'}</span></Link>
         <Link to={P3_PATHS.eventDetails(id)} className="v2-row"><span className="v2-row-t">{V2.gallery}</span><span className="v2-row-help">{ws.gallery.length}</span></Link>
         <Link to={P3_PATHS.eventDetails(id)} className="v2-row"><span className="v2-row-t">{V2.videos}</span><span className="v2-row-help">{ws.videoUrls.length}</span></Link>
       </section>
 
       {weekly && (
-        <section className="r4-card" aria-labelledby="v2-card-dates" data-testid="v2-dates">
-          <h2 id="v2-card-dates" className="v2-card-h">{V2.upcoming}</h2>
+        <section className="r4-card v2-card" aria-labelledby="v2-card-dates" data-testid="v2-dates">
+          <h2 id="v2-card-dates" className="r4-label v2-card-h">{V2.upcoming}</h2>
           {upcoming.length === 0 ? <p className="v2-row-help" data-testid="v2-dates-empty">{V2.noUpcoming}</p> : <p className="v2-row-help">{V2.upcomingLine}</p>}
           {shown.map((d) => {
             const tag = dateTagOf(d, ws.series.lifecycle_status);
@@ -141,7 +141,7 @@ export function EventPageV2({ ws }: { ws: EventWorkspace }) {
         </section>
       )}
 
-      <section className="r4-card">
+      <section className="r4-card v2-card">
         <Link to={P3_PATHS.event(id)} className="v2-row" data-testid="v2-guest-list"><span className="v2-row-t">{V2.guestList}</span></Link>
         <Link to={P3_PATHS.eventAll(id)} className="v2-row" data-testid="v2-status"><span className="v2-row-t">{V2.pauseOrEnd}</span></Link>
         {!weekly && plan && (

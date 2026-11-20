@@ -108,8 +108,8 @@ function Night({ ws, occurrenceId }: { ws: EventWorkspace; occurrenceId: string 
       )}
       {err && <p className="r4-err" role="alert">{err}</p>}
 
-      <section className="r4-card" aria-labelledby="v2-n-share">
-        <h2 id="v2-n-share" className="v2-card-h">{V2.shareNight}</h2>
+      <section className="r4-card v2-card" aria-labelledby="v2-n-share">
+        <h2 id="v2-n-share" className="r4-label v2-card-h">{V2.shareNight}</h2>
         <div className="r4-chips">
           <button type="button" className="r4-btn r4-btn-line v2-tap" disabled={!link}
             onClick={() => { if (link) void navigator.clipboard?.writeText(link).then(() => toast.show(V2.copied)); }} data-testid="v2-night-copy">{V2.copyLink}</button>
@@ -118,7 +118,7 @@ function Night({ ws, occurrenceId }: { ws: EventWorkspace; occurrenceId: string 
         </div>
       </section>
 
-      <section className="r4-card">
+      <section className="r4-card v2-card">
         <NightText k="title" label={V2.nightName} usual={ws.series.name} saved={date.override_keys} patch={patch} off={off} onSet={set('title')} />
         <NightText k="description" label={V2.nightAbout} usual={ws.series.default_description ?? ''} saved={date.override_keys} patch={patch} max={NIGHT_ABOUT_MAX} off={off} onSet={set('description')} />
         <div className="v2-row" style={{ padding: 0 }}>
@@ -131,14 +131,14 @@ function Night({ ws, occurrenceId }: { ws: EventWorkspace; occurrenceId: string 
         </div>
       </section>
 
-      <section className="r4-card" data-testid="v2-night-tickets-frame">
-        <h2 className="v2-card-h">{V2.nightTickets}</h2>
+      <section className="r4-card v2-card" data-testid="v2-night-tickets-frame">
+        <h2 className="r4-label v2-card-h">{V2.nightTickets}</h2>
         <p className="v2-slot">{V2.s2Slot}</p>
         <a href={P3_PATHS.event(id)} className="v2-row"><span className="v2-row-t">{V2.nightGuestList}</span></a>
       </section>
 
-      <section className="r4-card" data-testid="v2-night-sessions">
-        <h2 className="v2-card-h">{V2.nightSessions}</h2>
+      <section className="r4-card v2-card" data-testid="v2-night-sessions">
+        <h2 className="r4-label v2-card-h">{V2.nightSessions}</h2>
         <div className={sessionsWhy ? 'v2-grey' : undefined}>
           <a href={P3_PATHS.eventAll(id)} aria-disabled={!!sessionsWhy} className="v2-row" onClick={(e) => { if (sessionsWhy) e.preventDefault(); }}><span className="v2-row-t">{V2.addNightSession}</span></a>
           {sessionsWhy && <p className="v2-row-help" data-testid="v2-night-sessions-why">{sessionsWhy}</p>}
