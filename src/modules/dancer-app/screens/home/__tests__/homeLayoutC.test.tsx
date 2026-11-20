@@ -222,7 +222,7 @@ describe('layout C Home: DOM order per state', () => {
   });
 });
 
-describe('layout C OFF: today’s Home', () => {
+describe('layout C OFF: today's Home', () => {
   for (const dashB of [false, true]) {
     it(`dash B ${dashB ? 'on' : 'off'}: no C heads, no Preview row, alerts before the view`, async () => {
       h.layoutC = false;
