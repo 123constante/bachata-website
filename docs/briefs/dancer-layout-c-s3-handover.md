@@ -11,6 +11,8 @@ Nothing in the brief was unbuildable.
 coverage 5 of 5 checklist lines built (flag-on single link at bottom; tap -> "Sign out?" two-step -> signOutToHome; failure shows SIGN_OUT_FAILED; card section button gone; Sign out of all devices unchanged; flag off unchanged).
 Test matrix C x R4 (4 cases) counts controls, checks position, plus flow and failure. Red on old source: 2 of 6 fail (C on, count/position and the confirm flow), verified by stashing the source change.
 
+PR: #1873
+
 ## Checks
 tsc run on branch head: 0 errors in branch files. `npm run check:mojibake` clean. `check-dancer-area-isolation.mjs` clean. Existing `AccountSettings.test.tsx` 52/52 pass.
 
