@@ -83,6 +83,7 @@ export const MANUAL = {
   'tests/e2e/arc1-invite-redeem-walk.spec.ts': { reason: WALK, run: PW('tests/e2e/arc1-invite-redeem-walk.spec.ts') },
   'tests/e2e/console-clean-smoke.spec.ts': { reason: 'console-error smoke never wired into a CI list; audit item 2 decides', run: PW('tests/e2e/console-clean-smoke.spec.ts') },
   'tests/e2e/dancer-app/ember-walk.spec.ts': { reason: WALK, run: PW('tests/e2e/dancer-app/ember-walk.spec.ts') },
+  'tests/e2e/dancer-app/layout-c-shell-me.spec.ts': { reason: 'needs a build with VITE_ENABLE_DANCER_LAYOUT_C=true; skips itself otherwise', run: PW('tests/e2e/dancer-app/layout-c-shell-me.spec.ts', 'VITE_ENABLE_DANCER_LAYOUT_C=true') },
   'tests/e2e/dancer-app/review-pack.spec.ts': { reason: 'review pack; skips itself unless REVIEW_PACK_DIR is set', run: PW('tests/e2e/dancer-app/review-pack.spec.ts', 'REVIEW_PACK_DIR=<dir>') },
   'tests/e2e/organiser-edit-save-bar.real-supabase.spec.ts': { reason: 'needs a real Supabase anon key (SSR loader) and the organiser detail flags; skips without the key', run: PW('tests/e2e/organiser-edit-save-bar.real-supabase.spec.ts', DETAIL) },
   'tests/e2e/organiser-launch-walk.spec.ts': { reason: 'needs E2E credentials and writes to the E2E database', run: 'npm run test:e2e:organiser-launch-walk' },
