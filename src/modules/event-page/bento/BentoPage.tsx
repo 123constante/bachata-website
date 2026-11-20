@@ -39,6 +39,7 @@ import { GuestListBlock } from '@/modules/event-page/bento/blocks/GuestListBlock
 import { RaffleBlock } from '@/modules/event-page/bento/blocks/RaffleBlock';
 import { DatesBlock } from '@/modules/event-page/bento/blocks/DatesBlock';
 import { WeeksLadderBlock } from '@/modules/event-page/bento/blocks/WeeksLadderBlock';
+import { SignupRuleBlock } from '@/modules/event-page/bento/blocks/SignupRuleBlock';
 import { ErrorScreen } from '@/modules/event-page/bento/blocks/ErrorScreen';
 import { AddToCalendarChooser } from '@/modules/event-page/bento/modals/AddToCalendarChooser';
 import { EventStickyActionBar } from '@/modules/event-page/bento/EventStickyActionBar';
@@ -363,6 +364,12 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
   // shimmer so the skeleton footprint matches the eventual content layout.
   const hiddenBlocks = useMemo<Set<BentoBlockId>>(() => {
     const hidden = new Set<BentoBlockId>();
+    // Course rule card: decided BEFORE the loading early-return, so it never adds a
+    // skeleton tile -- with the flag off (or no rule) the page, loading included, is
+    // exactly as before. Shown only on a course whose snapshot carries a rule.
+    if (isLoading || !flags.courseSignupRule || snapshot?.event.format !== 'course' || !snapshot.event.signupRule) {
+      hidden.add('signup-rule');
+    }
     if (isLoading) return hidden;
 
     const hasPromo = pageModel.promoCodes.items.length > 0 && !over;
@@ -515,6 +522,8 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
             currentOccurrenceId={occurrenceId ?? snapshot?.occurrenceId ?? null}
           />
         );
+      case 'signup-rule':
+        return <SignupRuleBlock rule={snapshot?.event.signupRule} />;
       case 'description':
         return <DescriptionBlock body={pageModel.description.body} />;
       case 'venue':
