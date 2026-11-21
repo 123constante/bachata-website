@@ -143,6 +143,115 @@ export type Database = {
         }
         Relationships: []
       }
+      account_link_mail_outbox_v1: {
+        Row: {
+          attempts: number
+          code: string | null
+          created_at: string
+          id: string
+          recipient_user_id: string
+          request_id: string
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          code?: string | null
+          created_at?: string
+          id?: string
+          recipient_user_id: string
+          request_id: string
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          code?: string | null
+          created_at?: string
+          id?: string
+          recipient_user_id?: string
+          request_id?: string
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_link_mail_outbox_v1_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "account_link_requests_v1"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      account_link_requests_v1: {
+        Row: {
+          attempts: number
+          code_hash: string
+          created_at: string
+          expires_at: string
+          id: string
+          other_email_hash: string
+          other_user_id: string | null
+          requester_user_id: string
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          other_email_hash: string
+          other_user_id?: string | null
+          requester_user_id: string
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          other_email_hash?: string
+          other_user_id?: string | null
+          requester_user_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      account_links_v1: {
+        Row: {
+          created_at: string
+          created_by: string
+          request_id: string | null
+          user_a: string
+          user_b: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          request_id?: string | null
+          user_a: string
+          user_b: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          request_id?: string | null
+          user_a?: string
+          user_b?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_links_v1_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "account_link_requests_v1"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       account_role_intent: {
         Row: {
           declined: string[]
@@ -710,6 +819,53 @@ export type Database = {
             foreignKeyName: "buyer_onboarding_reminders_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: true
+            referencedRelation: "ticket_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      buyer_status_emails: {
+        Row: {
+          amount_pence: number | null
+          created_at: string
+          dedupe_key: string
+          error: string | null
+          id: string
+          kind: string
+          order_id: string
+          refunded_pence_after: number | null
+          send_status: string
+          updated_at: string
+        }
+        Insert: {
+          amount_pence?: number | null
+          created_at?: string
+          dedupe_key: string
+          error?: string | null
+          id?: string
+          kind: string
+          order_id: string
+          refunded_pence_after?: number | null
+          send_status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount_pence?: number | null
+          created_at?: string
+          dedupe_key?: string
+          error?: string | null
+          id?: string
+          kind?: string
+          order_id?: string
+          refunded_pence_after?: number | null
+          send_status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "buyer_status_emails_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
             referencedRelation: "ticket_orders"
             referencedColumns: ["id"]
           },
@@ -2602,7 +2758,7 @@ export type Database = {
           level_keys: string[] | null
           occurrence_id: string
           room: string | null
-          section_kind: string | null
+          section_kind: string
           sort_order: number
           start_time: string | null
           style: string | null
@@ -2621,7 +2777,7 @@ export type Database = {
           level_keys?: string[] | null
           occurrence_id: string
           room?: string | null
-          section_kind?: string | null
+          section_kind: string
           sort_order?: number
           start_time?: string | null
           style?: string | null
@@ -2640,7 +2796,7 @@ export type Database = {
           level_keys?: string[] | null
           occurrence_id?: string
           room?: string | null
-          section_kind?: string | null
+          section_kind?: string
           sort_order?: number
           start_time?: string | null
           style?: string | null
@@ -3644,6 +3800,7 @@ export type Database = {
           raffle_preset_id: string | null
           recurrence_rule: Json | null
           removed_dates: string[]
+          signup_rule: string | null
           slug: string | null
           ticket_url: string | null
           tickets: string | null
@@ -3704,6 +3861,7 @@ export type Database = {
           raffle_preset_id?: string | null
           recurrence_rule?: Json | null
           removed_dates?: string[]
+          signup_rule?: string | null
           slug?: string | null
           ticket_url?: string | null
           tickets?: string | null
@@ -3764,6 +3922,7 @@ export type Database = {
           raffle_preset_id?: string | null
           recurrence_rule?: Json | null
           removed_dates?: string[]
+          signup_rule?: string | null
           slug?: string | null
           ticket_url?: string | null
           tickets?: string | null
@@ -5333,6 +5492,70 @@ export type Database = {
           },
         ]
       }
+      night_reminder_sent_log: {
+        Row: {
+          buyer_hash: string
+          claimed_at: string
+          id: string
+          occurrence_p5_id: string
+          order_id: string | null
+          sent_at: string | null
+        }
+        Insert: {
+          buyer_hash: string
+          claimed_at?: string
+          id?: string
+          occurrence_p5_id: string
+          order_id?: string | null
+          sent_at?: string | null
+        }
+        Update: {
+          buyer_hash?: string
+          claimed_at?: string
+          id?: string
+          occurrence_p5_id?: string
+          order_id?: string | null
+          sent_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "night_reminder_sent_log_occurrence_p5_id_fkey"
+            columns: ["occurrence_p5_id"]
+            isOneToOne: false
+            referencedRelation: "event_occurrence_p5"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      night_reminder_settings_p5: {
+        Row: {
+          occurrence_p5_id: string
+          reminder_enabled: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          occurrence_p5_id: string
+          reminder_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          occurrence_p5_id?: string
+          reminder_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "night_reminder_settings_p5_occurrence_p5_id_fkey"
+            columns: ["occurrence_p5_id"]
+            isOneToOne: true
+            referencedRelation: "event_occurrence_p5"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       occurrence_action_audit: {
         Row: {
           action: string
@@ -6661,6 +6884,44 @@ export type Database = {
           website?: string | null
         }
         Relationships: []
+      }
+      organiser_refund_reminders: {
+        Row: {
+          created_at: string
+          error: string | null
+          id: string
+          kind: string
+          occurrence_id: string
+          send_status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          kind: string
+          occurrence_id: string
+          send_status: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          kind?: string
+          occurrence_id?: string
+          send_status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organiser_refund_reminders_occurrence_id_fkey"
+            columns: ["occurrence_id"]
+            isOneToOne: false
+            referencedRelation: "event_occurrence_p5"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       organiser_self_start_v1_meta: {
         Row: {
@@ -9124,6 +9385,42 @@ export type Database = {
           },
         ]
       }
+      ticket_check_in_undos: {
+        Row: {
+          day: string | null
+          id: string
+          occurrence_id: string
+          prev_checked_in_at: string | null
+          prev_checked_in_by: string | null
+          scope: string
+          ticket_id: string
+          undone_at: string
+          undone_by: string
+        }
+        Insert: {
+          day?: string | null
+          id?: string
+          occurrence_id: string
+          prev_checked_in_at?: string | null
+          prev_checked_in_by?: string | null
+          scope: string
+          ticket_id: string
+          undone_at?: string
+          undone_by: string
+        }
+        Update: {
+          day?: string | null
+          id?: string
+          occurrence_id?: string
+          prev_checked_in_at?: string | null
+          prev_checked_in_by?: string | null
+          scope?: string
+          ticket_id?: string
+          undone_at?: string
+          undone_by?: string
+        }
+        Relationships: []
+      }
       ticket_checkout_attempts: {
         Row: {
           created_at: string
@@ -10953,6 +11250,11 @@ export type Database = {
         Args: { p_user: string }
         Returns: boolean
       }
+      _account_link_email_hash_v1: {
+        Args: { p_email: string }
+        Returns: string
+      }
+      _account_link_on_v1: { Args: never; Returns: boolean }
       _account_link_refusal_v1: {
         Args: { p_profile_id: string; p_user_id: string }
         Returns: string
@@ -11079,6 +11381,10 @@ export type Database = {
         Returns: Json
       }
       _cmd_occurrence_move_date_p5: {
+        Args: { p_actor: string; p_occurrence_id: string; p_payload: Json }
+        Returns: Json
+      }
+      _cmd_occurrence_save_date_p5: {
         Args: { p_actor: string; p_occurrence_id: string; p_payload: Json }
         Returns: Json
       }
@@ -11646,7 +11952,24 @@ export type Database = {
         Returns: Json
       }
       _my_dancer_profile_id_v1: { Args: never; Returns: string }
+      _my_ticket_buyer_ids_v1: { Args: { p_uid: string }; Returns: string[] }
       _nationality_alpha2_v1: { Args: { p_value: string }; Returns: string }
+      _night_reminder_payload_v1: {
+        Args: { p_occurrence_id: string; p_role: string }
+        Returns: Json
+      }
+      _night_reminder_recipients_v1: {
+        Args: { p_cutoff: string; p_occurrence_id: string }
+        Returns: {
+          buyer_email: string
+          buyer_hash: string
+          order_id: string
+        }[]
+      }
+      _night_reminder_send_at_v1: {
+        Args: { p_night_date: string }
+        Returns: string
+      }
       _norm_achievements_dated_v1: { Args: { p: Json }; Returns: Json }
       _norm_workshop_cities_v1: { Args: { p: Json }; Returns: string[] }
       _normalize_level_to_legacy_v1: {
@@ -11658,6 +11981,16 @@ export type Database = {
         Returns: string
       }
       _occurred_stamp_job_health_v1: { Args: { p_now: string }; Returns: Json }
+      _occurrence_added_session_section_v1: {
+        Args: { p_added_session_id: string }
+        Returns: {
+          day_id: string
+          section_id: string
+          section_kind: string
+          section_label: string
+          section_sort: number
+        }[]
+      }
       _occurrence_date_has_bookings_v1: {
         Args: { p_occurrence_id: string }
         Returns: boolean
@@ -11750,6 +12083,14 @@ export type Database = {
       _occurrence_override_unknown_key_p5: {
         Args: { p_key: string; p_like: unknown }
         Returns: unknown
+      }
+      _occurrence_scoped_section_id_v1: {
+        Args: { p_kind: string; p_occurrence_id: string }
+        Returns: string
+      }
+      _occurrence_section_item_problem_v1: {
+        Args: { p_item: Json; p_stored_kind: string }
+        Returns: string
       }
       _og_bake_reconcile: { Args: never; Returns: undefined }
       _og_cover_token: { Args: { p_url: string }; Returns: string }
@@ -12541,6 +12882,10 @@ export type Database = {
         Returns: Json
       }
       _secdef_probe: { Args: never; Returns: string }
+      _section_kind_for_session_type_v1: {
+        Args: { p_type: string }
+        Returns: string
+      }
       _self_serve_is_admin: { Args: never; Returns: boolean }
       _self_serve_rpc_refusal_probes_p5: { Args: never; Returns: Json }
       _self_serve_text_problem_p5: {
@@ -12595,6 +12940,34 @@ export type Database = {
       }
       _series_rule_set_by_non_admin_p5: {
         Args: { p_series_id: string }
+        Returns: boolean
+      }
+      _session_override_apply_patch_v1: {
+        Args: {
+          p_occurrence_id: string
+          p_patch: Json
+          p_program_item_id: string
+        }
+        Returns: string
+      }
+      _session_override_owns_nothing_v1: {
+        Args: {
+          p_cancellation_reason_label: string
+          p_cancelled: boolean
+          p_end_time: string
+          p_level_keys: string[]
+          p_people_added: Json
+          p_people_modified: Json
+          p_people_removed: string[]
+          p_room: string
+          p_start_time: string
+          p_style: string
+          p_theme: string
+          p_title: string
+          p_track_id: string
+          p_type: string
+          p_venue_room_id: string
+        }
         Returns: boolean
       }
       _snapshot_occurrence_p5: {
@@ -12796,6 +13169,7 @@ export type Database = {
         }
         Returns: number
       }
+      _ticket_london_day_start_v1: { Args: { p_at: string }; Returns: string }
       _ticket_next_price_step_v1: {
         Args: { p_type: Database["public"]["Tables"]["ticket_types"]["Row"] }
         Returns: {
@@ -12961,6 +13335,20 @@ export type Database = {
         Returns: Json
       }
       account_exists_by_email: { Args: { p_email: string }; Returns: boolean }
+      account_link_mail_claim_v1: {
+        Args: { p_limit: number }
+        Returns: {
+          code: string
+          email: string
+          expires_at: string
+          id: string
+          request_id: string
+        }[]
+      }
+      account_link_mail_mark_v1: {
+        Args: { p_id: string; p_ok: boolean }
+        Returns: undefined
+      }
       add_favourite_venue_v1: {
         Args: { p_venue_id: string }
         Returns: undefined
@@ -15244,6 +15632,31 @@ export type Database = {
         Args: { p_order_id: string; p_skip_reason?: string; p_status: string }
         Returns: boolean
       }
+      buyer_status_email_cancelled_candidates_v1: {
+        Args: { p_limit?: number }
+        Returns: Json
+      }
+      buyer_status_email_claim_v1: {
+        Args: {
+          p_amount_pence?: number
+          p_kind: string
+          p_order_id: string
+          p_refunded_pence_after?: number
+        }
+        Returns: string
+      }
+      buyer_status_email_free_ended_candidates_v1: {
+        Args: {
+          p_event_series_id: string
+          p_occurrence_id: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      buyer_status_email_set_v1: {
+        Args: { p_error?: string; p_id: string; p_status: string }
+        Returns: boolean
+      }
       calendar_events_dto: {
         Args: {
           p_city_id?: string
@@ -15319,6 +15732,7 @@ export type Database = {
       }
       check_occurrence_p5_unmaterialised_v1: { Args: never; Returns: Json }
       check_occurrence_program_format_v1: { Args: never; Returns: Json }
+      check_occurrence_section_contract_v1: { Args: never; Returns: Json }
       check_occurrence_time_stamping_convention_v1: {
         Args: never
         Returns: Json
@@ -15382,6 +15796,10 @@ export type Database = {
       check_series_level_derivation_v1: { Args: never; Returns: Json }
       check_series_materialisation_contract_v1: { Args: never; Returns: Json }
       check_series_organiser_junction_parity_v1: { Args: never; Returns: Json }
+      check_session_override_write_owner_v1: {
+        Args: { p_exempt_writers?: string[]; p_judged_unmeasured?: string[] }
+        Returns: Json
+      }
       check_signup_allowlist_contract_v1: { Args: never; Returns: Json }
       check_signup_hook_v2_contract_v1: { Args: never; Returns: Json }
       check_slug_resolver_p5_parity_v1: { Args: never; Returns: Json }
@@ -15423,6 +15841,7 @@ export type Database = {
         Args: { p_anchor_date: string; p_event: Json }
         Returns: Json
       }
+      confirm_account_link_v1: { Args: { p_code: string }; Returns: Json }
       confirm_organiser_contact_v1: {
         Args: { p_organiser_id: string; p_phone?: string }
         Returns: Json
@@ -16450,6 +16869,10 @@ export type Database = {
         Args: { p_organiser_id?: string; p_scope?: string }
         Returns: Json
       }
+      list_organiser_invites_sent_v1: {
+        Args: { p_organiser_id: string }
+        Returns: Json
+      }
       list_public_djs_v1: {
         Args: { p_city_id?: string; p_limit?: number }
         Returns: Json
@@ -16501,6 +16924,7 @@ export type Database = {
       my_account_erase_v1: { Args: { p_confirm: string }; Returns: Json }
       my_account_export_extras_v1: { Args: never; Returns: Json }
       my_account_export_v1: { Args: never; Returns: Json }
+      my_account_links_v1: { Args: never; Returns: Json }
       my_account_restore_v1: { Args: never; Returns: Json }
       my_dancer_contact_v1: {
         Args: never
@@ -16538,6 +16962,20 @@ export type Database = {
       }
       my_ticket_order_qr_v1: { Args: { p_order_id: string }; Returns: Json }
       my_tickets_v1: { Args: never; Returns: Json }
+      night_reminder_claim_v1: {
+        Args: {
+          p_buyer_hash: string
+          p_now?: string
+          p_occurrence_id: string
+          p_order_id: string
+        }
+        Returns: boolean
+      }
+      night_reminder_due_v1: { Args: { p_now: string }; Returns: Json }
+      night_reminder_finish_v1: {
+        Args: { p_buyer_hash: string; p_occurrence_id: string; p_sent: boolean }
+        Returns: boolean
+      }
       normalize_dance_role: { Args: { p_value: string }; Returns: string }
       normalize_event_instances: {
         Args: { p_event_row?: Json; p_instances: Json }
@@ -16655,6 +17093,18 @@ export type Database = {
         Args: { p_city: string; p_name: string }
         Returns: Json
       }
+      organiser_night_refund_summary_v1: {
+        Args: { p_event_series_id: string; p_occurrence_id: string }
+        Returns: Json
+      }
+      organiser_night_reminder_get_v1: {
+        Args: { p_occurrence_id: string }
+        Returns: Json
+      }
+      organiser_night_reminder_set_v1: {
+        Args: { p_enabled: boolean; p_occurrence_id: string }
+        Returns: Json
+      }
       organiser_onboarding_status_v1: {
         Args: { p_organiser_id?: string }
         Returns: Json
@@ -16688,6 +17138,15 @@ export type Database = {
       organiser_raffle_nights_v1: {
         Args: { p_series_id: string }
         Returns: Json
+      }
+      organiser_refund_reminder_claim_v1: {
+        Args: { p_kind: string; p_occurrence_id: string }
+        Returns: string
+      }
+      organiser_refund_reminder_due_v1: { Args: never; Returns: Json }
+      organiser_refund_reminder_set_v1: {
+        Args: { p_error?: string; p_id: string; p_status: string }
+        Returns: boolean
       }
       organiser_room_drop_preview_v1: {
         Args: { p_new_venue_id: string; p_series_id: string }
@@ -17415,6 +17874,10 @@ export type Database = {
         Args: never
         Returns: Json
       }
+      request_account_link_v1: {
+        Args: { p_other_email: string }
+        Returns: Json
+      }
       request_new_invite_v1: { Args: { p_token: string }; Returns: Json }
       request_organiser_access_v1: {
         Args: { p_message?: string; p_organiser_id: string }
@@ -17669,6 +18132,10 @@ export type Database = {
         }
         Returns: Json
       }
+      set_series_signup_rule_v1: {
+        Args: { p_rule: string; p_series_id: string }
+        Returns: Json
+      }
       skip_organiser_about_v1: {
         Args: { p_organiser_id: string }
         Returns: Json
@@ -17793,6 +18260,16 @@ export type Database = {
         }
         Returns: Json
       }
+      ticket_checkout_rate_check_v2: {
+        Args: {
+          p_email_hash: string
+          p_expected_total_pence: number
+          p_ip_hash: string
+          p_quantity: number
+          p_ticket_type_id: string
+        }
+        Returns: Json
+      }
       ticket_checkout_reserve_v1: {
         Args: {
           p_booking_fee_per_ticket_pence: number
@@ -17899,6 +18376,22 @@ export type Database = {
       ticket_email_retry_take_v1: {
         Args: { p_limit: number }
         Returns: string[]
+      }
+      ticket_night_end_free_v1: {
+        Args: {
+          p_event_series_id: string
+          p_occurrence_id: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      ticket_night_refund_plan_v1: {
+        Args: {
+          p_event_series_id: string
+          p_occurrence_id: string
+          p_user_id: string
+        }
+        Returns: Json
       }
       ticket_ops_health_v1: { Args: never; Returns: Json }
       ticket_order_charge_refunded_v1: {
@@ -18033,6 +18526,10 @@ export type Database = {
         Args: { p_order_id: string; p_user_id: string }
         Returns: Json
       }
+      ticket_sales_by_night_v1: {
+        Args: { p_event_series_id: string; p_occurrence_id?: string }
+        Returns: Json
+      }
       ticket_sales_summary_v1: {
         Args: { p_organiser_id: string }
         Returns: Json
@@ -18137,6 +18634,14 @@ export type Database = {
           valid_to: string
         }[]
       }
+      ticket_undo_check_in_v1: {
+        Args: {
+          p_event_series_id?: string
+          p_occurrence_id?: string
+          p_ticket_id: string
+        }
+        Returns: Json
+      }
       ticket_webhook_begin_v1: {
         Args: { p_event_id: string; p_type: string }
         Returns: string
@@ -18146,6 +18651,7 @@ export type Database = {
         Returns: undefined
       }
       topup_series_materialisation_horizon_v1: { Args: never; Returns: Json }
+      unlink_account_v1: { Args: { p_other_user_id: string }; Returns: Json }
       upsert_venue_atomic: { Args: { payload: Json }; Returns: Json }
       uuid_to_bigint: { Args: { p_uuid: string }; Returns: number }
       validate_override_payload_v1: { Args: { p_payload: Json }; Returns: Json }
