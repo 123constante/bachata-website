@@ -16,6 +16,7 @@ import { P3_PATHS } from '../shell/paths';
 import { useGatedCopy } from '../onboarding/gate';
 import { cameBackForKept, dropKept, keptDraft, leavesForGate, overNow, type Kept } from '../onboarding/keptDraft';
 import { Sheet } from './Sheet';
+import { v2KeepsDraft } from '../v2/scope';
 
 /**
  * The ONE save model's screen half (P3 W3a, issue #26), shared by every P3 edit screen:
@@ -171,6 +172,7 @@ function useRouterBlocker(): Blocker {
   // The gate's Continue on a screen whose typing is kept leaves without asking (p3-gate-guard-1, keptDraft.ts).
   const shouldBlock = useCallback<BlockerFunction>(
     ({ currentLocation, nextLocation }) => isFormDirty() && currentLocation.pathname !== nextLocation.pathname
+      && !v2KeepsDraft(currentLocation.pathname, nextLocation.pathname)
       && !leavesForGate(nextLocation.state, currentLocation.pathname),
     [],
   );

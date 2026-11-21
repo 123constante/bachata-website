@@ -1,0 +1,105 @@
+/* Editor v2 (S1): tap targets in px (phone html font is about 13.5px), tags, save bar above the tab bar. */
+.v2-tap { min-height: 44px; }
+.v2-row { min-height: 44px; display: flex; align-items: center; gap: 8px; padding: 8px 12px; width: 100%; text-align: left; }
+.v2-row-t { flex: 1 1 auto; min-width: 0; font-size: 14px; }
+.v2-row-help { font-size: 12px; color: #696969; }
+.v2-grey .v2-row-t { opacity: 0.5; }
+.v2-tag { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #f2f2f2; white-space: nowrap; }
+.v2-tag-cancelled { background: #fde8e8; color: #a11; }
+.v2-tag-changed { background: #fff1e6; color: #8a4500; }
+.v2-link { min-height: 44px; display: inline-flex; align-items: center; font-size: 14px; color: #c2410c; background: none; border: 0; padding: 0 4px; text-decoration: underline; }
+.v2-card-h { font-size: 15px; font-weight: 600; margin: 0 0 8px; }
+.v2-sub-line { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #696969; }
+.v2-slot { border: 1px dashed #c8c8c8; border-radius: 10px; padding: 12px; font-size: 13px; color: #696969; }
+.v2-savebar { position: sticky; bottom: 0; z-index: 5; background: #fff; border-top: 1px solid #e5e5e5; padding: 8px 12px; display: flex; align-items: center; gap: 8px; }
+.v2-savebar-sum { flex: 1 1 auto; min-width: 0; font-size: 13px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.v2-savebar .r4-btn { min-height: 44px; width: auto; flex: 0 0 auto; padding: 0 16px; }
+.v2-card { padding: 12px; }
+.v2-card textarea.r4-in { height: auto; min-height: 44px; line-height: 1.4; padding-top: 8px; padding-bottom: 8px; }
+.v2-card .v2-row { padding-left: 0; padding-right: 0; }
+h2.v2-card-h { display: block; color: #1a1a1a; visibility: visible; }
+.v2-toast { position: sticky; bottom: 64px; z-index: 6; background: #222; color: #fff; border-radius: 10px; padding: 8px 12px; font-size: 13px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.v2-label-above { display: block; font-size: 13px; margin-bottom: 4px; }
+.v2-box { border-radius: 10px; padding: 12px; background: #fde8e8; font-size: 14px; }
+.v2-thumb { display: block; width: 72px; height: 72px; object-fit: cover; border-radius: 8px; margin-bottom: 8px; }
+
+/* Event page drawn as the approved prototype (docs/design/editor-v2-proto/event-editor-v2.html.md, .top/.card/.row/.sess). */
+/* The page brings its own top bar: the shell's exit line and page header step aside while it is on screen. */
+.r4-look:has(.v2-page) .r4-exit, .r4-look:has(.v2-page) .r4-header { display: none; }
+.r4-look:has(.v2-page) .r4-main { padding: 0; }
+/* The leave sheet is Save / Throw away / Keep editing only (no extra Close). */
+.p3-sheet:has([data-testid="v2-unsaved"]) .p3-sheet-head .p3-link { display: none; }
+.v2-page { background: #FDFDFD; color: #030303; font-size: 15px; line-height: 1.45; min-height: 100%; }
+.v2-top { position: sticky; top: 0; z-index: 4; height: 56px; padding: 0 12px 0 4px; display: flex; align-items: center; gap: 6px; border-bottom: 1px solid #E9E9E9; background: #FFFFFF; }
+.v2-bk .p3-link { width: 44px; height: 44px; min-width: 44px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 0; color: #030303; text-decoration: none; }
+.v2-bk .p3-link::before { content: ""; width: 10px; height: 10px; border-left: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); margin-left: 4px; }
+.v2-tt { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.v2-tt1 { font-size: 12px; color: #696969; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v2-tt2 { font-size: 17px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v2-main { padding: 12px; display: flex; flex-direction: column; gap: 14px; }
+.v2-stack { display: flex; flex-direction: column; gap: 8px; }
+.v2-lbl { margin: 0; font-size: 12px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; color: #696969; }
+.v2-foot { margin: 0; font-size: 13px; color: #464646; }
+.v2-page .v2-card { padding: 0; background: #FFFFFF; border: 1px solid #E9E9E9; border-radius: 8px; overflow: hidden; }
+.v2-page .v2-card.v2-pad { padding: 12px 16px; }
+.v2-r { min-height: 44px; padding: 0 16px; display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: none; border: 0; color: inherit; text-decoration: none; font: inherit; }
+.v2-r + .v2-r, .v2-sess + .v2-r, .v2-sess + .v2-sess, .v2-r + .v2-sess, .v2-err + .v2-r { border-top: 1px solid #E9E9E9; }
+.v2-r:disabled { opacity: 0.5; }
+.v2-k { width: 88px; flex: none; font-size: 14px; color: #696969; }
+.v2-v { flex: 1; min-width: 0; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #030303; }
+.v2-v.v2-add { color: #696969; }
+.v2-go::after { content: ""; flex: none; width: 8px; height: 8px; border-right: 2px solid #464646; border-bottom: 2px solid #464646; transform: rotate(-45deg); margin-right: 4px; }
+.v2-red .v2-v, .v2-red .v2-rt { color: #B42318; }
+.v2-chg { flex: none; min-height: 44px; display: inline-flex; align-items: center; padding: 0 2px; font-size: 14px; color: #C2410C; text-decoration: underline; background: none; border: 0; }
+.v2-sess { display: flex; gap: 12px; padding: 10px 16px; align-items: flex-start; width: 100%; min-height: 44px; color: inherit; text-decoration: none; }
+.v2-time { width: 56px; flex: none; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.35; }
+.v2-time small { display: block; font-size: 12px; font-weight: 400; color: #696969; }
+.v2-rb { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.v2-rt { font-size: 15px; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v2-rl { font-size: 13px; line-height: 1.4; color: #696969; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v2-empty { margin: 0; padding: 12px 16px; font-size: 14px; color: #464646; }
+.v2-err { margin: 0; padding: 4px 16px; font-size: 13px; color: #B42318; }
+.v2-page .v2-tag { flex: none; font-size: 12px; padding: 2px 6px; border-radius: 4px; color: #9A3412; background: #FFF1E8; }
+.v2-page .v2-tag-cancelled { color: #B42318; background: #FEF3F2; }
+.v2-f { display: flex; flex-direction: column; gap: 6px; }
+.v2-fl { font-size: 13px; color: #696969; }
+.v2-in { width: 100%; min-height: 46px; border: 1px solid #D9D9D9; border-radius: 8px; padding: 10px 12px; font: inherit; font-size: 16px; line-height: 1.4; background: #FFFFFF; color: #030303; resize: vertical; }
+.v2-page .v2-savebar { margin-top: 8px; flex-wrap: wrap; row-gap: 4px; padding: 6px 12px 10px; }
+/* prototype bar: summary and an Undo link on one line, a full-width Save under them (CSS only; SaveBar.tsx unchanged) */
+.v2-page .v2-savebar-sum { flex: 1 1 0; color: #464646; }
+.v2-page .v2-savebar [data-testid="v2-undo"] { background: none; border: 0; box-shadow: none; padding: 0 4px; min-height: 44px; color: #C2410C; text-decoration: underline; font-size: 14px; font-weight: 400; }
+.v2-page .v2-savebar [data-testid="v2-save"] { flex: 1 0 100%; width: 100%; min-height: 46px; border-radius: 8px; font-size: 15px; }
+
+/* One-night screen drawn as the approved prototype (renderNight: .topcx/.info/.cxbox/.btns/.dim/nrow/.sess). */
+.v2-topcx { flex: none; min-height: 44px; min-width: 44px; padding: 0 6px; font-size: 14px; color: #B42318; text-decoration: underline; background: none; border: 0; display: inline-flex; align-items: center; }
+.v2-topcx:disabled { opacity: 0.45; }
+.v2-info { padding: 10px 12px; border-radius: 8px; background: #F6F6F6; color: #464646; font-size: 14px; line-height: 1.4; }
+.v2-cxbox { padding: 12px; border-radius: 8px; background: #FEF3F2; border: 1px solid #B42318; color: #B42318; font-size: 14px; line-height: 1.4; display: flex; flex-direction: column; gap: 8px; }
+.v2-cxbox b { font-weight: 600; }
+.v2-col { display: flex; flex-direction: column; gap: 14px; }
+.v2-dim { opacity: 0.45; pointer-events: none; }
+.v2-btns { display: flex; gap: 8px; }
+.v2-btns > * { flex: 1; }
+.v2-btn { min-height: 46px; width: 100%; border-radius: 8px; border: 0; background: #C2410C; color: #FFFFFF; font: inherit; font-size: 15px; font-weight: 500; display: flex; align-items: center; justify-content: center; text-align: center; padding: 0 12px; }
+.v2-btn.v2-sec { background: #FFFFFF; color: #030303; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.14); }
+.v2-btn.v2-sm { min-height: 44px; font-size: 14px; }
+.v2-btn:disabled { opacity: 0.45; }
+.v2-nr { padding: 0 12px 0 0; gap: 4px; }
+.v2-nr-go { flex: 1; min-width: 0; min-height: 52px; padding: 8px 0 8px 16px; display: flex; align-items: center; gap: 12px; background: none; border: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.v2-nr-go:disabled, .v2-nr-go.v2-off { cursor: default; }
+.v2-nr-go.v2-stk { flex-wrap: wrap; row-gap: 2px; }
+.v2-nr-go.v2-stk .v2-k { width: 100%; }
+.v2-page .v2-r.v2-nr:has(.v2-nr-go:disabled) .v2-rb, .v2-page .v2-r.v2-nr:has(.v2-off) .v2-rb { opacity: 0.6; }
+.v2-soft { color: #696969; }
+.v2-clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; white-space: normal; }
+.v2-ovr { display: inline-block; margin-top: 3px; font-size: 12px; color: #9A3412; background: #FFF1E8; padding: 2px 6px; border-radius: 4px; align-self: flex-start; }
+.v2-ovr.v2-x { color: #B42318; background: #FEF3F2; }
+.v2-wrap { white-space: normal; }
+.v2-file { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; clip: rect(0 0 0 0); }
+.v2-file:focus-visible + .v2-nr .v2-nr-go { outline: 2px solid #C2410C; outline-offset: -2px; }
+.v2-tall { min-height: 52px; padding-top: 8px; padding-bottom: 8px; }
+.v2-page .v2-nsess { padding: 0 12px 0 0; align-items: center; gap: 4px; }
+.v2-sess-go { flex: 1; min-width: 0; display: flex; gap: 12px; align-items: flex-start; padding: 10px 0 10px 16px; min-height: 44px; color: inherit; text-decoration: none; }
+.v2-cx .v2-rt, .v2-cx .v2-time { text-decoration: line-through; color: #696969; }
+.v2-r.v2-off { opacity: 0.5; }
+.v2-sess + .v2-sess, .v2-sess + .v2-r, .v2-empty + .v2-sess { border-top: 1px solid #E9E9E9; }
