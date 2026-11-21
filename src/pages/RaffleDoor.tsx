@@ -60,7 +60,7 @@ export function DoorScreen(props: { view: View; busy: boolean; onAdmit: () => vo
     body = (
       <>
         <p className="text-sm text-muted-foreground">Check your connection and try again.</p>
-        <button type="button" onClick={onRetry} className="mt-3 h-12 w-full rounded-xl bg-primary px-4 text-base font-semibold text-primary-foreground">
+        <button type="button" onClick={onRetry} className="mt-3 h-[48px] w-full rounded-xl bg-primary px-4 text-base font-semibold text-primary-foreground">
           Retry
         </button>
       </>
@@ -88,7 +88,7 @@ export function DoorScreen(props: { view: View; busy: boolean; onAdmit: () => vo
             type="button"
             onClick={onAdmit}
             disabled={busy}
-            className="mt-3 h-12 w-full rounded-xl bg-primary px-4 text-base font-semibold text-primary-foreground disabled:opacity-50"
+            className="mt-3 h-[48px] w-full rounded-xl bg-primary px-4 text-base font-semibold text-primary-foreground disabled:opacity-50"
           >
             Admit
           </button>
