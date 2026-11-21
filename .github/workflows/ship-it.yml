@@ -1,53 +1,49 @@
 name: Ship it (owner comment arms auto-merge)
 
-# The owner comments exactly `ship it` on a PR. If the PR touches no risky path (list below) this
-# workflow labels it `ship-it`, brings the branch up to date and arms GitHub auto-merge (squash).
-# GitHub itself does the merge, and only after the required checks of the `main` ruleset pass.
-# A PR touching a risky path is REFUSED: label `ship-it-refused` plus a comment naming the path.
+# The owner comments exactly `ship it` on a PR. If EVERY changed file is on the ALLOWLIST below, this
+# workflow brings the branch up to date, arms GitHub auto-merge (squash) pinned to the checked head
+# sha, and labels the PR `ship-it`. GitHub itself does the merge, only after the required checks of
+# the `main` ruleset pass. Anything else is REFUSED (label `ship-it-refused` + a comment naming the
+# first path that is not allowed, and auto-merge is switched off).
+#
+# ALLOWLIST (bash `case` patterns, case-insensitive, `*` crosses `/`). A file must match one of these
+# AND none of the DENY prefixes. Renames are checked on both the new and the previous filename.
+#   allow: docs/*   *.md   *.test.ts  *.test.tsx  */__tests__/*   *.css
+#          public/*.png|jpg|jpeg|gif|webp|avif|ico|svg
+#          src/modules/*/screens/*.tsx   src/modules/*/components/*.tsx
+#   deny first (beats allow): .github/*  .claude/*  .githooks/*  scripts/*  supabase/*  *.sql
+#          CLAUDE.md  AGENTS.md  (also nested)
+#   everything else (api/*, src/** other than the two .tsx cases, package*.json, nested package.json,
+#   middleware.ts, vercel*.json, *.ts server/lib/hook files, ...) = refused.
+# ACCEPTED RISK (owner click 2026-11-21): .tsx under src/modules/*/screens/ and src/modules/*/components/
+#   is allowed even for money screens (refund, payout, stripe, tickets): wording and UI edits there ship
+#   on `ship it`. Logic in those files rides on the required checks only.
+# A PR with 3000+ files (the API cap) is refused: the list cannot be proven.
 #
 # SAFETY:
-#  - PUBLIC repo, comment body is untrusted. The job runs only when the commenter is
-#    123constante AND the trimmed, lowercased body is exactly `ship it` AND it is a PR comment.
-#    No github.event.* value is ever interpolated into a shell command: everything goes via env.
+#  - PUBLIC repo, comment body is untrusted. The comment job runs only for commenter 123constante AND
+#    body == `ship it` (trimmed, lowercased; checked again in shell). No github.event.* is ever
+#    interpolated into a shell command: everything goes through env.
 #  - PR code is NEVER checked out, built or run. Files and head sha are read through the REST API.
-#  - No third-party actions, so nothing to pin. Only `gh` (preinstalled on the runner).
-#  - Auto-merge is pinned to the head sha that was checked (--match-head-commit): a push that lands
-#    after the check voids the arming.
-#  - Token: BOT_PR_TOKEN when present, else GITHUB_TOKEN. A branch update pushed with GITHUB_TOKEN
-#    does not trigger the PR's checks (GitHub rule), so the required checks would never run on the
-#    new head; pr-auto-rebase.yml uses BOT_PR_TOKEN for the same reason.
-#
-# RISKY PATHS (refused). Globs are bash `case` patterns on the repo-relative path, case-insensitive;
-# `*` matches across `/`. Keep this list and the RISKY_GLOBS / MONEY_WORDS env below in sync.
-#   Governance / automation:
-#     scripts/*   .github/*   .claude/*   .githooks/*   CLAUDE.md   .integrity-guard.sha256
-#     (.github/* includes .github/automation/guard-paths.json, the guard and queue workflows)
-#   Server / DB:
-#     supabase/functions/*   supabase/migrations/*   *.sql   api/*   middleware.ts
-#     vercel.json   vercel-firewall.json   package.json   package-lock.json
-#   Money logic: any path containing  refund | payout | stripe | webhook | ticket_orders |
-#     ticket-orders | ticketorders | pricing   (case-insensitive),
-#     EXCEPT these, which stay allowed (owner click: wording-only edits to ticket money UI copy):
-#       - .tsx files under src/modules/*/screens/ or src/modules/*/components/ (any depth below
-#         the module), i.e. screens and components
-#       - docs/*  and test files (*.test.ts, *.test.tsx, __tests__/*)
-#     .ts server/lib/hook/model files stay refused (e.g. r4RefundModel.ts, refundData.ts),
-#     and so does any .tsx outside screens/ and components/.
-#   Guard / queue files: .github/* (covers the queue-*.yml and *-guard.yml workflows and
-#     guard-paths.json), scripts/* (covers scripts/lib/guard-paths.mjs, merge-tier.mjs, ...).
-#   A PR with 3000+ files (the API cap) is refused: the list cannot be proven.
+#  - No third-party actions, so nothing to pin. Only `gh` (preinstalled).
+#  - Refuses unless the `main` ruleset has a required_status_checks rule (auto-merge would merge at once).
+#  - Disarm: pull_request_target `synchronize` re-runs the allowlist on every new head of a `ship-it`
+#    PR and switches auto-merge off if the PR is now refused. (The definition comes from main.)
+#  - Token: BOT_PR_TOKEN when present, else GITHUB_TOKEN. A branch update pushed with GITHUB_TOKEN does
+#    not trigger the PR's checks (GitHub rule); pr-auto-rebase.yml uses BOT_PR_TOKEN for the same reason.
+#    pr-auto-rebase.yml only rebases CONFLICTED PRs, so the update-labelled job here is not redundant.
 
 on:
   issue_comment:
     types: [created]
+  pull_request_target:
+    branches: [main]
+    types: [synchronize]
   push:
     branches: [main]
 
 permissions:
-  contents: write
-  pull-requests: write
-  issues: write
-  checks: read
+  contents: read
 
 jobs:
   ship:
@@ -57,7 +53,12 @@ jobs:
       github.event.comment.user.login == '123constante' &&
       contains(github.event.comment.body, 'ship it')
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      checks: read
     concurrency:
       group: ship-it-pr-${{ github.event.issue.number }}
       cancel-in-progress: false
@@ -68,85 +69,151 @@ jobs:
       BODY: ${{ github.event.comment.body }}
       COMMENTER: ${{ github.event.comment.user.login }}
     steps:
-      - name: Check, label, update branch, arm auto-merge
+      - name: Check, update branch, arm auto-merge
         shell: bash
         run: |
           set -euo pipefail
           shopt -s nocasematch
 
-          # Exact-body check again, in shell, trimmed and lowercased (the `if` above is only a prefilter).
           body="$(printf '%s' "$BODY" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | tr '[:upper:]' '[:lower:]')"
           [ "$body" = "ship it" ] || { echo "not a ship-it comment"; exit 0; }
           [ "$COMMENTER" = "123constante" ] || { echo "not the owner"; exit 0; }
 
-          # --- risky-path rules (documented in the header) ---
-          is_money_exempt() {
+          # ---- allowlist (keep identical to the disarm job) ----
+          allowed() {
             case "$1" in
-              docs/*|*.test.ts|*.test.tsx|*/__tests__/*) return 0 ;;
+              .github/*|.claude/*|.githooks/*|scripts/*|supabase/*|*.sql|CLAUDE.md|*/CLAUDE.md|AGENTS.md|*/AGENTS.md) return 1 ;;
+              docs/*|*.md|*.test.ts|*.test.tsx|*/__tests__/*|*.css) return 0 ;;
+              public/*.png|public/*.jpg|public/*.jpeg|public/*.gif|public/*.webp|public/*.avif|public/*.ico|public/*.svg) return 0 ;;
               src/modules/*/screens/*.tsx|src/modules/*/components/*.tsx) return 0 ;;
             esac
             return 1
           }
-          risky_reason() {
-            local f="$1"
-            case "$f" in
-              scripts/*|.github/*|.claude/*|.githooks/*|CLAUDE.md|.integrity-guard.sha256)
-                echo "governance/automation/guard path"; return 0 ;;
-              supabase/functions/*) echo "edge function"; return 0 ;;
-              supabase/migrations/*|*.sql) echo "database migration/SQL"; return 0 ;;
-              api/*|middleware.ts|vercel.json|vercel-firewall.json|package.json|package-lock.json)
-                echo "server/deploy config"; return 0 ;;
-            esac
-            case "$f" in
-              *refund*|*payout*|*stripe*|*webhook*|*ticket_orders*|*ticket-orders*|*ticketorders*|*pricing*)
-                if ! is_money_exempt "$f"; then echo "money logic"; return 0; fi ;;
-            esac
-            return 1
-          }
-
-          # Reads head sha + files into HEAD_SHA, FILES; sets REFUSED_PATH/REFUSED_WHY, returns 1 if refused.
+          # Sets HEAD_SHA; sets REFUSED_PATH and returns 1 if any file (or rename source) is not allowed.
           check_pr() {
             HEAD_SHA="$(gh api "repos/$REPO/pulls/$PR" --jq .head.sha)"
-            FILES="$(gh api --paginate "repos/$REPO/pulls/$PR/files?per_page=100" --jq '.[] | .filename, (.previous_filename // empty)')"
-            local n; n="$(printf '%s\n' "$FILES" | grep -c . || true)"
-            if [ "$n" -ge 3000 ]; then REFUSED_PATH="(3000+ files)"; REFUSED_WHY="file list at the API cap"; return 1; fi
-            local f why
+            local files n f
+            files="$(gh api --paginate "repos/$REPO/pulls/$PR/files?per_page=100" --jq '.[] | .filename, (.previous_filename // empty)')"
+            n="$(printf '%s\n' "$files" | grep -c . || true)"
+            if [ "$n" -ge 3000 ]; then REFUSED_PATH="(3000+ files)"; return 1; fi
             while IFS= read -r f; do
               [ -n "$f" ] || continue
-              if why="$(risky_reason "$f")"; then REFUSED_PATH="$f"; REFUSED_WHY="$why"; return 1; fi
-            done <<< "$FILES"
+              if ! allowed "$f"; then REFUSED_PATH="$f"; return 1; fi
+            done <<< "$files"
             return 0
           }
-
-          refuse() {
-            gh label create ship-it-refused --repo "$REPO" --color B60205 --description "ship it refused: risky path" 2>/dev/null || true
-            gh pr edit "$PR" --repo "$REPO" --add-label ship-it-refused >/dev/null
-            gh pr comment "$PR" --repo "$REPO" --body "ship-it REFUSED: \`$REFUSED_PATH\` matches a risky path ($REFUSED_WHY). Merge this PR the normal way."
+          say_once() { # $1 = full comment text, $2 = marker key; skips if the last marked comment has the same key
+            local last
+            last="$(gh api "repos/$REPO/issues/$PR/comments?per_page=100" --paginate --jq "[.[] | select(.body | contains(\"<!-- ship-it -->\"))] | last | .body // \"\"" | tail -n 1 || true)"
+            case "$last" in *"$2"*) echo "same comment already posted"; return 0 ;; esac
+            gh pr comment "$PR" --repo "$REPO" --body "<!-- ship-it -->$1 <!-- $2 -->"
           }
+          disarm() {
+            gh pr merge "$PR" --repo "$REPO" --disable-auto >/dev/null 2>&1 || true
+            gh pr edit "$PR" --repo "$REPO" --remove-label ship-it >/dev/null 2>&1 || true
+          }
+          refuse() {
+            local p; p="$(printf '%s' "$REFUSED_PATH" | tr -d '@`' | cut -c1-200)"
+            gh label create ship-it-refused --repo "$REPO" --color B60205 --description "ship it refused: path not on the allowlist" 2>/dev/null || true
+            gh pr edit "$PR" --repo "$REPO" --add-label ship-it-refused >/dev/null
+            disarm
+            say_once "ship-it REFUSED: \`$p\` is not on the auto-merge allowlist. Merge this PR the normal way." "refused:$p"
+          }
+          fail() { say_once "ship-it FAILED: $1" "failed:$1"; exit 1; }
 
           state="$(gh api "repos/$REPO/pulls/$PR" --jq '.state + " " + .base.ref + " " + (.head.repo.full_name // "")')"
-          [ "$state" = "open main $REPO" ] || { gh pr comment "$PR" --repo "$REPO" --body "ship-it: skipped, PR must be open, target main and come from this repo (got: $state)."; exit 0; }
+          [ "$state" = "open main $REPO" ] || { say_once "ship-it: skipped, PR must be open, target main and come from this repo." "skipped:$state"; exit 0; }
+
+          # Auto-merge with no required checks would merge at once: demand the ruleset rule.
+          n_req="$(gh api "repos/$REPO/rules/branches/main" --jq '[.[] | select(.type == "required_status_checks")] | length')"
+          if [ "$n_req" = "0" ]; then say_once "ship-it: refused, main has no required_status_checks rule, auto-merge would merge immediately." "norule"; exit 0; fi
 
           if ! check_pr; then refuse; exit 0; fi
 
-          # Update the branch if behind, then re-check the new head (its files may differ).
+          # Behind main: update the branch, wait for the head sha to change, re-check the final sha.
+          old_sha="$HEAD_SHA"
           merge_state="$(gh api "repos/$REPO/pulls/$PR" --jq .mergeable_state)"
-          if [ "$merge_state" = "behind" ] || [ "$merge_state" = "unknown" ]; then
-            gh api -X PUT "repos/$REPO/pulls/$PR/update-branch" -f expected_head_sha="$HEAD_SHA" >/dev/null || echo "update-branch failed (conflict or race); continuing"
-            sleep 5
+          if [ "$merge_state" = "behind" ]; then
+            gh api -X PUT "repos/$REPO/pulls/$PR/update-branch" -f expected_head_sha="$old_sha" >/dev/null \
+              || fail "update-branch error (conflict or race). Update the branch by hand."
+            changed=0
+            for _ in $(seq 1 12); do
+              sleep 5
+              cur="$(gh api "repos/$REPO/pulls/$PR" --jq .head.sha)"
+              if [ "$cur" != "$old_sha" ]; then changed=1; break; fi
+            done
+            [ "$changed" = "1" ] || fail "branch update did not land within 60s."
             if ! check_pr; then refuse; exit 0; fi
           fi
 
+          if ! gh pr merge "$PR" --repo "$REPO" --auto --squash --match-head-commit "$HEAD_SHA"; then
+            fail "could not arm auto-merge (see the run log)."
+          fi
           gh label create ship-it --repo "$REPO" --color 0E8A16 --description "owner said ship it: auto-merge armed" 2>/dev/null || true
           gh pr edit "$PR" --repo "$REPO" --add-label ship-it >/dev/null
           gh pr edit "$PR" --repo "$REPO" --remove-label ship-it-refused >/dev/null 2>&1 || true
-          gh pr merge "$PR" --repo "$REPO" --auto --squash --match-head-commit "$HEAD_SHA"
           gh pr comment "$PR" --repo "$REPO" --body "ship-it: auto-merge on, waits for required checks and up-to-date branch"
+
+  disarm:
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(toJSON(github.event.pull_request.labels.*.name), 'ship-it')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    concurrency:
+      group: ship-it-pr-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ secrets.BOT_PR_TOKEN || secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+      PR: ${{ github.event.pull_request.number }}
+    steps:
+      - name: Re-check the new head, disarm if no longer allowed
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nocasematch
+          # No PR checkout: files come from the REST API. Allowlist identical to the ship job.
+          allowed() {
+            case "$1" in
+              .github/*|.claude/*|.githooks/*|scripts/*|supabase/*|*.sql|CLAUDE.md|*/CLAUDE.md|AGENTS.md|*/AGENTS.md) return 1 ;;
+              docs/*|*.md|*.test.ts|*.test.tsx|*/__tests__/*|*.css) return 0 ;;
+              public/*.png|public/*.jpg|public/*.jpeg|public/*.gif|public/*.webp|public/*.avif|public/*.ico|public/*.svg) return 0 ;;
+              src/modules/*/screens/*.tsx|src/modules/*/components/*.tsx) return 0 ;;
+            esac
+            return 1
+          }
+          files="$(gh api --paginate "repos/$REPO/pulls/$PR/files?per_page=100" --jq '.[] | .filename, (.previous_filename // empty)')"
+          n="$(printf '%s\n' "$files" | grep -c . || true)"
+          bad=""
+          if [ "$n" -ge 3000 ]; then bad="(3000+ files)"; else
+            while IFS= read -r f; do
+              [ -n "$f" ] || continue
+              if ! allowed "$f"; then bad="$f"; break; fi
+            done <<< "$files"
+          fi
+          [ -n "$bad" ] || { echo "new head still allowed"; exit 0; }
+          gh pr merge "$PR" --repo "$REPO" --disable-auto || true
+          gh pr edit "$PR" --repo "$REPO" --remove-label ship-it || true
+          gh label create ship-it-refused --repo "$REPO" --color B60205 --description "ship it refused: path not on the allowlist" 2>/dev/null || true
+          gh pr edit "$PR" --repo "$REPO" --add-label ship-it-refused || true
+          p="$(printf '%s' "$bad" | tr -d '@`' | cut -c1-200)"
+          last="$(gh api "repos/$REPO/issues/$PR/comments?per_page=100" --paginate --jq '[.[] | select(.body | contains("<!-- ship-it -->"))] | last | .body // ""' | tail -n 1 || true)"
+          case "$last" in *"disarmed:$p"*) exit 0 ;; esac
+          gh pr comment "$PR" --repo "$REPO" --body "<!-- ship-it -->ship-it DISARMED: a new push touches \`$p\`, which is not on the auto-merge allowlist. Auto-merge is off. <!-- disarmed:$p -->"
 
   update-labelled:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
     concurrency:
       group: ship-it-push
       cancel-in-progress: true
@@ -154,11 +221,12 @@ jobs:
       GH_TOKEN: ${{ secrets.BOT_PR_TOKEN || secrets.GITHUB_TOKEN }}
       REPO: ${{ github.repository }}
     steps:
-      - name: Update every open PR labelled ship-it
+      - name: Update open same-repo PRs that are labelled ship-it and have auto-merge armed
         shell: bash
         run: |
           set -uo pipefail
-          for n in $(gh pr list --repo "$REPO" --state open --label ship-it --json number --jq '.[].number'); do
+          for n in $(gh pr list --repo "$REPO" --state open --label ship-it --json number,autoMergeRequest,isCrossRepository \
+                       --jq '.[] | select(.autoMergeRequest != null and (.isCrossRepository | not)) | .number'); do
             gh api -X PUT "repos/$REPO/pulls/$n/update-branch" >/dev/null 2>&1 \
               && echo "updated #$n" || echo "update-branch #$n skipped (up to date or conflict)"
           done
