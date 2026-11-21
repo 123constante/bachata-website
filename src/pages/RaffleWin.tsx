@@ -4,7 +4,7 @@ import { Link, Navigate, useParams } from 'react-router-dom';
 import { flags } from '@/lib/featureFlags';
 import { useAuth } from '@/hooks/useAuth';
 import { rpcLoose } from '@/integrations/supabase/rpcLoose';
-import { qrModules, qrPath } from '@/modules/tickets/qr';
+import TicketQrCode from '@/modules/tickets/TicketQrCode';
 import {
   doorUrl, formatLocalNight, parseClaim, parseLock, screenForClaim, winAuthHref,
   type OpenNight, type WinScreen,
@@ -149,15 +149,11 @@ export default function RaffleWin() {
     );
   }
   if (screen === 'qr' && qr) {
-    const grid = qrModules(doorUrl(window.location.origin, qr.token));
-    const size = grid.length + 8;
     return (
       <Shell h1="You are in"
         sub={`Show this at the door.${qr.night ? ` ${qr.night.title}, ${formatLocalNight(qr.night.startLocal)}` : ''}`}
         note="This code does not expire. Your organiser can cancel it.">
-        <svg role="img" aria-label="Your door QR code" viewBox={`0 0 ${size} ${size}`} className="mx-auto w-full max-w-[280px] rounded-xl bg-white" shapeRendering="crispEdges">
-          <path d={qrPath(grid)} fill="#000" />
-        </svg>
+        <TicketQrCode token={doorUrl(window.location.origin, qr.token)} />
       </Shell>
     );
   }
