@@ -29,7 +29,7 @@ import { checkoutFee, expectedTotal, parsePriceChanged, stepLine } from '../pric
 const NOW = new Date('2026-10-20T12:00:00Z');
 const PROD = 'https://www.bachatacalendar.co.uk';
 const T = (over: Partial<PublicTicketType> = {}): PublicTicketType => ({
-  id: 'a', occurrenceId: null, name: 'Social', pricePence: 1200, status: 'on_sale', remaining: 30, salesOpenAt: null, salesCloseAt: null,
+  id: 'a', occurrenceId: null, name: 'Party', pricePence: 1200, status: 'on_sale', remaining: 30, salesOpenAt: null, salesCloseAt: null,
   nextPricePence: null, nextPriceAt: null, ...over,
 });
 const BUYER = {
