@@ -13,7 +13,7 @@ import { Link } from 'react-router-dom';
 const STEPS = [
   { sym: '\u{1F3AF}', n: 'Pull 1', title: 'Pick a party', body: 'Find any night with a raffle running.' },
   { sym: '\u{1F4F1}', n: 'Pull 2', title: 'Drop your number', body: 'One tap, one WhatsApp number. No payment, ever.' },
-  { sym: '\u{1F389}', n: 'Pull 3', title: 'Win on the night', body: 'Winner drawn before doors. We message you on WhatsApp.' },
+  { sym: '\u{1F389}', n: 'Pull 3', title: 'Win on the night', body: 'Winners are drawn before each night. We message you on WhatsApp.' },
 ];
 
 export const HowItWorks: React.FC = () => (
