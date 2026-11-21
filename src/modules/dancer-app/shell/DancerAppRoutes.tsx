@@ -81,7 +81,7 @@ const ScreenOrTeaser = ({ id, Screen }: { id: DancerRouteId; Screen: ComponentTy
   // Checkout return (buyer onboarding ON) lands on Home with ?o=. Only the teaser Home draws the
   // order card; anyone else goes on to the Tickets tab, which does, with ?o= (and free=1) kept.
   // Layout C has no Tickets tab (it redirects back here), so no hop: Home carries the ticket card (S1).
-  if (id === 'home' && !DANCER_LAYOUT_C_ENABLED && BUYER_ONBOARDING_ENABLED && teaser !== 'on' && new URLSearchParams(search).has('o')) {
+  if (id === 'home' && (!DANCER_LAYOUT_C_ENABLED || viewOnly) && BUYER_ONBOARDING_ENABLED && teaser !== 'on' && new URLSearchParams(search).has('o')) {
     return <Navigate to={`${DANCER_TICKETS}${search}`} replace />;
   }
   const Shown = Twin && teaser === 'on' ? Twin : Screen;
