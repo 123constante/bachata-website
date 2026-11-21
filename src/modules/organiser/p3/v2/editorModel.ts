@@ -236,3 +236,65 @@ export function nightFieldState(key: keyof NightPatch, savedKeys: readonly strin
   if (patch && key in patch) return patch[key] == null ? 'usual' : 'changed';
   return savedKeys.includes(key) ? 'changed' : 'usual';
 }
+
+/**
+ * What a write read BEFORE it ran, per step kind: the old value of every key the step sends (series.upsert,
+ * occurrence.set_override: a night key that was inherited reads null), the old rule / lifecycle / organiser
+ * payload, the old time ({new_local_start, new_local_end} or {reset:true}), the old cancel state
+ * ({cancelled, reason}), the old programme tree ({days}) or, for a programme step, {payload} (the old sessions list).
+ */
+export type StepBefore = Record<string, unknown>;
+
+const hasKeys = (before: StepBefore, keys: string[]) => keys.every((k) => k in before);
+const sameStep = (step: WriteStep, command: OwnerCommand | null, payload?: Record<string, unknown>[]): WriteStep =>
+  ({ ...step, command, payload });
+
+/**
+ * The step that puts the value read before a write back (the toast's Undo). null = no safe inverse (a key the
+ * read did not cover, an unknown kind), and the toast then shows without Undo. Pure.
+ *  - series.upsert / occurrence.set_override: same kind, each sent key set to its old value
+ *  - series.set_recurrence / series.set_organisers / series.set_program: same kind with the old payload
+ *  - series.set_lifecycle: same kind, to the old state
+ *  - occurrence.set_time: set_time with the old times, or reset when the night had none of its own
+ *  - occurrence.cancel: cancel flipped back (cancel -> bring back; bring back -> cancel with the old reason)
+ *  - programme: the old sessions list replaced back
+ */
+export function inverseOf(step: WriteStep, before: StepBefore | null | undefined): WriteStep | null {
+  if (!before) return null;
+  if (step.target === 'programme') {
+    return Array.isArray(before.payload) ? sameStep(step, null, before.payload as Record<string, unknown>[]) : null;
+  }
+  const c = step.command;
+  if (!c) return null;
+  const keys = Object.keys(c.payload ?? {});
+  switch (c.kind) {
+    case 'series.upsert':
+    case 'occurrence.set_override': {
+      if (!keys.length || !hasKeys(before, keys)) return null;
+      return sameStep(step, { kind: c.kind, payload: Object.fromEntries(keys.map((k) => [k, before[k]])) });
+    }
+    case 'series.set_recurrence':
+      return hasKeys(before, ['mode']) ? sameStep(step, { kind: c.kind, payload: { ...before } }) : null;
+    case 'series.set_organisers':
+      return Array.isArray(before.organiser_ids) ? sameStep(step, { kind: c.kind, payload: { organiser_ids: before.organiser_ids } }) : null;
+    case 'series.set_program':
+      return Array.isArray(before.days) ? sameStep(step, { kind: c.kind, payload: { days: before.days } }) : null;
+    case 'series.set_lifecycle':
+      return typeof before.to === 'string' ? sameStep(step, { kind: c.kind, payload: { to: before.to } }) : null;
+    case 'occurrence.set_time':
+      if (before.reset === true) return sameStep(step, { kind: c.kind, payload: { reset: true } });
+      return typeof before.new_local_start === 'string'
+        ? sameStep(step, { kind: c.kind, payload: { new_local_start: before.new_local_start, new_local_end: before.new_local_end ?? null } })
+        : null;
+    case 'occurrence.cancel': {
+      if (typeof before.cancelled !== 'boolean') return null;
+      if (before.cancelled) {
+        const reason = typeof before.reason === 'string' ? before.reason : '';
+        return sameStep(step, { kind: c.kind, payload: { cancelled: true, reason } });
+      }
+      return sameStep(step, { kind: c.kind, payload: { cancelled: false } });
+    }
+    default:
+      return null;
+  }
+}
