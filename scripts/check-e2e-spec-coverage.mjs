@@ -88,6 +88,7 @@ export const MANUAL = {
   'tests/e2e/organiser-launch-walk.spec.ts': { reason: 'needs E2E credentials and writes to the E2E database', run: 'npm run test:e2e:organiser-launch-walk' },
   'tests/e2e/organiser-public-claim.real-supabase.spec.ts': { reason: 'needs a real Supabase anon key (SSR loader) and the organiser detail flags; skips without the key', run: PW('tests/e2e/organiser-public-claim.real-supabase.spec.ts', DETAIL) },
   'tests/e2e/organiser-real-rpc.spec.ts': { reason: 'needs E2E credentials and writes to the E2E database', run: 'npm run test:e2e:organiser-real-rpc' },
+  'tests/e2e/raffle-v3-walk.spec.ts': { reason: 'mocked 390x844 walk of the raffle v3 winner + door screens; needs the raffleV2 flag, kept out of the gate (workflow edits not allowed in this PR)', run: PW('tests/e2e/raffle-v3-walk.spec.ts', 'VITE_ENABLE_RAFFLE_V2=true') },
   'tests/e2e/restyle-a-walk.spec.ts': { reason: WALK, run: PW('tests/e2e/restyle-a-walk.spec.ts') },
   'tests/e2e/walk-claim-first-invite.spec.ts': { reason: WALK, run: PW('tests/e2e/walk-claim-first-invite.spec.ts', 'VITE_ENABLE_CLAIM_FIRST_INVITE=true VITE_ENABLE_ORGANISER_SELF_SERVE=true') },
   'tests/e2e/walk-p3-organiser-events.spec.ts': { reason: WALK, run: PW('tests/e2e/walk-p3-organiser-events.spec.ts', 'VITE_ENABLE_ORGANISER_SELF_SERVE=true VITE_ENABLE_ORGANISER_P3=true VITE_ENABLE_ORGANISER_DASH=true') },
