@@ -19,7 +19,7 @@ import { ProfileSheetProvider } from '../../../shell/profileSheet';
 import { MY_TICKETS_PATH } from '@/modules/tickets/myTicketsModel';
 
 const ORDER = '123e4567-e89b-42d3-a456-426614174000';
-const row = (date: string | null) => ({ orderId: 'o1', seriesId: 's', title: 'Party', date, startTime: null, typeName: 'Party', ticketId: 't1', qrToken: 'tok', shortCode: null, checkedIn: false, checkedInAt: null });
+const row = (date: string | null) => ({ orderId: 'o1', seriesId: 's', title: 'Social', date, startTime: null, typeName: 'Party', ticketId: 't1', qrToken: 'tok', shortCode: null, checkedIn: false, checkedInAt: null });
 const own = (date: string | null) => ({ kind: 'ok', reply: { tickets: [row(date)], truncated: false, totalCount: 1 } });
 
 const mount = (path: string) => render(
@@ -35,7 +35,7 @@ beforeEach(() => {
   today.key = '2026-11-18';
   fetchMyTickets.mockReset().mockResolvedValue(own('2026-11-18'));
   fetchOrderQr.mockReset().mockResolvedValue({ kind: 'error' });
-  readOrderStatus.mockReset().mockResolvedValue({ status: 'paid', ticketCount: null, eventTitle: 'Party', eventDate: '2026-11-18', eventId: 'e1', retryLater: false });
+  readOrderStatus.mockReset().mockResolvedValue({ status: 'paid', ticketCount: null, eventTitle: 'Social', eventDate: '2026-11-18', eventId: 'e1', retryLater: false });
 });
 afterEach(cleanup);
 
