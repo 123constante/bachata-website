@@ -106,7 +106,7 @@ export default function RaffleWin() {
       <Shell hero={'\uD83C\uDF81'} h1="You won a free night"
         sub="Sign in to claim it. This link works until an organiser cancels it, so keep it private."
         note="The first account to sign in keeps the prize. Do not forward this link.">
-        <Link to={winAuthHref(token)} className={`${primary} flex items-center justify-center`} onClick={() => setFromAuth(true)}>Continue with Google</Link>
+        <Link to={winAuthHref(token)} className={`${primary} flex items-center justify-center`} onClick={() => setFromAuth(true)}>Sign in to claim</Link>
       </Shell>
     );
   }
