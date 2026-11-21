@@ -20,6 +20,7 @@ export const CATCHALL_CLIENT_PATHS: readonly string[] = [
   '/vendors',
   '/vendors/:id',
   '/raffles',
+  '/raffle/win/:token',
   '/videographers',
   '/choreography',
   '/dancers',
