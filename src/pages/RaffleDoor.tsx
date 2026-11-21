@@ -107,7 +107,7 @@ export function DoorScreen(props: { view: View; busy: boolean; onAdmit: () => vo
       title = 'Not valid';
       body = (
         <p className="text-sm text-muted-foreground">
-          This code is cancelled or for another night. Ask for ticket details.
+          This code is cancelled or for another night. Ask the organiser for help.
         </p>
       );
     }

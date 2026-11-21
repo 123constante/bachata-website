@@ -201,7 +201,7 @@ test.describe('door screens', () => {
   test('not valid', async ({ page }) => {
     await mock(page, { raffle_door_check_v1: () => ({ body: { status: 'not_valid' } }) });
     await page.goto(DOOR);
-    await check(page, 'door-not-valid', 'Not valid', 'This code is cancelled or for another night. Ask for ticket details.');
+    await check(page, 'door-not-valid', 'Not valid', 'This code is cancelled or for another night. Ask the organiser for help.');
   });
 
   test('network error -> Retry', async ({ page }) => {
