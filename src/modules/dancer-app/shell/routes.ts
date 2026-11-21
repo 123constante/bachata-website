@@ -62,8 +62,8 @@ export const LAYOUT_C_TABS: readonly DancerTab[] = DANCER_TABS.filter((t) => t.i
  * The tabs the shell draws: the four, with Tickets in front while ticketing is on. Layout C
  * (the shell passes the flag in; this file stays import-free) = always the three.
  */
-export const shellTabs = (ticketsOn: boolean, layoutC = false): readonly DancerTab[] =>
-  layoutC ? LAYOUT_C_TABS : ticketsOn ? [TICKETS_TAB, ...DANCER_TABS] : DANCER_TABS;
+export const shellTabs = (ticketsOn: boolean, layoutC = false, keepTickets = false): readonly DancerTab[] =>
+  layoutC ? (keepTickets ? [TICKETS_TAB, ...LAYOUT_C_TABS] : LAYOUT_C_TABS) : ticketsOn ? [TICKETS_TAB, ...DANCER_TABS] : DANCER_TABS;
 
 /**
  * Layout C: the two route ids that are no longer tabs still answer (old links, the catch-all

@@ -88,7 +88,7 @@ export const DancerAppShell = () => {
   const teaserNow = teaserState({ teaserFlag: TICKET_TEASER_ENABLED, ticketingFlag: ticketsOn, viewOnly, read });
   const teaser = teaserNow === 'on';
   // Layout C drops the Tickets tab, but a view-only buyer still lives on /app/tickets (their QRs), so they keep it.
-  const layoutCTabs = DANCER_LAYOUT_C_ENABLED && !(viewOnly && activeTabFor(pathname) === 'tickets');
+  const keepTicketsTab = DANCER_LAYOUT_C_ENABLED && viewOnly && activeTabFor(pathname) === 'tickets';
   const tabsLocked = ticketsOn && !teaser && (viewOnly || noProfile);
   const { focus, notNowTo } = shellChrome(pathname, search, candidate ? profile.data : null);
   const active = activeTabFor(pathname);
@@ -141,13 +141,13 @@ export const DancerAppShell = () => {
       </div>
       {!focus && (
         <nav
-          className={ticketsOn && !teaser && !layoutCTabs ? 'da-tabs dt-tabs-5' : 'da-tabs'}
+          className={ticketsOn && !teaser && !DANCER_LAYOUT_C_ENABLED ? 'da-tabs dt-tabs-5' : 'da-tabs'}
           // Layout C: three tabs, so three columns (the sheet's default grid is four).
-          style={layoutCTabs ? { gridTemplateColumns: 'repeat(3, 1fr)' } : undefined}
+          style={DANCER_LAYOUT_C_ENABLED ? { gridTemplateColumns: `repeat(${keepTicketsTab ? 4 : 3}, 1fr)` } : undefined}
           aria-label="Dancer app"
           data-testid="dancer-app-tabs"
         >
-          {shellTabs(ticketsOn && !teaser, layoutCTabs).map((tab) => (
+          {shellTabs(ticketsOn && !teaser, DANCER_LAYOUT_C_ENABLED, keepTicketsTab).map((tab) => (
             <ShellTab key={tab.id} tab={tab} isActive={active === tab.id} locked={tabsLocked && tab.id !== 'tickets'} marked={teaser && tab.id === 'me'} guardRef={guardRef} />
           ))}
         </nav>
