@@ -64,6 +64,9 @@ describe('RaffleDoor status -> screen', () => {
     h.rpc.mockResolvedValueOnce(reply('not_valid'));
     mount();
     expect(await screen.findByText('Not valid')).toBeTruthy();
+    expect(
+      screen.getByText('This code is cancelled or for another night. Ask the organiser for help.'),
+    ).toBeTruthy();
   });
 
   it('network error offers Retry', async () => {
