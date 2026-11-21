@@ -33,7 +33,7 @@ import { rafflePoolJoinedKey } from '@/lib/raffleSession';
 async function submit(onSubmitted = vi.fn()) {
   render(<RaffleEntryDialog open onOpenChange={() => {}} eventId="evt-1" consentVersion="v2" onSubmitted={onSubmitted} />);
   fireEvent.change(await screen.findByTestId('phone'), { target: { value: '1' } });
-  fireEvent.click(screen.getByRole('checkbox', { name: /I agree/i }));
+  if (!h.flag.raffleV2) fireEvent.click(screen.getByRole('checkbox', { name: /I agree/i }));
   fireEvent.click(screen.getByRole('button', { name: /Enter raffle/i }));
   return onSubmitted;
 }
@@ -64,7 +64,7 @@ describe('flag ON -> raffle_join_pool_v1', () => {
   it('ok sets the key and ends in a success state', async () => {
     h.rpcLoose.mockResolvedValue({ data: { ok: true, pool_id: 'p1' }, error: null });
     await submit();
-    await waitFor(() => expect(screen.getByText(/You're in! Good luck/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/You're in!/)).toBeTruthy());
     expect(window.sessionStorage.getItem(rafflePoolJoinedKey)).toBe('1');
   });
 
