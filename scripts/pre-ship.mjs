@@ -312,6 +312,8 @@ export const CHECKS = [
   // here because the ship gate is the one place a local tree is guaranteed to
   // have that directory. It also RE-RENDERS PLANS-INDEX.md on a passing lint.
   ["check:plan-hygiene", "arc-plan frontmatter + arc-state cross-check (lint-only)"],
+  // Same guard CI runs (dancer-area-isolation.yml): a PR may not mix src/modules/dancer-app with shared code. Caught here, a mixed branch is split before push, not after a red CI (2026-11-18, #1788).
+  ["check:dancer-area-isolation", "a PR touches dancer-app OR shared code, never both (vs origin/main)"],
   ["test:unit", "vitest unit + contract suite", ["--reporter=dot"]],
   // The edge-TTL specs, in their own pass with file parallelism off. The
   // failure class this pass exists for is documented IN TREE, with the
