@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+// @vitest-environment jsdom
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 const h = vi.hoisted(() => ({ rpc: vi.fn() }));
@@ -9,7 +10,7 @@ vi.mock('@/lib/seo', () => ({ useSeo: () => undefined }));
 import RaffleDoor, { formatDoorDate } from '../RaffleDoor';
 
 const reply = (status: string) => ({
-  data: { status, name: 'Aisha K.', event: 'Friday Social', date: '2026-11-28', admitted_at_local: '21:40' },
+  data: { status, name: 'Aisha K.', event: 'Friday Social', date: '2025-11-28', admitted_at_local: '21:40' },
   error: null,
 });
 
@@ -23,7 +24,7 @@ function mount() {
 
 describe('formatDoorDate', () => {
   it('formats a London date without timezone shift', () => {
-    expect(formatDoorDate('2026-11-28')).toBe('Fri 28 Nov');
+    expect(formatDoorDate('2025-11-28')).toBe('Fri 28 Nov');
     expect(formatDoorDate('2026-07-01T23:30:00')).toBe('Wed 1 Jul');
     expect(formatDoorDate('')).toBe('');
   });
@@ -31,6 +32,7 @@ describe('formatDoorDate', () => {
 
 describe('RaffleDoor status -> screen', () => {
   beforeEach(() => h.rpc.mockReset());
+  afterEach(() => cleanup());
 
   it('valid shows card then Admitted after tap', async () => {
     h.rpc.mockResolvedValueOnce(reply('valid')).mockResolvedValueOnce(reply('valid'));
