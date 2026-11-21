@@ -66,7 +66,6 @@ describe('layout C shell tabs (rendered): publicTicketing x teaser x who', () =>
     ['ticketing on, complete', true, false, { profile: COMPLETE }, '/app/me', false],
     ['ticketing on, teaser on, unfinished', true, true, { profile: makeProfile() }, '/app/me', false],
     ['ticketing on, no profile (locked)', true, false, { profile: null }, '/app/me', true],
-    ['ticketing on, view-only buyer (locked)', true, false, { gate: { open: false, allowed: false } }, '/app/tickets', true],
   ] as const)('%s: exactly Home, Nights, Me', async (_n, tix, teaser, backend, path, locked) => {
     h.tix = tix;
     h.teaser = teaser;
@@ -75,6 +74,16 @@ describe('layout C shell tabs (rendered): publicTicketing x teaser x who', () =>
     if (locked) {
       await waitFor(() => expect(screen.getByTestId('dancer-app-tab-home').getAttribute('data-locked')).toBe('true'));
     }
+  });
+});
+
+describe('layout C shell tabs: view-only buyer', () => {
+  it('keeps the Tickets tab on /app/tickets (their only screen), tabs locked', async () => {
+    h.tix = true;
+    h.teaser = false;
+    renderInShell({ path: '/app/tickets', backend: { gate: { open: false, allowed: false } } });
+    await waitFor(() => expect(tabIds()).toEqual(['tickets', 'home', 'nights', 'me']));
+    await waitFor(() => expect(screen.getByTestId('dancer-app-tab-home').getAttribute('data-locked')).toBe('true'));
   });
 });
 
