@@ -63,7 +63,8 @@ const useLockSheet = () => {
   return { open: () => setShown(true), node: shown ? <LockSheet onClose={() => setShown(false)} /> : null };
 };
 
-export function TeaserHome() {
+/** `layoutC` is passed in by the route (the flag module sits in the dancer-app chunk; see TeaserOptions). */
+export function TeaserHome({ layoutC = false }: { layoutC?: boolean } = {}) {
   const sheet = useLockSheet();
   const { view, retry } = useTicketCard();
   const { user } = useAuth();
@@ -103,7 +104,7 @@ export function TeaserHome() {
         </section>
       )}
       <div className="tz-sec">Also</div>
-      <LockedRows rows={LOCKED_ROWS.home} onOpen={sheet.open} />
+      <LockedRows rows={layoutC ? HOME_C_ROWS : LOCKED_ROWS.home} onOpen={sheet.open} />
       {sheet.node}
     </div>
   );
@@ -132,8 +133,26 @@ export function TeaserNights() {
   );
 }
 
-export function TeaserMe() {
+/** Layout C preview Home ghosts: Preview my page (moved from Me) joins after Share my page. */
+const HOME_C_ROWS: Rows = [LOCKED_ROWS.home[0], { title: 'Preview my page', line: LOCKED_ROWS.me[1].line }, ...LOCKED_ROWS.home.slice(1)];
+/** Layout C preview Me ghosts: My page moved to Home. */
+const ME_C_ROWS: Rows = LOCKED_ROWS.me.filter((r) => r.title !== 'My page');
+
+/**
+ * Layout C (brief dancer-layout-c-s2): `settings` is the live Settings section, given the ghost drawer for
+ * the two rows that stay locked (Send feedback, Add to my phone's home screen); `signOut` is the quiet last
+ * row. Both are passed in by the route, as TeaserOptions' signOut is (they live in the dancer-app chunk).
+ */
+export function TeaserMe({ layoutC = false, settings, signOut }: { layoutC?: boolean; settings?: (ghost: (row: { label: string }) => ReactNode) => ReactNode; signOut?: ReactNode } = {}) {
   const sheet = useLockSheet();
+  const ghost = (row: { label: string }) => (
+    <Locked onOpen={sheet.open} label={row.label} testId={`teaser-locked-${row.label}`}>
+      <span className="tz-row" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ flex: 1, minWidth: 0 }}><b>{row.label}</b></span>
+        <ChevronRight aria-hidden="true" style={{ width: 18, height: 18 }} />
+      </span>
+    </Locked>
+  );
   return (
     <div className="tz-screen" data-testid="teaser-me">
       <h1 className="tz-title">Me</h1>
@@ -145,7 +164,9 @@ export function TeaserMe() {
         <button type="button" className="tz-btn" onClick={sheet.open} data-testid="teaser-me-continue">{TEASER_COPY.sheetContinue}</button>
       </section>
       <div className="tz-sec">My profile</div>
-      <LockedRows rows={LOCKED_ROWS.me} onOpen={sheet.open} />
+      <LockedRows rows={layoutC ? ME_C_ROWS : LOCKED_ROWS.me} onOpen={sheet.open} />
+      {layoutC && settings?.(ghost)}
+      {layoutC && signOut && <div className="tz-quiet-out" data-testid="teaser-me-sign-out">{signOut}</div>}
       {sheet.node}
     </div>
   );
