@@ -1,0 +1,206 @@
+name: api-worker
+
+# Manual-only build worker on the Anthropic API (promo credit), off the owner's PC.
+# Started by ~/.claude/bin/api-dispatch.mjs (gh workflow run). Never on push or schedule.
+# Two jobs on two fresh VMs:
+#   worker: agent runs here. Only the API key proxy sees the key; sudo and docker are removed from
+#           the runner user BEFORE the agent starts. No BOT_PR_TOKEN here. Output leaves as a git bundle.
+#   publish: clean checkout, no agent code runs. Verifies the bundle, refuses protected paths, pushes
+#           with the bot token and opens the PR.
+# Independent review (2026-11-15) found sudo-readable key, planted git hooks, unchecked branch and
+# protected paths in the one-job version; this is the fix.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ticket:
+        description: dispatch ticket (dt_...)
+        required: true
+      branch:
+        description: worker branch to create or continue (claude/...)
+        required: true
+      brief_ref:
+        description: git ref that holds the brief
+        required: true
+      brief_path:
+        description: path of the brief file at brief_ref
+        required: true
+      model:
+        description: model id
+        required: true
+        default: claude-sonnet-5-5
+      max_usd:
+        description: hard per-run spend stop in USD
+        required: true
+        default: '8'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: api-worker-${{ inputs.branch }}
+  cancel-in-progress: false
+
+jobs:
+  worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Validate inputs
+        env:
+          TICKET: ${{ inputs.ticket }}
+          BRANCH: ${{ inputs.branch }}
+          BRIEF_REF: ${{ inputs.brief_ref }}
+          BRIEF_PATH: ${{ inputs.brief_path }}
+          MODEL: ${{ inputs.model }}
+          MAX_USD: ${{ inputs.max_usd }}
+        run: |
+          [[ "$TICKET" =~ ^dt_[a-f0-9]{12}$ ]] || { echo "bad ticket"; exit 1; }
+          [[ "$BRANCH" =~ ^claude/[A-Za-z0-9._/-]+$ && "$BRANCH" != *..* ]] || { echo "branch must be claude/..."; exit 1; }
+          [[ "$BRIEF_REF" =~ ^[A-Za-z0-9._/-]+$ && "$BRIEF_REF" != -* ]] || { echo "bad brief_ref"; exit 1; }
+          [[ "$BRIEF_PATH" =~ ^[A-Za-z0-9._/-]+$ && "$BRIEF_PATH" != -* && "$BRIEF_PATH" != *..* ]] || { echo "bad brief_path"; exit 1; }
+          [[ "$MODEL" =~ ^claude-[a-z0-9-]+$ ]] || { echo "bad model"; exit 1; }
+          [[ "$MAX_USD" =~ ^[0-9]+(\.[0-9]+)?$ ]] || { echo "bad max_usd"; exit 1; }
+
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Start key proxy as nobody, then remove sudo and docker from the runner user
+        env:
+          API_WORKER_KEY: ${{ secrets.API_WORKER_KEY }}
+          API_WORKER_WORKSPACE: ${{ secrets.API_WORKER_WORKSPACE }}
+        run: |
+          sudo install -m 755 -o root -g root "$GITHUB_WORKSPACE/scripts/api-worker/key-proxy.mjs" /opt/key-proxy.mjs
+          setsid sudo --preserve-env=API_WORKER_KEY,API_WORKER_WORKSPACE -u nobody \
+            "$(command -v node)" /opt/key-proxy.mjs > /tmp/key-proxy.log 2>&1 &
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if grep -q listening /tmp/key-proxy.log 2>/dev/null; then break; fi
+            sleep 1
+          done
+          grep -q listening /tmp/key-proxy.log || { cat /tmp/key-proxy.log; exit 1; }
+          sudo sed -i -E '/^(runner|%sudo|%admin).*ALL/d' /etc/sudoers
+          sudo systemctl stop docker.socket docker.service || true
+          sudo chmod 600 /var/run/docker.sock || true
+          sudo rm -f /etc/sudoers.d/*
+          sudo -k
+          if sudo -n true 2>/dev/null; then echo "sudo still works for the runner user: refusing to run the agent"; exit 1; fi
+          if docker ps > /dev/null 2>&1; then echo "docker still reachable: refusing to run the agent"; exit 1; fi
+
+      - name: Check out the worker branch and read the brief
+        env:
+          BRANCH: ${{ inputs.branch }}
+          BRIEF_REF: ${{ inputs.brief_ref }}
+          BRIEF_PATH: ${{ inputs.brief_path }}
+        run: |
+          if git ls-remote --exit-code --heads origin "$BRANCH" > /dev/null; then
+            git fetch origin -- "$BRANCH"
+            git checkout -B "$BRANCH" "origin/$BRANCH"
+          else
+            git checkout -b "$BRANCH" origin/main
+          fi
+          git rev-parse HEAD > /tmp/base.sha
+          git fetch origin -- "$BRIEF_REF"
+          git show "FETCH_HEAD:$BRIEF_PATH" > /tmp/brief.md
+          wc -c /tmp/brief.md
+
+      - name: Run the agent (no secrets here)
+        env:
+          ANTHROPIC_BASE_URL: http://127.0.0.1:8787
+          ANTHROPIC_API_KEY: dummy-key-the-proxy-replaces
+          MODEL: ${{ inputs.model }}
+          MAX_USD: ${{ inputs.max_usd }}
+          TICKET: ${{ inputs.ticket }}
+        run: |
+          {
+            echo "You are an unattended build worker, ticket $TICKET, in a disposable checkout of this repo."
+            echo "Read CLAUDE.md first. Do exactly the brief below, on the current branch."
+            echo "Hard limits: commit locally only (git add, git commit). Never git push, never gh, never touch"
+            echo ".github/, scripts/api-worker/, .claude/, .env or secret files, never merge or approve, never --no-verify."
+            echo "Run the checks the brief names. Before you stop, write a short handover to .api-worker-handover.md"
+            echo "(done, not done, what to check) and commit it. If you cannot finish, say so there: a fresh worker continues on this branch."
+            echo
+            echo "BRIEF:"
+            cat /tmp/brief.md
+          } > /tmp/prompt.md
+          claude -p "$(cat /tmp/prompt.md)" --model "$MODEL" --max-budget-usd "$MAX_USD" \
+            --dangerously-skip-permissions --output-format json > /tmp/agent-out.json || true
+          node -e "try{const o=JSON.parse(require('fs').readFileSync('/tmp/agent-out.json','utf8'));const s='ticket '+process.env.TICKET+': cost USD '+o.total_cost_usd+', turns '+o.num_turns+', '+(o.subtype||'');console.log(s);require('fs').appendFileSync(process.env.GITHUB_STEP_SUMMARY,s+'\n')}catch(e){console.log('no agent summary: '+e.message)}"
+
+      - name: Bundle the agent's commits
+        run: |
+          BASE="$(cat /tmp/base.sha)"
+          cd "$GITHUB_WORKSPACE"
+          mkdir -p /tmp/out
+          if [ "$(git rev-list --count "$BASE"..HEAD)" -gt 0 ]; then
+            git bundle create /tmp/out/work.bundle HEAD --not "$BASE"
+          fi
+          echo "$BASE" > /tmp/out/base.sha
+          ls -la /tmp/out
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: work-bundle
+          path: /tmp/out
+          retention-days: 3
+
+  publish:
+    needs: worker
+    if: always() && needs.worker.result != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: work-bundle
+          path: /tmp/out
+
+      - name: Verify the bundle, refuse protected paths, push, open the PR
+        env:
+          BOT_PR_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
+          GH_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
+          BRANCH: ${{ inputs.branch }}
+          TICKET: ${{ inputs.ticket }}
+          REPO: ${{ github.repository }}
+        run: |
+          [[ "$BRANCH" =~ ^claude/[A-Za-z0-9._/-]+$ && "$BRANCH" != *..* ]] || { echo "branch must be claude/..."; exit 1; }
+          if git ls-remote --exit-code --heads origin "$BRANCH" > /dev/null; then
+            git fetch origin -- "$BRANCH"
+            git checkout -B "$BRANCH" "origin/$BRANCH"
+          else
+            git checkout -b "$BRANCH" origin/main
+          fi
+          BASE="$(git rev-parse HEAD)"
+          COMMITS=0
+          if [ -f /tmp/out/work.bundle ]; then
+            git bundle verify /tmp/out/work.bundle
+            git fetch /tmp/out/work.bundle HEAD:refs/heads/incoming
+            git merge-base --is-ancestor "$BASE" incoming || { echo "bundle does not build on the branch head"; exit 1; }
+            BAD="$(git diff --name-only "$BASE" incoming | grep -E '^\.github/|^scripts/api-worker/|^\.claude/|(^|/)\.env' || true)"
+            if [ -n "$BAD" ]; then echo "agent touched protected paths:"; echo "$BAD"; exit 1; fi
+            git merge --ff-only incoming
+            COMMITS="$(git rev-list --count "$BASE"..HEAD)"
+          fi
+          git config user.name "kiki-claude-bot"
+          git config user.email "kiki-claude-bot@users.noreply.github.com"
+          git commit --allow-empty -m "chore: api-worker done [worker-done $TICKET]"
+          AUTH="$(printf 'x-access-token:%s' "$BOT_PR_TOKEN" | base64 -w0)"
+          echo "::add-mask::$AUTH"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH" push origin "$BRANCH"
+          if [ "$COMMITS" -gt 0 ] && [ -z "$(gh pr list --repo "$REPO" --head "$BRANCH" --json number -q '.[0].number')" ]; then
+            gh pr create --repo "$REPO" --base main --head "$BRANCH" \
+              --title "api-worker $TICKET" --body "Built by api-worker, ticket $TICKET. Handover: .api-worker-handover.md on the branch."
+          fi
