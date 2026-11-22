@@ -131,6 +131,7 @@ export const RaffleRedesignA = () => {
           <nav aria-label="Footer">
             <Link to="/terms">Rules</Link>
             <Link to="/privacy">Privacy</Link>
+            <a href="mailto:support@bachatacalendar.co.uk">Contact</a>
           </nav>
         </footer>
 
