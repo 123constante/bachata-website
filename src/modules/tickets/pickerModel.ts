@@ -97,6 +97,21 @@ export function basketTotals(basket: Basket, types: readonly PublicTicketType[])
   return { count, subtotalPence, feePence, totalPence: subtotalPence + feePence };
 }
 
+export interface SummaryLine { id: string; name: string; quantity: number; free: boolean; priceLabel: string }
+
+/** One line per picked type, in the picker's row order. Free lines say "Free", never "0". */
+export function basketSummaryLines(basket: Basket, types: readonly PublicTicketType[]): SummaryLine[] {
+  return types
+    .filter((t) => (basket[t.id] ?? 0) > 0)
+    .map((t) => ({ id: t.id, name: t.name, quantity: basket[t.id], free: t.pricePence <= 0, priceLabel: formatPence(t.pricePence * basket[t.id]) }));
+}
+
+/** A basket of only free tickets: no payment step. */
+export function isFreeOnly(basket: Basket, types: readonly PublicTicketType[]): boolean {
+  const b = basketTotals(basket, types);
+  return b.count > 0 && b.totalPence === 0;
+}
+
 export function countLabel(count: number): string {
   return count === 0 ? 'No tickets yet' : `${count} ticket${count === 1 ? '' : 's'}`;
 }
@@ -104,7 +119,8 @@ export function countLabel(count: number): string {
 /** "Saturday 14 November, 9pm" -> "Saturday 14 November". The picker header shows the date only. */
 export function dateOnly(dateLine: string | null): string | null {
   if (!dateLine) return null;
-  const s = dateLine.replace(/,?\s+(at\s+)?\d{1,2}([:.]\d{2})?\s?(am|pm)\b.*$/i, '').trim();
+  // Also strips a 24-hour time ("at 19:15"), which the 12-hour pattern alone left in place.
+  const s = dateLine.replace(/,?\s+(at\s+)?(\d{1,2}([:.]\d{2})?\s?(am|pm)|\d{1,2}[:.]\d{2})\b.*$/i, '').trim();
   return s || null;
 }
 
@@ -129,6 +145,8 @@ export function buildPickerBody(f: {
   search: string;
   /** After a price_changed the buyer confirmed: the server's new prices and total. */
   held?: PickerHeld | null;
+  /** An applied promo code (as the preview priced it for this basket) and the total it gives. */
+  promo?: { code: string; totalPence: number } | null;
 }): BasketCheckoutBody {
   const held = f.held && f.held.key === basketKey(f.basket) ? f.held : null;
   const lines = f.types
@@ -141,7 +159,9 @@ export function buildPickerBody(f: {
     cancel_url: `${f.origin}${cancelReturnPath(f.pathname, search)}`,
     ...(f.occurrenceId ? { occurrence_id: f.occurrenceId } : {}),
     lines,
-    expected_total_pence: held ? held.totalPence : basketTotals(f.basket, f.types).totalPence,
+    // A held price_changed total already carries the code's discount (reserve v5 new_total_pence).
+    expected_total_pence: held ? held.totalPence : f.promo ? f.promo.totalPence : basketTotals(f.basket, f.types).totalPence,
+    ...(f.promo ? { promo_code: f.promo.code } : {}),
   };
 }
 

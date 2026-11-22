@@ -13,6 +13,7 @@ export interface GuestEntry {
   waitlist: boolean;
   byTeam: boolean;
   checkedIn: boolean;
+  plusOnes: number;
 }
 
 export interface GuestNight {
@@ -73,7 +74,7 @@ export function parseRead(raw: unknown): GuestRead {
       const x = obj(e);
       return {
         id: str(x.id), firstName: str(x.first_name), everyWeek: x.is_permanent === true, waitlist: x.status === 'waitlist',
-        byTeam: x.added_via === 'organiser', checkedIn: typeof x.checked_in_at === 'string' && x.checked_in_at !== '',
+        byTeam: x.added_via === 'organiser', checkedIn: typeof x.checked_in_at === 'string' && x.checked_in_at !== '', plusOnes: num(x.plus_ones),
       };
     }).filter((e) => e.id),
   };

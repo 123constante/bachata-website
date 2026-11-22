@@ -4,7 +4,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 
-// Buyer onboarding slice A, item 5: 'Tickets go to {email}. Not you?' above Continue (flag ON only).
+// Buyer onboarding slice A, item 5: 'Tickets go to {email}. Not you?' (flag ON only).
+// Owner pick 2026-11-18: no Check and pay card; the line sits in the bar above Continue to Stripe.
 const flag = vi.hoisted(() => ({ on: true }));
 vi.mock('@/lib/buyerOnboardingFlag', () => ({ get BUYER_ONBOARDING_ENABLED() { return flag.on; } }));
 const auth = vi.hoisted(() => ({ user: null as null | { email: string }, signOut: vi.fn() }));
@@ -30,8 +31,14 @@ function mount() {
   );
 }
 
-beforeEach(() => { sessionStorage.clear(); localStorage.clear(); auth.user = null; flag.on = true; auth.signOut.mockResolvedValue('signed-out'); });
-afterEach(() => { cleanup(); auth.signOut.mockReset(); api.fetchPublicTicketTypes.mockReset(); });
+/** Pick one ticket: the line is in the bar (the Check and pay card is gone). */
+async function openCard() {
+  fireEvent.click(await screen.findByLabelText('Add one Party'));
+}
+
+// The live origin, so the preview guard lets the bar's Continue open the card.
+beforeEach(() => { vi.stubGlobal('location', { ...window.location, origin: 'https://bachatacalendar.co.uk' }); sessionStorage.clear(); localStorage.clear(); auth.user = null; flag.on = true; auth.signOut.mockResolvedValue('signed-out'); });
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); auth.signOut.mockReset(); api.fetchPublicTicketTypes.mockReset(); });
 
 describe('picker B1 "Not you?" line', () => {
   it.each([
@@ -42,7 +49,7 @@ describe('picker B1 "Not you?" line', () => {
     auth.user = signedIn ? { email: 'ana@example.com' } : null;
     flag.on = on;
     mount();
-    await screen.findByTestId('picker-continue');
+    await openCard();
     expect(Boolean(screen.queryByTestId('picker-not-you'))).toBe(shown);
     if (shown) expect(screen.getByTestId('picker-not-you').textContent).toBe('Tickets go to ana@example.com.Not you?');
   });
@@ -50,6 +57,7 @@ describe('picker B1 "Not you?" line', () => {
   it('Not you? signs out and opens the email + code card', async () => {
     auth.user = { email: 'ana@example.com' };
     mount();
+    await openCard();
     fireEvent.click(await screen.findByTestId('picker-not-you-btn'));
     await waitFor(() => expect(auth.signOut).toHaveBeenCalledTimes(1));
     expect(await screen.findByLabelText('Email address')).toHaveProperty('value', '');
@@ -72,6 +80,7 @@ describe('picker B1 "Not you?" line', () => {
     auth.user = { email: 'ana@example.com' };
     auth.signOut.mockResolvedValue('failed');
     mount();
+    await openCard();
     fireEvent.click(await screen.findByTestId('picker-not-you-btn'));
     expect((await screen.findByTestId('picker-not-you-error')).textContent).toBe('We could not sign you out. Try again.');
     expect(screen.queryByLabelText('Email address')).toBeNull();
@@ -82,6 +91,7 @@ describe('picker B1 "Not you?" line', () => {
     auth.user = { email: 'ana@example.com' };
     auth.signOut.mockRejectedValue(new Error('offline'));
     mount();
+    await openCard();
     fireEvent.click(await screen.findByTestId('picker-not-you-btn'));
     expect((await screen.findByTestId('picker-not-you-error')).textContent).toBe('We could not sign you out. Try again.');
     expect(screen.queryByLabelText('Email address')).toBeNull();
@@ -92,6 +102,7 @@ describe('picker B1 "Not you?" line', () => {
     let finish: (v: string) => void = () => {};
     auth.signOut.mockReturnValue(new Promise((res) => { finish = res; }));
     mount();
+    await openCard();
     const btn = await screen.findByTestId('picker-not-you-btn');
     fireEvent.click(btn);
     await waitFor(() => expect(btn).toHaveProperty('disabled', true));
@@ -99,5 +110,46 @@ describe('picker B1 "Not you?" line', () => {
     expect(auth.signOut).toHaveBeenCalledTimes(1);
     finish('signed-out');
     expect(await screen.findByLabelText('Email address')).toHaveProperty('value', '');
+  });
+
+  it('R2-N3: a failed-sign-out error does not outlive the address it was about', async () => {
+    auth.user = { email: 'ana@example.com' };
+    auth.signOut.mockResolvedValue('failed');
+    const view = mount();
+    await openCard();
+    fireEvent.click(await screen.findByTestId('picker-not-you-btn'));
+    await screen.findByTestId('picker-not-you-error');
+    // signed out elsewhere / switched account: the stale line must go
+    auth.user = null;
+    view.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/event/e1']}>
+          <TicketPickerB1 seriesId="e1" occurrenceId={null} title="Coco Loco" dateLine="Wed 18 Nov, 9pm" onClose={() => {}} now={NOW} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId('picker-not-you-error')).toBeNull());
+    auth.user = { email: 'bo@example.com' };
+    view.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/event/e1']}>
+          <TicketPickerB1 seriesId="e1" occurrenceId={null} title="Coco Loco" dateLine="Wed 18 Nov, 9pm" onClose={() => {}} now={NOW} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await screen.findByTestId('picker-not-you');
+    expect(screen.queryByTestId('picker-not-you-error')).toBeNull();
+  });
+
+  it('R2-N3: a retry after a failure clears the line before the next attempt', async () => {
+    auth.user = { email: 'ana@example.com' };
+    auth.signOut.mockResolvedValueOnce('failed').mockResolvedValueOnce('signed-out');
+    mount();
+    await openCard();
+    fireEvent.click(await screen.findByTestId('picker-not-you-btn'));
+    await screen.findByTestId('picker-not-you-error');
+    fireEvent.click(screen.getByTestId('picker-not-you-btn'));
+    await screen.findByLabelText('Email address');
+    expect(screen.queryByTestId('picker-not-you-error')).toBeNull();
   });
 });

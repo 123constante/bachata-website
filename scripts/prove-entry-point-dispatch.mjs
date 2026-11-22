@@ -165,6 +165,7 @@ const TRACE_LINE_RE = /\[entry-point-trace\] (true|false) (.+)/;
  */
 const TARGETS = [
   { rel: 'scripts/_serve-build.mjs' },
+  { rel: 'scripts/preview-shots.mjs' },
   { rel: 'scripts/apply-firewall.mjs' },
   { rel: 'scripts/auto-walk-manifest.mjs' },
   { rel: 'scripts/automation-arming.mjs' },
@@ -217,6 +218,7 @@ const TARGETS = [
   { rel: 'scripts/check-required-jobs.mjs' },
   { rel: 'scripts/check-ruleset-vs-required-jobs.mjs' },
   { rel: 'scripts/pr-body-stub.mjs' },
+  { rel: 'scripts/pr-auto-rebase.mjs' },
   { rel: 'scripts/check-program-day-offsets.mjs' },
   { rel: 'scripts/check-rpc-typing.mjs' },
   { rel: 'scripts/check-script-conventions.mjs' },

@@ -22,6 +22,9 @@ export const flags = {
   // Raffle v2 (win a free night; raffle_public_board_v1 board on event pages and /raffles).
   // Arc: raffle-r3a/r3b. Default OFF; nothing reads it yet (R3a is foundations only).
   raffleV2:            import.meta.env.VITE_ENABLE_RAFFLE_V2 === 'true',
+  // /raffles redesign part A (look C v6: hero, orbs, steps, footer, sticky bar). Only read when raffleV2 is on.
+  // OFF = today's board page, unchanged. Turn on with VITE_ENABLE_RAFFLE_REDESIGN=true.
+  raffleRedesign:      import.meta.env.VITE_ENABLE_RAFFLE_REDESIGN === 'true',
   // Federated search v5 (Cmd+K / mobile full-screen overlay + search_public_v5).
   // When false the existing HeaderSearch omnibox (search_public_v4) renders
   // unchanged, so prod is untouched until this flips per-environment.
@@ -78,10 +81,6 @@ export const flags = {
   // Organiser dashboard slice 1 (admin #1535): hero + date rail Home. OFF = the current Home.
   // Turn on with VITE_ENABLE_ORGANISER_DASH=true (Vercel env) -- no code change.
   organiserDash:       import.meta.env.VITE_ENABLE_ORGANISER_DASH === 'true',
-  // Organiser shell V2 (docs/briefs/BRIEF-organiser-v1-shell.md): slim top bar with Back to Bachata Calendar and an event
-  // switcher, tabs Events + Team / Tickets / Guest list / Raffle, the V2 look. Needs organiserP3 and organiserDash.
-  // OFF = today's P3 shell exactly as is. Turn on with VITE_ENABLE_ORGANISER_SHELL_V2=true (Vercel env) -- no code change.
-  organiserShellV2:    import.meta.env.VITE_ENABLE_ORGANISER_SHELL_V2 === 'true',
   // Claim-first organiser invite (docs/briefs/claim-first-organiser-invite.md): /invite shows the
   // organisation to take over FIRST, then a separate "Now about you" step. OFF = /invite exactly as before.
   // Turn on with VITE_ENABLE_CLAIM_FIRST_INVITE=true (Vercel env) -- no code change.
@@ -91,10 +90,15 @@ export const flags = {
   // only after #1577 is applied.
   organiserGuestListLive: import.meta.env.VITE_ENABLE_ORGANISER_GUEST_LIST_LIVE === 'true',
   organiserTicketing:  import.meta.env.VITE_ENABLE_ORGANISER_TICKETING === 'true',
-  // Organiser Tickets screen option A (docs/briefs/organiser-tickets-option-a.md): one big number that follows the
-  // clock of the night, plus the "Back to bachatacalendar.co.uk" exit wording. Needs organiserTicketing, organiserP3
-  // and organiserShellV2. OFF = every screen exactly as before. Turn on with VITE_ENABLE_ORGANISER_TICKETS_A=true.
-  organiserTicketsA:   import.meta.env.VITE_ENABLE_ORGANISER_TICKETS_A === 'true',
+  // Organiser Event Editor v2, slice S1 (docs/briefs/editor-v2-s1.md on brief/editor-v2-s1c): weekly and one-off
+  // events get the v2 event page, night screen and save bar in place of Edit night. OFF = today's screens, no new route.
+  // Turn on with VITE_ENABLE_ORGANISER_EDITOR_V2=true (Vercel env) -- no code change
+  organiserEditorV2: import.meta.env.VITE_ENABLE_ORGANISER_EDITOR_V2 === 'true',
+  // R4 cancel refund, slice C (docs/briefs/r4-cancel-refund-c.md on brief/r4-cancel-refund-c): on a cancelled night
+  // the owner seat / admin sees what is left to refund with Refund all and a per-order Refund, and the door list is
+  // hidden. Needs organiserTicketing. OFF = the night page is exactly as before and no refund read is called.
+  // Turn on with VITE_ENABLE_ORGANISER_CANCEL_REFUND=true (Vercel env) -- no code change.
+  organiserCancelRefund: import.meta.env.VITE_ENABLE_ORGANISER_CANCEL_REFUND === 'true',
   // T3 price steps (docs/briefs/ticket-t3-price-steps-editor.md): the "Price changes" block in the
   // ticket editor. Needs organiserTicketing. OFF = the editor is exactly as before.
   // Turn on with VITE_ENABLE_TICKET_PRICE_STEPS_EDITOR=true (Vercel env) -- no code change.
@@ -122,6 +126,26 @@ export const flags = {
   // Stripe) behind "Get tickets". Needs publicTicketing. OFF = the Tickets page is exactly as before.
   // Turn on with VITE_ENABLE_TICKET_PICKER_B1=true (Vercel env) -- no code change.
   ticketPickerB1:      import.meta.env.VITE_ENABLE_TICKET_PICKER_B1 === 'true',
+  // Homepage polish + menu sheet (docs/briefs/home-polish.md): chip row (Nearest/Party/Class/Fest), Today tab,
+  // logo + menu button header with a full-screen menu sheet and search, no BottomNav, map strip option 3.
+  // OFF = every screen exactly as before. Turn on with VITE_ENABLE_HOME_POLISH=true (Vercel env) -- no code change.
+  homePolish:          import.meta.env.VITE_ENABLE_HOME_POLISH === 'true',
+  // Near me (docs/briefs/near-me.md): one shared location provider, a 30-minute remembered fix,
+  // tilde distances, split denial copy. Needs homePolish ON to show the chip row.
+  // OFF = every screen exactly as before. Turn on with VITE_ENABLE_NEAR_ME=true (Vercel env) -- no code change.
+  nearMe:              import.meta.env.VITE_ENABLE_NEAR_ME === 'true',
+  // Home feed look (docs/briefs/home-feed-look.md): folder tabs joined to the map, poster-word category row
+  // (Near me inside it), poster-thumb feed rows. Needs homePolish ON (it builds on that chip row + Today tab).
+  // OFF = every screen exactly as before. Turn on with VITE_ENABLE_HOME_FEED_LOOK=true (Vercel env) -- no code change.
+  homeFeedLook:        import.meta.env.VITE_ENABLE_HOME_FEED_LOOK === 'true' && import.meta.env.VITE_ENABLE_HOME_POLISH === 'true',
+  // Dashboard switch, Round-4 everywhere (docs/briefs/dashboard-switch-build.md): the Switch profile sheet in the
+  // dancer app and organiser area, the organiser Switch page and the Sign out link at the foot of Account settings.
+  // OFF = every screen exactly as before. Turn on with VITE_ENABLE_DASHBOARD_SWITCH_R4=true (Vercel env) -- no code change.
+  dashboardSwitchR4:   import.meta.env.VITE_ENABLE_DASHBOARD_SWITCH_R4 === 'true',
+  // Course rule card (docs/briefs/course-rule-card.md on brief/course-rule): "Sign up before you come" /
+  // "Drop in welcome" above the Week rows on a course page, from event.signup_rule (admin #2037).
+  // OFF = the course page is exactly as before. Turn on with VITE_ENABLE_COURSE_SIGNUP_RULE=true (Vercel env).
+  courseSignupRule:    import.meta.env.VITE_ENABLE_COURSE_SIGNUP_RULE === 'true',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the

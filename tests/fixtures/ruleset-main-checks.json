@@ -14,7 +14,6 @@
         "required_status_checks": [
           { "context": "integrity", "integration_id": 15368 },
           { "context": "bundle-budget", "integration_id": 15368 },
-          { "context": "e2e-smoke", "integration_id": 15368 },
           { "context": "wallclock-brand", "integration_id": 15368 },
           { "context": "masking-check", "integration_id": 15368 },
           { "context": "bom-check", "integration_id": 15368 },

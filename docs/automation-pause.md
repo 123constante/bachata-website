@@ -36,6 +36,7 @@ its own switch; the orchestrator sets both repos' labels when it pauses.
 | `scripts/autopilot-step.mjs` (autopilot + merge lane) | at the start of each repo, then again before EVERY write (every non-GET through the guarded API) and explicitly before EACH merge (`mergePr`) | writes nothing, merges nothing; PR rows say `paused: <reason>`; summary says PAUSED; exit 0 |
 | `bot-automerge.yml` | after checkout of main, and again immediately before `Enable auto-merge` | no enable; the existing disable step runs (an armed auto-merge would merge later) |
 | `dependabot-automerge.yml` | checkout of main, before `Enable auto-merge` | no enable; an armed auto-merge on the PR is disabled |
+| `ship-it.yml` (`ship` job only) | after checkout of main, before the check/update-branch/arm step | no label, no update-branch, no arming; a comment says paused. The `disarm` job is unconditional (it only turns auto-merge off) |
 | `stale-bot-pr-sweep.yml` (daily 04:23 UTC + manual) | after checkout of main, before the sweep step | closes nothing; a notice step says so (a failed read is treated as paused) |
 | `revert-on-red.yml` (merge tiers) | before it opens a revert PR | skips SILENTLY: no revert PR, no comment, the job ends green; only the step log says paused |
 | `post-merge-prod-alarm.yml` (brake) | `--info`, logged only | the brake ALWAYS runs: a pause stops merging, never alerting |
@@ -49,9 +50,15 @@ never merges). A new workflow that merges/approves/writes without a reader turns
 
 - The re-assert and the "nothing removes the label" grep are TRIPWIRES that catch mistakes
   and most attacks, not guarantees.
-- The reader lists issues newest first, up to 5 pages of 100. When 500+ newer issues/PRs
-  exist the switch issue falls out of the window and every reader reports `pause issue
-  missing` = PAUSED (fail closed, loud). Re-create or re-think before that happens.
+- The reader finds the switch with the Search API (`GET /search/issues`, query
+  `repo:<repo> is:issue in:title "AUTOMATION PAUSE SWITCH" author:<owner>`), issues only, so
+  no number of newer issues/PRs can push it out (the old newest-500 listing could, and did on
+  2026-11-20: every reader said `pause issue missing`). The exact-title and owner-author checks
+  still run on every result. Fail closed: `incomplete_results` not `false`, a non-object body,
+  `items` not an array, more than 10 pages, or any read error = PAUSED.
+- The search index lags a NEW issue by seconds to minutes: a freshly re-created switch reads
+  `pause issue missing` (= PAUSED) until GitHub indexes it. Search has its own rate limit
+  (30 requests/min per token); a 403/429 there is a read error = PAUSED.
 - If the token of a Dependabot-triggered run cannot read issues, Dependabot auto-merge never
   enables (`reason=HTTP 403` in the step log).
 - The interim message channel is ONE comment on the switch issue per notice key; no push

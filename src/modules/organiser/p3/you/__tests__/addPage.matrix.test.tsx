@@ -38,7 +38,6 @@ vi.mock('@/modules/organiser/shared/selfServeApi', async () => {
 });
 
 import AddPageScreen from '../AddPageScreen';
-import { HomeScreen } from '../../screens/HomeScreen';
 import { P3_PATHS } from '../../shell/paths';
 import { P3_SURFACE } from '../surface';
 import { OrgSurfaceProvider } from '../../../shell/surface';
@@ -46,7 +45,10 @@ import { OrgSurfaceProvider } from '../../../shell/surface';
 const page = (id: string) => ({ id, name: `Page ${id}`, series: [], role: 'owner' });
 const req = (status: 'open' | 'declined') => ({
   requestId: `r-${status}`, organiserId: `o-${status}`, organiserName: `Org ${status}`, status,
-  createdAt: '2026-10-20T10:00:00Z', resolvedAt: status === 'declined' ? '2026-10-21T10:00:00Z' : null,
+  // Relative to now: a declined card is shown for DECLINED_VISIBLE_DAYS (30) after the answer, so a fixed
+  // 2026-10-21 date stopped rendering it on 2026-11-20 and turned this test red.
+  createdAt: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+  resolvedAt: status === 'declined' ? new Date(Date.now() - 2 * 86_400_000).toISOString() : null,
 });
 
 type Shape = { name: string; organisers: unknown[]; requests: unknown[]; title: string; back: boolean };
@@ -64,7 +66,6 @@ function mount(path: string = P3_PATHS.youAdd, state?: unknown) {
       <MemoryRouter initialEntries={[{ pathname: path, state }]}>
         <div className="p3-theme" data-testid="frame">
           <Routes>
-            <Route path={P3_PATHS.home} element={<HomeScreen />} />
             <Route path={P3_PATHS.start} element={<p data-testid="p3-start-landed">P3 Welcome</p>} />
             <Route path={P3_PATHS.youAdd} element={<OrgSurfaceProvider value={P3_SURFACE}><AddPageScreen /></OrgSurfaceProvider>} />
           </Routes>
@@ -138,32 +139,5 @@ describe('Welcome read states', () => {
     mount();
     fireEvent.click(within(screen.getByTestId('p3-add-page-error')).getByText('Try again'));
     expect(h.home.refetch).toHaveBeenCalled();
-  });
-});
-
-describe('P3 Home', () => {
-  it('no page yet: Home hands over to P3 Welcome (/start), never the R1 onboarding at /you/add', async () => {
-    h.mine.mockResolvedValue([]);
-    mount(P3_PATHS.home);
-    expect((await screen.findByTestId('p3-start-landed')).textContent).toBe('P3 Welcome');
-    expect(screen.queryByTestId('p3-add-page')).toBeNull();
-  });
-  it('a claim landing on Home shows its confirmation once, in-flow', () => {
-    h.home = { ...h.home, data: { today: '2026-10-28', organisers: [page('a')] } };
-    mount(P3_PATHS.home, { confirmation: 'Page a is yours. You can now manage it.' });
-    const line = screen.getByTestId('p3-home-confirmation');
-    expect(line.textContent).toBe('Page a is yours. You can now manage it.');
-    expect(line.getAttribute('role')).toBe('status');
-  });
-  it('a claim landing before the home read refetched waits, never bounces back to Welcome', () => {
-    h.home = { ...h.home, isFetching: true, data: { today: '2026-10-28', organisers: [] } } as typeof h.home;
-    mount(P3_PATHS.home, { confirmation: 'Page a is yours. You can now manage it.' });
-    expect(screen.getByTestId('p3-home-loading')).toBeTruthy();
-    expect(screen.queryByTestId('p3-add-page')).toBeNull();
-  });
-  it('no confirmation without one', () => {
-    h.home = { ...h.home, data: { today: '2026-10-28', organisers: [page('a')] } };
-    mount(P3_PATHS.home);
-    expect(screen.queryByTestId('p3-home-confirmation')).toBeNull();
   });
 });

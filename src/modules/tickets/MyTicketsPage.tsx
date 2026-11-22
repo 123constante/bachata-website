@@ -5,12 +5,12 @@ import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo } from '@/lib/seo';
 import { useAuth } from '@/hooks/useAuth';
 import { buildSignInHref } from '@/lib/authRouting';
-import { londonTodayKey } from '@/lib/londonDate';
+import { useServerToday } from '@/modules/dancer-app/screens/tickets/serverToday';
 import { ticketDoorCode } from '@/modules/organiser/p3/door/doorFlags';
 import { fetchMyTickets, type MyTicketsResult } from './myTicketsApi';
 import DoorCodeLine from './DoorCodeLine';
 import { BUYER_ONBOARDING_ENABLED } from '@/lib/buyerOnboardingFlag';
-import { ticketQrShown, ticketStatusAt, ticketStatusLine } from './ticketCardStatus';
+import { orderTicketList, partRefundLine, ticketGreyed, ticketNightKey, ticketQrShown, ticketStatusAt, ticketStatusLines, ticketStatusTag, type TicketStatus } from './ticketCardStatus';
 import { MY_TICKETS_PATH } from './myTicketsModel';
 import {
   QR_MISSING,
@@ -42,23 +42,30 @@ const surface = {
 } as const;
 const muted = { color: 'hsl(var(--bento-fg-muted))' } as const;
 
+/** The one status call for a My tickets row (flag OFF: always valid, exactly as before). */
+const statusOf = (t: MyTicket): TicketStatus =>
+  BUYER_ONBOARDING_ENABLED ? ticketStatusAt({ date: t.date, eventCancelled: t.nightCancelled, refunded: t.refunded, checkedIn: t.checkedIn }) : 'valid';
+
 function TicketCard({ t, position, today, defaultOpen }: { t: MyTicket; position: string | null; today: string; defaultOpen: boolean }) {
   const [anyway, setAnyway] = useState(false);
   const [open, setOpen] = useState(defaultOpen);
   const show = open && qrVisible(t, anyway);
-  // Buyer onboarding ON: the one shared status mapping (ticketCardStatus); passed / cancelled / refunded = greyed, no QR, no code.
-  const status = BUYER_ONBOARDING_ENABLED ? ticketStatusAt({ date: t.date }) : 'valid';
-  const reason = ticketStatusLine(status);
+  // Buyer onboarding ON: the one shared status mapping (ticketCardStatus); passed / cancelled / refunded / used = greyed, no QR, no code.
+  const status = statusOf(t);
+  const lines = ticketStatusLines(status, t.refundedPence);
+  const reason = lines.length > 0;
+  const tag = ticketStatusTag(status) ?? (t.checkedIn ? 'Checked in' : null);
+  const partRefund = BUYER_ONBOARDING_ENABLED ? partRefundLine(t.refunded, t.refundedPence) : null;
   const code = ticketQrShown(status) ? doorCodeText(t.shortCode, ticketDoorCode) : null;
   // Directly under the QR when one is drawn; otherwise in the QR's place, so it shows on every card.
   const codeLine = code ? <DoorCodeLine code={code} checkedIn={t.checkedIn} testId="my-ticket-short-code" /> : null;
   return (
-    <li className="rounded-md p-3 text-[14px]" style={reason ? { ...surface, opacity: 0.6 } : surface} data-testid="my-ticket" data-checked-in={t.checkedIn ? 'true' : 'false'} data-ticket-status={status}>
+    <li className="rounded-md p-3 text-[14px]" style={ticketGreyed(status) ? { ...surface, opacity: 0.6 } : surface} data-testid="my-ticket" data-checked-in={t.checkedIn ? 'true' : 'false'} data-ticket-status={status}>
       <div className="flex items-start justify-between gap-2">
         <h3 className="text-[15px] font-semibold leading-tight line-clamp-2">{t.title}</h3>
-        {t.checkedIn && (
-          <span className="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium" style={{ background: 'hsl(var(--bento-accent) / 0.18)' }}>
-            Checked in
+        {tag && (
+          <span className="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium" style={{ background: 'hsl(var(--bento-accent) / 0.18)' }} data-testid="my-ticket-tag">
+            {tag}
           </span>
         )}
       </div>
@@ -66,12 +73,19 @@ function TicketCard({ t, position, today, defaultOpen }: { t: MyTicket; position
       <p className="text-[12px]" style={muted}>
         {[t.typeName, position, `Order ${orderRef(t.orderId)}`].filter(Boolean).join(' \u00b7 ')}
       </p>
+      {partRefund && (
+        <p className="text-[12px]" style={muted} data-testid="my-ticket-part-refund">{partRefund}</p>
+      )}
       {t.checkedIn && (
         <p className="mt-1 text-[13px] font-medium" data-testid="my-ticket-checked-in">{checkedInLine(t)}</p>
       )}
       <div className="mt-2">
         {reason ? (
-          <p className="text-[13px] font-medium" role="status" data-testid="my-ticket-status">{reason}</p>
+          <div role="status" data-testid="my-ticket-status">
+            {lines.map((l, i) => (
+              <p key={i} className={i === 0 ? 'text-[13px] font-medium' : 'text-[12px]'}>{l}</p>
+            ))}
+          </div>
         ) : !t.qrToken ? (
           <>
             <p className="text-[12px]" style={muted} data-testid="my-ticket-no-qr">{QR_MISSING}</p>
@@ -151,14 +165,29 @@ export function MyTicketsView({ result, authReady, onRetry, today }: {
         : authReady === 'resolving' || !result ? 'loading'
           : result.reply.tickets.length === 0 ? 'empty' : 'ready';
   const reply = result?.kind === 'ok' ? result.reply : null;
+  // Buyer onboarding ON (owner click 6): ONE list, soonest first, greyed at the bottom, passed nights dropped.
+  const list = useMemo(
+    () => (BUYER_ONBOARDING_ENABLED && reply ? orderTicketList(reply.tickets, statusOf, (t) => t.date, ticketNightKey()) : null),
+    [reply],
+  );
+  const shownState: PageState = state === 'ready' && list && list.length === 0 ? 'empty' : state;
   const groups = useMemo(() => groupTickets(reply?.tickets ?? [], today), [reply, today]);
-  const openSet = useMemo(() => qrOpenByDefault(groups.upcoming, today), [groups, today]);
+  const openSet = useMemo(() => qrOpenByDefault(list ? list.filter((t) => statusOf(t) === 'valid') : groups.upcoming, today), [list, groups, today]);
   const positions = useMemo(() => orderPositions(reply?.tickets ?? []), [reply]);
   const note = reply ? truncatedNote(reply) : null;
   return (
-    <div className="mx-auto w-full max-w-[430px] px-3 py-3" data-testid="my-tickets" data-state={state}>
+    <div className="mx-auto w-full max-w-[430px] px-3 py-3" data-testid="my-tickets" data-state={shownState}>
       <h1 className="mb-2 text-[17px] font-semibold" style={{ color: 'hsl(var(--bento-accent))' }}>My tickets</h1>
-      {state === 'ready' && reply ? (
+      {shownState === 'ready' && reply && list ? (
+        <>
+          {note && <p className="mb-2 rounded-md p-2 text-[12px]" style={surface} data-testid="my-tickets-truncated">{note}</p>}
+          <ul className="space-y-2" data-testid="my-tickets-list">
+            {list.map((t) => (
+              <TicketCard key={t.ticketId} t={t} position={positions.get(t.ticketId) ?? null} today={today} defaultOpen={openSet.has(t.ticketId)} />
+            ))}
+          </ul>
+        </>
+      ) : shownState === 'ready' && reply ? (
         <>
           {note && <p className="mb-2 rounded-md p-2 text-[12px]" style={surface} data-testid="my-tickets-truncated">{note}</p>}
           {groups.upcoming.length === 0 && (
@@ -168,7 +197,7 @@ export function MyTicketsView({ result, authReady, onRetry, today }: {
           <Section title="Past" tickets={groups.past} positions={positions} today={today} past openSet={openSet} />
         </>
       ) : (
-        <StateBox state={state as Exclude<PageState, 'ready'>} signIn={buildSignInHref(MY_TICKETS_PATH)} onRetry={onRetry} />
+        <StateBox state={shownState as Exclude<PageState, 'ready'>} signIn={buildSignInHref(MY_TICKETS_PATH)} onRetry={onRetry} />
       )}
     </div>
   );
@@ -182,7 +211,7 @@ function StateBox({ state, signIn, onRetry }: { state: Exclude<PageState, 'ready
       <p className="mb-2" style={muted}>{c.body}</p>
       {state === 'loading' && <div className="h-24 w-full animate-pulse rounded-md" style={{ background: 'var(--bento-hairline)' }} />}
       {c.action?.kind === 'link' && (
-        <Link to={c.action.to} className="inline-flex min-h-[44px] items-center underline">{c.action.label}</Link>
+        <Link to={c.action.to} className="inline-flex min-h-[44px] items-center rounded-md px-3 font-medium" style={{ border: '1px solid var(--bento-hairline)' }}>{c.action.label}</Link>
       )}
       {c.action?.kind === 'retry' && (
         <button type="button" onClick={onRetry} className="min-h-[44px] rounded-md px-3 underline" style={{ border: '1px solid var(--bento-hairline)' }}>
@@ -199,6 +228,7 @@ export default function MyTicketsPage() {
   const [result, setResult] = useState<MyTicketsResult | null>(null);
   const [attempt, setAttempt] = useState(0);
   const uid = user?.id ?? null;
+  const today = useServerToday();
   useEffect(() => {
     if (!uid) return;
     let live = true;
@@ -213,7 +243,7 @@ export default function MyTicketsPage() {
   const authReady = authStatus === 'resolving' ? 'resolving' : authStatus === 'unavailable' ? 'unavailable' : uid ? 'signed_in' : 'signed_out';
   return (
     <GlobalLayout breadcrumbs={buildBreadcrumbs('myTickets')}>
-      <MyTicketsView result={result} authReady={authReady} onRetry={onRetry} today={londonTodayKey()} />
+      <MyTicketsView result={result} authReady={authReady} onRetry={onRetry} today={today} />
     </GlobalLayout>
   );
 }

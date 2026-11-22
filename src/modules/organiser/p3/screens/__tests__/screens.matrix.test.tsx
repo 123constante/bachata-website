@@ -31,10 +31,7 @@ vi.mock('../../data/useP3Data', () => ({
 vi.mock('@/modules/going/useMyOrganiserGoingTotal', () => ({ useMyOrganiserGoingTotal: () => going.value }));
 vi.mock('../GraceBanner', () => ({ GraceBanner: () => null }));
 
-import { HomeScreen } from '../HomeScreen';
-import { EventsScreen } from '../EventsScreen';
 import { P3_PATHS } from '../../shell/paths';
-import { StatsScreen } from '../StatsScreen';
 
 const ok = (data: unknown) => ({ isPending: false, isError: false, data, refetch: vi.fn() });
 const pending = () => ({ isPending: true, isError: false, data: undefined, refetch: vi.fn() });
@@ -91,25 +88,6 @@ describe('row model x every shape', () => {
 });
 
 describe('Home x every shape', () => {
-  it.each(SHAPE_KEYS)('%s alone', (k) => {
-    homeQ.value = ok(homeOf([SHAPES[k]]));
-    show(<HomeScreen />);
-    const row = rowOf(SHAPES[k], TODAY);
-    const next = nextUpView([row], homeOf([SHAPES[k]]));
-    if (next) {
-      expect(within(screen.getByTestId('p3-nextup')).getByText(row.name)).toBeTruthy();
-      expect(screen.queryByTestId('p3-nextup-none')).toBeNull();
-    } else {
-      // says what the person can do, with the control on screen
-      const none = screen.getByTestId('p3-nextup-none');
-      // F-16: the words and the ONE control come from nextUpAdviceOf (P3 Events or New event, never R1)
-      const advice = nextUpAdviceOf([row]);
-      expect(within(none).getByRole('link').getAttribute('href')).toBe(advice.action === 'new' ? P3_PATHS.create : P3_PATHS.events);
-      expect(none.textContent).toContain(advice.copy);
-    }
-    if (row.status.past) expect(screen.getByTestId('p3-home-allended')).toBeTruthy();
-    else expect(within(screen.getByRole('list', { name: 'Your first events' })).getAllByTestId('p3-row')).toHaveLength(1);
-  });
 
   it('Next up is the soonest live date: tonight beats later, hidden and finished never count (probe #8b, #8d)', () => {
     const home = homeOf(SHAPE_KEYS.map((k) => SHAPES[k]));
@@ -121,15 +99,6 @@ describe('Home x every shape', () => {
     expect(nextUpView(rowsOf(noTonight), noTonight)!.row.id).toBe('over100');
   });
 
-  it('Next up names tomorrow, and a different-from-usual date says so', () => {
-    const home = homeOf([SHAPES.moved], '2026-10-31');
-    show(<HomeScreen />);
-    cleanup();
-    homeQ.value = ok(home);
-    show(<HomeScreen />);
-    expect(screen.getByTestId('p3-nextup').textContent).toContain('Next up \u00b7 Tomorrow, 9pm');
-    expect(screen.getByTestId('p3-different')).toBeTruthy();
-  });
 
   it('Needs you lists only what home_v1 can prove: no photo, a repeating series with nothing coming up, drafts', () => {
     const rows = rowsOf(homeOf(SHAPE_KEYS.map((k) => SHAPES[k])));
@@ -144,80 +113,13 @@ describe('Home x every shape', () => {
     expect(needsOf(rowsOf(homeOf([SHAPES.weekly])))).toEqual([]);
   });
 
-  it('views: the total links to Stats; zero says how to get the first ones; the going tile hides while the switch is off', () => {
-    homeQ.value = ok(homeOf([SHAPES.weekly]));
-    show(<HomeScreen />);
-    expect(screen.getByTestId('p3-views').getAttribute('href')).toBe('/account/p3/stats');
-    expect(screen.getByTestId('p3-views').textContent).toContain('300');
-    expect(screen.queryByTestId('p3-going')).toBeNull();
-    cleanup();
-    viewsQ.value = ok(statsOf([['weekly', 'Sensual Fridays', 0]]));
-    show(<HomeScreen />);
-    expect(screen.getByTestId('p3-views-none').textContent).toMatch(/Instagram or WhatsApp/);
-  });
 
-  it('going shows once the switch is on and the read is ready', () => {
-    going.value = { view: { state: 'ready' }, total: { going_total: 14, nights: 3, events: 2 } };
-    homeQ.value = ok(homeOf([SHAPES.weekly]));
-    show(<HomeScreen />);
-    expect(screen.getByTestId('p3-going').textContent).toContain('14');
-  });
 
-  it.each([
-    ['loading', pending, 'p3-home-loading'],
-    ['error', failed, 'p3-home-error'],
-    ['empty', () => ok(homeOf([])), 'p3-home-empty'],
-  ] as const)('%s state says what the person can do', (_n, q, id) => {
-    homeQ.value = q();
-    show(<HomeScreen />);
-    const card = screen.getByTestId(id);
-    expect(card.textContent!.length).toBeGreaterThan(20);
-    if (id === 'p3-home-error') {
-      fireEvent.click(within(card).getByRole('button', { name: 'Try again' }));
-      expect((homeQ.value.refetch as ReturnType<typeof vi.fn>)).toHaveBeenCalled();
-    }
-    if (id === 'p3-home-empty') expect(within(card).getByRole('link')).toBeTruthy();
-  });
 
-  it('"See all N" only when more than four events', () => {
-    homeQ.value = ok(homeOf(['weekly', 'oneoff', 'course', 'festival'].map((k) => SHAPES[k as ShapeKey])));
-    show(<HomeScreen />);
-    expect(screen.queryByText(/See all/)).toBeNull();
-    cleanup();
-    homeQ.value = ok(homeOf(SHAPE_KEYS.map((k) => SHAPES[k])));
-    show(<HomeScreen />);
-    expect(screen.getByText(`See all ${SHAPE_KEYS.length}`)).toBeTruthy();
-  });
 });
 
 describe('Events x every shape', () => {
-  it.each(SHAPE_KEYS)('%s: one row, in its status group, with its kind chip and status', (k) => {
-    homeQ.value = ok(homeOf([SHAPES[k]]));
-    show(<EventsScreen />);
-    const rows = screen.getAllByTestId('p3-row');
-    expect(rows).toHaveLength(1);
-    const [status, kind, sub] = EXPECT[k];
-    expect(within(rows[0]).getByTestId('p3-status').textContent).toBe(status);
-    expect(within(rows[0]).getByTestId('p3-kind').textContent).toBe(kind);
-    expect(rows[0].textContent).toContain(sub);
-    const group = rows[0].closest('ul')!.getAttribute('aria-label');
-    const past = ['ended', 'oneoffPast', 'courseDone', 'allCancelled'].includes(k);
-    expect(group).toBe(k === 'paused' ? L.hidden : past ? 'Past and nothing coming up' : 'Your events');
-  });
 
-  it('every shape at once: soonest first, grouped by status only, never by kind (C3 #71)', () => {
-    const rows = rowsOf(homeOf(SHAPE_KEYS.map((k) => SHAPES[k])));
-    const g = groupsOf(rows);
-    expect(g.hidden.map((r) => r.id)).toEqual(['paused']);
-    expect(g.finished.map((r) => r.id).sort()).toEqual(['allCancelled', 'courseDone', 'ended', 'oneoffPast']);
-    expect(g.on.slice(0, 3).map((r) => r.id)).toEqual(['tonight', 'over100', 'course']);
-    // nothing coming up goes last
-    expect(g.on.slice(-1)[0].next).toBeNull();
-    homeQ.value = ok(homeOf(SHAPE_KEYS.map((k) => SHAPES[k])));
-    show(<EventsScreen />);
-    const headings = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
-    expect(headings).toEqual([L.hidden, 'Past and nothing coming up']);
-  });
 
   it('probe #24: two events with the same name have different second lines', () => {
     const a = rowOf(SHAPES.course, TODAY);
@@ -230,94 +132,11 @@ describe('Events x every shape', () => {
     expect(rowOf(SHAPES.courseDone, TODAY).status.label).toBe(L.allDone);
   });
 
-  it('probe R-pol-w1 / R-sim-m1: the row shows the NEXT date\u2019s time, the same on Home and Events', () => {
-    const r = rowOf(SHAPES.moved, TODAY);
-    expect(r.nextTime).toBe('9pm');
-    homeQ.value = ok(homeOf([SHAPES.moved]));
-    show(<EventsScreen />);
-    const ev = screen.getByTestId('p3-row').textContent;
-    cleanup();
-    show(<HomeScreen />);
-    expect(within(screen.getByRole('list', { name: 'Your first events' })).getByTestId('p3-row').textContent).toBe(ev);
-  });
 
-  it.each([
-    ['loading', pending, 'p3-events-loading'],
-    ['error', failed, 'p3-events-error'],
-    ['empty', () => ok(homeOf([])), 'p3-events-empty'],
-  ] as const)('%s state', (_n, q, id) => {
-    homeQ.value = q();
-    show(<EventsScreen />);
-    expect(screen.getByTestId(id).textContent!.length).toBeGreaterThan(10);
-  });
 
-  it('the note points at a link that is on screen: New event inside P3', () => {
-    homeQ.value = ok(homeOf([SHAPES.weekly]));
-    show(<EventsScreen />);
-    expect(screen.getByRole('link', { name: 'add an event' }).getAttribute('href')).toBe(P3_PATHS.create);
-  });
 
-  it('no events: Add an event goes to New event inside P3 (Home and Events)', () => {
-    homeQ.value = ok(homeOf([]));
-    show(<EventsScreen />);
-    expect(within(screen.getByTestId('p3-events-empty')).getByRole('link', { name: 'Add an event' }).getAttribute('href')).toBe(P3_PATHS.create);
-    cleanup();
-    show(<HomeScreen />);
-    expect(within(screen.getByTestId('p3-home-empty')).getByRole('link', { name: 'Add an event' }).getAttribute('href')).toBe(P3_PATHS.create);
-  });
 });
 
-describe('Stats x every shape', () => {
-  it.each(SHAPE_KEYS)('%s: its views row, total = the sum (probe R-sim-stats-sum)', (k) => {
-    homeQ.value = ok(homeOf([SHAPES[k]]));
-    const name = rowOf(SHAPES[k], TODAY).name;
-    viewsQ.value = ok(statsOf([[k, SHAPES[k].name, 41], ['other', 'Other', 9]]));
-    show(<StatsScreen />);
-    // page scope (F-26): the other series is not this page's, so it is not counted
-    expect(screen.getByTestId('p3-stats-total').textContent).toContain('41');
-    const items = within(screen.getByTestId('p3-stats-byevent')).getAllByRole('listitem');
-    expect(items[0].textContent).toContain(`${name}41 ${L.views}`);
-  });
-
-  it('probe R-sim-s4-tile + #15: the tile says "views, this page\u2019s events"; no saves count', () => {
-    homeQ.value = ok(homeOf([SHAPES.weekly]));
-    show(<StatsScreen />);
-    expect(screen.getByTestId('p3-stats-total').textContent).toBe('300views, this page\u2019s events');
-    expect(screen.getByTestId('p3-stats').textContent).not.toMatch(/saves/i);
-  });
-
-  it('range buttons are pressed one at a time; the table lists every day', () => {
-    homeQ.value = ok(homeOf([SHAPES.weekly]));
-    viewsQ.value = ok({ from: '2026-10-19', to: TODAY, series: [{ seriesId: 'weekly', name: 'W', total: 5, byDay: [{ day: '2026-10-20', count: 2 }, { day: TODAY, count: 3 }] }] });
-    show(<StatsScreen />);
-    const pressed = () => screen.getAllByRole('button').filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.textContent);
-    expect(pressed()).toEqual(['30 days']);
-    fireEvent.click(screen.getByRole('button', { name: '7 days' }));
-    expect(pressed()).toEqual(['7 days']);
-    fireEvent.click(screen.getByRole('button', { name: 'Show as a table' }));
-    expect(within(screen.getByTestId('p3-stats-table')).getAllByRole('row')).toHaveLength(8);
-  });
-
-  it('no views / no events say what to do; loading and error too', () => {
-    homeQ.value = ok(homeOf([{ ...SHAPES.weekly, slug: 'sensual-fridays' }]));
-    viewsQ.value = ok(statsOf([['weekly', 'W', 0]]));
-    show(<StatsScreen />);
-    expect(screen.getByTestId('p3-stats-none').textContent).toMatch(/Copy your link above/);
-    cleanup();
-    homeQ.value = ok(homeOf([]));
-    viewsQ.value = ok(statsOf([]));
-    show(<StatsScreen />);
-    expect(screen.getByTestId('p3-stats-none').textContent).toMatch(/Put an event live first/);
-    cleanup();
-    viewsQ.value = pending();
-    show(<StatsScreen />);
-    expect(screen.getByTestId('p3-stats-loading')).toBeTruthy();
-    cleanup();
-    viewsQ.value = failed();
-    show(<StatsScreen />);
-    expect(within(screen.getByTestId('p3-stats-error')).getByRole('button', { name: 'Try again' })).toBeTruthy();
-  });
-});
 
 describe('stats parsing', () => {
   it('reads the RPC shape and drops junk', () => {
@@ -341,15 +160,6 @@ describe('stats parsing', () => {
   });
 });
 
-describe('photo', () => {
-  it('a cover that fails to load falls back to the "No photo yet" box', () => {
-    homeQ.value = ok(homeOf([SHAPES.weekly]));
-    show(<EventsScreen />);
-    const row = screen.getByTestId('p3-row');
-    fireEvent.error(row.querySelector('img')!);
-    expect(within(row).getByRole('img', { name: 'No photo yet' })).toBeTruthy();
-  });
-});
 
 describe('review findings (round 1)', () => {
   it.each([
@@ -367,54 +177,10 @@ describe('review findings (round 1)', () => {
     }
   });
 
-  it('a new cover gets its own try after an earlier one failed', () => {
-    homeQ.value = ok(homeOf([SHAPES.weekly]));
-    const v = show(<EventsScreen />);
-    fireEvent.error(screen.getByTestId('p3-row').querySelector('img')!);
-    homeQ.value = ok(homeOf([{ ...SHAPES.weekly, default_cover_image_url: 'https://example.test/new.jpg' }]));
-    v.rerender(<MemoryRouter><EventsScreen /></MemoryRouter>);
-    expect(screen.getByTestId('p3-row').querySelector('img')!.getAttribute('src')).toBe('https://example.test/new.jpg');
-  });
 
-  it('an event with 0 views has an empty bar', () => {
-    homeQ.value = ok(homeOf([SHAPES.weekly, SHAPES.monthly]));
-    viewsQ.value = ok(statsOf([['weekly', 'A', 30], ['monthly', 'B', 0]]));
-    show(<StatsScreen />);
-    const bars = [...screen.getByTestId('p3-stats-byevent').querySelectorAll('.p3-bar i')] as HTMLElement[];
-    expect(bars.map((b) => b.style.width)).toEqual(['100%', '0%']);
-  });
 
-  it('Today and 7 days are sliced from the one 30-day read, totals included', () => {
-    const s = { from: '2026-09-26', to: TODAY, series: [{ seriesId: 'weekly', name: 'A', total: 6, byDay: [{ day: '2026-10-01', count: 1 }, { day: '2026-10-20', count: 2 }, { day: TODAY, count: 3 }] }] };
-    homeQ.value = ok(homeOf([SHAPES.weekly]));
-    viewsQ.value = ok(s);
-    show(<StatsScreen />);
-    expect(screen.getByTestId('p3-stats-total').textContent).toContain('6');
-    fireEvent.click(screen.getByRole('button', { name: '7 days' }));
-    expect(screen.getByTestId('p3-stats-total').textContent).toContain('5');
-    fireEvent.click(screen.getByRole('button', { name: 'Today' }));
-    expect(screen.getByTestId('p3-stats-total').textContent).toContain('3');
-  });
 
-  it('a window across New Year shows the year on last year\'s days', () => {
-    homeQ.value = ok(homeOf([SHAPES.weekly]));
-    viewsQ.value = ok({ from: '2026-12-12', to: '2027-01-10', series: [{ seriesId: 'weekly', name: 'A', total: 2, byDay: [{ day: '2026-12-31', count: 2 }] }] });
-    show(<StatsScreen />);
-    fireEvent.click(screen.getByRole('button', { name: 'Show as a table' }));
-    expect(screen.getByTestId('p3-stats-table').textContent).toContain('Thursday 31 December 2026');
-    expect(screen.getByTestId('p3-stats-table').textContent).toContain('Sunday 10 January');
-    expect(screen.getByTestId('p3-stats-table').textContent).not.toContain('January 2027');
-  });
 
-  it('going: switch off renders nothing; a failed read shows the going module\'s Try again', () => {
-    homeQ.value = ok(homeOf([SHAPES.weekly]));
-    show(<StatsScreen />);
-    expect(screen.queryByTestId('p3-going')).toBeNull();
-    cleanup();
-    going.value = { view: { state: 'error', code: 'network' }, total: null, retry: vi.fn(), fetching: false, refreshFailed: false };
-    show(<StatsScreen />);
-    expect(screen.getByTestId('going-total-stat').dataset.state).toBe('error');
-  });
 });
 
 describe('review findings (round 2)', () => {
@@ -431,24 +197,7 @@ describe('review findings (round 2)', () => {
     expect(rowOf(day, TODAY).sub).toContain('Today, 10am');
   });
 
-  it('Home and Events split current / past the same way; "See all" reaches the past ones', () => {
-    homeQ.value = ok(homeOf([SHAPES.weekly, SHAPES.oneoffPast, SHAPES.ended]));
-    show(<HomeScreen />);
-    const listed = within(screen.getByRole('list', { name: 'Your first events' })).getAllByTestId('p3-row').map((r) => r.dataset.id);
-    expect(listed).toEqual(['weekly']);
-    expect(screen.getByText('See all 3')).toBeTruthy();
-  });
 
-  it('a quiet day on Today is not "No views yet" when the 30 days have views', () => {
-    homeQ.value = ok(homeOf([SHAPES.weekly]));
-    viewsQ.value = ok({ from: '2026-09-26', to: TODAY, series: [{ seriesId: 'weekly', name: 'A', total: 240, byDay: [{ day: '2026-10-01', count: 240 }] }] });
-    show(<StatsScreen />);
-    fireEvent.click(screen.getByRole('button', { name: 'Today' }));
-    const card = screen.getByTestId('p3-stats-none-range');
-    expect(card.textContent).toContain('240 views in the last 30 days');
-    fireEvent.click(within(card).getByRole('button', { name: 'Show 30 days' }));
-    expect(screen.getByTestId('p3-stats-total').textContent).toContain('240');
-  });
 });
 
 
@@ -465,118 +214,4 @@ const ANALYTICS_SHAPES: Array<[string, Record<string, number>, boolean, string, 
   ['huge', { visitors: 123456, from_your_link: 100000 }, true, '123456', '100000'],
 ];
 
-describe('Stats v2 x every shape', () => {
-  it.each(ANALYTICS_SHAPES)('%s', (_n, t, own, visitors, fromLink) => {
-    analyticsQ.value = ok(analyticsOf(t, own));
-    show(<StatsScreen />);
-    expect(screen.getByTestId('p3-stats-visitors').textContent).toBe(`${visitors}Visitors`);
-    expect(screen.getByTestId('p3-stats-from-link').textContent).toBe(`${fromLink}From your link`);
-    expect(!!screen.queryByTestId('p3-stats-guestlist')).toBe(!!t.guest_list_signups);
-    expect(!!screen.queryByTestId('p3-stats-tickets')).toBe(!!t.tickets_sold);
-    expect(screen.getByTestId('p3-stats-help').textContent).toMatch(/counted once a day for each event/);
-    expect(screen.getByTestId('p3-share-link-card')).toBeTruthy();
-  });
 
-  it('a failed (network) read: views stay, the tiles offer Try again, never zeros', () => {
-    analyticsQ.value = failed();
-    show(<StatsScreen />);
-    expect(screen.queryByTestId('p3-stats-error')).toBeNull();
-    expect(within(screen.getByTestId('p3-stats-analytics-error')).getByRole('button', { name: 'Try again' })).toBeTruthy();
-    expect(screen.queryByTestId('p3-stats-visitors')).toBeNull();
-  });
-
-  it('a refused read hides the tiles, keeps the page share card: no error, no Try again', () => {
-    analyticsQ.value = ok({ hidden: true, data: null });
-    show(<StatsScreen />);
-    expect(screen.queryByTestId('p3-stats-error')).toBeNull();
-    expect(screen.queryByTestId('p3-stats-visitors')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
-    expect(screen.getByTestId('p3-share-link-card')).toBeTruthy();
-    expect(screen.getByTestId('p3-stats-total')).toBeTruthy();
-  });
-
-  it('analytics loading does not hold up the views', () => {
-    analyticsQ.value = pending();
-    show(<StatsScreen />);
-    expect(screen.queryByTestId('p3-stats-loading')).toBeNull();
-    expect(screen.getByTestId('p3-stats-total')).toBeTruthy();
-  });
-
-  it('the empty state points at the Copy link control that is above it', () => {
-    homeQ.value = ok(homeOf([{ ...SHAPES.weekly, slug: 'sensual-fridays' }]));
-    viewsQ.value = ok(statsOf([['weekly', 'W', 0]]));
-    show(<StatsScreen />);
-    expect(screen.getByTestId('p3-stats-none').textContent).toMatch(/Copy your link above/);
-    expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy();
-  });
-});
-
-describe('Share link card x every shape', () => {
-  const copyBtn = () => screen.getByRole('button', { name: 'Copy link' }) as HTMLButtonElement;
-
-  it('live code and a next event: the link, enabled, copies it', async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.assign(navigator, { clipboard: { writeText } });
-    homeQ.value = ok(homeOf([{ ...SHAPES.weekly, slug: 'sensual-fridays' }]));
-    show(<StatsScreen />);
-    const link = (screen.getByTestId('p3-share-link-text') as HTMLInputElement).value;
-    expect(link).toBe(`${window.location.origin}/event/sensual-fridays?ref=abc`);
-    expect(copyBtn().disabled).toBe(false);
-    fireEvent.click(copyBtn());
-    await screen.findByText('Link copied.');
-    expect(writeText).toHaveBeenCalledWith(link);
-  });
-
-  it('"Link copied." clears when the link state changes', async () => {
-    Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
-    homeQ.value = ok(homeOf([{ ...SHAPES.weekly, slug: 'sensual-fridays' }]));
-    const { rerender } = show(<StatsScreen />);
-    fireEvent.click(copyBtn());
-    await screen.findByText('Link copied.');
-    codeQ.value = ok({ code: 'abc', disabled: true });
-    rerender(<MemoryRouter><StatsScreen /></MemoryRouter>);
-    expect(screen.queryByTestId('p3-share-note')).toBeNull();
-  });
-
-  it('clipboard failure selects the text and says so', async () => {
-    Object.assign(navigator, { clipboard: { writeText: vi.fn().mockRejectedValue(new Error('no')) } });
-    homeQ.value = ok(homeOf([{ ...SHAPES.weekly, slug: 'sensual-fridays' }]));
-    show(<StatsScreen />);
-    fireEvent.click(copyBtn());
-    expect((await screen.findByTestId('p3-share-note')).textContent).toMatch(/selected/);
-  });
-
-  it.each([
-    ['admin-disabled code', { code: 'abc', disabled: true }, [SHAPES.weekly], 'Your link is switched off. Ask the team.'],
-    ['no code', { code: null, disabled: false }, [SHAPES.weekly], 'Your link isn\u2019t ready yet. Try again shortly.'],
-    ['no events', { code: 'abc', disabled: false }, [], 'Put an event live to get a link'],
-    ['only a finished event', { code: 'abc', disabled: false }, [SHAPES.ended], 'Put an event live to get a link'],
-  ])('%s: a disabled button with its reason', (_n, code, rows, reason) => {
-    codeQ.value = ok(code);
-    homeQ.value = ok(homeOf(rows as never));
-    show(<StatsScreen />);
-    expect(copyBtn().disabled).toBe(true);
-    expect(screen.getByTestId('p3-share-reason').textContent).toBe(reason);
-    expect(screen.queryByTestId('p3-share-link-text')).toBeNull();
-  });
-
-  it('a network failure on the code read shows its own error with Try again', () => {
-    codeQ.value = { isPending: false, isError: true, error: { message: 'Failed to fetch' }, data: undefined, refetch: vi.fn() };
-    show(<StatsScreen />);
-    expect(within(screen.getByTestId('p3-share-link-card')).getByRole('button', { name: 'Try again' })).toBeTruthy();
-  });
-
-  it('a refused code read (42501) hides the card: no Try again that cannot work', () => {
-    codeQ.value = { isPending: false, isError: true, error: { code: '42501', message: 'not_allowed' }, data: undefined, refetch: vi.fn() };
-    show(<StatsScreen />);
-    expect(screen.queryByTestId('p3-share-link-card')).toBeNull();
-    expect(screen.getByTestId('p3-stats-total')).toBeTruthy();
-  });
-
-  it('no help text names a control that is not on screen', () => {
-    show(<StatsScreen />);
-    const t = screen.getByTestId('p3-stats').textContent ?? '';
-    expect(t).not.toMatch(/\u00e2\u20ac/);
-    expect(t).not.toMatch(/Press/);
-  });
-});

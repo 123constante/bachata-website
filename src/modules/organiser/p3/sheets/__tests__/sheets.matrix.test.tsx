@@ -5,9 +5,8 @@ import { MemoryRouter } from 'react-router-dom';
 import { flags } from '@/lib/featureFlags';
 import type { DoorList, DoorRow } from '../../door/data';
 import { compareOf, type PastNight } from '../../dash/dashModel';
-import { CompareView } from '../../dash/CompareNights';
 import { pastNightOf, pastOf } from '../../dash/pastNights';
-import { isPushed } from '../../shell/P3Shell';
+import { isPushed } from '../../shell/pushed';
 import { P3_PATHS } from '../../shell/paths';
 import { GUEST, NO_NAMES, ROW_CAP_NOTE, eventWhoIsInLinkOf, fromOf, sheetBackOf, whoCameLinkOf, whoCameOf, whoIsInLinkOf, whoIsInOf } from '../sheetsModel';
 import { WhoListView } from '../WhoSheets';
@@ -148,10 +147,6 @@ describe('slice 3: links (cancelled / draft nights have none)', () => {
     expect(eventWhoIsInLinkOf('s1', 'live', true)).toBe(`${P3_PATHS.event('s1')}/in?from=event`);
     expect(eventWhoIsInLinkOf('s1', 'live', false)).toBeNull();
     for (const l of ['draft', 'ended', 'cancelled', 'archived']) expect(eventWhoIsInLinkOf('s1', l, true)).toBeNull();
-  });
-  it('Compare rows link to Who came', () => {
-    render(<MemoryRouter><CompareView model={compareOf([past()])} /></MemoryRouter>);
-    expect(screen.getByTestId('dash-compare-who').getAttribute('href')).toBe(`${P3_PATHS.event('s1')}/came/o1?from=compare`);
   });
   it('the sheets are pushed (no tab bar) while the flag is on; flag off = nothing changes', () => {
     const was = flags.organiserDash;

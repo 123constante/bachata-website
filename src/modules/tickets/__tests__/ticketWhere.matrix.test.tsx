@@ -56,10 +56,10 @@ describe('checkout note x auth state', () => {
       expect(screen.queryByText(/come by email only/)).toBeNull();
     }
   });
-  it('Sign in returns to My tickets, not the checkout', async () => {
+  it('Sign in returns to the checkout, promo code kept', async () => {
     await checkout('/event/e1?code=SUMMER');
     const href = screen.getByRole('link', { name: 'Sign in' }).getAttribute('href')!;
-    expect(href).toBe(`/auth?mode=signin&returnTo=${encodeURIComponent('/account/my-tickets')}`);
+    expect(href).toBe(`/auth?mode=signin&returnTo=${encodeURIComponent('/event/e1?code=SUMMER')}`);
   });
 });
 

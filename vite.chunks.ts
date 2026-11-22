@@ -387,6 +387,19 @@ export const LIB_EVENT_RULES_MODULES = [
   // organiser model statically, so the two importers landed in different chunks and rollup cut
   // this leaf into its own chunk: +1 first-load request on /app/* (chunk ratchet 49 vs 48).
   "/src/lib/ticketBookingFee.ts",
+  // Near me (2026-11-19): the shared location hook is now imported by the app shell
+  // (GeolocationProvider) AND the lazy pages, and it pulled analytics out with it: alone they
+  // were 2 extra first-load chunks on EVERY route (chunk ratchet, measured). Pinned here they
+  // ride the chunk every route already loads.
+  "/src/hooks/useGeolocation.ts",
+  "/src/lib/geo/nearMeFix.ts",
+  "/src/lib/analytics.ts",
+  // Venue video link parser (editor v2 flyer sheet, 2026-11-22): a pure leaf read by the
+  // public event page (VideoBlock) and, now, by the lazy organiser v2 flyer sheet. Shared by
+  // the two, rollup cut it into a chunk of its own: +1 first-load request on /event (chunk
+  // ratchet 40 vs 39: main builds 39, this PR 40). Pinned here it rides a chunk /event
+  // already loads.
+  "/src/lib/parseVenueVideoUrl.ts",
 ];
 
 // The SECOND first-party group (2026-10-16, dancer journey fixes): the ONE avatar

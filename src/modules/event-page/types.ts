@@ -129,6 +129,9 @@ export type EventPageSnapshot = {
      *  `materialised_start_utc`, which an override can shift across a day
      *  boundary. "The first night it actually ran" is the intended meaning. */
     ranFrom: string | null;
+    /** Course rule (admin #2037): may a dancer just turn up, or must they book first? Null/absent =
+     *  unset, and the page shows no rule card. Any other string from the RPC parses to null. */
+    signupRule?: 'drop_in' | 'sign_up_first' | null;
     isPublished: boolean;
     createdBy: string | null;
     imageUrl: string | null;

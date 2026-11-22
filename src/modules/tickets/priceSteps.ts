@@ -81,7 +81,7 @@ export const PRICE_CONFIRM_LABEL = 'Price changed, confirm';
 
 /** The price_changed note: shared by the classic page and the ticket picker B1. */
 export const priceChangedText = (totalPence: number): string =>
-  `The price changed while this page was open. New total: ${formatPence(totalPence)}. Check and pay again.`;
+  `The price changed while this page was open. New total: ${formatPence(totalPence)}. Check it and continue again.`;
 
 /** Copy for the two T4 reasons. Old tabs reach expected_price_required only after T2b. */
 export function stepReasonCopy(reason: string, confirm: PriceConfirm | null): ReasonCopy | null {

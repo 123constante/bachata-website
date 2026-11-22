@@ -26,6 +26,25 @@ export function CancelEventSheet({ name, plan, send, onDone, onClose }: {
   onDone: (d: Done) => void;
   onClose: () => void;
 }) {
+  const { pick, busy, error, choose, go } = useCancelSend(plan, send, onDone);
+
+  return (
+    <Sheet title={CANCEL_COPY.title(name, plan.day)} onClose={onClose}>
+      <p className="p3-note" data-testid="p3-cancel-body">{CANCEL_COPY.body(plan.day)}</p>
+      <ReasonPick picked={pick?.reason ?? null} busy={busy} onPick={choose} />
+      {error && <p className="p3-error" role="alert" data-testid="p3-sheet-error">{error}</p>}
+      <div className="p3-stack-s">
+        <button type="button" className="p3-btn p3-btn-danger" disabled={!pick || busy} data-testid="p3-cancel-confirm" onClick={() => void go()}>
+          {pick ? CANCEL_COPY.go : CANCEL_COPY.pick}
+        </button>
+        <button type="button" className="p3-btn p3-btn-line" onClick={onClose}>{CANCEL_COPY.keep}</button>
+      </div>
+    </Sheet>
+  );
+}
+
+/** The ONE cancel send (the classic sheet and R4's "Cancel a night" sheet): a reason pick, its kept key, the send, the Done. */
+export function useCancelSend(plan: CancelPlan, send: SendOnce, onDone: (d: Done) => void) {
   const [pick, setPick] = useState<{ reason: string; key: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,27 +78,18 @@ export function CancelEventSheet({ name, plan, send, onDone, onClose }: {
     }
   };
 
-  return (
-    <Sheet title={CANCEL_COPY.title(name, plan.day)} onClose={onClose}>
-      <p className="p3-note" data-testid="p3-cancel-body">{CANCEL_COPY.body(plan.day)}</p>
-      <ReasonPick picked={pick?.reason ?? null} busy={busy} onPick={choose} />
-      {error && <p className="p3-error" role="alert" data-testid="p3-sheet-error">{error}</p>}
-      <div className="p3-stack-s">
-        <button type="button" className="p3-btn p3-btn-danger" disabled={!pick || busy} data-testid="p3-cancel-confirm" onClick={() => void go()}>
-          {pick ? CANCEL_COPY.go : CANCEL_COPY.pick}
-        </button>
-        <button type="button" className="p3-btn p3-btn-line" onClick={onClose}>{CANCEL_COPY.keep}</button>
-      </div>
-    </Sheet>
-  );
+  return { pick, busy, error, choose, go };
 }
+
+/** The cancellation_reasons read, shared by ReasonPick and R4's chips (one query key). */
+export const useCancelReasons = () => useQuery({ queryKey: ['cancellation-reasons'], queryFn: fetchCancellationReasons, staleTime: Infinity });
 
 /**
  * The ONE reason picker (cancellation_reasons through fetchCancellationReasons): "Cancel the
  * event" and the date sheet's "Cancel this date" both pick from it.
  */
 export function ReasonPick({ picked, busy, onPick }: { picked: string | null; busy: boolean; onPick: (label: string) => void }) {
-  const reasons = useQuery({ queryKey: ['cancellation-reasons'], queryFn: fetchCancellationReasons, staleTime: Infinity });
+  const reasons = useCancelReasons();
   return (
     <fieldset className="p3-ask" data-testid="p3-cancel-reasons">
       <legend>{L.cancelWhy}</legend>

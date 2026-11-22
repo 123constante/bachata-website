@@ -7,7 +7,16 @@ import type { OrderQrTicket } from '@/modules/tickets/myTicketsModel';
 import { thanksCopy, type ThanksOrderState } from '@/modules/tickets/ticketCheckoutModel';
 
 /** One ticket in the card: the order QR row, plus what only the full-screen door view shows. */
-export type CardTicket = OrderQrTicket & { eventTitle: string | null; eventDate: string | null; eventCancelled?: boolean; refunded?: boolean };
+export type CardTicket = Omit<OrderQrTicket, 'qrToken'> & {
+  /** Null only on a refunded ticket (my_tickets_v1 sends no QR then); the card never draws it. */
+  qrToken: string | null;
+  eventTitle: string | null;
+  eventDate: string | null;
+  eventCancelled?: boolean;
+  refunded?: boolean;
+  /** order_refunded_pence from my_tickets_v1 (the order QR read never sends it). */
+  refundedPence?: number;
+};
 
 export type CardView =
   | { kind: 'loading' }

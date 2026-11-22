@@ -44,6 +44,8 @@ interface RaffleEntryDialogProps {
   eventId?: string;
   consentVersion: string | null;
   onSubmitted: () => void;
+  /** /raffles redesign look (black + orange sheet). Look only: same logic. */
+  redesign?: boolean;
 }
 
 type SubmitResponse =
@@ -106,7 +108,9 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
   eventId,
   consentVersion,
   onSubmitted,
+  redesign = false,
 }) => {
+
   const [phoneE164, setPhoneE164] = useState('');
   const [phoneValid, setPhoneValid] = useState(false);
   const [consent, setConsent] = useState(false);
@@ -147,7 +151,7 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
   }, [open]);
 
   const canSubmit = useMemo(
-    () => phase === 'form' && phoneValid && consent,
+    () => phase === 'form' && phoneValid && (flags.raffleV2 || consent),
     [phase, phoneValid, consent],
   );
 
@@ -188,8 +192,24 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
       }
       const joined = res.data as PoolJoinResponse;
       if (!joined?.ok) {
+        const poolReason = (joined as { reason?: string })?.reason ?? '';
+        if (poolReason === 'already_won_this_event') {
+          setPhase('ack');
+          setAckState({
+            title: "You've won!",
+            body: 'Check WhatsApp for your prize link.',
+            emoji: '🏆',
+            testId: 'raffle-already-won',
+          });
+          onSubmitted();
+          return;
+        }
         setPhase('form');
-        toast.error(messageForReason((joined as { reason?: string })?.reason ?? '').text);
+        if (poolReason === 'cutoff_passed' || poolReason === 'raffle_closed') {
+          toast.error('This raffle has closed.');
+          return;
+        }
+        toast.error(messageForReason(poolReason).text);
         return;
       }
       markRafflePoolJoined();
@@ -197,7 +217,7 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
         setPhase('ack');
         setAckState({
           title: "You're in!",
-          body: "You're already in the raffle. We'll message you on WhatsApp if you win — good luck!",
+          body: "We'll message you on WhatsApp if you win. Good luck!",
           emoji: '🎉',
           testId: 'raffle-already-in',
         });
@@ -329,14 +349,16 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="mx-auto max-w-[430px] p-0 border-[rgba(197,148,10,0.3)] bg-[#1A2E2A] text-[#D8CCB0]">
+      <DialogContent className={redesign ? 'rd-sheet mx-auto max-w-[430px] p-0' : 'mx-auto max-w-[430px] p-0 border-[rgba(197,148,10,0.3)] bg-[#1A2E2A] text-[#D8CCB0]'}>
         <DialogHeader className="px-4 pt-4">
           <DialogTitle className="flex items-center gap-2 text-[#F5D563]">
             <Sparkles className="w-4 h-4" aria-hidden />
             Enter the raffle
           </DialogTitle>
           <DialogDescription className="text-[#A59474]">
-            One entry per person. The winner is messaged on WhatsApp after the draw.
+            {flags.raffleV2
+              ? 'Enter your phone number. If you win, we contact you on WhatsApp.'
+              : 'One entry per person. The winner is messaged on WhatsApp after the draw.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -372,11 +394,13 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
         ) : phase === 'success_neutral' ? (
           <div className="px-4 pb-5 pt-2 text-center">
             <div className="text-2xl mb-1" aria-hidden>🎉</div>
-            <div className="text-base font-semibold text-[#F5D563]">You're in! Good luck</div>
+            <div className="text-base font-semibold text-[#F5D563]">{flags.raffleV2 ? "You're in!" : "You're in! Good luck"}</div>
             <div className="text-xs text-[#A59474] mt-1">
               {neutralVariant === 'sent_unconfirmed'
                 ? "We've sent you a WhatsApp confirmation — it may take a minute to arrive."
-                : 'Winners are messaged on WhatsApp after the draw.'}
+                : flags.raffleV2
+                  ? "We'll message you on WhatsApp if you win. Good luck!"
+                  : 'Winners are messaged on WhatsApp after the draw.'}
             </div>
           </div>
         ) : (
@@ -407,6 +431,7 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
               </div>
             )}
 
+            {!flags.raffleV2 && (
             <div className="flex items-start gap-2 rounded-md border border-[rgba(197,148,10,0.3)] bg-black/25 px-3 py-2">
               <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0 mt-0.5" />
               <div className="text-[11px] leading-snug text-[#D8CCB0]">
@@ -414,11 +439,12 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
                 Make sure this number has WhatsApp.
               </div>
             </div>
+            )}
 
             <div>
               <label htmlFor="raffle-phone" className="block text-xs mb-1 text-[#D8CCB0]">
-                Phone <span className="text-rose-400">*</span>
-                <span className="text-[#A59474] ml-1">(must have WhatsApp)</span>
+                {flags.raffleV2 ? 'Phone number' : 'Phone'} <span className="text-rose-400">*</span>
+                <span className="text-[#A59474] ml-1">{flags.raffleV2 ? '(needs WhatsApp)' : '(must have WhatsApp)'}</span>
               </label>
               <Suspense fallback={<div className="h-[44px]" aria-hidden="true" />}>
                 <RafflePhoneInput
@@ -430,6 +456,33 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
               </Suspense>
             </div>
 
+            {flags.raffleV2 ? (
+              <div className="space-y-2 pt-1">
+                <Button
+                  type="submit"
+                  disabled={!canSubmit}
+                  className={redesign ? 'rd-sheet-go w-full disabled:opacity-50 disabled:cursor-not-allowed' : 'w-full bg-[#B38A4E] hover:bg-[#c99a54] text-[#1A2E2A] font-semibold disabled:opacity-50 disabled:cursor-not-allowed'}
+                >
+                  {phase === 'submitting' ? 'Entering…' : waFailed ? 'Try again' : 'Enter raffle'}
+                </Button>
+                <p className="text-center text-[11px] leading-snug text-[#A59474]">
+                  By entering you agree we store your number for the raffle.{' '}
+                  <a href="/privacy" target="_blank" rel="noreferrer" className="underline text-[#F5D563] hover:text-[#ffd700]">Privacy policy</a>
+                </p>
+                <div className="text-center">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => onOpenChange(false)}
+                    disabled={phase !== 'form'}
+                    className={redesign ? 'rd-sheet-cancel' : 'text-[#A59474] hover:text-[#D8CCB0]'}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
             <label className="flex items-start gap-2 text-[11px] leading-snug text-[#D8CCB0] select-none cursor-pointer">
               <input
                 type="checkbox"
@@ -475,6 +528,8 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
                 {phase === 'submitting' ? 'Entering…' : waFailed ? 'Try again' : 'Enter raffle'}
               </Button>
             </div>
+              </>
+            )}
           </form>
         )}
       </DialogContent>

@@ -205,11 +205,41 @@ describe('main(): exit codes -- infrastructure never reds', () => {
 describe('runner hooks (shell test)', () => {
   const dir = path.join(__dirname, '..', 'docs', 'ci-offload', 'acer-web');
   const tools = ['git', 'flock', 'setsid', 'timeout'].every((b) => spawnSync('sh', ['-c', `command -v ${b}`]).status === 0);
-  it.skipIf(!tools || process.platform !== 'linux')('test-gate-hooks.sh passes on the real hooks', () => {
-    const r = spawnSync('bash', [path.join(dir, 'test-gate-hooks.sh')], { encoding: 'utf8', timeout: 60000 });
+  // FLAKE ROOT CAUSE (2026-11-19): the shell test is ~150 hook launches (bash+python3+git),
+  // CPU-bound, so its wall time follows machine load: ~27 s idle, 49-66 s with 8 busy loops
+  // on 4 cores. A flat 60 s wall-clock cap therefore failed whenever the unit suite ran next
+  // to other workers. The cap's job is to catch a HANG, and the script prints one `ok`/`FAIL`
+  // line per case, so a hang is "no output for STALL_MS", not "slow". Stall watchdog + a hard
+  // ceiling replace the flat cap; the process group is killed so `sleep 600` does not linger.
+  const STALL_MS = 30000;
+  const CEILING_MS = 180000;
+  it.skipIf(!tools || process.platform !== 'linux')('test-gate-hooks.sh passes on the real hooks', async () => {
+    const r = await new Promise<{ stdout: string; how: 'exited' | 'stalled' | 'ceiling' | 'spawn-error'; code?: number | null }>((resolve) => {
+      const p = spawn('bash', [path.join(dir, 'test-gate-hooks.sh')], { detached: true });
+      let out = '';
+      let done = false;
+      let stall: ReturnType<typeof setTimeout>;
+      const finish = (how: 'exited' | 'stalled' | 'ceiling' | 'spawn-error', code?: number | null) => {
+        if (done) return;
+        done = true;
+        clearTimeout(stall);
+        clearTimeout(ceiling);
+        if (p.pid !== undefined) {
+          try { process.kill(-p.pid, 'SIGKILL'); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ESRCH') throw e; }
+        }
+        resolve({ stdout: out, how, code });
+      };
+      const arm = () => { clearTimeout(stall); stall = setTimeout(() => finish('stalled'), STALL_MS); };
+      const ceiling = setTimeout(() => finish('ceiling'), CEILING_MS);
+      arm();
+      p.on('error', () => finish('spawn-error'));
+      p.stdout.on('data', (b) => { out += String(b); arm(); });
+      p.on('close', (code) => finish('exited', code));
+    });
+    expect(r.how).toBe('exited');
     expect(r.stdout).toMatch(/PASS \d+ cases/);
-    expect(r.status).toBe(0);
-  }, 70000);
+    expect(r.code).toBe(0);
+  }, CEILING_MS + 10000);
   // Stops at the first FAIL MUTANT line. The mutant leaves the run lock held, so every
   // later case in the shell test waits on it and the run used to sit out the whole 60 s
   // spawnSync timeout (84 s file, the slowest in the unit suite; ci-speed profile

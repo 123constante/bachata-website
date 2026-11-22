@@ -50,8 +50,27 @@ async function controls(page: Page) {
 // `min`: how many controls the screen must hold, so an empty measure never passes. A locked
 // (ended) Details screen holds only the header's back and account controls.
 async function expectTapTargets(page: Page, min = 3) {
-  // Let entrance motion (0.3s) finish before measuring.
-  await page.waitForTimeout(400);
+  // Wait for the layout to SETTLE, not for a fixed 400ms: on a loaded CI runner the entrance
+  // motion (0.3s) and the data-driven re-render can outlast any fixed sleep, and a control measured
+  // mid-transition reads short. Settled = no running finite animation (a looping spinner never ends) and the same measure on 3 reads
+  // in a row, each a frame apart.
+  let last = '';
+  let same = 0;
+  await expect
+    .poll(
+      async () => {
+        const snap = await page.evaluate(async () => {
+          await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+          return document.getAnimations().filter((a) => a.playState === 'running' && a.effect?.getComputedTiming().iterations !== Infinity).length;
+        });
+        const now = JSON.stringify(await controls(page));
+        same = snap === 0 && now === last ? same + 1 : 0;
+        last = now;
+        return same;
+      },
+      { message: 'the screen never stopped moving before the tap-target measure', timeout: 15_000, intervals: [50] },
+    )
+    .toBeGreaterThanOrEqual(3);
   const found = await controls(page);
   expect(found.length, 'the screen has controls to measure').toBeGreaterThanOrEqual(min);
   expect(found.filter((c) => c.h < MIN - 0.5), `controls under ${MIN}px high`).toEqual([]);
@@ -190,6 +209,7 @@ test.describe('tap targets @390', () => {
       await expectNoHorizontalScroll(page);
     }
     await page.goto(`/account/o/change/${FRIDAY}/${OCC}/lineup`);
+    await expect(page.getByTestId('session-row').first()).toBeVisible();
     await page.getByTestId('session-row-open').first().click();
     await page.getByTestId('session-add-person').click();
     await page.getByTestId('people-search').fill('ev');

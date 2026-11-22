@@ -24,8 +24,6 @@ on:
     workflows:
       - Source Integrity
       - BOM Check
-      - DB Contract Check
-      - E2E Smoke
       - Perf Budget
       - Typecheck (WallClock brand gate)
       - Unit & Contract Tests

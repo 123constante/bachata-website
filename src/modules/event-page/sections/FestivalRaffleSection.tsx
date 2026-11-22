@@ -179,7 +179,7 @@ export function FestivalRaffleSection({ eventId }: { eventId: string | null }) {
                       ))}
                     </div>
                     <div className={`reel-flash${spinPhase === 'landed' ? ' show' : ''}`} aria-hidden="true">
-                      <span>You&rsquo;re in the draw!</span>
+                      <span>You&rsquo;re in!</span>
                     </div>
                   </div>
 
@@ -243,7 +243,7 @@ export function FestivalRaffleSection({ eventId }: { eventId: string | null }) {
                 ) : entered ? (
                   <div className="rb-chip" role="status">
                     <span className="rb-chip-ico" aria-hidden="true" />
-                    You&rsquo;re entered &#8212; good luck
+                    You&rsquo;re in
                   </div>
                 ) : (
                   <p className="cta-foot rb-status"><b>Entries closed</b></p>

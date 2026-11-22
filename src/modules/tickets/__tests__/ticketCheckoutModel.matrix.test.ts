@@ -155,7 +155,7 @@ describe('checkout body', () => {
 });
 
 const SERVER_REASONS = ['invalid_request', 'rate_limited', 'not_found', 'not_on_sale', 'outside_sales_window', 'sold_out',
-  'organiser_not_onboarded', 'stripe_error', 'internal_error', 'not_configured', 'invalid_quantity', 'invalid_email'];
+  'organiser_not_onboarded', 'stripe_error', 'internal_error', 'not_configured', 'invalid_quantity', 'invalid_email', 'free_daily_limit'];
 
 describe('replies and every error reason', () => {
   it('redirect / free / error', () => {
@@ -174,6 +174,13 @@ describe('replies and every error reason', () => {
   });
   it('payment-side failures say nobody was charged', () => {
     for (const r of ['stripe_error', 'internal_error']) expect(reasonCopy(r).text).toMatch(/not been charged/);
+  });
+  it('free_daily 429 maps to its own copy with no "held" suffix; hourly 429 unchanged', () => {
+    const daily = parseCheckoutReply({ ok: false, reason: 'rate_limited', limit: 'free_daily', message: 'x' }, 429);
+    expect(daily).toMatchObject({ kind: 'error', reason: 'free_daily_limit' });
+    expect(reasonCopy('free_daily_limit').text).toBe("You have reached today's limit of 5 free bookings for this email. Try again tomorrow.");
+    expect(reasonCopy('free_daily_limit').text).not.toMatch(/held/);
+    expect(parseCheckoutReply({ ok: false, reason: 'rate_limited' }, 429)).toMatchObject({ reason: 'rate_limited' });
   });
   it('rate_limited uses the server message; unknown reasons fall back', () => {
     expect(reasonCopy('rate_limited', 'Slow down.').text).toMatch(/^Slow down\. If you cancelled a checkout just now/);

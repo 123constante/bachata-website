@@ -7,7 +7,8 @@ import { doorCodeText } from '@/modules/tickets/myTicketsModel';
 import { ticketDoorCode } from '@/modules/organiser/p3/door/doorFlags';
 import { doorDate, stepTicket, ticketCountLine } from './cardKit';
 import { BUYER_ONBOARDING_ENABLED } from '@/lib/buyerOnboardingFlag';
-import { ticketQrShown, ticketStatusAt, ticketStatusLine } from '@/modules/tickets/ticketCardStatus';
+import { POSTPAY_TICKETS_TAB_ENABLED } from '@/lib/postpayTicketsTabFlag';
+import { partRefundLine, ticketGreyed, ticketQrShown, ticketStatusAt, ticketStatusLines, ticketStatusTag } from '@/modules/tickets/ticketCardStatus';
 import type { CARD_COPY as CardCopy, CardTicket, CardView } from './model';
 
 // The copy arrives as a prop (type-only import above): importing the value would pull ./model into this lazy chunk.
@@ -51,23 +52,37 @@ function TicketCarousel({ tickets }: { tickets: CardTicket[] }) {
   const n = tickets.length;
   const at = Math.min(index, n - 1);
   const t = tickets[at];
-  // Buyer onboarding ON: the one shared status mapping; a passed, cancelled or refunded ticket is greyed, no QR, no code.
-  const status = BUYER_ONBOARDING_ENABLED ? ticketStatusAt({ date: t.eventDate, eventCancelled: t.eventCancelled, refunded: t.refunded }) : 'valid';
-  const reason = ticketStatusLine(status);
+  // Buyer onboarding ON: the one shared status mapping; a passed, cancelled, refunded or used ticket is greyed, no QR, no code.
+  const status = BUYER_ONBOARDING_ENABLED ? ticketStatusAt({ date: t.eventDate, eventCancelled: t.eventCancelled, refunded: t.refunded, checkedIn: t.checkedIn }) : 'valid';
+  const lines = ticketStatusLines(status, t.refundedPence);
+  // A valid ticket always has a token (refunded rows are the only null ones); a missing one never draws a QR.
+  const reason = lines.length > 0 || !t.qrToken;
+  const tag = ticketStatusTag(status) ?? (t.checkedIn ? 'Checked in' : null);
+  const partRefund = BUYER_ONBOARDING_ENABLED ? partRefundLine(t.refunded, t.refundedPence) : null;
   const code = ticketQrShown(status) ? doorCodeText(t.shortCode, ticketDoorCode) : null;
   return (
-    <section className="dt-card" data-testid="tickets-card" data-state="tickets" data-ticket-status={status} style={reason ? { opacity: 0.6 } : undefined}>
+    <section className="dt-card" data-testid="tickets-card" data-state="tickets" data-ticket-status={status} style={ticketGreyed(status) ? { opacity: 0.6 } : undefined}>
       <div className="dt-card-top">
-        <span className="dt-type" data-testid="tickets-card-type">{t.typeName}</span>
-        {t.checkedIn && <span className="dt-checked">Checked in</span>}
+        {POSTPAY_TICKETS_TAB_ENABLED ? (
+          <span className="dt-type" data-testid="tickets-card-type">
+            {t.eventTitle ?? t.typeName}
+            {doorDate(t.eventDate) ? <span data-testid="tickets-card-date" style={{ display: 'block', fontWeight: 400, fontSize: 13 }}>{doorDate(t.eventDate)}</span> : null}
+          </span>
+        ) : (
+          <span className="dt-type" data-testid="tickets-card-type">{t.typeName}</span>
+        )}
+        {tag && <span className="dt-checked" data-testid="tickets-card-tag">{tag}</span>}
       </div>
-      {reason ? (
-        <p className="dt-state-line" role="status" data-testid="tickets-card-status">{reason}</p>
+      {reason || !t.qrToken ? (
+        <div role="status" data-testid="tickets-card-status">
+          {lines.map((l, i) => <p key={i} className="dt-state-line">{l}</p>)}
+        </div>
       ) : (
         <button type="button" className="dt-qr" onClick={() => setDoor(true)} aria-label="Open the full-screen door view" data-testid="tickets-card-qr">
           <QrCode token={t.qrToken} />
         </button>
       )}
+      {partRefund && <p className="dt-state-line" style={{ opacity: 0.75, fontSize: 12 }} data-testid="tickets-card-part-refund">{partRefund}</p>}
       {code && <DoorCodeLine code={code} checkedIn={t.checkedIn} testId="tickets-card-code" />}
       {n > 1 && (
         <div className="dt-steps">
@@ -80,12 +95,12 @@ function TicketCarousel({ tickets }: { tickets: CardTicket[] }) {
           </button>
         </div>
       )}
-      {door && !reason && <DoorView ticket={t} code={code} onClose={() => setDoor(false)} />}
+      {door && !reason && t.qrToken && <DoorView ticket={t} token={t.qrToken} code={code} onClose={() => setDoor(false)} />}
     </section>
   );
 }
 
-function DoorView({ ticket, code, onClose }: { ticket: CardTicket; code: string | null; onClose: () => void }) {
+function DoorView({ ticket, token, code, onClose }: { ticket: CardTicket; token: string; code: string | null; onClose: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -102,7 +117,7 @@ function DoorView({ ticket, code, onClose }: { ticket: CardTicket; code: string 
       {ticket.eventTitle && <p className="dt-door-title" data-testid="tickets-door-title">{ticket.eventTitle}</p>}
       {date && <p className="dt-door-date" data-testid="tickets-door-date">{date}</p>}
       <p className="dt-door-type">{ticket.typeName}</p>
-      <div className="dt-door-qr"><QrCode token={ticket.qrToken} /></div>
+      <div className="dt-door-qr"><QrCode token={token} /></div>
       {code && <DoorCodeLine code={code} checkedIn={ticket.checkedIn} testId="tickets-door-code" />}
     </div>
   );

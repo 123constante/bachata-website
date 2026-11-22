@@ -27,6 +27,8 @@ describe('flag-off guard', () => {
   const CONSUMERS = [
     'src/modules/event-page/bento/blocks/RaffleBlock.tsx',
     'src/pages/Raffles.tsx',
+    // Redesign part A: mounted by Raffles.tsx only under flags.raffleV2 && flags.raffleRedesign.
+    'src/components/raffles/RaffleRedesignA.tsx',
   ];
   it('only the flag-gated raffle screens import the hook', () => {
     const hits: string[] = [];
@@ -40,6 +42,7 @@ describe('flag-off guard', () => {
     };
     walk('src');
     expect(hits.sort()).toEqual([...CONSUMERS].sort());
-    for (const f of CONSUMERS) expect(readFileSync(f, 'utf8')).toMatch(/flags\.raffleV2/);
+    for (const f of CONSUMERS.filter((c) => !c.endsWith('RaffleRedesignA.tsx'))) expect(readFileSync(f, 'utf8')).toMatch(/flags\.raffleV2/);
+    expect(readFileSync('src/pages/Raffles.tsx', 'utf8')).toMatch(/flags\.raffleV2 \? \(flags\.raffleRedesign \? <RaffleRedesignA/);
   });
 });

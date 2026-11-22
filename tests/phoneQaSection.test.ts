@@ -18,6 +18,9 @@ describe('parse: positive', () => {
     ['bold labels', `## Phone QA\n**Sizes checked:** ${S}\n**Walked:** ${W}\n**Not verified:** ${N}`],
     ['multiplication sign in size', section('390\u00d7844')],
     ['spaced size', section('390 x 844 only')],
+    ['machine phone-qa wording with a real sentence', section('phone-qa suite walked every changed page')],
+    ['spaced phone QA wording', section('phone QA suite walked every page')],
+    ['colon before phone-qa', section('No issues: phone-qa suite walked every page')],
     ['Nothing plus explanation', section(S, W, 'Nothing, every page was walked at both sizes')],
   ])('%s', (_n, body) => {
     expect(parse(body)).toEqual({ ok: true, pending: false, problems: [] });
@@ -77,6 +80,21 @@ describe('parse: negative', () => {
   });
 });
 
+describe('parse: Sizes checked machine wording', () => {
+  it.each([
+    ['bare phone-qa', 'phone-qa'],
+    ['phone-qa plus too little', 'phone-qa ok'],
+    ['not phone-qa', 'not phone-qa, ran out of time to check'],
+    ['no phone-qa run', 'no phone-qa was run on this change'],
+    ['skipped the phone-qa', 'skipped the phone-qa suite entirely'],
+    ['phone-qa was skipped', 'phone-qa was skipped on this change'],
+    ['phone-qa did not run', 'phone-qa did not run at all here'],
+    ['curly didn\u2019t', 'we didn\u2019t run the phone-qa suite'],
+  ])('rejects %s', (_n, value) => {
+    expect(parse(section(value)).problems.some((p) => p.startsWith('Sizes checked'))).toBe(true);
+  });
+});
+
 describe('scope: which changed paths are UI paths', () => {
   it.each([
     ['src/components/BottomNav.tsx', true],
@@ -97,6 +115,9 @@ describe('scope: which changed paths are UI paths', () => {
     ['playwright.phone.config.ts', false],
     ['srcx/a.tsx', false],
     ['nested/src/a.tsx', false],
+    ['src/components/BottomNav.test.tsx', false],
+    ['src/components/__tests__/BottomNav.tsx', false],
+    ['src/modules/x/a.spec.tsx', false],
   ])('%s -> %s', (file, want) => {
     expect(touchesUi([file])).toBe(want);
   });

@@ -7,12 +7,15 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
 import { useDancerAnalyticsIdentity } from '../analytics/events';
 import { DancerAreaGate } from '../gate/DancerAreaGate';
+import { useViewOnly } from '../gate/viewOnly';
 import { DancerAppShell } from './DancerAppShell';
-import { DANCER_HOME, DANCER_ROUTES, DANCER_TICKETS, type DancerRouteId } from './routes';
+import { DANCER_HOME, DANCER_ROUTES, DANCER_TICKETS, LAYOUT_C_REDIRECTS, type DancerRouteId } from './routes';
+import { DANCER_LAYOUT_C_ENABLED } from '../screens/home/layoutCFlag';
+import { useMyDancerEdit } from '../api/useMyDancerEdit';
 import OnboardingScreen from '../screens/onboarding/OnboardingScreen';
 import HomeScreen from '../screens/home/HomeScreen';
 import NightsScreen from '../screens/nights/NightsScreen';
-import MeScreen from '../screens/me/MeScreen';
+import MeScreen, { MeSettings, type MeSettingsGhost } from '../screens/me/MeScreen';
 import EditScreen from '../screens/edit/EditScreen';
 import PhotoScreen from '../screens/photo/PhotoScreen';
 import PageScreen from '../screens/page/PageScreen';
@@ -26,6 +29,19 @@ const TeaserNights = lazyWithRetry(() => import('../screens/teaser/TeaserScreens
 const TeaserMe = lazyWithRetry(() => import('../screens/teaser/TeaserScreens').then((m) => ({ default: m.TeaserMe })));
 const TeaserOptionsLazy = lazyWithRetry(() => import('../screens/teaser/TeaserScreens').then((m) => ({ default: m.TeaserOptions })));
 const TeaserOptions = () => <TeaserOptionsLazy signOut={<SignOutControl testId="teaser-sign-out" />} />;
+const TeaserMeLazy = lazyWithRetry(() => import('../screens/teaser/TeaserScreens').then((m) => ({ default: m.TeaserMe })));
+/**
+ * Layout C preview Me: the live Settings section (built here, in the dancer-app chunk, and passed in
+ * like the Sign out control: the teaser chunk must not import it) and, last, the quiet Sign out row.
+ */
+const TeaserMeSettings = ({ ghost }: { ghost: MeSettingsGhost }) => {
+  const q = useMyDancerEdit();
+  return <MeSettings otherRoles={q.data?.other_roles ?? []} ghost={ghost} />;
+};
+const TeaserHomeC = () => <TeaserHome layoutC />;
+const TeaserMeC = () => (
+  <TeaserMeLazy layoutC settings={(ghost) => <TeaserMeSettings ghost={ghost} />} signOut={<SignOutControl testId="teaser-sign-out" />} />
+);
 import { useTeaserState } from '../screens/teaser/teaserGate';
 
 /** Route id -> screen. One entry per DANCER_ROUTES row (TypeScript refuses a missing one). */
@@ -42,7 +58,9 @@ export const DANCER_SCREENS: Record<DancerRouteId, ComponentType> = {
 };
 
 /** The read-only twins the post-pay teaser shows in place of these four screens (TICKET_TEASER_ENABLED). */
-const TEASER_SCREENS: Partial<Record<DancerRouteId, ComponentType>> = { home: TeaserHome, nights: TeaserNights, me: TeaserMe, options: TeaserOptions };
+const TEASER_SCREENS: Partial<Record<DancerRouteId, ComponentType>> = DANCER_LAYOUT_C_ENABLED
+  ? { home: TeaserHomeC, nights: TeaserNights, me: TeaserMeC }
+  : { home: TeaserHome, nights: TeaserNights, me: TeaserMe, options: TeaserOptions };
 
 /**
  * The real screen, or its read-only twin for an allowed person with an unfinished profile and the teaser
@@ -51,12 +69,19 @@ const TEASER_SCREENS: Partial<Record<DancerRouteId, ComponentType>> = { home: Te
  */
 const ScreenOrTeaser = ({ id, Screen }: { id: DancerRouteId; Screen: ComponentType }) => {
   const teaser = useTeaserState();
+  const viewOnly = useViewOnly();
   const Twin = TEASER_SCREENS[id];
   const { search } = useLocation();
+  // Layout C: Options and Tickets are not tabs; their URLs send the visit on (query kept), before any twin.
+  // A view-only buyer stays on /app/tickets: it is the only /app screen the gate lets them see
+  // (Home would bounce them to /account), so their door QRs never disappear.
+  const to = DANCER_LAYOUT_C_ENABLED && !(viewOnly && id === 'tickets') ? LAYOUT_C_REDIRECTS[id] : undefined;
+  if (to) return <Navigate to={`${to}${search}`} replace />;
   if (Twin && teaser === 'pending') return null;
   // Checkout return (buyer onboarding ON) lands on Home with ?o=. Only the teaser Home draws the
   // order card; anyone else goes on to the Tickets tab, which does, with ?o= (and free=1) kept.
-  if (id === 'home' && BUYER_ONBOARDING_ENABLED && teaser !== 'on' && new URLSearchParams(search).has('o')) {
+  // Layout C has no Tickets tab (it redirects back here), so no hop: Home carries the ticket card (S1).
+  if (id === 'home' && (!DANCER_LAYOUT_C_ENABLED || viewOnly) && BUYER_ONBOARDING_ENABLED && teaser !== 'on' && new URLSearchParams(search).has('o')) {
     return <Navigate to={`${DANCER_TICKETS}${search}`} replace />;
   }
   const Shown = Twin && teaser === 'on' ? Twin : Screen;

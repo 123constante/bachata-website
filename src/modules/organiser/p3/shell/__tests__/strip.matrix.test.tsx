@@ -1,44 +1,14 @@
-// @vitest-environment jsdom
 /**
  * Slice 1a (organiser area v2): the role strip and Switch badge, every person type x cell.
  * One mapping (model/strip.ts) drives the strip, the switcher and these rows.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import type { ReactNode } from 'react';
+import { describe, expect, it } from 'vitest';
 import { caughtUp, home, page, series, twoTodos } from './fixtures.strip';
 import type { OrganiserHome } from '@/modules/organiser/shared/selfServeApi';
-
-const rpc = vi.hoisted(() => vi.fn());
-const data = vi.hoisted(() => ({ home: null as unknown, roles: [] as unknown }));
-vi.mock('@/integrations/supabase/client', () => ({ supabase: { auth: {}, rpc, from: vi.fn() } }));
-vi.mock('@/hooks/useAuth', async () => ({
-  useAuth: () => ({ user: { id: 'u1', email: 'me@x.example' }, session: null }),
-  ProfileGateContext: (await import('react')).createContext(null),
-}));
-vi.mock('@/components/auth/AuthGuard', () => ({ AuthGuard: ({ children }: { children: ReactNode }) => <>{children}</> }));
-vi.mock('@/hooks/useNoindexMeta', () => ({ useNoindexMeta: () => undefined }));
-vi.mock('../../screens/HomeScreen', () => ({ HomeScreen: () => <div data-testid="p3-screen-home" /> }));
-vi.mock('../../screens/EventsScreen', () => ({ EventsScreen: () => <div data-testid="p3-screen-events" /> }));
-vi.mock('../../screens/StatsScreen', () => ({ StatsScreen: () => <div data-testid="p3-screen-stats" /> }));
-vi.mock('../../you/YouScreen', () => ({ YouScreen: () => <div data-testid="p3-screen-you" /> }));
-
-import P3Routes from '../P3Routes';
-import { P3_BASE, P3_PATHS } from '../paths';
 import { otherPagesOf, roleWordOf, stripOf, switchBadgeOf, todosOf } from '../../model/strip';
 
-beforeEach(() => {
-  rpc.mockReset();
-  rpc.mockImplementation(async (fn: string) => {
-    if (fn === 'organiser_home_v1') return { data: data.home, error: null };
-    if (fn === 'my_roles_v1') return { data: data.roles, error: null };
-    return { data: [], error: null };
-  });
-  try { window.localStorage.clear(); } catch { /* none */ }
-});
-afterEach(cleanup);
+// R4 is the only organiser UI and draws no role strip: the rendered rows went with the old P3 shell.
+// The shared mapping still drives the switcher (switch/index.tsx) and R4's To do badge.
 
 // ---- the shared mapping, table-driven ----
 const A = 'a';
@@ -85,53 +55,3 @@ describe('strip mapping (model/strip.ts)', () => {
     expect(otherPagesOf(undefined)).toEqual([]);
   });
 });
-
-// ---- rendered: the strip on every P3 screen ----
-function at(entry: string) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[entry]}>
-        <Routes><Route path={`${P3_BASE}/*`} element={<P3Routes />} /></Routes>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-}
-
-const SCREENS = [P3_PATHS.home, P3_PATHS.events, P3_PATHS.stats, P3_PATHS.you, P3_PATHS.youSwitch];
-
-describe('the strip on every P3 screen (journeys 1-3)', () => {
-  it.each(SCREENS)('%s: names the role and the page; Switch is a 44px link to Switch page', async (path) => {
-    data.home = home(page(A, 'Ritmo', 'owner', [twoTodos()]), page('b', 'Latino', 'manager', [series({ cover: false })]));
-    at(`${path}?o=${A}`);
-    const strip = await screen.findByTestId('p3-role-strip');
-    expect(strip.dataset.role).toBe('owner');
-    expect(screen.getByTestId('p3-role-strip-role').textContent).toBe('Owner');
-    expect(screen.getByTestId('p3-role-strip-page').textContent).toBe('Ritmo');
-    const sw = screen.getByTestId('p3-switch-control');
-    expect(sw.getAttribute('href')).toBe(`${P3_PATHS.youSwitch}?o=${A}`);
-    expect(sw.className).toContain('min-h-[44px]');
-    // Latino (the other page) has 1 to-do; Ritmo's own 2 never count.
-    expect(within(strip, 'switch-todo-badge')).toBe('1');
-  });
-
-  it('a manager sees Manager', async () => {
-    data.home = home(page(A, 'Ritmo', 'manager'));
-    at(P3_PATHS.home);
-    expect((await screen.findByTestId('p3-role-strip-role')).textContent).toBe('Manager');
-    expect(screen.queryByTestId('switch-todo-badge')).toBeNull();
-  });
-
-  it('no organiser page (P5, P12, P14): no strip and no badge', async () => {
-    data.home = home();
-    at(P3_PATHS.events);
-    await waitFor(() => expect(rpc).toHaveBeenCalledWith('organiser_home_v1'));
-    await new Promise((r) => setTimeout(r, 0));
-    expect(screen.queryByTestId('p3-role-strip')).toBeNull();
-    expect(screen.queryByTestId('switch-todo-badge')).toBeNull();
-  });
-});
-
-function within(root: HTMLElement, id: string): string | null {
-  return root.querySelector(`[data-testid="${id}"]`)?.textContent ?? null;
-}

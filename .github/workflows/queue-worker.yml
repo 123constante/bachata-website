@@ -164,7 +164,7 @@ jobs:
             marker="<!-- queue-run cost_usd=${usd:-0} in=${tin:-0} out=${tout:-0} turns=${turns:-0} -->"
             cost="Tokens in ${tin:-0} / out ${tout:-0}, ${turns:-0} turns, cost \$${usd:-0}."
             [ "${turns:-0}" -ge "$TURNS" ] && capped=true
-            api_err="$(jq -r '[.[]|select(.type=="result")]|last|if (.is_error == true or (.api_error_status // null) != null) then "\(.api_error_status // "error") \(.terminal_reason // "")" else empty end' "$EXEC_FILE" 2>/dev/null || true)"
+            api_err="$(jq -r '[.[]|select(.type=="result")]|last|if (.api_error_status // null) != null then "\(.api_error_status) \(.terminal_reason // "")" elif ((.subtype // "") | startswith("error_max")) then empty elif .is_error == true then "error \(.terminal_reason // "")" else empty end' "$EXEC_FILE" 2>/dev/null || true)"
           else
             cost="Tokens and cost: not available from the action for this run."
           fi

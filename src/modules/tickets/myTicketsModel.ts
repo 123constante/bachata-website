@@ -19,6 +19,9 @@ const ELL = '\u2026';
 export interface MyTicket {
   orderId: string;
   seriesId: string | null;
+  /** The public event id (my_tickets_v1 event_id); NOT seriesId. */
+  eventId: string | null;
+  occurrenceId: string | null;
   title: string;
   /** "YYYY-MM-DD", or null for a series-wide ticket with no scheduled night. */
   date: string | null;
@@ -31,6 +34,12 @@ export interface MyTicket {
   shortCode: string | null;
   checkedIn: boolean;
   checkedInAt: string | null;
+  /** night_cancelled from the read (absent on old replies = false). */
+  nightCancelled?: boolean;
+  /** refunded from the read: the whole order was refunded (QR and code are NULL then). Absent = false. */
+  refunded?: boolean;
+  /** order_refunded_pence: money refunded on the order so far (0 when none or absent). */
+  refundedPence?: number;
 }
 
 export interface MyTicketsReply {
@@ -80,6 +89,8 @@ export function parseMyTickets(data: unknown): MyTicketsReply | null {
       orderId,
       ticketId,
       seriesId: str(r.event_series_id),
+      eventId: str(r.event_id),
+      occurrenceId: str(r.occurrence_id),
       title: str(r.event_title) ?? 'Event',
       date: date && DATE_RE.test(date) ? date : null,
       startTime: time && TIME_RE.test(time) ? time : null,
@@ -89,6 +100,9 @@ export function parseMyTickets(data: unknown): MyTicketsReply | null {
       shortCode: parseShortCode(r.short_code),
       checkedIn: r.checked_in === true || str(r.checked_in_at) !== null,
       checkedInAt: str(r.checked_in_at),
+      nightCancelled: r.night_cancelled === true,
+      refunded: r.refunded === true,
+      refundedPence: typeof r.order_refunded_pence === 'number' && Number.isInteger(r.order_refunded_pence) && r.order_refunded_pence > 0 ? r.order_refunded_pence : 0,
     });
   }
   const total = typeof o.total_count === 'number' && Number.isFinite(o.total_count) ? Math.max(o.total_count, tickets.length) : tickets.length;
@@ -173,7 +187,7 @@ export function stateCopy(state: Exclude<PageState, 'ready'>, signInHref: string
     case 'error':
       return { title: 'Your tickets could not be loaded', body: 'Check your connection and try again. Your tickets are safe, and the confirmation email has them too.', action: { kind: 'retry', label: 'Try again' } };
     case 'empty':
-      return { title: 'No tickets yet', body: 'Tickets you buy while signed in show here, ready to show at the door.', action: { kind: 'link', label: 'Find an event', to: '/' } };
+      return { title: 'No tickets yet', body: 'Tickets you buy while signed in show here, ready to show at the door.', action: { kind: 'link', label: 'Browse events', to: '/' } };
   }
 }
 
@@ -205,6 +219,7 @@ export interface OrderQrTicket {
   qrToken: string;
   checkedIn: boolean;
   shortCode: string | null;
+  nightCancelled?: boolean;
 }
 
 /** my_ticket_order_qr_v1's reply: only `{tickets: [...]}`; a row without all four valid fields is dropped (a bad short_code is null, never a drop); anything else is null (an error). */
@@ -218,7 +233,7 @@ export function parseOrderQr(data: unknown): OrderQrTicket[] | null {
     const r = raw as Record<string, unknown>;
     if (typeof r.ticket_id !== 'string' || typeof r.ticket_type_name !== 'string' || typeof r.checked_in !== 'boolean') continue;
     if (typeof r.qr_token !== 'string' || !TOKEN_RE.test(r.qr_token)) continue;
-    out.push({ ticketId: r.ticket_id, typeName: r.ticket_type_name, qrToken: r.qr_token, checkedIn: r.checked_in, shortCode: parseShortCode(r.short_code) });
+    out.push({ ticketId: r.ticket_id, typeName: r.ticket_type_name, qrToken: r.qr_token, checkedIn: r.checked_in, shortCode: parseShortCode(r.short_code), ...(r.night_cancelled === true ? { nightCancelled: true } : {}) });
   }
   return out;
 }

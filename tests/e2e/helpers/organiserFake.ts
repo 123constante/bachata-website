@@ -114,6 +114,14 @@ export interface FakeSeries {
   removed_dates: string[];
   extra_dates: string[];
   cancelled: Record<string, string>;
+  /** per-night venue override (date -> venue id); read back as event.venue_id_override */
+  night_venue?: Record<string, string>;
+  /** per-night description override (date -> text); read back as event.description_override */
+  night_description?: Record<string, string>;
+  /** per-night own start time (date -> HH:MM); read back as materialised_start_utc, so the night differs from the usual 20:00 (Back to the usual times) */
+  night_start?: Record<string, string>;
+  /** per-night gallery override (date -> urls); written by occurrence.set_override {gallery}, read back as event.gallery_override */
+  night_gallery?: Record<string, string[]>;
   /**
    * The series programme (event_series_program_item_p5), the series_item_id rows every date
    * shows. Fixed at creation (addSeries, from the category the fixture names): the organiser
@@ -325,18 +333,19 @@ export class OrganiserFake {
   }
 
   workspace(s: FakeSeries) {
-    const { n: _n, extra_dates: _e, cancelled: _c, series_items: _items, gallery, video_urls, default_music_styles, ...series } = s;
+    const { n: _n, extra_dates: _e, cancelled: _c, night_venue: _nv, night_description: _nd, night_start: _ns, night_gallery: _ng, series_items: _items, gallery, video_urls, default_music_styles, ...series } = s;
     return {
       meta: { version: s.version, has_more: false },
       series: {
-        series: { ...series, default_local_start_time: '20:00:00', default_duration: null, default_level: null, default_cover_image_url: null,
-          instagram_url: null, passes: null, created_at: '2026-09-01T10:00:00+00:00', gallery, video_urls, default_music_styles },
+        series: { ...series, organiser_ids: this.organisers.filter((o) => o.series.includes(s.id)).map((o) => o.id), default_local_start_time: '20:00:00', default_duration: null, default_level: null, default_cover_image_url: (series as { cover_image_url?: string | null }).cover_image_url ?? null,
+          instagram_url: null, passes: (series as { passes?: unknown }).passes ?? null, created_at: '2026-09-01T10:00:00+00:00', gallery, video_urls, default_music_styles },
         // As admin_event_workspace_p5 answers: the series programme, and per date the date-only sessions it holds.
         program: s.series_items.length ? [{ sections: [{ items: s.series_items.map((x) => ({ item: { type: x.type, start_time: x.start_time } })) }] }] : [],
       },
       occurrences: [...this.dates(s)].reverse().map((d) => ({
         id: this.occId(s, d), occurrence_date: d, lifecycle_status: s.cancelled[d] ? 'cancelled' : 'scheduled', version: 1,
-        has_override: false, session_overrides_count: 0, materialised_start_utc: `${d}T20:00:00+00:00`,
+        has_override: !!(s.night_venue?.[d] || s.night_description?.[d]), session_overrides_count: 0,
+        override_keys: [...(s.night_venue?.[d] ? ['venue_id'] : []), ...(s.night_description?.[d] ? ['description'] : []), ...((s as { night_cover?: Record<string, string> }).night_cover?.[d] ? ['cover_image_url'] : [])], materialised_start_utc: `${d}T${s.night_start?.[d] ?? '20:00'}:00+00:00`,
         added_sessions_count: (this.programmes.get(this.occId(s, d))?.sessions ?? []).filter((x) => x.added_session_id && x.removed !== true).length,
       })),
     };
@@ -345,14 +354,14 @@ export class OrganiserFake {
   dateDetail(s: FakeSeries, date: string) {
     return {
       event: {
-        name: s.name, venue_id: s.default_venue_id, ticket_url: null, description: s.default_description, cover_image_url: null,
-        venue_id_override: null, ticket_url_override: null, description_override: null, cover_image_url_override: null,
+        name: s.name, venue_id: s.night_venue?.[date] ?? s.default_venue_id, ticket_url: null, description: s.default_description, cover_image_url: (s as { night_cover?: Record<string, string> }).night_cover?.[date] ?? (s as { cover_image_url?: string | null }).cover_image_url ?? null,
+        venue_id_override: s.night_venue?.[date] ?? null, ticket_url_override: null, description_override: s.night_description?.[date] ?? null, cover_image_url_override: (s as { night_cover?: Record<string, string> }).night_cover?.[date] ?? null, gallery_override: s.night_gallery?.[date] ?? null,
         cancellation_reason_label: s.cancelled[date] ?? null,
       },
       program: [],
-      schedule: { timezone: 'Europe/London', local_start_time: '20:00:00', local_end_time: '23:30:00' },
+      schedule: { timezone: 'Europe/London', local_start_time: `${s.night_start?.[date] ?? '20:00'}:00`, local_end_time: '23:30:00' },
       occurrence: { id: this.occId(s, date), date, version: 1, series_id: s.id, lifecycle_status: s.cancelled[date] ? 'cancelled' : 'scheduled',
-        materialised_start_utc: `${date}T20:00:00+00:00` },
+        materialised_start_utc: `${date}T${s.night_start?.[date] ?? '20:00'}:00+00:00` },
       added_sessions: [],
     };
   }
@@ -665,6 +674,11 @@ export class OrganiserFake {
             if (env.command.payload.cancelled) hit.s.cancelled[hit.date] = String(env.command.payload.reason);
             else delete hit.s.cancelled[hit.date];
           }
+          if (env.command.kind === 'occurrence.set_override' && 'gallery' in env.command.payload) {
+            const g = env.command.payload.gallery as string[] | null;
+            hit.s.night_gallery = { ...(hit.s.night_gallery ?? {}) };
+            if (g) hit.s.night_gallery[hit.date] = g; else delete hit.s.night_gallery[hit.date];
+          }
           return json(route, { ok: true, data: {}, audit_id: 'a', new_version: 2 });
         }
         const out = this.seriesCommand(env);
@@ -741,7 +755,12 @@ export async function setKeyboard(page: Page, px: number) {
  * really too wide never settles at 0 and still fails.
  */
 export async function expectNoHorizontalScroll(page: Page) {
-  const measure = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  // A navigation still in flight (hydration redirect) destroys the execution context mid-evaluate;
+  // read that as "not settled yet" so the poll retries instead of failing the test.
+  const measure = () =>
+    page
+      .evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+      .catch((e: Error) => (/Execution context was destroyed|navigation/i.test(e.message) ? Number.POSITIVE_INFINITY : Promise.reject(e)));
   await expect.poll(measure, { message: 'document is wider than the screen after the page transition settled' }).toBeLessThanOrEqual(0);
   await page.waitForTimeout(300);
   expect(await measure()).toBeLessThanOrEqual(0);

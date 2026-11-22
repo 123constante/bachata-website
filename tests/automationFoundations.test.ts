@@ -24,9 +24,9 @@ const OTHER = 'd'.repeat(40);
 
 // ---------------------------------------------------------------- the file
 describe('required-jobs.json (PART 1.1)', () => {
-  it('parses, and pr_head is the seven ruleset contexts (fact 1)', () => {
+  it('parses, and pr_head is the six ruleset contexts (fact 1)', () => {
     const r = parseRequiredJobs(FILE_TEXT);
-    expect(r.pr_head).toEqual(['integrity', 'bundle-budget', 'e2e-smoke', 'wallclock-brand', 'masking-check', 'bom-check', 'unit (Europe/London, full)']);
+    expect(r.pr_head).toEqual(['integrity', 'bundle-budget', 'wallclock-brand', 'masking-check', 'bom-check', 'unit (Europe/London, full)']);
     expect(r.post_merge_audits).toEqual(['Owner approval audit']);
     expect(r.conditional.map((c: { name: string }) => c.name)).toEqual(['phone-qa (1)', 'phone-qa (2)', 'phone-qa (3)', 'phone-qa (4)', 'phone-qa (5)', 'build-smoke', 'types-drift']);
   });
@@ -117,7 +117,7 @@ describe('mergeVerdict takes facts.requiredJobs (PART 1.3)', () => {
 // ---------------------------------------------------------------- run(): THE merge call site
 const NAMES: string[] = REQ.pr_head;
 const allGreen = (head: string) => green(head, NAMES);
-const missingOne = (head: string) => green(head, NAMES.filter((n) => n !== 'e2e-smoke'));
+const missingOne = (head: string) => green(head, NAMES.filter((n) => n !== 'bom-check'));
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RunFn = (env: any, opts: any) => Promise<number>;
 async function scenario(runFn: RunFn, checkRuns: (head: string, read: number) => CheckRun[]) {
@@ -131,8 +131,8 @@ async function scenario(runFn: RunFn, checkRuns: (head: string, read: number) =>
 // The REAL default readers (no foundations injection): the file comes from the checkout (main).
 const SCENARIOS: [string, (head: string, read: number) => CheckRun[], (r: Awaited<ReturnType<typeof scenario>>) => boolean][] = [
   ['every required job green at every read: ONE merge, the head re-read immediately before it', (h) => allGreen(h), (r) => r.code === 0 && r.merges === 1 && r.reads >= 3],
-  ['A17: e2e-smoke not yet reported at the merge-time re-read: NO merge, logged', (h, n) => (n >= 3 ? missingOne(h) : allGreen(h)), (r) => r.merges === 0 && r.out.includes('required job missing: e2e-smoke')],
-  ['A17: e2e-smoke not reported at all: NO merge', (h) => missingOne(h), (r) => r.merges === 0 && r.out.includes('required job missing: e2e-smoke')],
+  ['A17: bom-check not yet reported at the merge-time re-read: NO merge, logged', (h, n) => (n >= 3 ? missingOne(h) : allGreen(h)), (r) => r.merges === 0 && r.out.includes('required job missing: bom-check')],
+  ['A17: bom-check not reported at all: NO merge', (h) => missingOne(h), (r) => r.merges === 0 && r.out.includes('required job missing: bom-check')],
   ['a required job in progress at the re-read: NO merge', (h, n) => (n >= 3 ? allGreen(h).map((x) => (x.name === 'integrity' ? { ...x, status: 'in_progress', conclusion: null } : x)) : allGreen(h)), (r) => r.merges === 0 && r.out.includes('required job not green: integrity=in_progress')],
   ['runs reported for another sha do not count: NO merge', (h) => allGreen(h).map((x) => ({ ...x, head_sha: sha(99) })), (r) => r.merges === 0 && r.out.includes('required job missing: integrity')],
 ];
@@ -232,13 +232,13 @@ describe('check-ruleset-vs-required-jobs.mjs: the ruleset list equals pr_head', 
     expect(c).toEqual({ ok: true, notInRuleset: [], notInFile: [] });
   });
   it('rules array form (GET /rules/branches/main) is read too', () => {
-    expect(rulesetContexts(JSON.parse(RULESET_TEXT).rules)).toHaveLength(7);
+    expect(rulesetContexts(JSON.parse(RULESET_TEXT).rules)).toHaveLength(6);
   });
   it('a mutated ruleset: every difference both ways', () => {
     const rs = JSON.parse(RULESET_TEXT);
     const checks = rs.rules[2].parameters.required_status_checks;
-    rs.rules[2].parameters.required_status_checks = [...checks.filter((c: { context: string }) => c.context !== 'e2e-smoke'), { context: 'owner-approval' }];
-    expect(compareRuleset(rs, parseRequiredJobs(FILE_TEXT))).toEqual({ ok: false, notInRuleset: ['e2e-smoke'], notInFile: ['owner-approval'] });
+    rs.rules[2].parameters.required_status_checks = [...checks.filter((c: { context: string }) => c.context !== 'bom-check'), { context: 'owner-approval' }];
+    expect(compareRuleset(rs, parseRequiredJobs(FILE_TEXT))).toEqual({ ok: false, notInRuleset: ['bom-check'], notInFile: ['owner-approval'] });
   });
   it('a ruleset with no required_status_checks rule refuses (it would enforce nothing)', () => {
     expect(() => rulesetContexts({ rules: [{ type: 'deletion' }] })).toThrow();

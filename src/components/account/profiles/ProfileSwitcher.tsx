@@ -10,6 +10,8 @@ import { SideAvatar, sideKind, sideTitle } from './SideAvatar';
 import { PersonAvatar } from './PersonAvatar';
 import { useProfileSides } from './useProfileSides';
 import { SIGN_OUT_FAILED, useSignOutToHome } from './signOutToHome';
+import { flags } from '@/lib/featureFlags';
+import { ProfileSwitcherR4 } from './ProfileSwitcherR4';
 
 /** Re-exported for older importers; the one value lives in ./signOutToHome. */
 export { SIGN_OUT_FAILED };
@@ -50,6 +52,11 @@ export const SIGN_OUT_CONFIRM_LINE = 'You can sign back in any time with your em
  * area keeps the site tokens (bg-background / text-foreground).
  */
 export function ProfileSwitcher({ where }: { where: SwitcherWhere }) {
+  // Dashboard switch, Round-4 look (docs/briefs/dashboard-switch-build.md). OFF = the sheet below, unchanged.
+  return flags.dashboardSwitchR4 ? <ProfileSwitcherR4 where={where} /> : <ClassicProfileSwitcher where={where} />;
+}
+
+function ClassicProfileSwitcher({ where }: { where: SwitcherWhere }) {
   const { signOutToHome, busy } = useSignOutToHome();
   const { state } = useProfileSides();
   const [open, setOpen] = useState(false);

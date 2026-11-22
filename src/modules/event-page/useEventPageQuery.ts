@@ -175,6 +175,9 @@ export const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null
       // 'YYYY-MM-DD' by a day either side of a BST boundary.
       endedOn: asString(event.ended_on),
       ranFrom: asString(event.ran_from),
+      // Not in prod until admin #2037 is applied: an absent key parses to null (unset).
+      signupRule:
+        event.signup_rule === 'drop_in' || event.signup_rule === 'sign_up_first' ? event.signup_rule : null,
       isPublished: event.is_published !== false,
       createdBy: asString(event.created_by),
       // No cover but a gallery: the first gallery picture is the cover

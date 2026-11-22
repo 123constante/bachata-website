@@ -9,8 +9,10 @@
   ],
   "seams": [
     "src/lib/buyerOnboardingFlag.ts",
+    "src/lib/postpayTicketsTabFlag.ts",
     "src/modules/tickets/MyTicketsPage.tsx",
     "src/modules/tickets/TicketPickerB1.tsx",
+    "src/modules/tickets/CodeBoxes.tsx",
     "src/modules/tickets/TicketThanksPage.tsx",
     "src/modules/tickets/ticketCardStatus.ts",
     "src/modules/tickets/__tests__/onboardTicketStates.matrix.test.tsx",
@@ -262,6 +264,7 @@
     "src/modules/organiser/p3/onboarding/personModel.ts"
   ],
   "seamNotes": {
+    "src/modules/tickets/CodeBoxes.tsx": "The 6-box code entry, extracted from TicketPickerB1 so the My tickets account-link sheet reuses the checkout behaviour (onboard-dups-website).",
     "src/modules/tickets/ticketCardStatus.ts": "buyer onboarding slice A (PR #1763, owner decision 2026-11-17, flag VITE_ENABLE_BUYER_ONBOARDING OFF): silent profile create, picker Not-you line, checkout return to Home with QR and one ticket status mapping touch the ticket screens; the 7 files are listed individually above (rule (a) exempts only the tests/ prefix, so the two __tests__ files must be listed)",
     "src/modules/organiser/p3/onboarding/": "instagram-refusal r2 (PR #1272, owner decision 2026-11-02): checklist rows reach their field (Review -> /app edit, new DJ steps) and src/lib/instagramHandle.ts shares the one Instagram wording; the 12 files this PR touches are listed individually above (fix1 adds edit-in-place/__tests__/fieldRules.test.ts: the m. host is a profile link there too; rule (a) exempts only the tests/ prefix, so a __tests__ file outside src/modules/dancer-app/ must be listed)",
     "docs/people-arc/": "docPrefixes entry: docs only; orchestrator decision D138 2026-10-21",

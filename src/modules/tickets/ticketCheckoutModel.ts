@@ -298,9 +298,11 @@ export function parseCheckoutReply(body: unknown, httpStatus: number): CheckoutR
   if (b.ok === true && orderId && b.free === true) return { kind: 'free', orderId };
   const url = str(b.checkout_url);
   if (b.ok === true && orderId && url && url.startsWith(STRIPE_CHECKOUT_PREFIX)) return { kind: 'redirect', orderId, url };
-  const reason =
+  const serverReason =
     str(b.reason) ??
     (httpStatus === 404 || httpStatus === 503 ? 'not_configured' : httpStatus === 401 ? 'unauthorised' : 'internal_error');
+  // The daily free-order cap (limit 'free_daily') is not the hourly limiter: own copy, no "held" suffix.
+  const reason = serverReason === 'rate_limited' && b.limit === 'free_daily' ? 'free_daily_limit' : serverReason;
   // price_changed (T4) carries new prices; the reply rides along for priceSteps.parsePriceChanged.
   return reason === 'price_changed' ? { kind: 'error', reason, message: str(b.message), raw: body } : { kind: 'error', reason, message: str(b.message) };
 }
@@ -323,6 +325,7 @@ export const REASON_COPY: Readonly<Record<string, ReasonCopy>> = {
   invalid_fee: { text: 'The booking could not be priced. You have not been charged. Try again; if it keeps happening, contact the organiser.', way: 'retry' },
   refused: { text: 'Your tickets could not be reserved. You have not been charged. Try again.', way: 'retry' },
   rate_limited: { text: `Too many ticket requests. Please wait a while and try again. ${RATE_HELD}`, way: 'retry' },
+  free_daily_limit: { text: "You have reached today's limit of 5 free bookings for this email. Try again tomorrow.", way: 'retry' },
   not_found: { text: 'This ticket is no longer available. Pick another ticket.', way: 'pick_another' },
   not_on_sale: { text: 'This ticket is not on sale right now. Pick another ticket.', way: 'pick_another' },
   outside_sales_window: { text: 'Sales for this ticket are not open right now. Pick another ticket or come back later.', way: 'pick_another' },

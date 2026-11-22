@@ -11,7 +11,10 @@ import type { Night } from './nightsModel';
 import { MoonArt } from '../art';
 import { ScreenTitle, SectionTitle } from '../blocks';
 import { DateBlock, StatusPill } from './nightsUi';
+import { Sheet } from '../options/optionsUi';
 import { FIND_A_NIGHT } from '../../copy/sharedCopy';
+import type { MyTicket } from '@/modules/tickets/myTicketsModel';
+import { NIGHTS_TICKET_QR_ENABLED } from './nightsTicketFlag';
 
 /**
  * Going P2: the nights the person said I'm going to (get_my_going_v1), in the
@@ -53,9 +56,12 @@ const NIGHTS_GOING_LOADING: NightsGoing = {
 };
 
 const NightsGoingFeed = lazyWithRetry(() => import('./nightsGoing'));
+/** Ticket QR (flag VITE_ENABLE_NIGHTS_TICKET_QR): the ticket read and the QR sheet, one lazy chunk. */
+const NightTicketQr = lazyWithRetry(() => import('./NightTicketQr'));
+const NightQrBody = lazyWithRetry(() => import('./NightTicketQr').then((m) => ({ default: m.NightQrBody })));
 
 /** `rate`: this row carries its series' level vote (one per series, review N10: the vote is series-wide). */
-const NightRow = ({ night, profileComplete, focused, rate }: { night: NightRowData; profileComplete: boolean; focused: boolean; rate: boolean }) => {
+const NightRow = ({ night, profileComplete, focused, rate, onQr }: { night: NightRowData; profileComplete: boolean; focused: boolean; rate: boolean; onQr?: () => void }) => {
   const ref = useRef<HTMLLIElement | null>(null);
   const note = night.note;
   useEffect(() => {
@@ -94,6 +100,22 @@ const NightRow = ({ night, profileComplete, focused, rate }: { night: NightRowDa
           </div>
         )}
       </div>
+      {onQr && (
+        <button
+          type="button"
+          data-testid="night-qr"
+          aria-label={`Show ticket QR code for ${night.name}`}
+          onClick={onQr}
+          className="grid h-[44px] w-[44px] shrink-0 place-items-center self-center rounded-[12px] border border-[var(--line)] bg-[var(--card)] text-[var(--fg)]"
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect width="5" height="5" x="3" y="3" rx="1" />
+            <rect width="5" height="5" x="16" y="3" rx="1" />
+            <rect width="5" height="5" x="3" y="16" rx="1" />
+            <path d="M21 16h-3a2 2 0 0 0-2 2v3M21 21v.01M12 7v3a2 2 0 0 1-2 2H7M3 12h.01M12 3h.01M12 16v.01M16 12h1M21 12v.01M12 21v-1" />
+          </svg>
+        </button>
+      )}
     </li>
   );
 };
@@ -105,6 +127,9 @@ const NightsView = ({ going }: { going: NightsGoing }) => {
   const focus = params.get('focus');
   const complete = profile.data?.complete === true;
   // One focused row: the most recent past night of that series.
+  const qrOn = NIGHTS_TICKET_QR_ENABLED && nights.upcoming.length > 0;
+  const [byNight, setByNight] = useState<Map<string, MyTicket[]>>(() => new Map());
+  const [qrFor, setQrFor] = useState<NightRowData | null>(null);
   const focusedKey = focus ? nights.past.find((n) => n.seriesId === focus) : undefined;
 
   return (
@@ -142,7 +167,7 @@ const NightsView = ({ going }: { going: NightsGoing }) => {
               ) : (
                 <ul className="m-0 list-none divide-y divide-[var(--line)] p-0">
                   {nights.upcoming.map((n, i) => (
-                    <NightRow key={n.occurrenceId} night={n} profileComplete={complete} focused={false} rate={false} />
+                    <NightRow key={n.occurrenceId} night={n} profileComplete={complete} focused={false} rate={false} onQr={byNight.has(n.occurrenceId) ? () => setQrFor(n) : undefined} />
                   ))}
                 </ul>
               )}
@@ -171,6 +196,18 @@ const NightsView = ({ going }: { going: NightsGoing }) => {
             </Card>
           </section>
         </>
+      )}
+      {qrOn && (
+        <Suspense fallback={null}>
+          <NightTicketQr nights={nights.upcoming} onTickets={setByNight} />
+        </Suspense>
+      )}
+      {qrOn && qrFor && byNight.has(qrFor.occurrenceId) && (
+        <Sheet title={qrFor.name} testId="night-qr-sheet" onClose={() => setQrFor(null)}>
+          <Suspense fallback={null}>
+            <NightQrBody key={qrFor.occurrenceId} night={qrFor} tickets={byNight.get(qrFor.occurrenceId) ?? []} />
+          </Suspense>
+        </Sheet>
       )}
     </div>
   );

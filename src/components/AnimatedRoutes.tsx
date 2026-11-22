@@ -44,6 +44,7 @@ const Vendors = lazyWithRetry(() => import("../pages/Vendors"));
 const VendorDetail = lazyWithRetry(() => import("../pages/VendorDetail"));
 const Raffles = lazyWithRetry(() => import("../pages/Raffles"));
 const Auth = lazyWithRetry(() => import("../pages/Auth"));
+const RaffleWin = lazyWithRetry(() => import("../pages/RaffleWin"));
 // The organiser area (/account/o). Its AuthGuard lives inside this chunk; the
 // old /account URLs redirect into it (LegacyAccountRedirect, a tiny eager file).
 const OrganiserArea = lazyWithRetry(() => import("@/modules/organiser/shell/OrganiserRoutes"));
@@ -62,6 +63,10 @@ const AdminOrganisers = lazyWithRetry(() => import("@/modules/admin-organisers/A
 const AdminFrontDoor = lazyWithRetry(() => import("@/modules/admin-organisers/FrontDoorPage"));
 const AmbassadorQueue = lazyWithRetry(() => import("@/modules/ambassador/AmbassadorQueuePage"));
 const InviteRedeem = lazyWithRetry(() => import("@/modules/admin-organisers/InviteRedeemPage"));
+// The door invite link and a door-seat holder's door screen (organiser R4 slice a): live whatever the organiser flags.
+const RaffleDoor = lazyWithRetry(() => import("../pages/RaffleDoor"));
+const DoorJoin = lazyWithRetry(() => import("@/modules/organiser/p3/door/join/DoorJoinPage"));
+const SeatDoor = lazyWithRetry(() => import("@/modules/organiser/p3/door/join/SeatDoorPage"));
 const AmbassadorLink = lazyWithRetry(() => import("@/modules/ambassador/link/AmbassadorLinkPage"));
 const AuthCallback = lazyWithRetry(() => import("../pages/AuthCallback"));
 const FinishProfile = lazyWithRetry(() => import("../pages/FinishProfile"));
@@ -164,6 +169,7 @@ export const AnimatedRoutes = () => {
                 ? <PageTransition><Raffles /></PageTransition>
                 : <Navigate to="/" replace />
             } />
+            <Route path="/raffle/win/:token" element={<PageTransition><RaffleWin /></PageTransition>} />
             <Route path="/videographers" element={<PageTransition><Videographers /></PageTransition>} />
             <Route path="/choreography" element={<PageTransition><Choreography /></PageTransition>} />
             <Route path="/dancers" element={<PageTransition><Dancers /></PageTransition>} />
@@ -291,6 +297,13 @@ export const AnimatedRoutes = () => {
             <Route path="/admin/organisers/front-door" element={<PageTransition><AdminFrontDoor /></PageTransition>} />
             <Route path="/invite" element={<PageTransition><InviteRedeem /></PageTransition>} />
             <Route path="/invite/:token" element={<PageTransition><InviteRedeem /></PageTransition>} />
+            {/* Raffle v3 winner door scan (flags.raffleV2): anon, no login. Not the ticket /door/... routes. */}
+            <Route path="/raffle/door/:token" element={
+              flags.raffleV2 ? <RaffleDoor /> : <Navigate to="/" replace />
+            } />
+            <Route path="/door/join" element={<DoorJoin />} />
+            <Route path="/door/join/:token" element={<DoorJoin />} />
+            <Route path="/door/:seriesId" element={<SeatDoor />} />
             {/* Ambassador shared link (one permanent link per ambassador): works for an inactive city. */}
             <Route path="/join/a/:code" element={<PageTransition><AmbassadorLink /></PageTransition>} />
 

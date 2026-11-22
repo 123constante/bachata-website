@@ -31,6 +31,17 @@ import { useListImpressions } from '@/lib/listImpressions';
 import { focusRing } from './controls';
 import { resolvePageCity } from '@/lib/pageCity';
 import EmptyCityNote from '@/components/listing/LazyEmptyCityNote';
+import { flags } from '@/lib/featureFlags';
+import { HomeChipRow } from '@/modules/home-polish/HomeChipRow';
+import { PosterRow, type PosterSel } from '@/modules/home-polish/PosterRow';
+import {
+  FAR_MI,
+  matchesCats,
+  readNearestPref,
+  writeNearestPref,
+  locationAlreadyGranted,
+  type ChipCat,
+} from '@/modules/home-polish/chips';
 
 /** Date-group header. Today's group is dominant (amber TODAY pill + foreground
  *  label + amber rule/count); every later day is muted, so the eye lands on
@@ -61,6 +72,20 @@ function GroupHeader({
     sticky &&
       "sticky top-0 z-10 bg-[#11121a] before:absolute before:inset-x-0 before:bottom-full before:h-3 before:bg-[#11121a] before:content-['']",
   );
+  if (flags.homeFeedLook) {
+    // homeFeedLook: poster day header, big word + date + count on ONE baseline.
+    return (
+      <header className={cn('flex items-baseline gap-2 px-1 pb-1.5 pt-1', sticky && "hm-look-sticky sticky top-0 z-10 before:absolute before:inset-x-0 before:bottom-full before:h-3 before:content-['']")}>
+        {isToday ? (
+          <span className="hm-look-day shrink-0 text-[34px] tracking-[.03em] text-[hsl(var(--hm-look-amber))]">Today</span>
+        ) : isTomorrow ? (
+          <span className="hm-look-day shrink-0 text-[26px] tracking-[.03em] text-[hsl(var(--hm-look-dim))]">Tomorrow</span>
+        ) : null}
+        <span className="truncate text-[13px] font-bold text-[hsl(var(--hm-look-dim))]">{label}</span>
+        <span className="ml-auto shrink-0 text-[13px] font-extrabold tabular-nums text-[hsl(var(--hm-look-amber))]">{count}</span>
+      </header>
+    );
+  }
   if (isToday) {
     return (
       <header className={base}>
@@ -172,8 +197,44 @@ export function AllEventsList({
   // first render, then rolls over (see useMapList / homeClock).
   const today = state.today;
   const trackImpression = useListImpressions('home');
-  const [nearest, setNearest] = useState(false);
+  const [nearest, setNearestRaw] = useState(false);
   const coords = state.geo.coords;
+  // homePolish: Party/Class/Fest filters (multi) + a remembered Nearest preference.
+  const polish = flags.homePolish;
+  // homeFeedLook: the poster-word row replaces the chip row (single category; Near me inside it).
+  const look = polish && flags.homeFeedLook;
+  const [cats, setCats] = useState<ReadonlySet<ChipCat>>(() => new Set());
+  const toggleCat = (c: ChipCat) =>
+    setCats((prev) => {
+      const next = new Set(prev);
+      if (next.has(c)) next.delete(c);
+      else next.add(c);
+      return next;
+    });
+  const setNearest = (on: boolean) => {
+    setNearestRaw(on);
+    if (polish) writeNearestPref(on);
+  };
+  // Restore Nearest only if the browser ALREADY says granted -- never an auto-prompt.
+  // In an effect (post-hydration): the server and first client render both start at false.
+  const geoRequest = state.geo.request;
+  const geoStatusRef = useRef(state.geo.status);
+  geoStatusRef.current = state.geo.status;
+  useEffect(() => {
+    if (!polish || !readNearestPref()) return;
+    let live = true;
+    void locationAlreadyGranted().then((ok) => {
+      if (!live || !ok) return;
+      setNearestRaw(true);
+      // Cached coordinates already restored a fix: do not force a fresh one.
+      if (geoStatusRef.current === 'idle') geoRequest();
+    });
+    return () => {
+      live = false;
+    };
+    // Mount-only on purpose: a restore, not a subscription.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const tomorrow = addDaysToKey(today, 1);
   // Memoised: partitionRemote -> localFeedGroups is real work
   // over the whole feed (up to ~380 rows), and this component re-renders on
@@ -182,7 +243,11 @@ export function AllEventsList({
   // the chain on every hover-driven render.
   const citySlug = state.citySlug ?? null;
   const city = useMemo(() => resolvePageCity(citySlug), [citySlug]);
-  const { local, remote } = useMemo(() => partitionRemote(state.listEvents, citySlug), [state.listEvents, citySlug]);
+  const { local, remote } = useMemo(() => {
+    const parts = partitionRemote(state.listEvents, citySlug);
+    if (!polish || cats.size === 0) return parts;
+    return { local: parts.local.filter((e) => matchesCats(e, cats)), remote: parts.remote.filter((e) => matchesCats(e, cats)) };
+  }, [state.listEvents, citySlug, polish, cats]);
   const groups = useMemo(() => localFeedGroups(local), [local]);
 
   // Windowed SSR (see mapListDerivations.INITIAL_FEED_DAYS). The server and the
@@ -268,11 +333,19 @@ export function AllEventsList({
   // React can populate from an abandoned concurrent render. It was optimising
   // scroll-expansion work whose cost never showed above the measurement noise on
   // this feed, so the correct trade is to not have it.
+  // homePolish: when even the NEAREST row is over ~60 mi away, say so and keep date order.
+  const far = useMemo(() => {
+    if (!polish || !nearest || !hasDistances) return false;
+    let min = Infinity;
+    for (const mi of distances.values()) if (mi != null && mi < min) min = mi;
+    return min > FAR_MI;
+  }, [polish, nearest, hasDistances, distances]);
+
   const orderedGroups = useMemo(
     () =>
       shownGroups.map((g) => {
         const items = g.items.map((e) => ({ e, mi: distances.get(e.occurrence_id) ?? null }));
-        if (nearest && coords) {
+        if (nearest && coords && !far) {
           items.sort((a, b) => {
             if (a.mi == null && b.mi == null) return 0;
             if (a.mi == null) return 1;
@@ -282,7 +355,7 @@ export function AllEventsList({
         }
         return { ...g, items };
       }),
-    [shownGroups, nearest, coords, distances],
+    [shownGroups, nearest, coords, distances, far],
   );
 
   // Both empty, not just the local stream: a feed carrying only remote
@@ -292,6 +365,59 @@ export function AllEventsList({
   const cityNote = !city.isLondon && groups.length === 0 && !state.q ? (
     <EmptyCityNote cityName={city.name} citySlug={city.slug} />
   ) : null;
+  const posterSel: PosterSel = nearest ? 'near' : (([...cats][0] as ChipCat | undefined) ?? 'all');
+  // Shuffle (homeFeedLook): rows slide out (~0.2s), the filter applies, rows slide in staggered (CSS, keyed on posterSel).
+  // Skipped under prefers-reduced-motion. The location request is never delayed.
+  const [leaving, setLeaving] = useState(false);
+  const leaveTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(leaveTimer.current), []);
+  const applyAfterOut = (apply: () => void) => {
+    const still = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.clearTimeout(leaveTimer.current);
+    if (still) {
+      apply();
+      return;
+    }
+    setLeaving(true);
+    leaveTimer.current = window.setTimeout(() => {
+      apply();
+      setLeaving(false);
+    }, 200);
+  };
+  const onPosterSelect = (next: PosterSel) => {
+    if (next === 'near') {
+      // Location is asked for ONLY on this tap (a no-op if already granted / in flight).
+      if (state.geo.status !== 'granted' && state.geo.status !== 'loading') state.geo.request();
+      applyAfterOut(() => {
+        setCats(new Set());
+        setNearest(true);
+      });
+      return;
+    }
+    if (nearest && state.geo.status === 'loading') state.geo.clear();
+    applyAfterOut(() => {
+      setNearest(false);
+      setCats(next === 'all' ? new Set() : new Set<ChipCat>([next]));
+    });
+  };
+  const chipRow = look ? (
+    <PosterRow geo={state.geo} sel={posterSel} onSelect={onPosterSelect} />
+  ) : polish ? (
+    <HomeChipRow geo={state.geo} nearest={nearest} onNearest={setNearest} cats={cats} onToggleCat={toggleCat} />
+  ) : null;
+  if (polish && cats.size > 0 && groups.length === 0 && remote.length === 0) {
+    return (
+      <div className="space-y-3">
+        {chipRow}
+        <EmptyState>
+          No events match these filters.{' '}
+          <button type="button" onClick={() => setCats(new Set())} className={cn('inline-flex min-h-[44px] items-center font-bold text-primary underline', focusRing)}>
+            Clear filters
+          </button>
+        </EmptyState>
+      </div>
+    );
+  }
   if (groups.length === 0 && remote.length === 0) {
     if (cityNote) return cityNote;
     return (
@@ -304,8 +430,22 @@ export function AllEventsList({
   return (
     <div className="space-y-3">
       {cityNote}
-      {state.geo.status === 'idle' && <LocationStrip onUse={state.geo.request} />}
-      {coords && hasDistances && (
+      {chipRow}
+      {far && (
+        <div role="status" className="flex items-center justify-between gap-2 rounded-xl border border-border px-3 py-1 text-sm text-muted-foreground">
+          <span>These events are far from you.</span>
+          <button type="button" onClick={() => setNearest(false)} className={cn('inline-flex min-h-[44px] items-center font-bold text-primary underline', focusRing)}>
+            Clear
+          </button>
+        </div>
+      )}
+      {flags.nearMe && polish && nearest && coords && !hasDistances && (
+        <div role="status" className="rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground">
+          No events with a place on the map to measure from here yet. The chip still works as events are added.
+        </div>
+      )}
+      {!polish && state.geo.status === 'idle' && <LocationStrip onUse={state.geo.request} />}
+      {!polish && coords && hasDistances && (
         <div className="flex items-center justify-end gap-1.5 text-[11px] font-bold">
           <span className="text-muted-foreground">Sort</span>
           <div className="inline-flex overflow-hidden rounded-full border border-border">
@@ -328,6 +468,7 @@ export function AllEventsList({
           </div>
         </div>
       )}
+      <div key={look ? posterSel : 'static'} className={cn(look && 'hm-shuffle', look && leaving && 'is-leaving', 'space-y-3')} data-shuffle={look ? posterSel : undefined}>
       {orderedGroups.map((g) => (
         <section key={g.key}>
           <GroupHeader label={g.label} count={g.items.length} isToday={g.key === today} isTomorrow={g.key === tomorrow} sticky={stickyHeaders} />
@@ -348,6 +489,7 @@ export function AllEventsList({
           </div>
         </section>
       ))}
+      </div>
       {hasMore && <div ref={sentinelRef} aria-hidden="true" className="h-px w-full" />}
       {/* AFTER the sentinel deliberately: growing the window appends day-groups
           above this point, so the section never moves under the reader. */}

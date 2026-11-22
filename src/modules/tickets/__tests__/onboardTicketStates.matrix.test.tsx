@@ -80,7 +80,7 @@ describe('ticketStatus: the one mapping, every shape', () => {
     expect(ticketNightKey(new Date('2026-11-17T08:00:00Z'))).toBe('2026-11-17');
   });
   it('owner copy, exact', () => {
-    expect(TICKET_STATUS_COPY).toEqual({ passed: 'This night has passed', event_cancelled: 'This night was cancelled', refunded: 'This ticket was refunded' });
+    expect(TICKET_STATUS_COPY).toEqual({ used: 'Already used at the door', passed: 'This night has passed', event_cancelled: 'This night was cancelled', refunded: 'This ticket was refunded' });
   });
 });
 
@@ -90,7 +90,7 @@ describe('dancer ticket card draws the status (flag ON) and never with flag OFF'
   const cases: [string, Partial<CardTicket>, string | null][] = [
     ['valid', {}, null],
     ['passed', { eventDate: '2026-11-10' }, 'This night has passed'],
-    ['cancelled', { eventCancelled: true }, 'This night was cancelled'],
+    ['cancelled', { eventCancelled: true }, 'This night was cancelledThe organiser will be in touch about refunds'],
     ['refunded', { refunded: true }, 'This ticket was refunded'],
   ];
   it('last night at 00:30 the morning after: QR still there (H1)', () => {

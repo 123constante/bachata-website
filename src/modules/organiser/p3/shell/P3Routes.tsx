@@ -4,32 +4,25 @@ import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
 import { flags } from '@/lib/featureFlags';
-import { P3Shell as P3ShellV1 } from './P3Shell';
-import { EventsScreen } from '../screens/EventsScreen';
-import { HomeScreen } from '../screens/HomeScreen';
-import { StatsScreen } from '../screens/StatsScreen';
-import { CompareNights } from '../dash/CompareNights';
 import { P3PushedSurface, P3YouSurface } from '../you/surface';
 import { youGetPaidRoute } from './youTickets';
 import { P3_PATHS } from './paths';
 import { P3RouteBoundary, type P3RouteBack, type P3RouteFrame } from './P3RouteBoundary';
 
-/** Organiser shell V2 (brief organiser-v1-shell): on only with organiserShellV2 AND organiserP3 AND organiserDash. OFF = the P3 shell exactly as before. */
-export const shellV2On = (f: Pick<typeof flags, 'organiserShellV2' | 'organiserP3' | 'organiserDash'>): boolean => f.organiserShellV2 && f.organiserP3 && f.organiserDash;
-/**
- * The live check. It reads each flag by name and never passes `flags` itself: handing the whole object
- * to a function makes rollup stop constant-folding EVERY flag in the bundle, so flag-gated dead code
- * comes back on every route (bundle-budget red on #1731: /event/:id +1 file, +3.2 KB gz).
- */
-const v2Live = (): boolean => shellV2On({ organiserShellV2: flags.organiserShellV2, organiserP3: flags.organiserP3, organiserDash: flags.organiserDash });
-
-// Organiser shell V2 (behind organiserShellV2): lazy, so neither it nor its tabs land in the app's first load.
-const V2Shell = lazyWithRetry(() => import('../v2/V2Shell').then((m) => ({ default: m.V2Shell })));
-const V2EventsTab = lazyWithRetry(() => import('../v2/V2Tabs').then((m) => ({ default: m.V2EventsTab })));
-const V2Home = lazyWithRetry(() => import('../v2/V2Tabs').then((m) => ({ default: m.V2Home })));
-const V2GuestsTab = lazyWithRetry(() => import('../v2/V2Tabs').then((m) => ({ default: m.V2GuestsTab })));
-const V2RaffleTab = lazyWithRetry(() => import('../v2/V2Tabs').then((m) => ({ default: m.V2RaffleTab })));
-const V2TicketsTab = lazyWithRetry(() => import('../v2/V2Tabs').then((m) => ({ default: m.V2TicketsTab })));
+// Organiser Round 4 is the only organiser UI: white + orange shell and screens, lazy so none lands in the app's first load.
+const R4Shell = lazyWithRetry(() => import('../r4/R4Shell').then((m) => ({ default: m.R4Shell })));
+const R4Home = lazyWithRetry(() => import('../r4/R4Home').then((m) => ({ default: m.R4Home })));
+const R4Events = lazyWithRetry(() => import('../r4/R4Events').then((m) => ({ default: m.R4Events })));
+const R4Night = lazyWithRetry(() => import('../r4/R4Night').then((m) => ({ default: m.R4Night })));
+const R4EditNight = lazyWithRetry(() => import('../r4/R4EditNight').then((m) => ({ default: m.R4EditNight })));
+const R4Raffle = lazyWithRetry(() => import('../r4/R4Raffle').then((m) => ({ default: m.R4Raffle })));
+const R4Tickets = lazyWithRetry(() => import('../r4/R4Tickets').then((m) => ({ default: m.R4Tickets })));
+const R4Team = lazyWithRetry(() => import('../r4/R4Team').then((m) => ({ default: m.R4Team })));
+const R4Compare = lazyWithRetry(() => import('../r4/R4Compare').then((m) => ({ default: m.R4Compare })));
+const R4DoorInvite = lazyWithRetry(() => import('../r4/R4DoorInvite').then((m) => ({ default: m.R4DoorInvite })));
+// Editor v2 S1 (flag organiserEditorV2): the gate and the night screen load on their own, never on first load.
+const R4EditorGate = lazyWithRetry(() => import('../v2/EditorGate').then((m) => ({ default: m.R4EditorGate })));
+const TicketsV2 = lazyWithRetry(() => import('../v2/TicketsV2').then((m) => ({ default: m.TicketsV2 })));
 const inSuspense = (el: ReactNode) => <Suspense fallback={null}>{el}</Suspense>;
 
 // The You hub and the R1 screens it pushes: lazy, as in OrganiserRoutes. Static imports here put
@@ -38,7 +31,6 @@ const YouScreen = lazyWithRetry(() => import('../you/YouScreen').then((m) => ({ 
 // One event's page and All dates load on their own too, as W3a's edit screens do (PR #1082).
 const EventPage = lazyWithRetry(() => import('../screens/EventPage').then((m) => ({ default: m.EventPage })));
 const AllDatesScreen = lazyWithRetry(() => import('../screens/AllDatesScreen').then((m) => ({ default: m.AllDatesScreen })));
-const TeamPage = lazyWithRetry(() => import('../../team'));
 const TeamFlow = lazyWithRetry(() => import('../../team/TeamFlow'));
 const HandoverFlow = lazyWithRetry(() => import('../../flows/handover'));
 const SwitchPage = lazyWithRetry(() => import('../../switch'));
@@ -72,8 +64,7 @@ const DoorScreen = lazyWithRetry(() => import('../door/DoorScreen').then((m) => 
 const toEvent = (p: Readonly<Params>) => ({ to: P3_PATHS.event(p.seriesId ?? ''), label: 'Event' });
 const toEvents = () => ({ to: P3_PATHS.events, label: 'Events' });
 const toYou = () => ({ to: P3_PATHS.you, label: 'You' });
-// With the V2 shell on there is no Home tab: the way back is Events (flag off: Home, as before).
-const toHome = () => (v2Live() ? { to: P3_PATHS.events, label: 'Events' } : { to: P3_PATHS.home, label: 'Home' });
+const toHome = () => ({ to: P3_PATHS.home, label: 'Home' });
 /**
  * The interim bridge's URLs (#1202: R1's New event steps in P3's frame). They redirect now: the
  * first two to P3's New event (the page kept), any step of a draft to that draft's event page
@@ -87,6 +78,12 @@ function OldNewStep() {
   // review 1 F9 / F10: the format and the page ride along (a named page is not asked again)
   return <Navigate to={seriesId ? P3_PATHS.event(seriesId) : P3_PATHS.createForFormat(params.get('format'), params.get('o'))} replace />;
 }
+/** Editor v2: the old edit and night URLs become the one editor page (the night id rides in ?night=). */
+function ToEditor() {
+  const { seriesId, occurrenceId } = useParams();
+  const q = occurrenceId ? `?night=${encodeURIComponent(occurrenceId)}` : '';
+  return <Navigate to={`${P3_PATHS.event(seriesId ?? '')}${q}`} replace />;
+}
 function lazyScreen(el: ReactNode, frame: P3RouteFrame, back: (p: Readonly<Params>) => P3RouteBack) {
   return <P3RouteBoundary frame={frame} back={back}><Suspense fallback={null}>{el}</Suspense></P3RouteBoundary>;
 }
@@ -95,28 +92,29 @@ function lazyScreen(el: ReactNode, frame: P3RouteFrame, back: (p: Readonly<Param
  * The P3 organiser area (lazy chunk, mounted by AnimatedRoutes ONLY while
  * flags.organiserP3 and flags.organiserSelfServe are on). W1: Home, Events and Stats read screens; W2a: one event's page and its Status sheet; W2b: its date sheets and All dates; W4a: the You hub and the screens it pushes (Team, Switch page, Organiser page, Welcome), the R1 screens in P3's frame.
  */
-/** The area's frame: the V2 shell behind organiserShellV2, else the P3 shell exactly as before. */
 function P3Shell() {
-  return v2Live() ? inSuspense(<V2Shell />) : <P3ShellV1 />;
+  return inSuspense(<R4Shell />);
 }
 
 export default function P3Routes() {
   useNoindexMeta(true);
-  const v2 = v2Live();
   return (
     <AuthGuard>
       <Routes>
         <Route path="you/details" element={lazyScreen(<PersonFlow />, 'own', toYou)} />
         <Route path="start" element={lazyScreen(<OnboardingFlow />, 'own', toHome)} />
         {flags.organiserTicketing && <Route path="get-paid" element={lazyScreen(<GetPaidStart />, 'own', toHome)} />}
-        {flags.organiserTicketing && <Route path="events/:seriesId/door" element={lazyScreen(<DoorScreen />, 'own', toEvent)} />}
+        {flags.organiserTicketing && <Route path="events/:seriesId/door" element={lazyScreen(<DoorScreen r4 />, 'own', toEvent)} />}
         <Route element={<P3Shell />}>
-          <Route index element={v2 ? inSuspense(<V2Home />) : <HomeScreen />} />
-          <Route path="events" element={v2 ? inSuspense(<V2EventsTab />) : <EventsScreen />} />
-          {v2 && <Route path="tickets" element={inSuspense(<V2TicketsTab />)} />}
-          {v2 && <Route path="guests" element={inSuspense(<V2GuestsTab />)} />}
-          {v2 && <Route path="raffle" element={inSuspense(<V2RaffleTab />)} />}
-          <Route path="events/:seriesId" element={lazyScreen(<EventPage />, 'tab', toEvents)} />
+          <Route index element={inSuspense(<R4Home />)} />
+          <Route path="events" element={inSuspense(<R4Events />)} />
+          <Route path="tickets" element={inSuspense(<R4Tickets />)} />
+          <Route path="events/:seriesId" element={flags.organiserEditorV2 ? lazyScreen(<R4EditorGate fallback={<R4Night />} />, 'tab', toEvent) : inSuspense(<R4Night />)} />
+          <Route path="events/:seriesId/all" element={lazyScreen(<EventPage />, 'tab', toEvent)} />
+          <Route path="events/:seriesId/edit" element={flags.organiserEditorV2 ? <ToEditor /> : lazyScreen(<R4EditNight />, 'tab', toEvent)} />
+          {flags.organiserEditorV2 && <Route path="events/:seriesId/tickets" element={lazyScreen(<TicketsV2 />, 'tab', toEvent)} />}
+          {flags.organiserEditorV2 && <Route path="events/:seriesId/night/:occurrenceId" element={<ToEditor />} />}
+          <Route path="events/:seriesId/raffle" element={lazyScreen(<R4Raffle />, 'tab', toEvent)} />
           <Route path="events/:seriesId/dates" element={lazyScreen(<AllDatesScreen />, 'tab', toEvent)} />
           <Route path="events/:seriesId/details" element={lazyScreen(<DetailsScreen />, 'tab', toEvent)} />
           <Route path="events/:seriesId/prices" element={lazyScreen(<PricesScreen />, 'tab', toEvent)} />
@@ -124,8 +122,7 @@ export default function P3Routes() {
           <Route path="events/:seriesId/organisers" element={<P3PushedSurface back={toEvent}><SeriesOrganisers /></P3PushedSurface>} />
           <Route path="create" element={<P3PushedSurface back={toEvents}><CreateFlow /></P3PushedSurface>} />
           {NEW_STEPS.map((step) => <Route key={step} path={step} element={<OldNewStep />} />)}
-          <Route path="stats" element={<StatsScreen />} />
-          {flags.organiserDash && <Route path="compare" element={<P3PushedSurface back={toHome}><CompareNights /></P3PushedSurface>} />}
+          {flags.organiserDash && <Route path="compare" element={inSuspense(<R4Compare />)} />}
           {flags.organiserDash && <Route path="events/:seriesId/in" element={<P3PushedSurface back={toEvent}><WhoIsInRoute home={toHome()} /></P3PushedSurface>} />}
           {flags.organiserDash && <Route path="events/:seriesId/came/:occurrenceId" element={<P3PushedSurface back={toEvent}><WhoCameRoute home={toHome()} /></P3PushedSurface>} />}
           <Route path="you" element={<P3YouSurface />}>
@@ -133,7 +130,8 @@ export default function P3Routes() {
             <Route path="switch" element={<SwitchPage />} />
             <Route path="welcome" element={<WelcomePage />} />
             <Route path="page" element={<PageScreen />} />
-            <Route path="team" element={<TeamPage />} />
+            <Route path="team" element={inSuspense(<R4Team />)} />
+            <Route path="team/door-invite" element={inSuspense(<R4DoorInvite />)} />
             <Route path="team/add" element={<TeamFlow step="add" />} />
             <Route path="team/:userId" element={<TeamFlow step="person" />} />
             <Route path="handover" element={<HandoverFlow step="to" />} />
@@ -144,7 +142,7 @@ export default function P3Routes() {
             <Route path="help" element={<HelpPage />} />
           </Route>
           {youGetPaidRoute()}
-          <Route path="*" element={<Navigate to={v2 ? P3_PATHS.events : P3_PATHS.home} replace />} />
+          <Route path="*" element={<Navigate to={P3_PATHS.home} replace />} />
         </Route>
       </Routes>
     </AuthGuard>

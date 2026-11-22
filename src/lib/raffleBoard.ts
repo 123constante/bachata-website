@@ -24,13 +24,20 @@ export type RaffleNight = {
   start: string;
   venue: string | null;
   winnerFirstName: string | null;
+  /** Flyer URL from nights[].poster_url; absent when the board sends none. */
+  posterUrl?: string;
 };
+
+/** Top-level `winners[]` of the board JSON (claimed + visible only, max 12, last 7 days). */
+export type RaffleWinner = { firstName: string; nightTitle: string; wonAt: string | null; profileSlug: string };
 
 export type RaffleBoard = {
   poolCount: number;
   winnersThisMonth: number;
   totalWinners: number;
   nights: RaffleNight[];
+  /** Present only when the JSON carried at least one valid winner. */
+  winners?: RaffleWinner[];
 };
 
 export const emptyRaffleBoard = (): RaffleBoard => ({
@@ -62,6 +69,7 @@ function parseNight(raw: unknown): RaffleNight | null {
   const rawStart = str(raw.start_local);
   const start = rawStart ? asUtcInstant(rawStart) : null;
   if (!occurrenceId || !publicEventId || !start || Number.isNaN(Date.parse(start))) return null;
+  const posterUrl = str(raw.poster_url);
   return {
     occurrenceId,
     publicEventId,
@@ -69,6 +77,7 @@ function parseNight(raw: unknown): RaffleNight | null {
     start,
     venue: str(raw.venue_name),
     winnerFirstName: str(raw.winner_first_name),
+    ...(posterUrl ? { posterUrl } : {}),
   };
 }
 
@@ -77,11 +86,22 @@ export function parseRaffleBoard(json: unknown): RaffleBoard {
   const nights = Array.isArray(json.nights)
     ? json.nights.map(parseNight).filter((n): n is RaffleNight => n !== null)
     : [];
+  const winners = (Array.isArray(json.winners) ? json.winners : [])
+    .map((w): RaffleWinner | null => {
+      if (!isObj(w)) return null;
+      const firstName = str(w.first_name);
+      const profileSlug = str(w.profile_slug);
+      if (!firstName || !profileSlug) return null;
+      return { firstName, nightTitle: str(w.night_title) ?? '', wonAt: str(w.won_at), profileSlug };
+    })
+    .filter((w): w is RaffleWinner => w !== null)
+    .slice(0, 12);
   return {
     poolCount: count(json.pool_count),
     winnersThisMonth: count(json.winners_this_month),
     totalWinners: count(json.total_winners),
     nights,
+    ...(winners.length > 0 ? { winners } : {}),
   };
 }
 

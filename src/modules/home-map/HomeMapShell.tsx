@@ -32,7 +32,7 @@
 // breakpoint). `.home-map` scopes the cover-scene CSS; `.home-map-fill` supplies
 // the shell height + the responsive layout.
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import type { UseMapListResult } from './useMapList';
@@ -46,6 +46,7 @@ import {
   RetryNotice,
 } from './cards/cards';
 import { AllEventsList } from './cards/AllEventsList';
+import { NearMeSweep } from './NearMeSweep';
 import { LocateControl } from './cards/LocateControl';
 import { FooterLinks } from '@/components/layout/FooterLinks';
 import { MAP_PLACEHOLDERS } from './mapPlaceholders';
@@ -62,6 +63,10 @@ import EmptyCityNote from '@/components/listing/LazyEmptyCityNote';
 // what may be added to that module later, so it has to say what is actually
 // true. Anything with a real cost or a browser dependency does not belong there.
 import { ATTR } from './basemapTiles';
+import { Link } from 'react-router-dom';
+import { flags } from '@/lib/featureFlags';
+import { buildCityPath } from '@/lib/cityPath';
+import { feedEndRows } from '@/modules/home-polish/menuModel';
 
 // Leaflet + every viewport-branched map control. Lazy AND mapMounted-gated, so
 // the module is never even imported on the server.
@@ -180,6 +185,26 @@ function TonightBody({ state }: { state: UseMapListResult }) {
   );
 }
 
+/** homePolish end-of-feed link block (critique add): where to go next once the feed runs out. */
+function FeedEndLinks({ citySlug }: { citySlug?: string | null }) {
+  // The SAME rows the menu sheet shows (one mapping, never two copies).
+  const links = feedEndRows(buildCityPath(citySlug ?? null, 'venues'), flags.rafflesPage);
+  return (
+    <nav aria-label="More to explore" className="mt-6 grid grid-cols-3 gap-2">
+      {links.map((l) => (
+        <Link
+          key={l.id}
+          to={l.href}
+          className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-border bg-muted/30 px-2 text-[13px] font-bold text-foreground no-underline hover:bg-muted/50"
+        >
+          <span aria-hidden="true">{l.emoji}</span>
+          {l.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
 /** News-tab body: recently added/updated events, freshest first. */
 function NewsBody({ state }: { state: UseMapListResult }) {
   const events = state.listEvents;
@@ -230,6 +255,7 @@ export default function HomeMapShell({
   // sets this -- effects run after React has finished hydrating, so the resulting
   // re-render can never land inside a still-hydrating Suspense boundary. Never
   // convert this to useSyncExternalStore / a render-time check.
+  const cardRef = useRef<HTMLDivElement>(null);
   const [mapMounted, setMapMounted] = useState(false);
   useEffect(() => setMapMounted(true), []);
 
@@ -259,7 +285,7 @@ export default function HomeMapShell({
 
   return (
     <div
-      className={cn('home-map-fill home-map relative isolate w-full overflow-hidden')}
+      className={cn('home-map-fill home-map relative isolate w-full overflow-hidden', flags.homePolish && 'hm-polish', flags.homeFeedLook && 'hm-look')}
     >
       {/* The skip link only has something to skip when the card is on screen.
           On What's New and Calendar the map is not rendered at all, so a link
@@ -282,7 +308,9 @@ export default function HomeMapShell({
           dialog and taking the head out of the document beat merely hiding it. Fullscreen
           is gone, so there is no modal state left to step out of and the head renders
           unconditionally, on every tab. */}
-      <header className="hm-pagehead shrink-0 px-3 pb-1 pt-2 md:px-4 md:pb-2 md:pt-3">
+      {/* homePolish option 3: no visible heading or stats line (the map chip carries the
+          live count). The h1 stays, sr-only, so the page keeps its one heading. */}
+      <header className={cn('hm-pagehead shrink-0 px-3 pb-1 pt-2 md:px-4 md:pb-2 md:pt-3', flags.homePolish && 'sr-only')}>
         <h1 className="truncate text-base font-extrabold tracking-tight">
           What&rsquo;s on in {cityName}
           {/* The visible heading is the canonical h1, but "What's on in London" carries
@@ -327,8 +355,17 @@ export default function HomeMapShell({
           The whole block is REMOVED, not hidden, on What's New and Calendar:
           `display:none` would leave Leaflet mounted at zero size, which is the
           worst of both -- it still costs a live map and still moves the tab row. */}
+      {/* homeFeedLook: the folder tabs sit ABOVE the map and join it (one panel). Same TabBar. */}
+      {flags.homeFeedLook && (
+        <div className="hm-dock hm-look-dock shrink-0 px-3 pt-3">
+          <TabBar tab={state.tab} setTab={state.setTab} />
+        </div>
+      )}
+
+      {flags.homePolish && flags.homeFeedLook && showMapCard && <NearMeSweep waiting={state.geo.status === 'loading'} anchorRef={cardRef} />}
       {showMapCard && (
       <div
+        ref={cardRef}
         className="hm-mapcard relative overflow-hidden"
         role="region"
         aria-label="Event map"
@@ -433,9 +470,11 @@ export default function HomeMapShell({
       )}
 
       <div className="hm-side flex min-h-0 flex-1 flex-col">
-        <div className="hm-dock shrink-0 px-3 pt-3 md:px-4">
-          <TabBar tab={state.tab} setTab={state.setTab} />
-        </div>
+        {!flags.homeFeedLook && (
+          <div className="hm-dock shrink-0 px-3 pt-3 md:px-4">
+            <TabBar tab={state.tab} setTab={state.setTab} />
+          </div>
+        )}
 
         <div
           ref={state.listRef}
@@ -470,6 +509,7 @@ export default function HomeMapShell({
           {/* The home suppresses GlobalFooter (full-bleed map), so the footer's
               links close the feed instead -- same component, so the two never
               drift. */}
+          {flags.homePolish && !loading && !error && <FeedEndLinks citySlug={citySlug} />}
           {!loading && !error && (
             // Same gold panel as GlobalFooter, bled to the feed's edges by
             // cancelling its px-3/md:px-4 and pb-3/md:pb-8. relative z-[1]

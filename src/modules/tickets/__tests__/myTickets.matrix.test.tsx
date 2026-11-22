@@ -54,7 +54,7 @@ const NO_CODE_WORDS = /door code/i;
 type Shape = { name: string; reply?: () => unknown; signedOut?: boolean; authStatus?: 'resolving' | 'unavailable'; state: string; check?: () => void };
 
 const SHAPES: Shape[] = [
-  { name: '0 tickets', reply: () => ok([]), state: 'empty', check: () => expect(screen.getByRole('link', { name: 'Find an event' }).getAttribute('href')).toBe('/') },
+  { name: '0 tickets', reply: () => ok([]), state: 'empty', check: () => expect(screen.getByRole('link', { name: 'Browse events' }).getAttribute('href')).toBe('/') },
   { name: '1 ticket upcoming', reply: () => ok([row()]), state: 'ready', check: () => {
     const up = screen.getByTestId('my-tickets-upcoming');
     expect(within(up).getAllByTestId('my-ticket')).toHaveLength(1);
@@ -208,6 +208,16 @@ describe('my tickets: door code (reply shape x ticket state)', () => {
     await waitFor(() => expect(screen.getAllByTestId('ticket-qr')).toHaveLength(3));
     expect(screen.getAllByTestId('my-ticket-short-code')).toHaveLength(5);
   });
+  it('parser: event_id and occurrence_id map through', () => {
+    const t = parseMyTickets({ tickets: [row({ event_id: 'ev-1', occurrence_id: 'oc-1' })] })!.tickets[0];
+    expect(t.eventId).toBe('ev-1');
+    expect(t.occurrenceId).toBe('oc-1');
+  });
+  it('parser: ids absent on an old reply are null', () => {
+    const t = parseMyTickets({ tickets: [row()] })!.tickets[0];
+    expect(t.eventId).toBeNull();
+    expect(t.occurrenceId).toBeNull();
+  });
   it('parser: short code per shape', () => {
     for (const [, extra, want] of CODE_SHAPES) {
       const t = parseMyTickets({ tickets: [row(extra)] })!.tickets[0];
@@ -261,6 +271,13 @@ describe('my tickets model', () => {
     expect(dateWords('2027-01-02', '2026-11-04')).toBe('Sat 2 Jan 2027');
     const t = parseMyTickets({ tickets: [row({ start_time: '25:00' })] })!.tickets[0];
     expect(whenLine(t, '2026-11-04')).toBe('Sat 7 Nov');
+  });
+  it('night_cancelled: true only on a literal true; absent or odd values are false', () => {
+    const nc = (extra: Record<string, unknown>) => parseMyTickets({ tickets: [row(extra)] })!.tickets[0].nightCancelled;
+    expect(nc({ night_cancelled: true })).toBe(true);
+    expect(nc({ night_cancelled: false })).toBe(false);
+    expect(nc({})).toBe(false);
+    expect(nc({ night_cancelled: 'true' })).toBe(false);
   });
   it('truncation note at the cap; checked_in_at alone means checked in', () => {
     const r = parseMyTickets({ tickets: [row({ checked_in: false, checked_in_at: '2026-11-04T21:00:00Z' })], truncated: true, total_count: 600 })!;

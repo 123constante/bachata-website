@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import '../theme/p3.css';
 import './door.css';
+import './r4door.css';
 import { useEventWorkspace } from '@/modules/organiser/shared/runCommands';
 import { P3_PATHS } from '../shell/paths';
 import { ticketDoorCode } from './doorFlags';
@@ -25,13 +26,18 @@ import {
   londonClock,
   parseCode,
   personOf,
+  r4ToastText,
+  undoText,
+  UNDO_LABEL,
+  UNDO_RETRY_LABEL,
+  type UndoKind,
   type CameraState,
   type CheckIn,
   type DoorResult,
   type NextAction,
   type TypedCode,
 } from './model';
-import { checkInById, checkInByCode, checkInTicket, doorKeys, fetchDoorList, isSignedOut, type DoorList } from './data';
+import { checkInById, checkInByCode, checkInTicket, doorKeys, fetchDoorList, isSignedOut, undoCheckIn, type DoorList } from './data';
 import { browserDeps, buzz, useScanner, type ScannerDeps } from './camera';
 
 /*
@@ -50,14 +56,36 @@ interface Shown { kind: DoorResult; c: CheckIn | null; from?: Tab }
 /** Shown after Check again clears a check-in refusal: names only controls that are then on screen. */
 const RECHECK_OK_NOTE = 'You can check tickets now. Scan or type the code again.';
 
-export function DoorScreen() {
+export function DoorScreen({ r4 = false }: { r4?: boolean }) {
   const { seriesId = '' } = useParams();
   // The night name is a nicety: door-only staff may not be allowed this read, and then the header says just "Door".
   const ws = useEventWorkspace(seriesId);
-  return <Door seriesId={seriesId} nightName={ws.data?.series.name} />;
+  return <Door seriesId={seriesId} nightName={ws.data?.series.name} r4={r4} />;
 }
 
-export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode, nightName = null }: { seriesId: string; deps?: ScannerDeps; shortCodes?: boolean; nightName?: string | null }) {
+/**
+ * A door-seat holder (organiser R4 slice a): someone an organiser invited by link to work the door for
+ * one night, with no organiser role. Their door screen (/door/:seriesId) has no way into the
+ * organiser area: every way out goes to the site's home page instead.
+ */
+const SeatOnly = createContext(false);
+const SITE_HOME = { to: '/', label: 'Back to Bachata Calendar' } as const;
+
+/** The toast after a Search-tab tick on the R4 look (boards R4DoorSearch): "<name> is in. N of M in." */
+interface Toast { id: number; text: string }
+/**
+ * Door Undo (R4 slice c): the last list check-in that let someone in, while it can be taken back.
+ * Only a list tick carries the ticket id; a scanned or typed code's answer has none (the v3
+ * check-in replies do not return it), so Undo shows after a list check-in only.
+ */
+interface Undo { ticketId: string; name: string | null; text: string; phase: 'ready' | 'running' | UndoKind }
+
+export function Door({ seatOnly = false, ...p }: DoorProps & { seatOnly?: boolean }) {
+  return <SeatOnly.Provider value={seatOnly}><DoorInner {...p} /></SeatOnly.Provider>;
+}
+interface DoorProps { seriesId: string; deps?: ScannerDeps; shortCodes?: boolean; nightName?: string | null; r4?: boolean }
+function DoorInner({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode, nightName = null, r4 = false }: DoorProps) {
+  const seat = useContext(SeatOnly);
   const { user } = useAuth();
   const uid = user?.id;
   const qc = useQueryClient();
@@ -80,6 +108,15 @@ export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode
   const [counts, setCounts] = useState<{ in: number; total: number } | null>(null);
   const [rechecking, setRechecking] = useState(false);
   const [recheckNote, setRecheckNote] = useState<string | null>(null);
+  const [toast, setToast] = useState<Toast | null>(null);
+  const [undo, setUndo] = useState<Undo | null>(null);
+  const undoRef = useRef(false);
+  useEffect(() => {
+    // a toast carrying Undo stays until OK: 4 seconds is too short to notice a wrong tick
+    if (!toast || undo) return undefined;
+    const t = window.setTimeout(() => setToast((x) => (x?.id === toast.id ? null : x)), 4000);
+    return () => window.clearTimeout(t);
+  }, [toast, undo]);
   const gate = useRef(createScanGate());
   const busyRef = useRef(false);
   // the code whose answer is on screen: held in front of the camera it never re-fires (an ok
@@ -93,16 +130,22 @@ export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode
   const noneSold = list.data?.result === 'ok' && list.data.totalCount === 0;
   const out = signedOut || isSignedOut(list.error);
 
-  const run = useCallback(async (code: string, call: () => Promise<CheckIn>, from: Tab = 'scan') => {
+  const run = useCallback(async (code: string, call: () => Promise<CheckIn>, from: Tab = 'scan', ticketId: string | null = null) => {
     // one check at a time, whatever started it: no double submit
-    if (busyRef.current) return;
+    if (busyRef.current || undoRef.current) return;
     busyRef.current = true;
     setBusy(true);
+    setUndo(null);
     try {
       const c = await call();
       setRecheckNote(null);
       onScreen.current = code;
-      setShown({ kind: c.result, c, from });
+      // R4 Search: a tick that let someone in is a toast over the list, not a result card
+      if (r4 && from === 'list' && c.result === 'ok') {
+        setShown(null);
+        setToast({ id: Date.now(), text: r4ToastText(c) });
+      } else setShown({ kind: c.result, c, from });
+      if (ticketId && c.result === 'ok') setUndo({ ticketId, name: c.first_name, text: r4ToastText(c), phase: 'ready' });
       buzz(RESULT_TABLE[c.result].vibrate);
       if (c.in_count != null && c.total_count != null) setCounts({ in: c.in_count, total: c.total_count });
       if (c.result === 'ok' || c.result === 'already_in') void qc.invalidateQueries({ queryKey: doorKeys.list(uid, seriesId) });
@@ -117,7 +160,7 @@ export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode
       setBusy(false);
       setPendingId(null);
     }
-  }, [qc, seriesId, uid]);
+  }, [qc, seriesId, uid, r4]);
 
   const onCamera = useCallback((raw: string) => {
     const code = parseCode(raw);
@@ -175,17 +218,56 @@ export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode
     void run(t.code, () => (t.kind === 'short' ? checkInByCode(t.code, seriesId) : checkInTicket(t.code, seriesId)));
   };
   const checkInRow = (ticketId: string) => {
-    if (busyRef.current) return;
+    // an Undo in flight blocks a tick too (run would bail and leave the row pending)
+    if (busyRef.current || undoRef.current) return;
     setPendingId(ticketId);
-    void run(`id:${ticketId}`, () => checkInById(ticketId, seriesId), 'list');
+    void run(`id:${ticketId}`, () => checkInById(ticketId, seriesId), 'list', ticketId);
   };
+  const undoLast = async () => {
+    // one Undo at a time, and never while a check is running: a double tap sends one call
+    if (!undo || undoRef.current || busyRef.current) return;
+    undoRef.current = true;
+    const { ticketId, name } = undo;
+    setUndo((u) => (u ? { ...u, phase: 'running' } : u));
+    let phase: UndoKind;
+    try {
+      const a = await undoCheckIn(ticketId, seriesId);
+      phase = a.kind;
+      if (a.in_count != null && a.total_count != null) setCounts({ in: a.in_count, total: a.total_count });
+      if (a.kind === 'undone' || a.kind === 'already') {
+        setShown(null);
+        void qc.invalidateQueries({ queryKey: doorKeys.list(uid, seriesId) });
+      }
+    } catch (e) {
+      if (isSignedOut(e)) { setSignedOut(true); undoRef.current = false; setUndo(null); return; }
+      phase = 'error';
+    }
+    undoRef.current = false;
+    setUndo((u) => (u && u.ticketId === ticketId ? { ...u, name, phase } : u));
+  };
+  const closeUndo = () => { if (!undoRef.current) { setUndo(null); setToast(null); } };
 
   return (
-    <div className="p3-theme p3-frame p3-door" data-testid="door-screen">
-      <header className="p3-top p3-door-top">
-        <Link className="p3-link" to={P3_PATHS.event(seriesId)} data-testid="door-back">&larr; Event</Link>
-        <h1 data-testid="door-title">{nightName?.trim() ? <>{nightName.trim()}<small> &middot; Door</small></> : 'Door'}</h1>
-      </header>
+    <div className={`p3-theme p3-frame p3-door${r4 ? ' r4-door' : ''}`} data-testid="door-screen" data-look={r4 ? 'r4' : undefined}>
+      {r4 ? (
+        <>
+          <div className="r4-door-exit">
+            <Link className="r4-door-exit-link" to={seat ? SITE_HOME.to : P3_PATHS.event(seriesId)} data-testid="door-back">
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 6-6 6 6 6" /></svg>
+              {seat ? SITE_HOME.label : 'Back to the event'}
+            </Link>
+          </div>
+          <header className="r4-door-head">
+            <h1 data-testid="door-title">{nightName?.trim() ? <>{nightName.trim()} <small>Door</small></> : 'Door'}</h1>
+            {!out && !notAllowed && <Counter counts={shownCounts} bare />}
+          </header>
+        </>
+      ) : (
+        <header className="p3-top p3-door-top">
+          <Link className="p3-link" to={seat ? SITE_HOME.to : P3_PATHS.event(seriesId)} data-testid="door-back">&larr; {seat ? 'Bachata Calendar' : 'Event'}</Link>
+          <h1 data-testid="door-title">{nightName?.trim() ? <>{nightName.trim()}<small> &middot; Door</small></> : 'Door'}</h1>
+        </header>
+      )}
       <nav className="p3-door-tabs" aria-label="Door">
         <button type="button" aria-current={tab === 'scan' ? 'page' : undefined} onClick={() => setTab('scan')} data-testid="door-tab-scan">Scan</button>
         <button type="button" aria-current={tab === 'list' ? 'page' : undefined} onClick={() => setTab('list')} data-testid="door-tab-list">
@@ -206,24 +288,54 @@ export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode
             video={video} cam={cam} counts={shownCounts} shown={shown} busy={busy} notAllowed={notAllowed}
             noneSold={noneSold} seriesId={seriesId} act={act} codeInput={codeInput} onCode={submitCode} shortCodes={shortCodes}
             startCamera={startCamera} tries={denials} openList={() => setTab('list')}
-            recheck={recheck} rechecking={rechecking} recheckNote={recheckNote}
+            recheck={recheck} rechecking={rechecking} recheckNote={recheckNote} r4={r4}
           />
         ) : (
           <ListTab
             retryCamera={() => { setTab('scan'); startCamera(); }}
             recheck={recheck} rechecking={rechecking} recheckNote={recheckNote}
             list={list} shown={shown} cam={cam} busy={busy} codeInput={codeInput} onCode={submitCode} act={act} seriesId={seriesId}
-            shortCodes={shortCodes} pendingId={pendingId} onCheckIn={checkInRow} notAllowed={notAllowed}
+            shortCodes={shortCodes} pendingId={pendingId} onCheckIn={checkInRow} notAllowed={notAllowed} r4={r4}
           />
         )}
       </main>
+      {undo && tab === 'list' && !out && <UndoBar undo={undo} onUndo={() => { void undoLast(); }} onClose={closeUndo} />}
+      {r4 && toast && !undo && tab === 'list' && (
+        <div className="r4-door-toast" role="status" data-testid="door-toast">
+          <span>{toast.text}</span>
+          <button type="button" onClick={() => setToast(null)} data-testid="door-toast-close">OK</button>
+        </div>
+      )}
     </div>
   );
 }
 
-function Counter({ counts }: { counts: { in: number; total: number } | null }) {
+/** Undo after a list check-in: the check-in line, then Undo (44px); after it, the answer in plain words. */
+function UndoBar({ undo, onUndo, onClose }: { undo: Undo; onUndo: () => void; onClose: () => void }) {
+  const running = undo.phase === 'running';
+  const canTap = undo.phase === 'ready' || running || undo.phase === 'error';
+  const ph = undo.phase;
+  const text = ph === 'ready' || ph === 'running' ? undo.text : undoText(ph, undo.name);
+  return (
+    <div className="p3-door-undo" role="status" data-testid="door-undo" data-phase={undo.phase}>
+      <span data-testid="door-undo-text">{text}</span>
+      <span className="p3-door-undo-acts">
+        {canTap && (
+          <button
+            type="button" className="p3-door-undo-btn" data-testid="door-undo-btn" disabled={running} aria-busy={running || undefined}
+            onClick={onUndo}
+          >{running ? <>Undoing&hellip;</> : undo.phase === 'error' ? UNDO_RETRY_LABEL : UNDO_LABEL}</button>
+        )}
+        <button type="button" className="p3-door-undo-ok" onClick={onClose} disabled={running} data-testid="door-undo-close">OK</button>
+      </span>
+    </div>
+  );
+}
+
+function Counter({ counts, bare = false }: { counts: { in: number; total: number } | null; bare?: boolean }) {
   const t = counterText(counts?.in, counts?.total);
   if (!t) return null;
+  if (bare) return <span className="r4-door-count" data-testid="door-count">{t}</span>;
   const left = counts ? counts.total - counts.in : 0;
   return (
     <span className="p3-door-count" data-testid="door-count">
@@ -237,11 +349,11 @@ interface ScanProps {
   shown: Shown | null; busy: boolean; notAllowed: boolean; noneSold: boolean; seriesId: string;
   act: (a: NextAction) => void; codeInput: React.RefObject<HTMLInputElement>; onCode: (code: TypedCode) => void; shortCodes: boolean;
   startCamera: () => void; tries: number; openList: () => void;
-  recheck: () => void; rechecking: boolean; recheckNote: string | null;
+  recheck: () => void; rechecking: boolean; recheckNote: string | null; r4?: boolean;
 }
 
-function ScanTab({ video, cam, startCamera, tries, openList, counts, shown, busy, notAllowed, noneSold, seriesId, act, codeInput, onCode, shortCodes, recheck, rechecking, recheckNote }: ScanProps) {
-  if (notAllowed) return <div className="p3-door-pad"><ResultCard shown={shown?.kind === 'not_allowed' ? shown : { kind: 'not_allowed', c: null }} act={act} recheck={recheck} rechecking={rechecking} recheckNote={recheckNote} /></div>;
+function ScanTab({ video, cam, startCamera, tries, openList, counts, shown, busy, notAllowed, noneSold, seriesId, act, codeInput, onCode, shortCodes, recheck, rechecking, recheckNote, r4 = false }: ScanProps) {
+  if (notAllowed) return <div className="p3-door-pad"><ResultCard shown={shown?.kind === 'not_allowed' ? shown : { kind: 'not_allowed', c: null }} act={act} recheck={recheck} rechecking={rechecking} recheckNote={recheckNote} r4={r4} /></div>;
   if (noneSold) return <EmptySold seriesId={seriesId} />;
   const helpShown = (cam === 'ask' || cam === 'denied') && !shown;
   return (
@@ -249,7 +361,7 @@ function ScanTab({ video, cam, startCamera, tries, openList, counts, shown, busy
       {helpShown && (
         <CameraHelp cam={cam} tries={tries} startCamera={startCamera} openList={openList} counts={counts} />
       )}
-      {!helpShown && <div className="p3-door-pad p3-door-countrow"><Counter counts={counts} /></div>}
+      {!helpShown && !r4 && <div className="p3-door-pad p3-door-countrow"><Counter counts={counts} /></div>}
       <div className={`p3-door-cam${shown ? ' p3-door-cam-short' : ''}${helpShown ? ' p3-door-cam-gone' : ''}`} data-testid="door-camera" data-cam={cam}>
         <video ref={video} playsInline muted aria-hidden="true" />
         {cam === 'on' ? (
@@ -262,13 +374,13 @@ function ScanTab({ video, cam, startCamera, tries, openList, counts, shown, busy
             )}
           </div>
         )}
-        {cam === 'on' && !shown && <p className="p3-door-hint">Point the camera at the QR code</p>}
+        {cam === 'on' && !shown && <p className="p3-door-hint">{r4 ? 'Point at the ticket code' : 'Point the camera at the QR code'}</p>}
       </div>
       <div className="p3-door-pad" aria-live="polite">
         {busy ? (
           <div className="p3-card" data-testid="door-checking"><strong>Checking&hellip;</strong></div>
         ) : shown ? (
-          <ResultCard shown={shown} act={act} />
+          <ResultCard shown={shown} act={act} r4={r4} />
         ) : (
           <CodeBox inputRef={codeInput} busy={busy} onCode={onCode} shortCodes={shortCodes} />
         )}
@@ -304,7 +416,8 @@ function CameraHelp({ cam, tries, startCamera, openList, counts }: { cam: 'ask' 
   );
 }
 
-function ResultCard({ shown, act, recheck, rechecking, recheckNote }: { shown: Shown; act: (a: NextAction) => void; recheck?: () => void; rechecking?: boolean; recheckNote?: string | null }) {
+function ResultCard({ shown, act, recheck, rechecking, recheckNote, r4 = false }: { shown: Shown; act: (a: NextAction) => void; recheck?: () => void; rechecking?: boolean; recheckNote?: string | null; r4?: boolean }) {
+  const seat = useContext(SeatOnly);
   const row = RESULT_TABLE[shown.kind];
   const who = personOf(shown.c);
   const head = useRef<HTMLElement>(null);
@@ -313,6 +426,7 @@ function ResultCard({ shown, act, recheck, rechecking, recheckNote }: { shown: S
   return (
     <section className="p3-door-res" data-testid="door-result" data-state={shown.kind}>
       <div className={`p3-door-band p3-door-band-${row.band}`}>
+        {r4 && <R4BandIcon band={row.band} />}
         <b ref={head} tabIndex={-1} data-testid="door-headline">{row.headline}</b>
         <span data-testid="door-sub">{row.sub(shown.c)}</span>
       </div>
@@ -329,7 +443,7 @@ function ResultCard({ shown, act, recheck, rechecking, recheckNote }: { shown: S
             <button type="button" className="p3-btn p3-door-big" onClick={recheck} disabled={rechecking} data-testid="door-act-recheck">
               {rechecking ? 'Checking\u2026' : 'Check again'}
             </button>
-            <Link className="p3-btn p3-btn-line p3-door-big" to={P3_PATHS.events} data-testid="door-notallowed-back">Back to events</Link>
+            <Link className="p3-btn p3-btn-line p3-door-big" to={seat ? SITE_HOME.to : P3_PATHS.events} data-testid="door-notallowed-back">{seat ? SITE_HOME.label : 'Back to events'}</Link>
           </div>
         )}
         {shown.kind === 'not_allowed' && recheck && recheckNote && (
@@ -346,6 +460,16 @@ function ResultCard({ shown, act, recheck, rechecking, recheckNote }: { shown: S
         )}
       </div>
     </section>
+  );
+}
+
+/** Board R4DoorScan: a tick in a circle for let in, a stop sign for the rest. */
+function R4BandIcon({ band }: { band: string }) {
+  return (
+    <svg className="r4-door-band-icon" aria-hidden="true" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      {band === 'ok' ? <path d="m8 12.5 3 3 5-6" /> : band === 'warn' ? <><path d="M12 7.5v5" /><path d="M12 16.2v.3" /></> : <path d="m9 9 6 6m0-6-6 6" />}
+    </svg>
   );
 }
 
@@ -388,13 +512,18 @@ function CodeBox({ inputRef, busy, onCode, shortCodes }: { inputRef: React.RefOb
 }
 
 function EmptySold({ seriesId }: { seriesId: string }) {
+  const seat = useContext(SeatOnly);
   return (
     <div className="p3-door-pad">
       <div className="p3-door-count" data-testid="door-count">0 of 0 in</div>
       <div className="p3-card p3-door-empty" data-testid="door-empty">
         <strong>No tickets sold yet</strong>
-        <p className="p3-note">There is nothing to scan until someone buys. Set up tickets and share the event from the event page.</p>
-        <Link className="p3-btn p3-door-wide p3-door-btnlink" to={P3_PATHS.event(seriesId)}>Go to the event page</Link>
+        {seat ? <p className="p3-note">There is nothing to scan until someone buys a ticket.</p> : (
+          <>
+            <p className="p3-note">There is nothing to scan until someone buys. Set up tickets and share the event from the event page.</p>
+            <Link className="p3-btn p3-door-wide p3-door-btnlink" to={P3_PATHS.event(seriesId)}>Go to the event page</Link>
+          </>
+        )}
       </div>
     </div>
   );
@@ -405,10 +534,10 @@ interface ListProps {
   shown: Shown | null; cam: CameraState; busy: boolean;
   codeInput: React.RefObject<HTMLInputElement>; onCode: (code: TypedCode) => void; act: (a: NextAction) => void; seriesId: string;
   shortCodes: boolean; pendingId: string | null; onCheckIn: (ticketId: string) => void; notAllowed: boolean;
-  retryCamera: () => void; recheck: () => void; rechecking: boolean; recheckNote: string | null;
+  retryCamera: () => void; recheck: () => void; rechecking: boolean; recheckNote: string | null; r4?: boolean;
 }
 
-function ListTab({ list, shown, cam, busy, codeInput, onCode, act, seriesId, shortCodes, pendingId, onCheckIn, notAllowed, retryCamera, recheck, rechecking, recheckNote }: ListProps) {
+function ListTab({ list, shown, cam, busy, codeInput, onCode, act, seriesId, shortCodes, pendingId, onCheckIn, notAllowed, retryCamera, recheck, rechecking, recheckNote, r4 = false }: ListProps) {
   const [q, setQ] = useState('');
   const searchId = useId();
   const rows = list.data?.rows;
@@ -430,7 +559,7 @@ function ListTab({ list, shown, cam, busy, codeInput, onCode, act, seriesId, sho
         </div>
       )}
       {shown && shown.from === 'list' && shown.kind !== 'no_signal' && (
-        <div className="p3-door-pad"><ResultCard shown={shown} act={act} /></div>
+        <div className="p3-door-pad"><ResultCard shown={shown} act={act} r4={r4} /></div>
       )}
       {cameraDead(cam) && (
         <div className="p3-door-pad p3-door-stack">
@@ -455,7 +584,7 @@ function ListTab({ list, shown, cam, busy, codeInput, onCode, act, seriesId, sho
   }
   const d = list.data!;
   if (d.result === 'not_allowed' || notAllowed) {
-    return <div className="p3-door-pad"><ResultCard shown={{ kind: 'not_allowed', c: null }} act={act} recheck={recheck} rechecking={rechecking} recheckNote={recheckNote} /></div>;
+    return <div className="p3-door-pad"><ResultCard shown={{ kind: 'not_allowed', c: null }} act={act} recheck={recheck} rechecking={rechecking} recheckNote={recheckNote} r4={r4} /></div>;
   }
   if (d.result === 'wrong_night') {
     return <>{top}<div className="p3-door-pad"><div className="p3-card" data-testid="door-list-no-night"><strong>No night of this event is on now</strong>
@@ -463,6 +592,65 @@ function ListTab({ list, shown, cam, busy, codeInput, onCode, act, seriesId, sho
       <button type="button" className="p3-btn p3-btn-line p3-door-wide" onClick={() => act('scan')}>Back to scanning</button></div></div></>;
   }
   if (!rows?.length) return <>{top}<EmptySold seriesId={seriesId} /></>;
+  if (r4) {
+    return (
+      <>
+        {top}
+        <div className="p3-door-pad r4-door-search">
+          <label htmlFor={searchId} className="r4-door-label">Type a name</label>
+          <div className="r4-door-field">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#696969" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+            <input id={searchId} type="search" value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off" data-testid="door-search" />
+          </div>
+          {counterText(d.inCount, d.totalCount) && <p className="r4-door-in" data-testid="door-list-note">{counterText(d.inCount, d.totalCount)}</p>}
+          {d.truncated && <p className="r4-door-foot" data-testid="door-truncated">Showing the first 500 tickets. Type a name to find someone further down.</p>}
+          {hits.length ? (
+            <ul className="r4-door-list" data-testid="door-list">
+              {hits.map((r) => {
+                const name = r.firstName ?? 'No name given';
+                const canTick = shortCodes && !r.checkedInAt;
+                const inner = (
+                  <>
+                    <span className="r4-door-nm">{name}{r.quantity && r.quantity > 1 ? <small> &times;{r.quantity}</small> : null}{r.typeName && <small className="r4-door-type">{r.typeName}</small>}</span>
+                    {r.checkedInAt && <span className="r4-door-pill" data-testid="door-row-status">In</span>}
+                    {pendingId === r.ticketId ? <span className="r4-door-wait">Checking&hellip;</span> : (
+                      <span className={`r4-door-tick${r.checkedInAt ? ' r4-door-tick-on' : ''}`} aria-hidden="true">
+                        {r.checkedInAt && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>}
+                      </span>
+                    )}
+                  </>
+                );
+                return (
+                  <li key={r.ticketId} data-testid="door-row">
+                    {canTick ? (
+                      <button
+                        type="button" className="r4-door-row" aria-pressed="false" data-testid="door-row-checkin"
+                        aria-disabled={busy ? 'true' : undefined} aria-label={`Tick in ${name}`}
+                        onClick={() => { if (!busy) onCheckIn(r.ticketId); }}
+                      >{inner}</button>
+                    ) : (
+                      <div className="r4-door-row" aria-label={r.checkedInAt ? `${name}, in` : `${name}, not in`}>{inner}</div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <div className="r4-door-card" data-testid="door-no-match">
+              <strong>No one called &ldquo;{q.trim()}&rdquo; on the list</strong>
+              <p className="r4-door-foot" data-testid="door-no-match-next">Check the spelling, or type just the first letters. If they have a ticket code, scan it on the Scan tab.</p>
+              <button type="button" className="r4-door-quiet" onClick={() => setQ('')}>Clear search</button>
+            </div>
+          )}
+          <p className="r4-door-foot" data-testid="door-list-how">
+            {shortCodes
+              ? (busy ? <>Checking the last ticket&hellip; wait for the answer.</> : 'Tap a name to tick them in. Tapped the wrong name? Tap Undo straight after.')
+              : 'To let someone in, scan their code on the Scan tab. This list shows who is in.'}
+          </p>
+        </div>
+      </>
+    );
+  }
   return (
     <>
       {top}
