@@ -17,6 +17,7 @@ import { RaffleEntryDialog } from '@/modules/event-page/bento/modals/RaffleEntry
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { buildSeoForRoute, useSeo } from '@/lib/seo';
+import { RaffleNightCarousel } from './RaffleNightCarousel';
 import './RaffleRedesignA.css';
 
 const fmtNight = (iso: string): string => {
@@ -41,6 +42,7 @@ export const RaffleRedesignA = () => {
   useSeo(buildSeoForRoute('raffles'));
   const { data: board, isLoading, isError, refetch } = useRaffleBoard();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogEventId, setDialogEventId] = useState<string | undefined>(undefined);
   const [joined, setJoined] = useState<boolean>(() => isRafflePoolJoined());
   const onSubmitted = useCallback(() => { markRafflePoolJoined(); setJoined(true); }, []);
 
@@ -125,6 +127,13 @@ export const RaffleRedesignA = () => {
               ) : null}
             </>
           )}
+          {board && openNights.length > 0 ? (
+            <RaffleNightCarousel
+              nights={openNights}
+              joined={joined}
+              onEnter={(n) => { setDialogEventId(n.publicEventId); setDialogOpen(true); }}
+            />
+          ) : null}
           <div className="rd-slot" data-slot="raffle-part-b" />
         </main>
 
@@ -144,12 +153,12 @@ export const RaffleRedesignA = () => {
           ) : (
             <div className="rd-bar-in">
               <p className="rd-bar-txt"><b>Free</b>One phone number</p>
-              <button type="button" className="rd-bar-btn" onClick={() => setDialogOpen(true)} data-testid="raffles-enter">Enter the raffle</button>
+              <button type="button" className="rd-bar-btn" onClick={() => { setDialogEventId(undefined); setDialogOpen(true); }} data-testid="raffles-enter">Enter the raffle</button>
             </div>
           )}
         </div>
       </div>
-      <RaffleEntryDialog open={dialogOpen} onOpenChange={setDialogOpen} consentVersion={null} onSubmitted={onSubmitted} />
+      <RaffleEntryDialog open={dialogOpen} onOpenChange={setDialogOpen} eventId={dialogEventId} consentVersion={null} onSubmitted={onSubmitted} />
     </GlobalLayout>
   );
 };

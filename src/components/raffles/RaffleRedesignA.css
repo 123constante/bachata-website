@@ -45,3 +45,20 @@
 .rd-bar-btn:active{scale:.95}
 .rd-state{padding:12px 0;font-size:14px}
 @media (prefers-reduced-motion:reduce){.rd-root *{animation:none!important}}
+/* part B1: "Pick a night" carousel */
+.rd-pick{margin-top:8px}
+.rd-car{list-style:none;margin:0 -16px;padding:4px 16px 12px;display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-padding-inline:16px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.rd-car::-webkit-scrollbar{display:none}
+.rd-card{flex:none;width:min(64vw,170px);scroll-snap-align:start;display:flex;flex-direction:column;align-items:center;gap:10px}
+.rd-flyer{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:12px;border:1px solid var(--rd-line);display:block}
+.rd-flyer-tile{display:grid;place-items:center;background:radial-gradient(circle at 50% 30%,#3A2608,#130E09 75%);font:italic 900 40px/1 var(--rd-disp);color:var(--rd-hot)}
+.rd-card-name{margin:0;font-size:14px;font-weight:700;text-align:center;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.rd-card-btn,.rd-card-in{min-height:44px;padding:0 22px;border-radius:999px;display:inline-flex;align-items:center;font:800 15px/1 system-ui,sans-serif}
+.rd-card-btn{background:var(--rd-acc);color:var(--rd-on);border:0;cursor:pointer}
+.rd-card-in{color:var(--rd-hot);border:1px solid var(--rd-line)}
+.rd-car-nav{display:flex;align-items:center;justify-content:center;gap:20px;margin-top:8px}
+.rd-car-arrow{width:44px;height:44px;border-radius:50%;border:1px solid var(--rd-line);background:#130E09;color:var(--rd-ink);font-size:24px;line-height:1;cursor:pointer}
+.rd-car-arrow:disabled{opacity:.35}
+.rd-car-count{min-width:64px;text-align:center;font-size:14px;font-weight:700;color:var(--rd-muted)}
+.rd-car-prog{height:4px;border-radius:2px;background:var(--rd-line);margin-top:14px;overflow:hidden}
+.rd-car-prog i{display:block;height:100%;background:var(--rd-acc);transition:width .2s}
