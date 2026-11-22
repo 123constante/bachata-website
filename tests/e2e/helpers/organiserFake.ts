@@ -114,6 +114,10 @@ export interface FakeSeries {
   removed_dates: string[];
   extra_dates: string[];
   cancelled: Record<string, string>;
+  /** per-night venue override (date -> venue id); read back as event.venue_id_override */
+  night_venue?: Record<string, string>;
+  /** per-night description override (date -> text); read back as event.description_override */
+  night_description?: Record<string, string>;
   /**
    * The series programme (event_series_program_item_p5), the series_item_id rows every date
    * shows. Fixed at creation (addSeries, from the category the fixture names): the organiser
@@ -325,7 +329,7 @@ export class OrganiserFake {
   }
 
   workspace(s: FakeSeries) {
-    const { n: _n, extra_dates: _e, cancelled: _c, series_items: _items, gallery, video_urls, default_music_styles, ...series } = s;
+    const { n: _n, extra_dates: _e, cancelled: _c, night_venue: _nv, night_description: _nd, series_items: _items, gallery, video_urls, default_music_styles, ...series } = s;
     return {
       meta: { version: s.version, has_more: false },
       series: {
@@ -336,7 +340,8 @@ export class OrganiserFake {
       },
       occurrences: [...this.dates(s)].reverse().map((d) => ({
         id: this.occId(s, d), occurrence_date: d, lifecycle_status: s.cancelled[d] ? 'cancelled' : 'scheduled', version: 1,
-        has_override: false, session_overrides_count: 0, materialised_start_utc: `${d}T20:00:00+00:00`,
+        has_override: !!(s.night_venue?.[d] || s.night_description?.[d]), session_overrides_count: 0,
+        override_keys: [...(s.night_venue?.[d] ? ['venue_id'] : []), ...(s.night_description?.[d] ? ['description'] : [])], materialised_start_utc: `${d}T20:00:00+00:00`,
         added_sessions_count: (this.programmes.get(this.occId(s, d))?.sessions ?? []).filter((x) => x.added_session_id && x.removed !== true).length,
       })),
     };
@@ -345,8 +350,8 @@ export class OrganiserFake {
   dateDetail(s: FakeSeries, date: string) {
     return {
       event: {
-        name: s.name, venue_id: s.default_venue_id, ticket_url: null, description: s.default_description, cover_image_url: null,
-        venue_id_override: null, ticket_url_override: null, description_override: null, cover_image_url_override: null,
+        name: s.name, venue_id: s.night_venue?.[date] ?? s.default_venue_id, ticket_url: null, description: s.default_description, cover_image_url: null,
+        venue_id_override: s.night_venue?.[date] ?? null, ticket_url_override: null, description_override: s.night_description?.[date] ?? null, cover_image_url_override: null,
         cancellation_reason_label: s.cancelled[date] ?? null,
       },
       program: [],

@@ -4,7 +4,7 @@
 // cannot satisfy is `fixme` (never a weakened assertion). Run: see MANUAL in scripts/check-e2e-spec-coverage.mjs.
 import { test, expect, type Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { FRIDAY, OrganiserFake, PHONE, SUNDAY, expectNoHorizontalScroll } from './helpers/organiserFake';
+import { FRIDAY, OrganiserFake, VENUES, PHONE, SUNDAY, expectNoHorizontalScroll } from './helpers/organiserFake';
 
 test.use({ viewport: PHONE });
 const OUT = 'docs/design/editor-v2/shots';
@@ -23,7 +23,7 @@ async function open(page: Page, st: St, route = ''): Promise<Env> {
   const sid = st === 'oneOff' ? SUNDAY : FRIDAY;
   const s = fake.series.get(sid)!;
   const env: Env = { fake, tickets: [], stripe: true, sid };
-  if (st === 'changedVenue') s.default_venue_id = s.default_venue_id; // venue override is added below via the dates read
+  if (st === 'changedVenue') s.night_venue = { '2026-10-09': VENUES[1].id }; s.night_description = { '2026-10-09': 'Special night.' }; // this night is at another venue
   if (st === 'cancelledNight') s.cancelled['2026-10-16'] = 'Venue issue';
   if (st === 'paused') s.lifecycle_status = 'paused';
   if (st === 'ended') { s.lifecycle_status = 'ended'; s.ended_on = '2026-10-09'; }
@@ -118,7 +118,7 @@ row({ n: 35.1, label: 'Name Done saves', st: 'weekly', pre: async (p) => { await
 row({ n: 34, label: 'Undo', st: 'weekly', pre: async (p) => { await everyTab(p); await tap(p, /^Name/); await p.getByLabel('Event name').fill('Friday Bachata Social'); await tap(p, 'Done'); }, act: (p) => p.getByTestId('v2-toast-undo').click(), expect: (p) => toastIs(p, 'Undone') });
 row({ n: 37, label: 'session row (When sheet)', st: 'weekly', pre: sess, act: (p) => tap(p, /Class|Party/, { nth: 0 }), expect: async (p) => { await expect(dlg(p)).toContainText(/Type/); } });
 row({ n: 38, label: 'Add a class or party (When sheet)', st: 'weekly', pre: sess, act: (p) => tap(p, 'Add a class or party'), expect: (p) => sheetOpen(p, 'Add a class or party') });
-row({ n: 39, label: 'Back to the usual times', st: 'changedVenue', pre: sess, act: async (p) => { await tap(p, 'Back to the usual times'); }, expect: async (p) => { await sheetGone(p); await toastIs(p, `Back to usual for ${D1}`, true); }, fixme: undefined });
+row({ n: 39, label: 'Back to the usual times', st: 'changedVenue', pre: sess, act: async (p) => { await tap(p, 'Back to the usual times'); }, expect: async (p) => { await sheetGone(p); await toastIs(p, `Back to usual for ${D1}`, true); }, fixme: 'built UI has no Back to the usual times button: copy.ts backToUsualTimes has no render site' });
 row({ n: 43, label: 'session Type chips', st: 'weekly', pre: sessOpen, act: (p) => tap(p, 'Party', { nth: 0 }), expect: async (p) => { await expect(dlg(p)).toBeVisible(); await expect(dlg(p).getByText('Level', { exact: true })).toHaveCount(0); } });
 row({ n: 44, label: 'session Level chips', st: 'weekly', pre: sessOpen, act: (p) => tap(p, 'Advanced'), expect: async (p) => { await expect(dlg(p).getByRole('button', { name: 'Advanced' })).toHaveAttribute('aria-pressed', 'true'); } });
 row({ n: 47, label: 'session Done: ends before start', st: 'weekly', pre: async (p) => { await sessOpen(p); await dlg(p).getByLabel('Starts').fill('21:00'); await dlg(p).getByLabel('Ends').fill('20:00'); }, act: (p) => tap(p, 'Done'), expect: async (p) => { await expect(dlg(p)).toContainText('Ends before it starts. Check the end time.'); } });
