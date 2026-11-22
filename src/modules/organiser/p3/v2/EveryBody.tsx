@@ -17,8 +17,13 @@ import { FlyerSheet } from './FlyerSheet';
 import { NameSheet } from './NameSheet';
 import { MusicSheet } from './MusicSheet';
 import { OrgSheet } from './OrgSheet';
+import { RepeatSheetV2, type LostNight } from './RepeatSheetV2';
+import { dayChangeCommand } from '../../events/eventModel';
+import { WEEKDAY_NAMES } from '../../shared/dateWords';
+import { DATE_TAG_WORD, dateTagOf } from './editorModel';
 import type { OwnerCommand } from '../../shared/seriesCommands';
-import { londonTodayKey } from '@/lib/londonDate';
+import { londonTodayKey, weekdayOfKey } from '@/lib/londonDate';
+import { ownerWeeklyRule } from '@/modules/organiser/shared/eventState';
 import { ownerPassesFromStored } from '../../shared/seriesCommands';
 
 const E = V2.every;
@@ -44,7 +49,7 @@ type SeriesBits = { default_city_id?: string | null; default_cover_image_url: st
  */
 export function EveryBody({ ws, day, saveNow, busy }: { ws: EventWorkspace; day: string; saveNow: OnSave; busy?: boolean }) {
   const s = ws.series;
-  const [sheet, setSheet] = useState<'where' | 'about' | 'flyer' | 'name' | 'music' | 'orgs' | null>(null);
+  const [sheet, setSheet] = useState<'where' | 'about' | 'flyer' | 'name' | 'music' | 'orgs' | 'repeats' | null>(null);
   const venues = useVenueOptions();
   const orgIds = ws.organiserIds ?? [];
   const pages = useQuery({ queryKey: ['org-organiser-pages', ...orgIds], queryFn: () => fetchOrganiserPages(orgIds), enabled: orgIds.length > 0 });
@@ -88,6 +93,23 @@ export function EveryBody({ ws, day, saveNow, busy }: { ws: EventWorkspace; day:
     const r = await saveNow([step], [{ organiser_ids: ws.organiserIds }], label);
     if (r.ok) setSheet(null);
   };
+  const ruleDay = (() => { const w = ownerWeeklyRule(s)?.weekdays[0]; return typeof w === 'number' ? w : Math.max(0, WEEKDAY_NAMES.indexOf(day)); })();
+  /** Upcoming nights with their own changes (cancelled / changed) that the new day + end would stop producing. */
+  const lostFor = (wd: number, end: string | null): LostNight[] => {
+    const today = londonTodayKey();
+    return (ws.dates ?? [])
+      .filter((x) => x.occurrence_date >= today && (wd !== weekdayOfKey(x.occurrence_date) || (end !== null && x.occurrence_date > end)))
+      .flatMap((x) => { const t = dateTagOf(x, s.lifecycle_status ?? ''); return t === 'cancelled' || t === 'changed' ? [{ id: x.id, date: x.occurrence_date, word: DATE_TAG_WORD[t] }] : []; })
+      .sort((a, b) => a.date.localeCompare(b.date));
+  };
+  const saveRepeat = async (wd: number, end: string | null) => {
+    const base = dayChangeCommand(s.recurrence_rule, wd);
+    const command = { ...base, payload: { ...base.payload, end: end ? { kind: 'until_date', date: end } : { kind: 'none' } } };
+    const step: WriteStep = { part: E.repeats, target: 'series', id: s.id, version: s.version, command, order: 1 };
+    const old = s.recurrence_rule && typeof s.recurrence_rule === 'object' ? { ...(s.recurrence_rule as Record<string, unknown>) } : {};
+    const r = await saveNow([step], [old], 'Saved');
+    if (r.ok) setSheet(null);
+  };
   const saveFlyer = async (url: string | null, lab: string) => {
     const step: WriteStep = { part: V2.flyer, target: 'series', id: s.id, version: s.version, command: upsertCommand({ name: s.name ?? '', default_cover_image_url: url }), order: 1 };
     await saveNow([step], [{ name: s.name ?? '', default_cover_image_url: flyer ?? null }], lab);
@@ -120,7 +142,7 @@ export function EveryBody({ ws, day, saveNow, busy }: { ws: EventWorkspace; day:
           <Line id="name" label={E.name} value={name} onOpen={() => setSheet('name')} />
           <Line id="about" label={V2.description} value={aboutShort(s.default_description)} onOpen={() => setSheet('about')} />
           <Line id="music" label={E.music} value={music} onOpen={() => setSheet('music')} />
-          <Line id="repeats" label={E.repeats} value={repeats} />
+          <Line id="repeats" label={E.repeats} value={repeats} onOpen={() => setSheet('repeats')} />
           <Line id="organisers" label={E.organisers} value={orgs} onOpen={() => setSheet('orgs')} />
         </div></div>
       </div>
@@ -129,6 +151,7 @@ export function EveryBody({ ws, day, saveNow, busy }: { ws: EventWorkspace; day:
       {sheet === 'name' && <NameSheet current={name} day={day} onSave={saveName} onClose={() => setSheet(null)} />}
       {sheet === 'music' && <MusicSheet current={ws.musicStyles ?? []} onSave={saveMusic} onClose={() => setSheet(null)} />}
       {sheet === 'orgs' && <OrgSheet stored={orgIds} names={Object.fromEntries((pages.data ?? []).map((p) => [p.id, p.name]))} seriesId={s.id} lifecycle={s.lifecycle_status ?? ''} onSave={saveOrgs} onClose={() => setSheet(null)} />}
+      {sheet === 'repeats' && <RepeatSheetV2 day={ruleDay} endedOn={ws.endedOn ?? null} startDate={s.default_start_date ?? s.created_at?.slice(0, 10) ?? londonTodayKey()} today={londonTodayKey()} lostFor={lostFor} onSave={saveRepeat} onClose={() => setSheet(null)} />}
       {sheet === 'flyer' && <FlyerSheet mode="usual" dateWords={day} seriesId={s.id} flyer={flyer ?? null} gallery={ws.gallery ?? []} dayName={day} onFlyer={saveFlyer} onGallery={saveGallery} onClose={() => setSheet(null)} />}
     </>
   );
