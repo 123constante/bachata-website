@@ -1,3 +1,3 @@
 # ship-it test
 
-Throwaway note to prove the ship-it workflow merges a docs-only PR. Safe to delete.
+Throwaway note 2 to prove the ship-it workflow. Safe to delete.
