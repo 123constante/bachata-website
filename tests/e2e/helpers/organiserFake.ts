@@ -118,6 +118,10 @@ export interface FakeSeries {
   night_venue?: Record<string, string>;
   /** per-night description override (date -> text); read back as event.description_override */
   night_description?: Record<string, string>;
+  /** per-night own start time (date -> HH:MM); read back as materialised_start_utc, so the night differs from the usual 20:00 (Back to the usual times) */
+  night_start?: Record<string, string>;
+  /** per-night gallery override (date -> urls); written by occurrence.set_override {gallery}, read back as event.gallery_override */
+  night_gallery?: Record<string, string[]>;
   /**
    * The series programme (event_series_program_item_p5), the series_item_id rows every date
    * shows. Fixed at creation (addSeries, from the category the fixture names): the organiser
@@ -329,7 +333,7 @@ export class OrganiserFake {
   }
 
   workspace(s: FakeSeries) {
-    const { n: _n, extra_dates: _e, cancelled: _c, night_venue: _nv, night_description: _nd, series_items: _items, gallery, video_urls, default_music_styles, ...series } = s;
+    const { n: _n, extra_dates: _e, cancelled: _c, night_venue: _nv, night_description: _nd, night_start: _ns, night_gallery: _ng, series_items: _items, gallery, video_urls, default_music_styles, ...series } = s;
     return {
       meta: { version: s.version, has_more: false },
       series: {
@@ -341,7 +345,7 @@ export class OrganiserFake {
       occurrences: [...this.dates(s)].reverse().map((d) => ({
         id: this.occId(s, d), occurrence_date: d, lifecycle_status: s.cancelled[d] ? 'cancelled' : 'scheduled', version: 1,
         has_override: !!(s.night_venue?.[d] || s.night_description?.[d]), session_overrides_count: 0,
-        override_keys: [...(s.night_venue?.[d] ? ['venue_id'] : []), ...(s.night_description?.[d] ? ['description'] : [])], materialised_start_utc: `${d}T20:00:00+00:00`,
+        override_keys: [...(s.night_venue?.[d] ? ['venue_id'] : []), ...(s.night_description?.[d] ? ['description'] : [])], materialised_start_utc: `${d}T${s.night_start?.[d] ?? '20:00'}:00+00:00`,
         added_sessions_count: (this.programmes.get(this.occId(s, d))?.sessions ?? []).filter((x) => x.added_session_id && x.removed !== true).length,
       })),
     };
@@ -351,13 +355,13 @@ export class OrganiserFake {
     return {
       event: {
         name: s.name, venue_id: s.night_venue?.[date] ?? s.default_venue_id, ticket_url: null, description: s.default_description, cover_image_url: null,
-        venue_id_override: s.night_venue?.[date] ?? null, ticket_url_override: null, description_override: s.night_description?.[date] ?? null, cover_image_url_override: null,
+        venue_id_override: s.night_venue?.[date] ?? null, ticket_url_override: null, description_override: s.night_description?.[date] ?? null, cover_image_url_override: null, gallery_override: s.night_gallery?.[date] ?? null,
         cancellation_reason_label: s.cancelled[date] ?? null,
       },
       program: [],
-      schedule: { timezone: 'Europe/London', local_start_time: '20:00:00', local_end_time: '23:30:00' },
+      schedule: { timezone: 'Europe/London', local_start_time: `${s.night_start?.[date] ?? '20:00'}:00`, local_end_time: '23:30:00' },
       occurrence: { id: this.occId(s, date), date, version: 1, series_id: s.id, lifecycle_status: s.cancelled[date] ? 'cancelled' : 'scheduled',
-        materialised_start_utc: `${date}T20:00:00+00:00` },
+        materialised_start_utc: `${date}T${s.night_start?.[date] ?? '20:00'}:00+00:00` },
       added_sessions: [],
     };
   }
@@ -669,6 +673,11 @@ export class OrganiserFake {
           if (env.command.kind === 'occurrence.cancel') {
             if (env.command.payload.cancelled) hit.s.cancelled[hit.date] = String(env.command.payload.reason);
             else delete hit.s.cancelled[hit.date];
+          }
+          if (env.command.kind === 'occurrence.set_override' && 'gallery' in env.command.payload) {
+            const g = env.command.payload.gallery as string[] | null;
+            hit.s.night_gallery = { ...(hit.s.night_gallery ?? {}) };
+            if (g) hit.s.night_gallery[hit.date] = g; else delete hit.s.night_gallery[hit.date];
           }
           return json(route, { ok: true, data: {}, audit_id: 'a', new_version: 2 });
         }

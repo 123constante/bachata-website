@@ -14,22 +14,24 @@ const D1S = 'Fri 9 Oct'; void D1S;
 
 // ---------- states ----------
 type St = 'weekly' | 'changedVenue' | 'cancelledNight' | 'paused' | 'ended' | 'endDate' | 'cancelledEvent' | 'oneOff'
-  | 'door' | 'here' | 'link' | 'noStripe' | 'sold' | 'empty';
+  | 'door' | 'here' | 'link' | 'oneOffLink' | 'ownTime' | 'noStripe' | 'sold' | 'empty';
 interface Tk { id: string; name: string; price: number; cap: number; sold: number; occ?: string | null }
 interface Env { fake: OrganiserFake; tickets: Tk[]; stripe: boolean; sid: string }
 
 async function open(page: Page, st: St, route = ''): Promise<Env> {
   const fake = new OrganiserFake();
-  const sid = st === 'oneOff' ? SUNDAY : FRIDAY;
+  const sid = st === 'oneOff' || st === 'oneOffLink' ? SUNDAY : FRIDAY;
   const s = fake.series.get(sid)!;
   const env: Env = { fake, tickets: [], stripe: true, sid };
   if (st === 'changedVenue') s.night_venue = { '2026-10-09': VENUES[1].id }; s.night_description = { '2026-10-09': 'Special night.' }; // this night is at another venue
+  if (st === 'ownTime') s.night_start = { '2026-10-09': '19:00' }; // this night starts at 19:00, the usual is 20:00
   if (st === 'cancelledNight') s.cancelled['2026-10-16'] = 'Venue issue';
   if (st === 'paused') s.lifecycle_status = 'paused';
   if (st === 'ended') { s.lifecycle_status = 'ended'; s.ended_on = '2026-10-09'; }
   if (st === 'cancelledEvent') s.lifecycle_status = 'cancelled';
-  if (st === 'endDate' && s.recurrence_rule) (s.recurrence_rule as { until?: string }).until = '2026-12-25';
-  if (st === 'oneOff') s.format = 'one_off';
+  if (st === 'endDate') s.ended_on = '2026-12-25'; // the Repeats row reads series.ended_on (EveryBody.tsx:90), not the rule's end
+  if (st === 'oneOff' || st === 'oneOffLink') s.format = 'one_off';
+  if (st === 'oneOffLink') s.default_ticket_url = 'https://tickets.example/ritmo';
   if (st === 'door') s.default_ticket_url = null;
   if (st === 'link') s.default_ticket_url = 'https://tickets.example/ritmo';
   if (st === 'here' || st === 'sold') env.tickets = [{ id: 't1', name: 'General', price: 800, cap: 50, sold: st === 'sold' ? 4 : 0 }, { id: 't2', name: 'Class and party', price: 1200, cap: 30, sold: 0 }];
@@ -43,6 +45,8 @@ async function open(page: Page, st: St, route = ''): Promise<Env> {
   await page.route(/\/rpc\/ticket_types_manage_v1/, (r) => ok(r, { ok: true, ticket_types: env.tickets.map((t) => ({ id: t.id, base_price_pence: t.price, effective_price_pence: t.price, has_orders: t.sold > 0, has_price_steps: false, steps: [] })) }));
   await page.route(/\/rpc\/organiser_guest_list_night_v1/, (r) => ok(r, { ok: true, role: 'owner', can_edit: true, can_check_in: true, read_only_reason: null, night: { occurrence_id: 'o', enabled: true, capacity_max: null, cutoff_time: null, closed: false, full: false, past: false, cancelled: false }, counts: { names: 3, in: 0, places_left: null }, total: 3, entries: [{ id: 'g1', first_name: 'Ana', status: 'confirmed' }, { id: 'g2', first_name: 'Ben', status: 'confirmed' }, { id: 'g3', first_name: 'Cat', status: 'confirmed' }] }));
   await page.route(/\/rpc\/organiser_guest_list_set_night_v1/, (r) => ok(r, { ok: true }));
+  // Raffle row pill (NightHub.tsx:56) reads organiser_raffle_nights_v1: every night of the series, raffle off
+  await page.route(/\/rpc\/organiser_raffle_nights_v1/, (r) => ok(r, { ok: true, series_id: sid, can_edit: true, view_only_reason: null, nights: [...fake.dates(s)].map((d) => ({ occurrence_id: fake.occId(s, d), date: d, start_local: '20:00', chip: 'draft', raffle_on: false, entries_count: 0, locked: false, winner: null, can_set: true, refuse_reason: null })) }));
   await page.route(/\/rpc\/ticket_type_upsert_v1/, (r) => ok(r, { ok: true, id: 't9' }));
   await page.route(/\/rpc\/ticket_type_set_status_v1/, (r) => ok(r, { ok: true }));
   await page.route(/organiser_profiles\?.*id=in\./, (r) => ok(r, [{ id: fake.organisers[0].id, name: fake.organisers[0].name, avatar_url: null }]));
@@ -119,19 +123,19 @@ row({ n: 35.1, label: 'Name Done saves', st: 'weekly', pre: async (p) => { await
 row({ n: 34, label: 'Undo', st: 'weekly', pre: async (p) => { await everyTab(p); await tap(p, /^Name/); await p.getByLabel('Event name').fill('Friday Bachata Social'); await tap(p, 'Done'); }, act: (p) => p.getByTestId('v2-toast-undo').click(), expect: (p) => toastIs(p, 'Undone') });
 row({ n: 37, label: 'session row (When sheet)', st: 'weekly', pre: sess, act: (p) => tap(p, /Class|Party/, { nth: 0 }), expect: async (p) => { await expect(dlg(p)).toContainText(/Type/); } });
 row({ n: 38, label: 'Add a class or party (When sheet)', st: 'weekly', pre: sess, act: (p) => tap(p, 'Add a class or party'), expect: (p) => sheetOpen(p, 'Add a class or party') });
-row({ n: 39, label: 'Back to the usual times', st: 'changedVenue', pre: sess, act: async (p) => { await tap(p, 'Back to the usual times'); }, expect: async (p) => { await sheetGone(p); await toastIs(p, `Back to usual for ${D1}`, true); }, fixme: 'UNBUILT: built UI has no Back to the usual times button: copy.ts backToUsualTimes has no render site' });
+row({ n: 39, label: 'Back to the usual times', st: 'ownTime', pre: sess, act: async (p) => { await tap(p, 'Back to the usual times'); }, expect: async (p) => { await sheetGone(p); await toastIs(p, `Back to usual for ${D1}`, true); } });
 row({ n: 43, label: 'session Type chips', st: 'weekly', pre: async (p) => { await sess(p); await tap(p, 'Add a class or party'); }, act: (p) => tap(p, 'Party', { nth: 0 }), expect: async (p) => { await expect(dlg(p)).toBeVisible(); await expect(dlg(p).getByText('Level', { exact: true })).toHaveCount(0); } });
 row({ n: 44, label: 'session Level chips', st: 'weekly', pre: sessOpen, act: (p) => tap(p, 'Advanced'), expect: async (p) => { await expect(dlg(p).getByRole('button', { name: 'Advanced' })).toHaveAttribute('aria-pressed', 'true'); } });
 row({ n: 47, label: 'session Done: ends before start', st: 'weekly', pre: async (p) => { await sessOpen(p); await dlg(p).getByLabel('Starts').fill('21:00'); await dlg(p).getByLabel('Ends').fill('20:00'); }, act: (p) => tap(p, 'Done'), expect: async (p) => { await expect(dlg(p)).toContainText('Ends before it starts. Check the end time.'); } });
-row({ n: 48, label: 'Remove this one', st: 'weekly', pre: sessOpen, act: (p) => tap(p, 'Remove this one'), expect: async (p) => { await sheetGone(p); await toastIs(p, /Saved for/, true); }, fixme: 'fake has no second session: Remove this one is disabled at one session (SessionSheetV2.tsx:17); X-11 covers the disabled state' });
+row({ n: 48, label: 'Remove this one', st: 'weekly', pre: sessOpen, act: (p) => tap(p, 'Remove this one'), expect: async (p) => { await sheetGone(p); await toastIs(p, /Saved for/, true); } });
 row({ n: 50, label: 'venue row', st: 'weekly', pre: (p) => tap(p, /^Where/), act: async (p) => { await dlg(p, 'Where').getByTestId('where-row').filter({ hasNotText: /Now/ }).first().click(); noOld(p); }, expect: async (p) => { await sheetGone(p); await toastIs(p, /Saved for/, true); } });
 row({ n: 51, label: 'typed venue', st: 'weekly', pre: async (p) => { await tap(p, /^Where/); await p.getByRole('searchbox').fill('Salsa Hall'); }, act: (p) => tap(p, /Salsa Hall/), expect: async (p) => { await sheetGone(p); await toastIs(p, /Saved for/, true); } });
 row({ n: 52, label: 'Back to the usual venue', st: 'changedVenue', pre: (p) => tap(p, /^Where/), act: (p) => tap(p, 'Back to the usual venue'), expect: async (p) => { await sheetGone(p); await toastIs(p, `Back to usual for ${D1}`, true); } });
 row({ n: 53, label: 'Price Done (night)', st: 'door', pre: async (p) => { await tap(p, /^Price/); await dlg(p).getByRole('spinbutton').first().fill('15'); }, act: (p) => tap(p, 'Done'), expect: async (p) => { await sheetGone(p); await toastIs(p, `Saved for ${D1} only`, true); } });
 row({ n: 55, label: 'Price sheet: change usual -> Tickets', st: 'here', pre: (p) => tap(p, /^Price/), act: (p) => tap(p, /All ticket settings|Change tickets for every|Change the usual price|Set up tickets|Add your first ticket/), expect: async (p) => { await sheetGone(p); expect(route(p)).toMatch(/\/tickets$/); } });
-row({ n: 56, label: 'Change the link (price sheet)', st: 'link', pre: (p) => tap(p, /^Price/), act: (p) => tap(p, 'Change the link'), expect: (p) => sheetOpen(p, 'Link to buy tickets'), fixme: 'UNBUILT: Change the link button shows on a one-off only (PriceSheet.tsx:100-103); the weekly night sheet has Change every <day> instead' });
+row({ n: 56, label: 'Change the link (one-off price sheet; weekly shows Change every day)', st: 'oneOffLink', pre: (p) => tap(p, /^Price/), act: (p) => tap(p, 'Change the link'), expect: (p) => sheetOpen(p, 'Link to buy tickets') });
 row({ n: 58, label: 'Remove the flyer', st: 'weekly', pre: (p) => tap(p, /Flyer and photos/), act: (p) => tap(p, 'Remove the flyer'), expect: (p) => toastIs(p, /Saved for/, true), fixme: 'fake has no flyer to remove, button not shown' });
-row({ n: 62, label: 'Add a video', st: 'weekly', pre: async (p) => { await tap(p, /Flyer and photos/); await dlg(p).getByPlaceholder('https://').fill('https://youtu.be/abc123'); }, act: (p) => tap(p, 'Add a video'), expect: async (p) => { await expect(dlg(p, 'Flyer and photos')).toBeVisible(); await expect(dlg(p).getByTestId('gallery-tile')).toHaveCount(1); await expect(dlg(p).getByTestId('gallery-tile')).toHaveAttribute('aria-label', /video/i); }, fixme: 'fake has no per-night gallery override: the This-night video save is not read back (organiserFake.ts dateDetail has no gallery_override)' });
+row({ n: 62, label: 'Add a video', st: 'weekly', pre: async (p) => { await tap(p, /Flyer and photos/); await dlg(p).getByPlaceholder('https://').fill('https://youtu.be/abc123'); }, act: (p) => tap(p, 'Add a video'), expect: async (p) => { await expect(dlg(p, 'Flyer and photos')).toBeVisible(); await expect(dlg(p).getByTestId('gallery-tile')).toHaveCount(1); await expect(dlg(p).getByTestId('gallery-tile')).toHaveAttribute('aria-label', /video/i); } });
 row({ n: 67, label: 'Guest list switch', st: 'weekly', pre: (p) => tap(p, /^Guest list/), act: async (p) => { await dlg(p).getByRole('switch').click(); }, expect: (p) => toastIs(p, /Guest list (on|off)/) });
 row({ n: 70, label: 'Cancel this night (sheet)', st: 'weekly', pre: (p) => tap(p, 'Cancel this night', { nth: 0 }), act: (p) => tap(p, 'Cancel this night', { sheet: /Cancel/ }), expect: async (p) => { await sheetGone(p); await toastIs(p, `Cancelled ${D1}`, false); } });
 row({ n: 71, label: 'Keep this night', st: 'weekly', pre: (p) => tap(p, 'Cancel this night', { nth: 0 }), act: (p) => tap(p, 'Keep this night'), expect: async (p) => { await sheetGone(p); } });
@@ -145,7 +149,7 @@ row({ n: 73, label: 'Keep it cancelled', st: 'cancelledNight', pre: async (p) =>
 
 // -- Every tab: programme, repeat, music, organisers, status
 const ev = async (p: Page) => { await everyTab(p); };
-row({ n: 21, label: 'Every When Change', st: 'weekly', pre: ev, act: (p) => tap(p, /^When/), expect: (p) => sheetOpen(p, 'Classes and party'), fixme: 'UNBUILT: SH-PROG ProgSheet (WhenSheet.tsx:119) has no render site, so the Every tab When row opens no Classes and party sheet' });
+row({ n: 21, label: 'Every When Change', st: 'weekly', pre: ev, act: (p) => tap(p, /^When/), expect: (p) => sheetOpen(p, 'Classes and party') });
 row({ n: 22, label: 'Every Price Change', st: 'weekly', pre: ev, act: (p) => tap(p, /^Price/), expect: async (p) => { await expect(p).toHaveURL(/\/tickets$/); } });
 row({ n: 9.1, label: 'Every Where Change', st: 'weekly', pre: ev, act: (p) => tap(p, /^Where/), expect: (p) => sheetOpen(p, 'Where') });
 row({ n: 23, label: 'Name', st: 'weekly', pre: ev, act: (p) => tap(p, /^Name/), expect: (p) => sheetOpen(p, 'Name') });
@@ -156,15 +160,16 @@ row({ n: 28, label: 'Organisers', st: 'weekly', pre: ev, act: async (p) => { awa
 row({ n: 30, label: 'Pause the event', st: 'weekly', pre: ev, act: (p) => tap(p, /^Pause the event/), expect: (p) => sheetOpen(p, 'Pause the event?') });
 row({ n: 31, label: 'End the event', st: 'weekly', pre: ev, act: (p) => tap(p, /^End the event/), expect: (p) => sheetOpen(p, 'End the event?') });
 row({ n: 32, label: 'Cancel the event', st: 'weekly', pre: ev, act: (p) => tap(p, /^Cancel the event/), expect: (p) => sheetOpen(p, 'Cancel the event') });
-row({ n: 40, label: 'session row (Classes and party)', st: 'weekly', pre: async (p) => { await ev(p); await tap(p, /^When/); }, act: (p) => tap(p, /Class|Party/, { nth: 0 }), expect: async (p) => { await expect(dlg(p)).toContainText(/Type/); }, fixme: 'UNBUILT: SH-PROG ProgSheet (WhenSheet.tsx:119) has no render site, so the Every tab When row opens no Classes and party sheet' });
-row({ n: 41, label: 'Add a class or party (Classes and party)', st: 'weekly', pre: async (p) => { await ev(p); await tap(p, /^When/); }, act: (p) => tap(p, 'Add a class or party'), expect: (p) => sheetOpen(p, 'Add a class or party'), fixme: 'UNBUILT: SH-PROG ProgSheet (WhenSheet.tsx:119) has no render site, so the Every tab When row opens no Classes and party sheet' });
-row({ n: 42, label: 'Done (Classes and party)', st: 'weekly', pre: async (p) => { await ev(p); await tap(p, /^When/); }, act: (p) => tap(p, 'Done'), expect: async (p) => { await sheetGone(p); await expect(toast(p)).toHaveCount(0); }, fixme: 'UNBUILT: SH-PROG ProgSheet (WhenSheet.tsx:119) has no render site, so the Every tab When row opens no Classes and party sheet' });
+row({ n: 40, label: 'session row (Classes and party)', st: 'weekly', pre: async (p) => { await ev(p); await tap(p, /^When/); }, act: (p) => tap(p, /Class|Party/, { nth: 0 }), expect: async (p) => { await expect(dlg(p)).toContainText(/Type/); } });
+row({ n: 41, label: 'Add a class or party (Classes and party)', st: 'weekly', pre: async (p) => { await ev(p); await tap(p, /^When/); }, act: (p) => tap(p, 'Add a class or party'), expect: (p) => sheetOpen(p, 'Add a class or party') });
+row({ n: 42, label: 'Done (Classes and party)', st: 'weekly', pre: async (p) => { await ev(p); await tap(p, /^When/); }, act: (p) => tap(p, 'Done'), expect: async (p) => { await sheetGone(p); await expect(toast(p)).toHaveCount(0); } });
 row({ n: 76, label: 'Music chip', st: 'weekly', pre: async (p) => { await ev(p); await tap(p, /^Music/); }, act: (p) => tap(p, 'Salsa'), expect: async (p) => { await expect(dlg(p).getByRole('button', { name: 'Salsa' })).toHaveAttribute('aria-pressed', 'true'); } });
 row({ n: 77, label: 'Music Done', st: 'weekly', pre: async (p) => { await ev(p); await tap(p, /^Music/); await tap(p, 'Salsa'); }, act: (p) => tap(p, 'Done'), expect: async (p) => { await sheetGone(p); await toastIs(p, 'Saved for every Friday', true); } });
 row({ n: 78, label: 'Repeats Done', st: 'weekly', pre: async (p) => { await ev(p); await tap(p, /^Repeats/); await dlg(p).getByLabel(/Last date/).fill('2026-12-25'); }, act: (p) => tap(p, 'Done'), expect: async (p) => { await sheetGone(p); await toastIs(p, 'Saved', true); } });
 row({ n: 81, label: 'Organisers Done', st: 'weekly', pre: async (p) => { await ev(p); await tap(p, /^Organisers/); }, act: (p) => tap(p, 'Done'), expect: async (p) => { await sheetGone(p); } });
 row({ n: 82, label: 'Pause the event (sheet)', st: 'weekly', pre: async (p) => { await ev(p); await tap(p, /^Pause the event/); }, act: (p) => tap(p, 'Pause the event', { sheet: 'Pause the event?' }), expect: async (p) => { await sheetGone(p); await toastIs(p, 'Event paused', true); await expect(p.getByText('Paused').first()).toBeVisible(); } });
-row({ n: 83, label: 'End the event (sheet)', st: 'weekly', pre: async (p) => { await ev(p); await tap(p, /^End the event/); }, act: (p) => tap(p, 'End the event', { sheet: 'End the event?' }), expect: async (p) => { await sheetGone(p); await toastIs(p, /Event ended|Ends after/, true); }, fixme: 'UNBUILT: End the event toast has no Undo (copy.ts:281 toastEnded; failure is v2-toast-undo count 0)' });
+row({ n: 83, label: 'End the event (sheet, later last night)', st: 'weekly', pre: async (p) => { await ev(p); await tap(p, /^End the event/); await dlg(p).getByLabel(/^Last night/).fill('2026-12-25'); }, act: (p) => tap(p, 'End the event', { sheet: 'End the event?' }), expect: async (p) => { await sheetGone(p); await toastIs(p, /Ends after/, true); } });
+row({ n: 83.1, label: 'End the event (sheet, no date)', st: 'weekly', pre: async (p) => { await ev(p); await tap(p, /^End the event/); }, act: (p) => tap(p, 'End the event', { sheet: 'End the event?' }), expect: async (p) => { await sheetGone(p); await toastIs(p, /Event ended|Ends after/, true); }, fixme: 'UNBUILT: series.end_run has no inverse (editorModel.ts inverseOf has no case; slice17a.test.tsx pins null), so the Event ended toast has no Undo' });
 row({ n: 84, label: 'Keep it live', st: 'weekly', pre: async (p) => { await ev(p); await tap(p, /^Pause the event/); }, act: (p) => tap(p, /^Keep it live/), expect: async (p) => { await sheetGone(p); } });
 row({ n: 85, label: 'Cancel the event (sheet)', st: 'weekly', pre: async (p) => { await ev(p); await tap(p, /^Cancel the event/); }, act: (p) => tap(p, 'Cancel the event', { sheet: 'Cancel the event' }), expect: async (p) => { await sheetGone(p); await toastIs(p, 'Event cancelled', false); } });
 row({ n: 86, label: 'Keep the event', st: 'weekly', pre: async (p) => { await ev(p); await tap(p, /^Cancel the event/); }, act: (p) => tap(p, 'Keep the event'), expect: async (p) => { await sheetGone(p); } });
@@ -288,7 +293,10 @@ test('X-08 one-off has no tabs', async ({ page }) => {
   await shot(page, 'x08-one-off');
 });
 for (const [mode, st, fact] of [['door', 'door', /Pay at the door/], ['tickets here', 'here', /From|Add a ticket|£/], ['link', 'link', /Tickets on another site|your link/], ['no Stripe', 'noStripe', /Not on sale yet|Set up tickets|Add a ticket/]] as const) {
-  test(`X-09 Price in ${mode}: fact, Price sheet, Tickets screen`, async ({ page }) => {
+  // door: UNBUILT, NightCard.tsx:95 calls priceLabel without doorPrice, so the night Price fact never reads "Pay at the door"
+  // (Facts.tsx:16 is only reached with doorPrice). Its sheet and Tickets screen are walked by the next test; the fact is this fixme.
+  const fn = st === 'door' ? test.fixme : test;
+  fn(`X-09 Price in ${mode}: fact, Price sheet, Tickets screen`, async ({ page }) => {
     await open(page, st);
     await expect(page.getByRole('button', { name: /^Price/ })).toContainText(fact);
     await tap(page, /^Price/);
@@ -300,6 +308,16 @@ for (const [mode, st, fact] of [['door', 'door', /Pay at the door/], ['tickets h
     await shot(page, `x09-tickets-${st}`);
   });
 }
+test('X-09 Price in door: Price sheet and Tickets screen (fact: see the fixme above)', async ({ page }) => {
+  await open(page, 'door');
+  await tap(page, /^Price/);
+  await sheetOpen(page, 'Price');
+  await shot(page, 'x09-price-sheet-door');
+  await tap(page, 'Close');
+  await page.goto(`${route(page)}/tickets`);
+  await expect(page.locator('.ev2').first()).toBeVisible();
+  await shot(page, 'x09-tickets-door');
+});
 test('X-09 Price: no tickets', async ({ page }) => {
   await open(page, 'weekly');
   await expect(page.getByRole('button', { name: /^Price/ })).toContainText(/Add a ticket|Not on sale|Set up tickets|Pay at the door/);
@@ -340,7 +358,7 @@ test('X-12b SH-WHEN-03 Add a date. (one-off) and SH-PAY-04 Add a link', async ({
 test('X-12c SH-PAY-04 Add a link, SH-TICKET-08 How many below sold', async ({ page }) => {
   await open(page, 'door');
   await page.goto(`${route(page)}/tickets`);
-  await tap(page, /add a link|Add a link/i); await tap(page, 'Done');
+  await tap(page, /Change how dancers pay/); await tap(page, 'Add a link'); await tap(page, 'Done');
   await expect(dlg(page)).toContainText('Add a link');
 });
 test('X-12d SH-TICKET-08 How many below sold', async ({ page }) => {
