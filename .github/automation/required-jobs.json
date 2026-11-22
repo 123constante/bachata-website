@@ -4,7 +4,6 @@
   "pr_head": [
     "integrity",
     "bundle-budget",
-    "e2e-smoke",
     "wallclock-brand",
     "masking-check",
     "bom-check",

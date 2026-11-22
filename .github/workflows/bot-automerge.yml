@@ -119,12 +119,14 @@ jobs:
       - name: Disable auto-merge when the PR does not qualify
         if: always() && steps.arming.outputs.enabled == 'true' && !(steps.arming.outputs.enabled == 'true' && steps.c.outputs.code == '0' && steps.c.outputs.qualifies == 'true' && steps.pause.outputs.paused == 'false' && steps.pause2.outputs.paused == 'false')
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.BOT_PR_TOKEN || github.token }}
           PR_URL: ${{ github.event.pull_request.html_url }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+          # github.token cannot disable a real armed auto-merge ("Resource not accessible by
+          # integration"); BOT_PR_TOKEN can. No auto-merge on = nothing to undo, no write attempted.
           on="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.auto_merge != null')"
           if [ "$on" = "true" ]; then
             gh pr merge --disable-auto "$PR_URL"
