@@ -206,6 +206,22 @@ export const V2 = {
     savedEvery: (day: string) => `Saved for every ${day}`,
     savedOneOff: 'Saved',
   },
+  // when sheet + classes and party sheet (slice 7b)
+  whenSheet: {
+    tapToChange: 'Tap a class or the party to change its time',
+    add: 'Add a class or party',
+    foot: 'The night starts with the first one and ends with the last one.',
+    backToUsualTimes: 'Back to the usual times',
+    date: 'Date',
+    addDate: 'Add a date.',
+    saveDate: 'Save the date',
+    saved: 'Saved',
+    progTitle: 'Classes and party',
+    progHintWeekly: 'The usual night. Teachers and DJs are set inside each one.',
+    progHintOneOff: 'Times come from here.',
+    done: 'Done',
+    loading: 'Loading the classes and party…',
+  },
 } as const;
 
 /** The programme row's second line, "Class \u00b7 Ana, Ben \u00b7 Beginner": type, people, levels (prototype). */

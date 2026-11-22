@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import type { EventWorkspace } from '../../events/eventModel';
 import { dateDetailQueryKey, fetchDateDetail } from '../../shared/selfServeApi';
 import { fullDate } from '../../shared/dateWords';
@@ -9,6 +10,7 @@ import { londonTodayKey } from '@/lib/londonDate';
 import { V2 } from './copy';
 import { nightFieldState, type WriteStep } from './editorModel';
 import { Fact, aboutShort, priceLabel } from './Facts';
+import { WhenSheet, type OnSave } from './WhenSheet';
 import { NightCancelArea, type CancelResult } from './CancelNight';
 
 /** The override keys each fact owns. A fact shows "Only this night" only when one of these is saved on the date. */
@@ -45,16 +47,19 @@ export function backToUsualStep(d: Pick<WorkspaceDate, 'id' | 'version' | 'overr
 
 const hm = (t: string | null | undefined) => (t ? t.slice(0, 5) : '');
 
-export function NightCard({ ws, date, onBack, busy, onCancelNight, onBringBack, soldCount = 0 }: {
+export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBringBack, soldCount = 0 }: {
   ws: EventWorkspace; date: WorkspaceDate; busy?: boolean;
   /** cancel / bring back this night; the shell runs saveNow (no Undo) and returns the result */
   onCancelNight?: (reason: string) => Promise<CancelResult>; onBringBack?: () => Promise<CancelResult>;
   /** tickets sold on this night; slice 15 (money/tickets) supplies it */
   soldCount?: number;
   /** runs the Back to usual step; the shell owns saveNow and the toast */
+  /** saves at once through saveNow (When sheet) */
+  onSave?: OnSave;
   onBack: (step: WriteStep, before: Record<string, unknown> | null, label: string) => void;
 }) {
   const qc = useQueryClient();
+  const [whenOpen, setWhenOpen] = useState(false);
   const s = ws.series;
   const detail = useQuery({ queryKey: dateDetailQueryKey(date.id), queryFn: () => fetchDateDetail(date.id) });
   const dt = detail.data;
@@ -92,7 +97,7 @@ export function NightCard({ ws, date, onBack, busy, onCancelNight, onBringBack, 
         </div>
         <div className="fb-list">
           <div className="trow"><b data-testid="night-name">{dt?.titleOverride ?? s.name}</b>{pill}</div>
-          <Fact id="when" label={V2.when} main={long} sub={start ? V2.timeRange(start, end || start) : undefined} />
+          <Fact id="when" label={V2.when} main={long} sub={start ? V2.timeRange(start, end || start) : undefined} onOpen={onSave ? () => setWhenOpen(true) : undefined} />
           <Fact id="where" label={V2.where} main={venue?.name ?? '—'} sub={venue?.neighbourhood ?? venue?.city_name ?? undefined}
             changed={own.where} busy={busy} onBack={back('where', V2.venue)} />
           <Fact id="price" label={V2.price} main={price.m} sub={price.s || undefined} changed={own.price} busy={busy} onBack={back('price', V2.price)} />
@@ -102,6 +107,7 @@ export function NightCard({ ws, date, onBack, busy, onCancelNight, onBringBack, 
             onCancelNight={onCancelNight ?? (async () => ({ ok: false, error: null }))} onBringBack={onBringBack ?? (async () => ({ ok: false, error: null }))} />
         </div>
       </div>
+      {whenOpen && onSave && <WhenSheet date={date} oneOff={s.format === 'one_off'} today={today} onSave={onSave} onClose={() => setWhenOpen(false)} />}
     </div>
   );
 }

@@ -111,7 +111,7 @@ export function EditorV2({ ws }: { ws: EventWorkspace }) {
       <p className="ev2-scope" data-testid="ev2-scope">{scope}</p>
       <div data-ev2-slot={every ? 'every' : 'night'}>
         {!every && picked && (
-          <NightCard ws={ws} date={picked} busy={busy} onCancelNight={cancelNight} onBringBack={bringBack} onBack={(step, before, label) => { void saveNow([step], [before], label); }} />
+          <NightCard ws={ws} date={picked} busy={busy} onCancelNight={cancelNight} onBringBack={bringBack} onSave={saveNow} onBack={(step, before, label) => { void saveNow([step], [before], label); }} />
         )}
         {!every && picked && (
           <NightHub seriesId={ws.series.id} seriesName={ws.series.name ?? ''} occurrenceId={picked.id} oneOff={!weekly} shareLink={shareLink} toast={say}
