@@ -141,6 +141,15 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
             changed={own.where} busy={busy} onBack={back('where', V2.venue)} onOpen={onSave ? () => setSheet('where') : undefined} />
           <Fact id="price" label={V2.price} main={price.m} sub={price.s || undefined} changed={own.price} busy={busy} onBack={back('price', V2.price)} onOpen={onOpenTickets} />
           <Fact id="about" label={V2.description} main={aboutShort(about)} changed={own.about} busy={busy} onBack={back('about', V2.nightAbout)} onOpen={onSave ? () => setSheet('about') : undefined} />
+          {s.format === 'one_off' && onOpenTickets ? (
+            <div className="fwrap" data-testid="row-goTickets">
+              <button type="button" className="fbtn ln" onClick={() => onOpenTickets()}>
+                <span className="lt">{V2.ticketsPay.rowLabel}</span>
+                <span className="lv"><b>{V2.ticketsPay.rowSub}</b></span>
+                <span className="fgo">&rsaquo;</span>
+              </button>
+            </div>
+          ) : null}
           <NightCancelArea eventCancelled={s.lifecycle_status === 'cancelled'} nightCancelled={date.lifecycle_status === 'cancelled'}
             nightReason={dt?.cancellationReason} dateLong={long} soldCount={soldCount} busy={busy}
             onCancelNight={onCancelNight ?? (async () => ({ ok: false, error: null }))} onBringBack={onBringBack ?? (async () => ({ ok: false, error: null }))} />

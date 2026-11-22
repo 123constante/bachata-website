@@ -329,6 +329,31 @@ export const V2 = {
     done: 'Done',
     loading: 'Loading the classes and party…',
   },
+  /** Tickets screen pay sheets (slice 12c). Named ticketsPay: `tickets` above is the row label. */
+  ticketsPay: {
+    rowLabel: 'Tickets',
+    rowSub: 'Prices and how dancers pay',
+    doorTitle: 'Usual price at the door',
+    doorField: 'Price at the door (£)',
+    doorHint: (day: string) => `This is the price for every ${day}. Nights you changed keep their own price.`,
+    doorBad: 'Enter a price like 8 or 8.50.',
+    doorLocked: 'This price list can’t be changed here.',
+    linkTitle: 'Link to buy tickets',
+    linkField: 'Where dancers buy',
+    linkEmpty: 'Add a link',
+    howTitle: 'How dancers pay',
+    howText: 'Or tap Sell tickets here to sell on Bachata Calendar again.',
+    payDoor: 'Pay at the door',
+    changeLink: 'Change the link',
+    addLink: 'Add a link',
+    toastDoor: 'Dancers pay at the door',
+    toastLink: 'Dancers buy at your link',
+    toastSell: 'Selling tickets here',
+    savedOne: 'Saved',
+    savedEvery: (day: string) => `Saved for every ${day}`,
+    undone: 'Undone',
+    notSaved: 'Not saved. Try again.',
+  },
 } as const;
 
 /** The programme row's second line, "Class \u00b7 Ana, Ben \u00b7 Beginner": type, people, levels (prototype). */

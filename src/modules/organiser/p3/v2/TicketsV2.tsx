@@ -1,5 +1,13 @@
 import { Link } from 'react-router-dom';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { ownerPassesFromStored, PRICE_RE, upsertCommand } from '../../shared/seriesCommands';
+import { setTicketStatus, ticketKeys } from '../../tickets/ticketsApi';
+import { V2 } from './copy';
+import type { WriteStep } from './editorModel';
+import { UNDO_FAILED_TEXT, undoPlan, useSaveNow } from './saveNow';
+import { V2Toast, type V2ToastState } from './V2Toast';
+import { DoorSheet, HowPaySheet, LinkSheet } from './PaySheets';
 import type { EventWorkspace } from '../../events/eventModel';
 import { weekdayName } from '../../events/eventModel';
 import { fullDate } from '../../shared/dateWords';
@@ -109,19 +117,31 @@ export function ticketLine(pricePence: number, m: Pick<ManagedType, 'steps'> | u
   return `${cur} until ${WHEN.format(new Date(next.effectiveFrom)).replace(/,/g, '')}, then ${formatPence(next.pricePence)}`;
 }
 
+let plainSeq = 1_000_000;
+
 function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
   const s = ws.series;
   const orgId = ws.organiserIds?.[0];
   const oneOff = s.format === 'one_off';
+  const qc = useQueryClient();
   const stripe = useStripe(orgId);
   const types = useSeriesTypes(orgId, s.id, true);
   const summary = useSummary(orgId, true);
   const managed = useManagedTypes(s.id, true);
+  const { saveNow, toast, onToastDone } = useSaveNow(s.id, s.version);
+  const [plain, setPlain] = useState<V2ToastState | null>(null);
+  const [sheet, setSheet] = useState<'door' | 'link' | 'how' | null>(null);
+  const [sheetError, setSheetError] = useState<string | null>(null);
+  const [sellingHere, setSellingHere] = useState(false);
   const list = types.data ?? [];
   const connected = (stripe.state as StripeState | null) === 'connected';
-  const mode = payModeOf({ ticketTypes: list, defaultTicketUrl: s.default_ticket_url, stripeConnected: connected });
+  const payMode = payModeOf({ ticketTypes: list, defaultTicketUrl: s.default_ticket_url, stripeConnected: connected });
+  const mode: PayMode = sellingHere && list.length === 0 ? 'here' : payMode;
   const coming = oneOff ? [] : upcomingOf(ws.dates ?? [], londonTodayKey()).slice(0, 6);
+  const day = coming[0] ? weekdayName(coming[0].occurrence_date) : '';
   const sales = new Map((summary.data?.ok ? summary.data.types : []).map((t) => [t.id, t]));
+  const soldKnown = !!summary.data?.ok;
+  const soldTotal = list.reduce((n, t) => n + (sales.get(t.id)?.ticketsSold ?? 0), 0);
   const rows: TicketRow[] = list.filter((t) => t.status !== 'closed').map((t) => {
     const sold = sales.get(t.id)?.ticketsSold ?? 0;
     return {
@@ -131,10 +151,110 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
       perDate: coming.map((d) => (t.occurrenceId === d.id ? sold : 0)),
     };
   });
+  const T = V2.ticketsPay;
+  const say = (text: string, onUndo?: () => void) => { plainSeq += 1; setPlain({ seq: plainSeq, text, onUndo }); };
+  const refresh = () => { void qc.invalidateQueries({ queryKey: ticketKeys.all }); };
+  const setStatuses = async (ids: string[], status: 'paused' | 'on_sale') => {
+    for (const id of ids) {
+      const r = await setTicketStatus(id, status);
+      if (!r.ok) throw new Error(r.reason ?? 'failed');
+    }
+  };
+  const seriesStep = (part: string, payload: Record<string, unknown>): WriteStep =>
+    ({ part, target: 'series', id: s.id, version: s.version, command: upsertCommand({ name: s.name ?? '', ...payload }), order: 1 });
+
+  /** One pay change: an optional series write, plus ticket types paused / re-opened. Undo puts all of it back. */
+  const change = async (o: { part: string; label: string; payload?: Record<string, unknown>; before?: Record<string, unknown>; pause?: string[]; reopen?: string[]; flag?: boolean }): Promise<boolean> => {
+    const pause = o.pause ?? [];
+    const reopen = o.reopen ?? [];
+    const steps = o.payload ? [seriesStep(o.part, o.payload)] : [];
+    const before = o.before ? [{ name: s.name ?? '', ...o.before }] : [];
+    const touchesTypes = pause.length + reopen.length > 0 || o.flag !== undefined;
+    setSheetError(null);
+    try {
+      setPlain(null);
+      if (!touchesTypes) {
+        const r = await saveNow(steps, before, o.label);
+        if (!r.ok) { setSheetError(r.error ?? T.notSaved); return false; }
+        return true;
+      }
+      if (steps.length) {
+        const r = await saveNow(steps, before, o.label, { noUndo: true });
+        if (!r.ok) { setSheetError(r.error ?? T.notSaved); return false; }
+      }
+      await setStatuses(pause, 'paused');
+      await setStatuses(reopen, 'on_sale');
+      if (o.flag !== undefined) setSellingHere(o.flag);
+      refresh();
+    } catch {
+      refresh();
+      setSheetError(T.notSaved);
+      say(T.notSaved);
+      return false;
+    }
+    const inverse = steps.length ? undoPlan(steps, before) : [];
+    say(o.label, inverse ? () => {
+      void (async () => {
+        try {
+          if (inverse.length) { const r = await saveNow(inverse, [], T.undone, { noUndo: true }); if (!r.ok) throw new Error('undo'); }
+          await setStatuses(reopen, 'paused');
+          await setStatuses(pause, 'on_sale');
+          if (o.flag !== undefined) setSellingHere(!o.flag);
+          refresh();
+          say(T.undone);
+        } catch { refresh(); say(UNDO_FAILED_TEXT); }
+      })();
+    } : undefined);
+    return true;
+  };
+
+  const oldUrl = s.default_ticket_url ?? null;
+  const onSale = list.filter((t) => t.status === 'on_sale').map((t) => t.id);
+  const paused = list.filter((t) => t.status === 'paused').map((t) => t.id);
+  /** A switch away from selling here is refused once anything sold (slice 12d builds the Switch sheet). */
+  const locked = !soldKnown || soldTotal > 0;
+
+  const payDoor = async () => {
+    if (locked) return;
+    const ok = await change({ part: T.toastDoor, label: T.toastDoor, payload: oldUrl ? { default_ticket_url: null } : undefined, before: { default_ticket_url: oldUrl }, pause: onSale });
+    if (ok) setSheet(null);
+  };
+  const sellHere = async () => {
+    await change({ part: T.toastSell, label: T.toastSell, reopen: paused, flag: list.length === 0 ? true : undefined });
+  };
+  const openLink = () => { if (mode === 'here' && locked) return; setSheetError(null); setSheet('link'); };
+  const saveLink = async (url: string) => {
+    if (mode === 'here' && locked) return;
+    const ok = await change({ part: T.toastLink, label: T.toastLink, payload: { default_ticket_url: url }, before: { default_ticket_url: oldUrl }, pause: mode === 'here' ? onSale : [] });
+    if (ok) setSheet(null);
+  };
+  const saveDoor = async (raw: string) => {
+    const text = raw.trim();
+    const cur = doorPriceOf(s.passes);
+    if (text === '' || (cur != null && Number(text) === cur && PRICE_RE.test(text))) { setSheet(null); return; }
+    if (!PRICE_RE.test(text)) { setSheetError(T.doorBad); return; }
+    const price = Number(text);
+    const stored = ownerPassesFromStored(s.passes);
+    if (!stored) { setSheetError(T.doorLocked); return; }
+    const next = stored.length
+      ? stored.map((p, i) => (i === 0 ? { ...p, price } : p))
+      : [{ id: crypto.randomUUID(), name: 'Entry', price }];
+    const label = oneOff ? T.savedOne : T.savedEvery(day);
+    const ok = await change({ part: label, label, payload: { default_passes: next }, before: { default_passes: s.passes ?? [] } });
+    if (ok) setSheet(null);
+  };
+
   return (
-    <TicketsView name={s.name ?? ''} oneOff={oneOff} day={coming[0] ? weekdayName(coming[0].occurrence_date) : ''} backTo={P3_PATHS.event(s.id)}
-      stripe={connected} mode={mode} tickets={rows} dates={coming.map((d) => fullDate(d.occurrence_date).replace(/ \d{4}$/, ''))}
-      doorPrice={doorPriceOf(s.passes)} link={s.default_ticket_url ?? null} />
+    <>
+      <TicketsView name={s.name ?? ''} oneOff={oneOff} day={day} backTo={P3_PATHS.event(s.id)}
+        stripe={connected} mode={mode} tickets={rows} dates={coming.map((d) => fullDate(d.occurrence_date).replace(/ \d{4}$/, ''))}
+        doorPrice={doorPriceOf(s.passes)} link={s.default_ticket_url ?? null}
+        on={{ sellHere: () => { void sellHere(); }, payDoor: () => { void payDoor(); }, link: openLink, doorUsual: () => { setSheetError(null); setSheet('door'); }, howPay: () => setSheet('how') }} />
+      {sheet === 'door' && <DoorSheet price={doorPriceOf(s.passes)} day={oneOff ? null : day} error={sheetError} onDone={(r) => { void saveDoor(r); }} onClose={() => setSheet(null)} />}
+      {sheet === 'link' && <LinkSheet link={oldUrl ?? ''} error={sheetError} onDone={(u) => { void saveLink(u); }} onClose={() => setSheet(null)} />}
+      {sheet === 'how' && <HowPaySheet door={mode === 'door'} hasLink={!!oldUrl} onDoor={() => { void payDoor(); }} onLink={openLink} onClose={() => setSheet(null)} />}
+      <V2Toast toast={plain ?? toast} onDone={(q) => { setPlain(null); onToastDone(q); }} />
+    </>
   );
 }
 
