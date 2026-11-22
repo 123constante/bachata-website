@@ -35,6 +35,7 @@ import DancerBell from '../DancerBell';
 import { badgeText, bellRateTitle, loadRead, rateAlert, readKey, ticketAlerts } from '../bellAlerts';
 import { nudgeTitle } from '../../screens/home/RateNudge';
 import { renderInShell, resetShell } from '../renderInShell';
+import { setTestUser } from '../testAuth';
 import { FAKE_USER_ID } from '../../api/fixtures';
 
 const night = (o: Record<string, unknown> = {}) => ({
@@ -61,6 +62,8 @@ beforeEach(() => {
   h.tickets = [];
   h.rating = { summary: { my_level: null }, isLoading: false, canRate: true };
   window.localStorage.clear();
+  // The direct mounts below have no shell around them: sign the person in here (renderInShell does it itself).
+  setTestUser({ id: FAKE_USER_ID });
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(at('2026-11-22T12:00:00Z'));
 });
@@ -95,7 +98,7 @@ describe('model', () => {
     expect(ticketAlerts(n, t, TODAY, at('2026-11-22T08:59:00Z'))).toHaveLength(0);
     const a = ticketAlerts(n, t, TODAY, at('2026-11-22T09:00:00Z'));
     expect(a).toHaveLength(1);
-    expect(a[0]).toMatchObject({ id: 'ticket:ord1:2026-11-22', title: 'Your ticket is ready', line: 'Salsa Night · tonight 21:00' });
+    expect(a[0]).toMatchObject({ id: 'ticket:ord1:2026-11-22', title: 'Your ticket is ready', line: 'Salsa Night \u00B7 tonight 21:00' });
     // the night ended: the RPC moves it to past, so it is not in `upcoming`
     expect(ticketAlerts([] as never, t, TODAY, at('2026-11-22T20:00:00Z'))).toHaveLength(0);
   });
@@ -107,7 +110,7 @@ describe('model', () => {
   });
   it('rate: id, title and path from the one candidate; nothing without one', () => {
     const a = rateAlert(night({ past: true, date: '2026-11-21', status: 'ended' }) as never, TODAY);
-    expect(a).toMatchObject({ id: 'rate:ser1:2026-11-21', title: 'Rate last night', line: 'Salsa Night · how was the level?' });
+    expect(a).toMatchObject({ id: 'rate:ser1:2026-11-21', title: 'Rate last night', line: 'Salsa Night \u00B7 how was the level?' });
     expect(rateAlert(null, TODAY)).toBeNull();
   });
 });

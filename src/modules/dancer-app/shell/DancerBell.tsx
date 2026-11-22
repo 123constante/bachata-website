@@ -84,11 +84,18 @@ const DancerBell = () => {
     },
   });
   const candidates = useMemo(() => nudgeCandidates(my.nights.past, my.todayKey), [my.nights.past, my.todayKey]);
-  const [rateNight, setRateNight] = useState<Night | null | 'loading'>('loading');
   const candidateKey = candidates.map((c) => c.occurrenceId).join(',');
-  useEffect(() => {
-    setRateNight(candidates.length === 0 ? null : 'loading');
-  }, [candidateKey, candidates.length]);
+  // The probe's answer is stored WITH the candidate list it answered for, so an early answer can
+  // never be overwritten by a reset effect (a child effect runs before its parent's).
+  const [resolved, setResolved] = useState<{ key: string; night: Night | null } | null>(null);
+  const rateNight: Night | null | 'loading' =
+    candidates.length === 0 ? null : resolved && resolved.key === candidateKey ? resolved.night : 'loading';
+  const onResolve = useCallback(
+    (n: Night | null | 'loading') => {
+      if (n !== 'loading') setResolved({ key: candidateKey, night: n });
+    },
+    [candidateKey],
+  );
 
   const now = new Date();
   const loading = my.isLoading || (ticketsOn && tq.isLoading) || rateNight === 'loading';
@@ -159,7 +166,7 @@ const DancerBell = () => {
 
   return (
     <div ref={wrap} style={{ position: 'relative' }} data-testid="dancer-bell">
-      {candidates.length > 0 && <RateProbe key={candidateKey} candidates={candidates} index={0} onResolve={setRateNight} />}
+      {candidates.length > 0 && <RateProbe key={candidateKey} candidates={candidates} index={0} onResolve={onResolve} />}
       <button
         ref={button}
         type="button"

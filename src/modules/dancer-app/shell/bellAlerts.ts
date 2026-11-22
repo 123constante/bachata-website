@@ -14,7 +14,7 @@ import { ticketsForNight } from '../screens/nights/nightsTicket';
 export const BELL_MAX_ALERTS = 5;
 export const BELL_TICKET_FROM_MINUTES = 9 * 60;
 export const BELL_EMPTY_LINE = 'No alerts right now';
-export const BELL_ERROR_LINE = 'Couldn’t load alerts. Try again';
+export const BELL_ERROR_LINE = 'Couldn\u2019t load alerts. Try again';
 
 export type BellAlert =
   | { id: string; kind: 'ticket'; title: string; line: string; occurrenceId: string; nightName: string; nightDate: string | null }
@@ -48,7 +48,7 @@ export const ticketAlerts = (upcoming: readonly Night[], tickets: readonly MyTic
       id: ticketAlertId(held[0].orderId, n.date),
       kind: 'ticket',
       title: 'Your ticket is ready',
-      line: `${n.name} · tonight${time ? ` ${time.slice(0, 5)}` : ''}`,
+      line: `${n.name} \u00B7 tonight${time ? ` ${time.slice(0, 5)}` : ''}`,
       occurrenceId: n.occurrenceId,
       nightName: n.name,
       nightDate: n.date,
@@ -64,7 +64,7 @@ export const rateAlert = (night: Night | null, todayKey: string): BellAlert | nu
         id: rateAlertId(night.seriesId, night.date),
         kind: 'rate',
         title: bellRateTitle(night.date, todayKey),
-        line: `${night.name} · how was the level?`,
+        line: `${night.name} \u00B7 how was the level?`,
         to: nightsPath(night.seriesId),
       }
     : null;
