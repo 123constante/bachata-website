@@ -8,8 +8,8 @@ name: Ship it (owner comment arms auto-merge)
 #
 # ALLOWLIST (bash `case` patterns, case-insensitive, `*` crosses `/`). A file must match one of these
 # AND none of the DENY prefixes. Renames are checked on both the new and the previous filename.
-#   allow: docs/*   *.md   *.test.ts  *.test.tsx  */__tests__/*   *.css
-#          public/*.png|jpg|jpeg|gif|webp|avif|ico|svg
+#   allow: *.md (docs/x.md yes, docs/x.json no)  *.test.ts  *.test.tsx  */__tests__/*  *.css
+#          public/*.png|jpg|jpeg|gif|webp|avif|ico   (no svg: it can carry script)
 #          src/modules/*/screens/*.tsx   src/modules/*/components/*.tsx
 #   deny first (beats allow): .github/*  .claude/*  .githooks/*  scripts/*  supabase/*  *.sql
 #          CLAUDE.md  AGENTS.md  (also nested)
@@ -27,20 +27,19 @@ name: Ship it (owner comment arms auto-merge)
 #  - PR code is NEVER checked out, built or run. Files and head sha are read through the REST API.
 #  - No third-party actions, so nothing to pin. Only `gh` (preinstalled).
 #  - Refuses unless the `main` ruleset has a required_status_checks rule (auto-merge would merge at once).
-#  - Disarm: pull_request_target `synchronize` re-runs the allowlist on every new head of a `ship-it`
-#    PR and switches auto-merge off if the PR is now refused. (The definition comes from main.)
+#  - Disarm, fail CLOSED: on every synchronize / reopened / ready_for_review of a same-repo PR that is
+#    armed or labelled `ship-it`, the `disarm` job switches auto-merge OFF first and never re-arms.
+#    After any push the owner must comment `ship it` again. (Definition comes from main.)
+#    Consequence: there is no push-to-main branch updater; arming waits on the update the ship job does itself.
 #  - Token: BOT_PR_TOKEN when present, else GITHUB_TOKEN. A branch update pushed with GITHUB_TOKEN does
 #    not trigger the PR's checks (GitHub rule); pr-auto-rebase.yml uses BOT_PR_TOKEN for the same reason.
-#    pr-auto-rebase.yml only rebases CONFLICTED PRs, so the update-labelled job here is not redundant.
 
 on:
   issue_comment:
     types: [created]
   pull_request_target:
     branches: [main]
-    types: [synchronize]
-  push:
-    branches: [main]
+    types: [synchronize, reopened, ready_for_review]
 
 permissions:
   contents: read
@@ -60,7 +59,7 @@ jobs:
       issues: write
       checks: read
     concurrency:
-      group: ship-it-pr-${{ github.event.issue.number }}
+      group: ship-it-ship-${{ github.event.issue.number }}
       cancel-in-progress: false
     env:
       GH_TOKEN: ${{ secrets.BOT_PR_TOKEN || secrets.GITHUB_TOKEN }}
@@ -83,8 +82,8 @@ jobs:
           allowed() {
             case "$1" in
               .github/*|.claude/*|.githooks/*|scripts/*|supabase/*|*.sql|CLAUDE.md|*/CLAUDE.md|AGENTS.md|*/AGENTS.md) return 1 ;;
-              docs/*|*.md|*.test.ts|*.test.tsx|*/__tests__/*|*.css) return 0 ;;
-              public/*.png|public/*.jpg|public/*.jpeg|public/*.gif|public/*.webp|public/*.avif|public/*.ico|public/*.svg) return 0 ;;
+              *.md|*.test.ts|*.test.tsx|*/__tests__/*|*.css) return 0 ;;
+              public/*.png|public/*.jpg|public/*.jpeg|public/*.gif|public/*.webp|public/*.avif|public/*.ico) return 0 ;;
               src/modules/*/screens/*.tsx|src/modules/*/components/*.tsx) return 0 ;;
             esac
             return 1
@@ -102,31 +101,33 @@ jobs:
             done <<< "$files"
             return 0
           }
-          say_once() { # $1 = full comment text, $2 = marker key; skips if the last marked comment has the same key
+          # $1 = comment text, $2 = key. Skips when the LAST marked bot comment (last non-empty line) has the same key.
+          say_once() {
             local last
-            last="$(gh api "repos/$REPO/issues/$PR/comments?per_page=100" --paginate --jq "[.[] | select(.body | contains(\"<!-- ship-it -->\"))] | last | .body // \"\"" | tail -n 1 || true)"
-            case "$last" in *"$2"*) echo "same comment already posted"; return 0 ;; esac
+            last="$(gh api "repos/$REPO/issues/$PR/comments?per_page=100" --paginate --jq '.[] | select(.body | contains("<!-- ship-it -->")) | .body' | grep . | tail -n 1 || true)"
+            case "$last" in *"<!-- $2 -->"*) echo "same comment already posted"; return 0 ;; esac
             gh pr comment "$PR" --repo "$REPO" --body "<!-- ship-it -->$1 <!-- $2 -->"
           }
+          clean() { printf '%s' "$1" | tr -d '@`[]()' | cut -c1-200; }
           disarm() {
             gh pr merge "$PR" --repo "$REPO" --disable-auto >/dev/null 2>&1 || true
             gh pr edit "$PR" --repo "$REPO" --remove-label ship-it >/dev/null 2>&1 || true
           }
           refuse() {
-            local p; p="$(printf '%s' "$REFUSED_PATH" | tr -d '@`' | cut -c1-200)"
+            local p; p="$(clean "$REFUSED_PATH")"
+            disarm   # first: switch auto-merge off before anything that can fail
             gh label create ship-it-refused --repo "$REPO" --color B60205 --description "ship it refused: path not on the allowlist" 2>/dev/null || true
-            gh pr edit "$PR" --repo "$REPO" --add-label ship-it-refused >/dev/null
-            disarm
+            gh pr edit "$PR" --repo "$REPO" --add-label ship-it-refused >/dev/null 2>&1 || true
             say_once "ship-it REFUSED: \`$p\` is not on the auto-merge allowlist. Merge this PR the normal way." "refused:$p"
           }
-          fail() { say_once "ship-it FAILED: $1" "failed:$1"; exit 1; }
+          fail() { disarm; say_once "ship-it FAILED: $1" "failed:$1" || true; exit 1; }
 
           state="$(gh api "repos/$REPO/pulls/$PR" --jq '.state + " " + .base.ref + " " + (.head.repo.full_name // "")')"
-          [ "$state" = "open main $REPO" ] || { say_once "ship-it: skipped, PR must be open, target main and come from this repo." "skipped:$state"; exit 0; }
+          [ "$state" = "open main $REPO" ] || { say_once "ship-it: skipped, PR must be open, target main and come from this repo." "skipped"; exit 0; }
 
-          # Auto-merge with no required checks would merge at once: demand the ruleset rule.
-          n_req="$(gh api "repos/$REPO/rules/branches/main" --jq '[.[] | select(.type == "required_status_checks")] | length')"
-          if [ "$n_req" = "0" ]; then say_once "ship-it: refused, main has no required_status_checks rule, auto-merge would merge immediately." "norule"; exit 0; fi
+          # Auto-merge with no required checks would merge at once: demand a ruleset rule with a non-empty check list.
+          n_req="$(gh api "repos/$REPO/rules/branches/main" --jq '[.[] | select(.type == "required_status_checks") | (.parameters.required_status_checks | length)] | add // 0')"
+          if [ "${n_req:-0}" -lt 1 ]; then say_once "ship-it: refused, main has no required status checks in its ruleset, auto-merge would merge immediately." "norule"; exit 0; fi
 
           if ! check_pr; then refuse; exit 0; fi
 
@@ -146,19 +147,31 @@ jobs:
             if ! check_pr; then refuse; exit 0; fi
           fi
 
+          # Label first, then arm. Arming fails: remove the label, comment, red run.
+          gh label create ship-it --repo "$REPO" --color 0E8A16 --description "owner said ship it: auto-merge armed" 2>/dev/null || true
+          gh pr edit "$PR" --repo "$REPO" --add-label ship-it >/dev/null
           if ! gh pr merge "$PR" --repo "$REPO" --auto --squash --match-head-commit "$HEAD_SHA"; then
             fail "could not arm auto-merge (see the run log)."
           fi
-          gh label create ship-it --repo "$REPO" --color 0E8A16 --description "owner said ship it: auto-merge armed" 2>/dev/null || true
-          gh pr edit "$PR" --repo "$REPO" --add-label ship-it >/dev/null
           gh pr edit "$PR" --repo "$REPO" --remove-label ship-it-refused >/dev/null 2>&1 || true
+
+          # The update-branch push above can fire the disarm job after we armed. If the head is unchanged and
+          # auto-merge went off, arm once more; if the head moved, a real push happened: stay disarmed.
+          sleep 25
+          cur="$(gh api "repos/$REPO/pulls/$PR" --jq .head.sha)"
+          armed="$(gh pr view "$PR" --repo "$REPO" --json autoMergeRequest --jq '.autoMergeRequest != null')"
+          if [ "$cur" != "$HEAD_SHA" ]; then fail "a push landed after ship it. Comment ship it again."; fi
+          if [ "$armed" != "true" ]; then
+            gh pr merge "$PR" --repo "$REPO" --auto --squash --match-head-commit "$HEAD_SHA" || fail "could not re-arm auto-merge."
+            gh pr edit "$PR" --repo "$REPO" --add-label ship-it >/dev/null 2>&1 || true
+          fi
           gh pr comment "$PR" --repo "$REPO" --body "ship-it: auto-merge on, waits for required checks and up-to-date branch"
 
   disarm:
+    # Fail CLOSED: every new head of a same-repo PR that is armed or labelled loses auto-merge. No re-arm here.
     if: >-
       github.event_name == 'pull_request_target' &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      contains(toJSON(github.event.pull_request.labels.*.name), 'ship-it')
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -166,68 +179,59 @@ jobs:
       pull-requests: write
       issues: write
     concurrency:
-      group: ship-it-pr-${{ github.event.pull_request.number }}
+      group: ship-it-disarm-${{ github.event.pull_request.number }}
       cancel-in-progress: false
     env:
       GH_TOKEN: ${{ secrets.BOT_PR_TOKEN || secrets.GITHUB_TOKEN }}
       REPO: ${{ github.repository }}
       PR: ${{ github.event.pull_request.number }}
+      EVENT_SHA: ${{ github.event.pull_request.head.sha }}
     steps:
-      - name: Re-check the new head, disarm if no longer allowed
+      - name: Switch auto-merge off on every new head
         shell: bash
         run: |
           set -euo pipefail
+          off() { gh pr merge "$PR" --repo "$REPO" --disable-auto >/dev/null 2>&1 || true; }
+          # Any error from here on: try once more to switch it off, and keep the run RED.
+          trap 'off; echo "disarm errored: auto-merge forced off, run is red"; exit 1' ERR
+
+          info="$(gh pr view "$PR" --repo "$REPO" --json autoMergeRequest,labels --jq '[(.autoMergeRequest != null), ([.labels[].name] | index("ship-it") != null)] | @csv')"
+          case "$info" in
+            false,false) echo "not armed, not labelled: nothing to do"; exit 0 ;;
+          esac
+
+          # FIRST action: switch it off (no allowlist check before this).
+          off
+          gh pr edit "$PR" --repo "$REPO" --remove-label ship-it >/dev/null
+          still="$(gh pr view "$PR" --repo "$REPO" --json autoMergeRequest --jq '.autoMergeRequest != null')"
+          if [ "$still" != "false" ]; then echo "auto-merge is STILL on after disable"; exit 1; fi
+
+          # Merge commits from update-branch are quiet; any other push says why. No PR checkout.
           shopt -s nocasematch
-          # No PR checkout: files come from the REST API. Allowlist identical to the ship job.
           allowed() {
             case "$1" in
               .github/*|.claude/*|.githooks/*|scripts/*|supabase/*|*.sql|CLAUDE.md|*/CLAUDE.md|AGENTS.md|*/AGENTS.md) return 1 ;;
-              docs/*|*.md|*.test.ts|*.test.tsx|*/__tests__/*|*.css) return 0 ;;
-              public/*.png|public/*.jpg|public/*.jpeg|public/*.gif|public/*.webp|public/*.avif|public/*.ico|public/*.svg) return 0 ;;
+              *.md|*.test.ts|*.test.tsx|*/__tests__/*|*.css) return 0 ;;
+              public/*.png|public/*.jpg|public/*.jpeg|public/*.gif|public/*.webp|public/*.avif|public/*.ico) return 0 ;;
               src/modules/*/screens/*.tsx|src/modules/*/components/*.tsx) return 0 ;;
             esac
             return 1
           }
           files="$(gh api --paginate "repos/$REPO/pulls/$PR/files?per_page=100" --jq '.[] | .filename, (.previous_filename // empty)')"
-          n="$(printf '%s\n' "$files" | grep -c . || true)"
           bad=""
-          if [ "$n" -ge 3000 ]; then bad="(3000+ files)"; else
-            while IFS= read -r f; do
-              [ -n "$f" ] || continue
-              if ! allowed "$f"; then bad="$f"; break; fi
-            done <<< "$files"
+          while IFS= read -r f; do
+            [ -n "$f" ] || continue
+            if ! allowed "$f"; then bad="$f"; break; fi
+          done <<< "$files"
+          if [ -n "$bad" ]; then
+            gh label create ship-it-refused --repo "$REPO" --color B60205 --description "ship it refused: path not on the allowlist" 2>/dev/null || true
+            gh pr edit "$PR" --repo "$REPO" --add-label ship-it-refused >/dev/null 2>&1 || true
+            p="$(printf '%s' "$bad" | tr -d '@`[]()' | cut -c1-200)"
+            msg="ship-it DISARMED: a push touches \`$p\`, which is not on the auto-merge allowlist. Auto-merge is off."
+          else
+            msg="ship-it DISARMED: push after ship it. Comment ship it again."
           fi
-          [ -n "$bad" ] || { echo "new head still allowed"; exit 0; }
-          gh pr merge "$PR" --repo "$REPO" --disable-auto || true
-          gh pr edit "$PR" --repo "$REPO" --remove-label ship-it || true
-          gh label create ship-it-refused --repo "$REPO" --color B60205 --description "ship it refused: path not on the allowlist" 2>/dev/null || true
-          gh pr edit "$PR" --repo "$REPO" --add-label ship-it-refused || true
-          p="$(printf '%s' "$bad" | tr -d '@`' | cut -c1-200)"
-          last="$(gh api "repos/$REPO/issues/$PR/comments?per_page=100" --paginate --jq '[.[] | select(.body | contains("<!-- ship-it -->"))] | last | .body // ""' | tail -n 1 || true)"
-          case "$last" in *"disarmed:$p"*) exit 0 ;; esac
-          gh pr comment "$PR" --repo "$REPO" --body "<!-- ship-it -->ship-it DISARMED: a new push touches \`$p\`, which is not on the auto-merge allowlist. Auto-merge is off. <!-- disarmed:$p -->"
-
-  update-labelled:
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: write
-      pull-requests: write
-    concurrency:
-      group: ship-it-push
-      cancel-in-progress: true
-    env:
-      GH_TOKEN: ${{ secrets.BOT_PR_TOKEN || secrets.GITHUB_TOKEN }}
-      REPO: ${{ github.repository }}
-    steps:
-      - name: Update open same-repo PRs that are labelled ship-it and have auto-merge armed
-        shell: bash
-        run: |
-          set -uo pipefail
-          for n in $(gh pr list --repo "$REPO" --state open --label ship-it --json number,autoMergeRequest,isCrossRepository \
-                       --jq '.[] | select(.autoMergeRequest != null and (.isCrossRepository | not)) | .number'); do
-            gh api -X PUT "repos/$REPO/pulls/$n/update-branch" >/dev/null 2>&1 \
-              && echo "updated #$n" || echo "update-branch #$n skipped (up to date or conflict)"
-          done
-          exit 0
+          last="$(gh api "repos/$REPO/issues/$PR/comments?per_page=100" --paginate --jq '.[] | select(.body | contains("<!-- ship-it -->")) | .body' | grep . | tail -n 1 || true)"
+          sha="$EVENT_SHA"
+          case "$last" in *"<!-- disarmed:$sha -->"*) exit 0 ;; esac
+          gh pr comment "$PR" --repo "$REPO" --body "<!-- ship-it -->$msg <!-- disarmed:$sha -->"
