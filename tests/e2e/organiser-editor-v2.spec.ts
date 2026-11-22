@@ -202,7 +202,7 @@ row({ n: 106, label: 'Remove this ticket', st: 'here', pre: async (p) => { await
 // -- one-off
 row({ n: 27, label: 'Tickets (Prices and how dancers pay)', st: 'oneOff', act: (p) => tap(p, /Prices and how dancers pay/), expect: async (p) => { await expect(p).toHaveURL(/\/tickets$/); } });
 row({ n: 36, label: 'Save the date: empty error', st: 'oneOff', pre: async (p) => { await tap(p, /^(When|Date)/); await dlg(p).locator('input[type=date]').fill(''); }, act: (p) => tap(p, 'Save the date'), expect: async (p) => { await expect(dlg(p)).toContainText('Add a date.'); } });
-row({ n: 36.1, label: 'Save the date saves', st: 'oneOff', pre: async (p) => { await tap(p, /^(When|Date)/); await dlg(p).locator('input[type=date]').fill('2026-12-20'); }, act: (p) => tap(p, 'Save the date'), expect: (p) => toastIs(p, 'Saved', true), fixme: 'row 36 Undo UNBUILT (move_date has no inverse): toast has no Undo' });
+row({ n: 36.1, label: 'Save the date saves', st: 'oneOff', pre: async (p) => { await tap(p, /^(When|Date)/); await dlg(p).locator('input[type=date]').fill('2026-12-20'); }, act: (p) => tap(p, 'Save the date'), expect: (p) => toastIs(p, 'Saved', true) });
 row({ n: 53.1, label: 'one-off Price Done toast', st: 'oneOff', pre: async (p) => { await tap(p, /^Price/); await dlg(p).getByRole('spinbutton').first().fill('15'); }, act: (p) => tap(p, 'Done'), expect: (p) => toastIs(p, 'Saved', true) });
 
 for (const r of ROWS) {

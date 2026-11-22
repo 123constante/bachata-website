@@ -101,7 +101,7 @@ export function WhenSheet({ date, oneOff, today, onSave, onClose }: {
     setDateErr(false);
     if (dateVal === date.occurrence_date) { onClose(); return; }
     const step: WriteStep = { part: W.date, target: 'occurrence', id: date.id, version: date.version, command: moveDateCommand(dateVal), order: 1 };
-    const r = await onSave([step], [null], W.saved, { noUndo: true });
+    const r = await onSave([step], [{ to_date: date.occurrence_date }], W.saved);
     if (r.ok) onClose(); else setProblem(r.error);
   };
 

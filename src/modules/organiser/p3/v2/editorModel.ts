@@ -257,6 +257,7 @@ const sameStep = (step: WriteStep, command: OwnerCommand | null, payload?: Recor
  *  - series.set_lifecycle: same kind, to the old state
  *  - occurrence.set_time: set_time with the old times, or reset when the night had none of its own
  *  - occurrence.cancel: cancel flipped back (cancel -> bring back; bring back -> cancel with the old reason)
+ *  - occurrence.move_date: move_date back to the old date (the old day is free again after the move)
  *  - programme: the old sessions list replaced back
  */
 export function inverseOf(step: WriteStep, before: StepBefore | null | undefined): WriteStep | null {
@@ -294,6 +295,8 @@ export function inverseOf(step: WriteStep, before: StepBefore | null | undefined
       }
       return sameStep(step, { kind: c.kind, payload: { cancelled: false } });
     }
+    case 'occurrence.move_date':
+      return typeof before.to_date === 'string' ? sameStep(step, { kind: c.kind, payload: { to_date: before.to_date } }) : null;
     default:
       return null;
   }

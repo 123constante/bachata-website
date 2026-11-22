@@ -123,15 +123,16 @@ describe('WhenSheet one-off date', () => {
     expect(onClose).toHaveBeenCalled();
     expect(onSave).not.toHaveBeenCalled();
   });
-  it('a new date saves a move_date step, label Saved, no Undo', async () => {
+  it('a new date saves a move_date step, label Saved, with Undo (inverse = old date)', async () => {
     const { onSave, onClose } = mount({ oneOff: true });
     fireEvent.change(document.getElementById('w-date')!, { target: { value: '2026-12-03' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save the date' }));
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
-    const c = onSave.mock.calls[0] as unknown as [{ target: string; id: string; version: number; command: unknown }[], unknown, string, { noUndo: boolean }];
+    const c = onSave.mock.calls[0] as unknown as [{ target: string; id: string; version: number; command: unknown }[], unknown, string, unknown];
     expect(c[0][0]).toMatchObject({ target: 'occurrence', id: 'o1', version: 3, command: { kind: 'occurrence.move_date', payload: { to_date: '2026-12-03' } } });
     expect(c[2]).toBe('Saved');
-    expect(c[3]).toEqual({ noUndo: true });
+    expect(c[1]).toEqual([{ to_date: '2026-11-26' }]);
+    expect(c[3]).toBeUndefined();
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 });
