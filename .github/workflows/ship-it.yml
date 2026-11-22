@@ -60,6 +60,7 @@ jobs:
       pull-requests: write
       issues: write
       checks: read
+      actions: read
     concurrency:
       group: ship-it-ship-${{ github.event.issue.number }}
       cancel-in-progress: false
@@ -135,11 +136,13 @@ jobs:
           # Switch auto-merge off, re-read it, retry 3x; still on = red run (exit 1).
           disarm() {
             local i armed
-            gh pr edit "$PR" --repo "$REPO" --remove-label ship-it >/dev/null 2>&1 || true
             for i in 1 2 3; do
               gh pr merge "$PR" --repo "$REPO" --disable-auto >/dev/null 2>&1 || true
               armed="$(gh pr view "$PR" --repo "$REPO" --json autoMergeRequest --jq '.autoMergeRequest != null' 2>/dev/null || echo unknown)"
-              [ "$armed" = "false" ] && return 0
+              if [ "$armed" = "false" ]; then
+                gh pr edit "$PR" --repo "$REPO" --remove-label ship-it >/dev/null 2>&1 || true   # only after null; on failure the label stays so later pushes retry
+                return 0
+              fi
               sleep 3
             done
             echo "auto-merge is STILL on (or unreadable) after 3 disable attempts"
@@ -168,6 +171,7 @@ jobs:
           old_sha="$HEAD_SHA"
           merge_state="$(gh api "repos/$REPO/pulls/$PR" --jq .mergeable_state)"
           if [ "$merge_state" = "behind" ]; then
+            upd_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
             gh api -X PUT "repos/$REPO/pulls/$PR/update-branch" -f expected_head_sha="$old_sha" >/dev/null \
               || fail "update-branch error (conflict or race). Update the branch by hand."
             changed=0
@@ -179,10 +183,11 @@ jobs:
             [ "$changed" = "1" ] || fail "branch update did not land within 60s."
             # The update push can fire the disarm job on the new head. Wait (max 120s) until that run is
             # completed before arming. No run appearing for 30s = the push fired no event (GITHUB_TOKEN): go on.
-            new_sha="$cur"; seen=0
+            # pull_request_target runs carry the BASE sha as head_sha, so match by PR number (pull_requests[]) or,
+            # when that list is empty, by created_at >= update time on this workflow file.
             for t in $(seq 1 24); do
-              st="$(gh run list --repo "$REPO" --workflow ship-it.yml --event pull_request_target --limit 30 --json headSha,status --jq "[.[] | select(.headSha == \"$new_sha\")] | if length == 0 then \"none\" elif all(.[]; .status == \"completed\") then \"done\" else \"running\" end")"
-              [ "$st" = "done" ] && { seen=1; break; }
+              st="$(gh api "repos/$REPO/actions/runs?event=pull_request_target&per_page=30" | jq -r --arg pr "$PR" --arg since "$upd_time"                 '[.workflow_runs[] | select(.path == ".github/workflows/ship-it.yml" and .created_at >= $since and ((.pull_requests | length) == 0 or any(.pull_requests[]; (.number | tostring) == $pr)))] | if length == 0 then "none" elif all(.[]; .status == "completed") then "done" else "running" end')"
+              [ "$st" = "done" ] && break
               [ "$st" = "none" ] && [ "$t" -ge 6 ] && break
               sleep 5
             done
@@ -198,6 +203,10 @@ jobs:
           fi
           gh pr edit "$PR" --repo "$REPO" --remove-label ship-it-refused >/dev/null 2>&1 || true
 
+          # Re-add the label after arming (a late disarm may have removed it) and verify it, THEN re-check.
+          gh pr edit "$PR" --repo "$REPO" --add-label ship-it >/dev/null || fail "could not re-add the ship-it label after arming."
+          has="$(gh pr view "$PR" --repo "$REPO" --json labels --jq '[.labels[].name] | index("ship-it") != null')"
+          [ "$has" = "true" ] || fail "ship-it label missing after arming."
           # After arming: the final head and file list must still be allowed and the head unchanged.
           pinned="$HEAD_SHA"
           check_or_stop
@@ -239,7 +248,6 @@ jobs:
           [ "$labelled" = "true" ] || { echo "no ship-it label: not ours, nothing to do"; exit 0; }
 
           # FIRST action: switch it off (no allowlist check before this).
-          gh pr edit "$PR" --repo "$REPO" --remove-label ship-it >/dev/null || true
           still=true
           for i in 1 2 3; do
             off
@@ -247,7 +255,9 @@ jobs:
             [ "$still" = "false" ] && break
             sleep 3
           done
-          if [ "$still" != "false" ]; then
+          if [ "$still" = "false" ]; then
+            gh pr edit "$PR" --repo "$REPO" --remove-label ship-it >/dev/null   # only after null; on failure the label stays
+          else
             echo "auto-merge is STILL on (or unreadable) after 3 disable attempts"
             gh pr comment "$PR" --repo "$REPO" --body "<!-- ship-it -->ship-it ERROR: could not switch auto-merge off after a push. Disable it by hand. <!-- disarm-failed -->" || true
             exit 1
