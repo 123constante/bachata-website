@@ -354,8 +354,8 @@ export class OrganiserFake {
   dateDetail(s: FakeSeries, date: string) {
     return {
       event: {
-        name: s.name, venue_id: s.night_venue?.[date] ?? s.default_venue_id, ticket_url: null, description: s.default_description, cover_image_url: (s as { cover_image_url?: string | null }).cover_image_url ?? null,
-        venue_id_override: s.night_venue?.[date] ?? null, ticket_url_override: null, description_override: s.night_description?.[date] ?? null, cover_image_url_override: null, gallery_override: s.night_gallery?.[date] ?? null,
+        name: s.name, venue_id: s.night_venue?.[date] ?? s.default_venue_id, ticket_url: null, description: s.default_description, cover_image_url: (s as { night_cover?: Record<string, string> }).night_cover?.[date] ?? (s as { cover_image_url?: string | null }).cover_image_url ?? null,
+        venue_id_override: s.night_venue?.[date] ?? null, ticket_url_override: null, description_override: s.night_description?.[date] ?? null, cover_image_url_override: (s as { night_cover?: Record<string, string> }).night_cover?.[date] ?? null, gallery_override: s.night_gallery?.[date] ?? null,
         cancellation_reason_label: s.cancelled[date] ?? null,
       },
       program: [],

@@ -14,7 +14,7 @@ const D1S = 'Fri 9 Oct'; void D1S;
 
 // ---------- states ----------
 type St = 'weekly' | 'changedVenue' | 'cancelledNight' | 'paused' | 'ended' | 'endDate' | 'cancelledEvent' | 'oneOff'
-  | 'door' | 'here' | 'link' | 'oneOffLink' | 'ownTime' | 'noStripe' | 'sold' | 'empty' | 'flyer';
+  | 'door' | 'here' | 'link' | 'oneOffLink' | 'ownTime' | 'noStripe' | 'sold' | 'empty' | 'flyer' | 'flyerChanged' | 'gallery' | 'nightPrice';
 interface Tk { id: string; name: string; price: number; cap: number; sold: number; occ?: string | null }
 interface Env { fake: OrganiserFake; tickets: Tk[]; stripe: boolean; sid: string }
 
@@ -32,16 +32,18 @@ async function open(page: Page, st: St, route = ''): Promise<Env> {
   if (st === 'endDate') s.ended_on = '2026-12-25'; // the Repeats row reads series.ended_on (EveryBody.tsx:90), not the rule's end
   if (st === 'oneOff' || st === 'oneOffLink') s.format = 'one_off';
   if (st === 'oneOffLink') s.default_ticket_url = 'https://tickets.example/ritmo';
+  if (st === 'flyerChanged') { (s as { cover_image_url?: string }).cover_image_url = 'https://img.example/usual.jpg'; (s as { night_cover?: Record<string, string> }).night_cover = { '2026-10-09': 'https://img.example/night.jpg' }; }
+  if (st === 'gallery') s.night_gallery = { '2026-10-09': ['https://img.example/p1.jpg'] };
   if (st === 'flyer') (s as { cover_image_url?: string }).cover_image_url = 'https://img.example/flyer.jpg';
   if (st === 'door') { s.default_ticket_url = null; (s as { passes?: unknown }).passes = [{ id: '11111111-1111-4111-8111-111111111111', name: 'Door', price: 10 }]; } // door price: the Price fact reads "Pay at the door" (NightCard doorPriceOf)
   if (st === 'link') s.default_ticket_url = 'https://tickets.example/ritmo';
-  if (st === 'here' || st === 'sold') env.tickets = [{ id: 't1', name: 'General', price: 800, cap: 50, sold: st === 'sold' ? 4 : 0 }, { id: 't2', name: 'Class and party', price: 1200, cap: 30, sold: 0 }];
+  if (st === 'here' || st === 'sold' || st === 'nightPrice') env.tickets = [{ id: 't1', name: 'General', price: 800, cap: 50, sold: st === 'sold' ? 4 : 0 }, { id: 't2', name: 'Class and party', price: 1200, cap: 30, sold: 0 }];
   if (st === 'noStripe') { env.stripe = false; env.tickets = []; }
   await fake.install(page);
   const ok = (r: import('@playwright/test').Route, body: unknown) => r.fulfill({ json: body });
   await page.route(/\/rest\/v1\/ticket_types\?/, (r) => ok(r, env.tickets.map((t) => ({ id: t.id, event_series_id: sid, occurrence_id: t.occ ?? null, name: t.name, price_pence: t.price, capacity: t.cap, sales_open_at: null, sales_close_at: null, status: 'on_sale', manual_sold_out: false, created_at: '2026-10-01T00:00:00Z' }))));
   await page.route(/\/rest\/v1\/organiser_stripe_accounts/, (r) => ok(r, env.stripe ? { charges_enabled: true, payouts_enabled: true, details_submitted: true } : null));
-  await page.route(/\/rpc\/ticket_night_prices_v1/, (r) => ok(r, { ok: true, night_open: true, tickets: env.tickets.map((t) => ({ ticket_type_id: t.id, name: t.name, usual_price_pence: t.price, night_price_pence: null, can_change: true })) }));
+  await page.route(/\/rpc\/ticket_night_prices_v1/, (r) => ok(r, { ok: true, night_open: true, tickets: env.tickets.map((t) => ({ ticket_type_id: t.id, name: t.name, usual_price_pence: t.price, night_price_pence: st === 'nightPrice' ? 700 : null, can_change: true })) }));
   await page.route(/\/rpc\/ticket_sales_summary_v2/, (r) => ok(r, { ok: true, money_visible: true, ticket_types: env.tickets.map((t) => ({ id: t.id, event_series_id: sid, name: t.name, status: 'on_sale', price_pence: t.price, capacity: t.cap, reserved_count: t.sold, tickets_sold: t.sold, orders_paid: t.sold, gross_pence: t.sold * t.price })) }));
   await page.route(/\/rpc\/ticket_orders_for_organiser_v1/, (r) => ok(r, { ok: true, orders: [] }));
   await page.route(/\/rpc\/ticket_types_manage_v1/, (r) => ok(r, { ok: true, ticket_types: env.tickets.map((t) => ({ id: t.id, base_price_pence: t.price, effective_price_pence: t.price, has_orders: t.sold > 0, has_price_steps: false, steps: [] })) }));
@@ -206,6 +208,20 @@ row({ n: 27, label: 'Tickets (Prices and how dancers pay)', st: 'oneOff', act: (
 row({ n: 36, label: 'Save the date: empty error', st: 'oneOff', pre: async (p) => { await tap(p, /^(When|Date)/); await dlg(p).locator('input[type=date]').fill(''); }, act: (p) => tap(p, 'Save the date'), expect: async (p) => { await expect(dlg(p)).toContainText('Add a date.'); } });
 row({ n: 36.1, label: 'Save the date saves', st: 'oneOff', pre: async (p) => { await tap(p, /^(When|Date)/); await dlg(p).locator('input[type=date]').fill('2026-12-20'); }, act: (p) => tap(p, 'Save the date'), expect: (p) => toastIs(p, 'Saved', true) });
 row({ n: 53.1, label: 'one-off Price Done toast', st: 'oneOff', pre: async (p) => { await tap(p, /^Price/); await dlg(p).getByRole('spinbutton').first().fill('15'); }, act: (p) => tap(p, 'Done'), expect: (p) => toastIs(p, 'Saved', true) });
+
+row({ n: 12, label: 'Back to usual (under a changed fact)', st: 'changedVenue', act: (p) => tap(p, 'Back to usual', { nth: 0 }), expect: (p) => toastIs(p, new RegExp(`Back to usual for ${D1}`), true) });
+row({ n: 45, label: 'people Add (session sheet)', st: 'weekly', pre: async (p) => { await sessOpen(p); await dlg(p).getByLabel('Teachers search').fill('Cleo'); await dlg(p).getByRole('option', { name: /Cleo Park/ }).click(); }, act: async (p) => { await dlg(p).getByRole('button', { name: 'Add', exact: true }).click(); noOld(p); }, expect: async (p) => { await expect(dlg(p).getByTestId('grp-Teachers')).toContainText('Cleo Park'); } });
+row({ n: 46, label: 'person chip x (session sheet)', st: 'weekly', pre: sessOpen, act: async (p) => { await dlg(p).getByRole('button', { name: 'Remove Ana Ruiz' }).click(); noOld(p); }, expect: async (p) => { await expect(dlg(p).getByTestId('grp-Teachers')).not.toContainText('Ana Ruiz'); } });
+row({ n: 54, label: 'Back to the usual prices', st: 'nightPrice', pre: (p) => tap(p, /^Price/), act: (p) => tap(p, /Back to the usual price/), expect: async (p) => { await sheetGone(p); await toastIs(p, /Back to usual for/, true); } });
+row({ n: 59, label: 'Back to the usual flyer', st: 'flyerChanged', pre: (p) => tap(p, /Flyer and photos/), act: (p) => tap(p, 'Back to the usual flyer'), expect: (p) => toastIs(p, /Back to usual for/, true) });
+row({ n: 60, label: 'photo tile', st: 'gallery', pre: (p) => tap(p, /Flyer and photos/), act: async (p) => { await dlg(p).getByTestId('gallery-tile').first().click(); noOld(p); }, expect: (p) => sheetOpen(p, /Photo|Video/) });
+row({ n: 63, label: 'Remove this photo', st: 'gallery', pre: async (p) => { await tap(p, /Flyer and photos/); await dlg(p).getByTestId('gallery-tile').first().click(); }, act: (p) => tap(p, /Remove this (photo|video)/), expect: async (p) => { await sheetOpen(p, 'Flyer and photos'); await toastIs(p, /(Photo|Video) removed/, true); } });
+row({ n: 64, label: 'Back to flyer and photos', st: 'gallery', pre: async (p) => { await tap(p, /Flyer and photos/); await dlg(p).getByTestId('gallery-tile').first().click(); }, act: (p) => tap(p, 'Back to flyer and photos'), expect: (p) => sheetOpen(p, 'Flyer and photos') });
+const askRepeat = async (p: Page) => { await ev(p); await tap(p, /^Repeats/); await dlg(p).getByLabel('Every').selectOption('1'); await tap(p, 'Done'); await sheetOpen(p, 'Change repeat?'); };
+row({ n: 79, label: 'Change repeat', st: 'changedVenue', pre: askRepeat, act: (p) => tap(p, 'Change repeat', { sheet: 'Change repeat?' }), expect: async (p) => { await sheetGone(p); await toastIs(p, 'Saved', true); } });
+row({ n: 80, label: 'Keep the current repeat', st: 'changedVenue', pre: askRepeat, act: (p) => tap(p, 'Keep the current repeat'), expect: async (p) => { await sheetGone(p); } });
+row({ n: 113, label: 'Escape closes a sheet, nothing saved', st: 'weekly', pre: (p) => tap(p, /^Where/), act: async (p) => { await p.keyboard.press('Escape'); }, expect: async (p) => { await sheetGone(p); await expect(toast(p)).toHaveCount(0); } });
+row({ n: 113.1, label: 'scrim tap closes a sheet, nothing saved', st: 'weekly', pre: (p) => tap(p, /^Where/), act: async (p) => { await p.mouse.click(195, 40); }, expect: async (p) => { await sheetGone(p); await expect(toast(p)).toHaveCount(0); } });
 
 for (const r of ROWS) {
   const name = `row ${r.n} ${r.label} [${r.st}]`;
