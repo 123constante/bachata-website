@@ -85,6 +85,7 @@ export const MANUAL = {
   'tests/e2e/dancer-app/ember-walk.spec.ts': { reason: WALK, run: PW('tests/e2e/dancer-app/ember-walk.spec.ts') },
   'tests/e2e/dancer-app/review-pack.spec.ts': { reason: 'review pack; skips itself unless REVIEW_PACK_DIR is set', run: PW('tests/e2e/dancer-app/review-pack.spec.ts', 'REVIEW_PACK_DIR=<dir>') },
   'tests/e2e/organiser-edit-save-bar.real-supabase.spec.ts': { reason: 'needs a real Supabase anon key (SSR loader) and the organiser detail flags; skips without the key', run: PW('tests/e2e/organiser-edit-save-bar.real-supabase.spec.ts', DETAIL) },
+  'tests/e2e/organiser-editor-v2-walk16.spec.ts': { reason: WALK, run: PW('tests/e2e/organiser-editor-v2-walk16.spec.ts', 'VITE_ENABLE_ORGANISER_SELF_SERVE=true VITE_ENABLE_ORGANISER_P3=true VITE_ENABLE_ORGANISER_DASH=true VITE_ENABLE_ORGANISER_EDITOR_V2=true VITE_ENABLE_ORGANISER_GUEST_LIST_LIVE=true') },
   'tests/e2e/organiser-launch-walk.spec.ts': { reason: 'needs E2E credentials and writes to the E2E database', run: 'npm run test:e2e:organiser-launch-walk' },
   'tests/e2e/organiser-public-claim.real-supabase.spec.ts': { reason: 'needs a real Supabase anon key (SSR loader) and the organiser detail flags; skips without the key', run: PW('tests/e2e/organiser-public-claim.real-supabase.spec.ts', DETAIL) },
   'tests/e2e/organiser-real-rpc.spec.ts': { reason: 'needs E2E credentials and writes to the E2E database', run: 'npm run test:e2e:organiser-real-rpc' },
