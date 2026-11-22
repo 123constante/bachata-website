@@ -27,7 +27,10 @@ import { ownerWeeklyRule } from '@/modules/organiser/shared/eventState';
 import { ownerPassesFromStored, lifecycleCommand } from '../../shared/seriesCommands';
 import { endRunCommand, tonightDate } from '../../events/eventModel';
 import { EndCard, type LifeState } from './EndCard';
-import { StatusSheet, type TodayAnswer } from './StatusSheets';
+import { StatusSheet, CancelEventSheetV2, type TodayAnswer } from './StatusSheets';
+import { cancelCommand, uncancelCommand } from '../../shared/seriesCommands';
+import { upcomingOf } from './editorModel';
+import { dateDetailQueryKey, fetchDateDetail } from '../../shared/selfServeApi';
 
 const E = V2.every;
 
@@ -52,14 +55,18 @@ type SeriesBits = { default_city_id?: string | null; default_cover_image_url: st
  */
 export function EveryBody({ ws, day, saveNow, busy }: { ws: EventWorkspace; day: string; saveNow: OnSave; busy?: boolean }) {
   const s = ws.series;
-  const [sheet, setSheet] = useState<'where' | 'about' | 'flyer' | 'name' | 'music' | 'orgs' | 'repeats' | 'pause' | 'end' | null>(null);
+  const [sheet, setSheet] = useState<'where' | 'about' | 'flyer' | 'name' | 'music' | 'orgs' | 'repeats' | 'pause' | 'end' | 'cancel' | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const venues = useVenueOptions();
   const orgIds = ws.organiserIds ?? [];
   const pages = useQuery({ queryKey: ['org-organiser-pages', ...orgIds], queryFn: () => fetchOrganiserPages(orgIds), enabled: orgIds.length > 0 });
   const venue = venues.data?.find((v) => v.id === s.default_venue_id);
   const label = savedLabel('usual', day);
-  const cancelled = s.lifecycle_status === 'cancelled';
+  const comingNights = upcomingOf(ws.dates ?? [], londonTodayKey());
+  const allNightsCancelled = comingNights.length > 0 && comingNights.every((x) => x.lifecycle_status === 'cancelled');
+  const cancelled = s.lifecycle_status === 'cancelled' || allNightsCancelled;
+  const firstCancelled = allNightsCancelled ? comingNights[0] : null;
+  const reasonQ = useQuery({ queryKey: dateDetailQueryKey(firstCancelled?.id ?? ''), queryFn: () => fetchDateDetail(firstCancelled!.id), enabled: !!firstCancelled });
   const status = s.lifecycle_status === 'paused' ? 'paused' : s.lifecycle_status === 'ended' ? 'ended' : 'live';
   const pill = cancelled ? <span className="pill x">{V2.tagCancelled}</span>
     : <span className={status === 'live' ? 'pill' : 'pill off'}>{status === 'live' ? V2.statusLive : status === 'paused' ? V2.statusPaused : V2.statusEnded}</span>;
@@ -115,6 +122,21 @@ export function EveryBody({ ws, day, saveNow, busy }: { ws: EventWorkspace; day:
     if (r.ok) setSheet(null);
   };
   const life: LifeState = cancelled ? 'Cancelled' : status === 'paused' ? 'Paused' : status === 'ended' ? 'Ended' : 'Live';
+  const nightStep = (d: { id: string; version: number }, command: OwnerCommand): WriteStep => ({ part: E.toastCancelled, target: 'occurrence', id: d.id, version: d.version, command, order: 1 });
+  /** Cancel the event: one occurrence.cancel per coming night that is not already cancelled; one save, no Undo. */
+  const cancelEventDo = async (reason: string) => {
+    setStatusError(null);
+    const steps = comingNights.filter((x) => x.lifecycle_status !== 'cancelled').map((x) => nightStep(x, cancelCommand(reason)));
+    const r = await saveNow(steps, [], E.toastCancelled, { noUndo: true });
+    if (r.ok) setSheet(null); else setStatusError(r.error ?? 'Not saved. Try again.');
+  };
+  /** Make it live again when every coming night is cancelled: uncancel each one; Undo when inverseOf supports it. */
+  const liveAgain = async () => {
+    const nights = comingNights.filter((x) => x.lifecycle_status === 'cancelled');
+    if (!allNightsCancelled || s.lifecycle_status === 'cancelled' || !nights.length) { void setLife('live', E.toastLive); return; }
+    const reason = reasonQ.data?.cancellationReason ?? '';
+    await saveNow(nights.map((x) => nightStep(x, uncancelCommand())), nights.map(() => ({ cancelled: true, reason })), E.toastLive);
+  };
   const setLife = async (to: 'paused' | 'live', toast: string) => {
     const step: WriteStep = { part: toast, target: 'series', id: s.id, version: s.version, command: lifecycleCommand(to), order: 1 };
     const r = await saveNow([step], [{ to: s.lifecycle_status ?? 'live' }], toast);
@@ -176,9 +198,10 @@ export function EveryBody({ ws, day, saveNow, busy }: { ws: EventWorkspace; day:
           <Line id="organisers" label={E.organisers} value={orgs} onOpen={() => setSheet('orgs')} />
         </div></div>
       </div>
-      <EndCard status={life} endDate={ws.endedOn ? fullDate(ws.endedOn, londonTodayKey()) : null} reason={null}
-        onLive={() => void setLife('live', E.toastLive)} onPause={() => { setStatusError(null); setSheet('pause'); }} onEnd={() => { setStatusError(null); setSheet('end'); }} />
+      <EndCard status={life} endDate={ws.endedOn ? fullDate(ws.endedOn, londonTodayKey()) : null} reason={cancelled ? (reasonQ.data?.cancellationReason ?? null) : null}
+        onLive={() => void liveAgain()} onCancel={() => { setStatusError(null); setSheet('cancel'); }} onPause={() => { setStatusError(null); setSheet('pause'); }} onEnd={() => { setStatusError(null); setSheet('end'); }} />
       {sheet === 'pause' && <StatusSheet to="Paused" from={life} lastNight="" tonight={false} error={statusError} onDo={() => setLife('paused', E.toastPaused)} onClose={() => setSheet(null)} />}
+      {sheet === 'cancel' && <CancelEventSheetV2 soldCount={0} error={statusError} onCancel={cancelEventDo} onClose={() => setSheet(null)} />}
       {sheet === 'end' && <StatusSheet to="Ended" from={life} lastNight={ws.endedOn ?? ''} tonight={!!tonightDate(ws, londonTodayKey())} error={statusError} onDo={endDo} onClose={() => setSheet(null)} />}
       {sheet === 'where' && <WhereSheet mode="usual" dateWords={day} current={s.default_venue_id ?? null} onSave={saveVenue} onClose={() => setSheet(null)} />}
       {sheet === 'about' && <AboutSheet mode="usual" dateWords={day} current={s.default_description ?? ''} usual={s.default_description} onSave={saveAbout} onClose={() => setSheet(null)} />}

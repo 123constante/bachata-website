@@ -53,11 +53,10 @@ describe('status card rows', () => {
     expect(screen.getByTestId('end-cancelled').querySelector('button')).toBeNull();
     expect(screen.getByTestId('end-cancelled').textContent).not.toContain('›');
   });
-  it('Cancel the event tap is un-wired (no server command)', () => {
-    const save = mount(ws('live'));
+  it('Cancel the event row opens the sheet', () => {
+    mount(ws('live'));
     tap('cancel');
-    expect(screen.queryByTestId('v2-sheet')).toBeNull();
-    expect(save).not.toHaveBeenCalled();
+    expect(screen.getByTestId('cancele-go')).toBeTruthy();
   });
 });
 
@@ -139,5 +138,58 @@ describe('Cancel the event sheet (built, not mounted)', () => {
     expect(screen.getByText('Keep the event')).toBeTruthy();
     fireEvent.click(screen.getByTestId('cancele-go'));
     expect(onCancel).toHaveBeenCalledWith('Venue not available');
+  });
+});
+
+const nd = (id: string, d: string, life = 'scheduled') => ({ ...date(id, d), lifecycle_status: life });
+const mixed = () => ws('live', {}, [nd('p', '2026-11-12'), nd('a', '2026-11-26'), nd('b', '2026-12-03', 'cancelled'), nd('c', '2026-12-10')]);
+
+describe('cancel the whole event', () => {
+  it('one occurrence.cancel per coming not-cancelled night, one save, no undo', async () => {
+    const save = mount(mixed());
+    tap('cancel');
+    fireEvent.click(screen.getByTestId('cancele-go'));
+    const [steps, before, label] = save.mock.calls[0] as unknown as Call;
+    expect(save.mock.calls.length).toBe(1);
+    expect(steps.map((s) => s.command)).toEqual([
+      { kind: 'occurrence.cancel', payload: { cancelled: true, reason: 'Venue not available' } },
+      { kind: 'occurrence.cancel', payload: { cancelled: true, reason: 'Venue not available' } },
+    ]);
+    expect((steps as unknown as { id: string }[]).map((s) => s.id)).toEqual(['a', 'c']);
+    expect(before).toEqual([]);
+    expect(label).toBe('Event cancelled');
+    expect((save.mock.calls[0] as unknown[])[3]).toEqual({ noUndo: true });
+    await waitFor(() => expect(screen.queryByTestId('v2-sheet')).toBeNull());
+  });
+  it('No reason sends an empty reason', () => {
+    const save = mount(mixed());
+    tap('cancel');
+    fireEvent.click(screen.getByLabelText('No reason'));
+    fireEvent.click(screen.getByTestId('cancele-go'));
+    expect((save.mock.calls[0] as unknown as Call)[0][0].command.payload).toEqual({ cancelled: true, reason: '' });
+  });
+  it('Keep the event sends nothing', () => {
+    const save = mount(mixed());
+    tap('cancel');
+    fireEvent.click(screen.getByTestId('cancele-keep'));
+    expect(save).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('v2-sheet')).toBeNull();
+  });
+  it('failure shows the error and the sheet stays open', async () => {
+    const save = vi.fn(async () => ({ ok: false, error: 'Nope' }));
+    render(<QueryClientProvider client={new QueryClient()}><EveryBody ws={mixed()} day="Thursday" saveNow={save} /></QueryClientProvider>);
+    tap('cancel');
+    fireEvent.click(screen.getByTestId('cancele-go'));
+    await waitFor(() => expect(screen.getByText('Nope')).toBeTruthy());
+    expect(screen.getByTestId('cancele-go')).toBeTruthy();
+  });
+  it('every coming night cancelled: static row + pill, live again uncancels each', () => {
+    const save = mount(ws('live', {}, [nd('p', '2026-11-12'), nd('a', '2026-11-26', 'cancelled'), nd('b', '2026-12-03', 'cancelled')]));
+    expect(screen.getByTestId('end-cancelled').querySelector('button')).toBeNull();
+    expect(screen.getByTestId('every-card').textContent).toContain('Cancelled');
+    tap('live');
+    const [steps, , label] = save.mock.calls[0] as unknown as Call;
+    expect(steps.map((s) => s.command)).toEqual([{ kind: 'occurrence.cancel', payload: { cancelled: false } }, { kind: 'occurrence.cancel', payload: { cancelled: false } }]);
+    expect(label).toBe('Event is live again');
   });
 });
