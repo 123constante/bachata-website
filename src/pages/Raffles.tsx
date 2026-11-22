@@ -17,6 +17,7 @@ import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { buildSeoForRoute, useSeo } from '@/lib/seo';
 import { useOpenRaffles, useRaffleStats } from '@/hooks/useOpenRaffles';
+import RaffleRedesignA from '@/components/raffles/RaffleRedesignA';
 import RaffleHero from '@/components/raffles/RaffleHero';
 import OpenRafflesGrid from '@/components/raffles/OpenRafflesGrid';
 import { HowItWorks, JackpotCounter, OrganiserCTA } from '@/components/raffles/RaffleInfoBands';
@@ -153,6 +154,6 @@ const RafflesBoard = () => {
   );
 };
 
-const Raffles = () => (flags.raffleV2 ? <RafflesBoard /> : <RafflesLegacy />);
+const Raffles = () => (flags.raffleV2 ? (flags.raffleRedesign ? <RaffleRedesignA /> : <RafflesBoard />) : <RafflesLegacy />);
 
 export default Raffles;
