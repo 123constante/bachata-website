@@ -20,6 +20,7 @@ import { WorkspaceGate } from '../screens/EventPage';
 import { P3_PATHS } from '../shell/paths';
 import { upcomingOf } from './editorModel';
 import { payModeOf, doorPriceOf, type PayMode } from './payMode';
+import { TicketSheetV2 } from './TicketSheetV2';
 import './v2.css';
 
 export interface TicketRow {
@@ -53,6 +54,8 @@ export interface TicketsViewProps {
   stripeBusy?: boolean;
   stripeNote?: string | null;
   stripeOff?: boolean;
+  /** false while the Stripe account is still loading: the Connect screen must not flash (slice 13) */
+  stripeReady?: boolean;
   /** Buttons render fully; a tap does nothing until the slice that owns the sheet gives a handler. */
   on?: Partial<Record<'stripe' | 'ticket' | 'newTicket' | 'sellHere' | 'payDoor' | 'link' | 'doorUsual' | 'howPay', (id?: string) => void>>;
 }
@@ -70,7 +73,9 @@ export function TicketsView(p: TicketsViewProps) {
       <Link to={p.backTo} className="back" data-testid="tk-back">&larr; {p.name}</Link>
       <h1 className="ttl" data-testid="tk-title">Tickets</h1>
       {!p.oneOff && <div className="sub" data-testid="tk-weekly-sub">The usual prices, for every {p.day}.</div>}
-      {!p.stripe ? (
+      {!p.stripe && p.stripeReady === false ? (
+        <div className="grp"><p className="sent" data-testid="tk-loading">{V2.loading}</p></div>
+      ) : !p.stripe ? (
         <div className="grp">
           <Btn cls="btn pri big" id="stripe" onTap={on.stripe} disabled={p.stripeBusy}>Sell tickets here</Btn>
           <p className="sent">Connect Stripe and get paid in seconds. No commission from Bachata Calendar. Stripe card fees apply.</p>
@@ -155,6 +160,8 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
   const [switchTo, setSwitchTo] = useState<'door' | 'link' | null>(null);
   const [switchSold, setSwitchSold] = useState(0);
   const [busy, setBusy] = useState(false);
+  /** taps 91 / 92: which ticket the sheet is open on (id), or 'new'; null = closed */
+  const [ticketOpen, setTicketOpen] = useState<string | null>(null);
   const inFlight = useRef(false);
   const checking = useRef(false);
   const onboard = useStartOnboarding(orgId ?? '', undefined, `${P3_PATHS.event(s.id)}/tickets`);
@@ -323,6 +330,14 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
       setSheetError(null); setSheet('link');
     });
   };
+  const openTicket = (id?: string) => {
+    if (id && !managed.data?.types.some((m) => m.id === id)) { say(T.notSaved); return; } // steps not read yet: never open on a guess
+    setTicketOpen(id ?? 'new');
+  };
+  const sheetType = ticketOpen && ticketOpen !== 'new' ? list.find((t) => t.id === ticketOpen) ?? null : null;
+  const sheetManaged = sheetType ? managed.data?.types.find((m) => m.id === sheetType.id) : undefined;
+  const sheetSales = sheetType ? sales.get(sheetType.id) : undefined;
+  const sheetSold = sheetSales?.ticketsSold ?? 0;
   const doSwitch = async () => {
     const to = switchTo;
     setSwitchTo(null);
@@ -354,11 +369,21 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
       <TicketsView name={s.name ?? ''} oneOff={oneOff} day={day} backTo={P3_PATHS.event(s.id)}
         stripe={connected} mode={mode} tickets={rows} dates={coming.map((d) => fullDate(d.occurrence_date).replace(/ \d{4}$/, ''))}
         doorPrice={doorPriceOf(s.passes)} link={s.default_ticket_url ?? null}
+        stripeReady={stripe.state !== null}
         stripeWarn={stripeWarn} stripeBusy={onboard.busy} stripeNote={onboard.note} stripeOff={onboard.switchedOff}
-        on={{ stripe: () => { void onboard.go(); }, sellHere: () => { void sellHere(); }, payDoor: () => { void payDoor(); }, link: openLink, doorUsual: () => { setSheetError(null); setSheet('door'); }, howPay: () => setSheet('how') }} />
+        on={{ ticket: openTicket, newTicket: () => openTicket(), stripe: () => { void onboard.go(); }, sellHere: () => { void sellHere(); }, payDoor: () => { void payDoor(); }, link: openLink, doorUsual: () => { setSheetError(null); setSheet('door'); }, howPay: () => setSheet('how') }} />
       {sheet === 'door' && <DoorSheet busy={busy} price={doorPriceOf(s.passes)} day={oneOff ? null : day} error={sheetError} onDone={(r) => { void saveDoor(r); }} onClose={() => setSheet(null)} />}
       {sheet === 'link' && <LinkSheet link={oldUrl ?? ''} busy={busy} error={sheetError} onDone={(u) => { void saveLink(u); }} onClose={() => setSheet(null)} />}
       {sheet === 'how' && <HowPaySheet busy={busy} door={mode === 'door'} hasLink={!!oldUrl} onDoor={() => { void payDoor(); }} onLink={openLink} onClose={() => setSheet(null)} />}
+      {ticketOpen && orgId && (ticketOpen === 'new' || (sheetType && sheetManaged)) && (
+        <TicketSheetV2 organiserId={orgId} seriesId={s.id} type={ticketOpen === 'new' ? null : sheetType} basePence={sheetManaged?.basePricePence ?? 0} steps={sheetManaged?.steps ?? []}
+          oneOff={oneOff} soldMax={sheetType && !sheetType.occurrenceId ? Math.min(sheetSold, sheetType.capacity) : sheetSold} soldAll={sheetSold} pence={sheetSales?.grossPence ?? 0}
+          onClose={() => setTicketOpen(null)} onFail={() => refresh()}
+          onDone={(text, undo) => {
+            refresh();
+            say(text, undo ? () => { void undo().then(() => { refresh(); say(T.undone); }, () => { refresh(); say(UNDO_FAILED_TEXT); }); } : undefined);
+          }} />
+      )}
       {switchTo && <SwitchPaySheet busy={busy} sold={switchSold} onSwitch={() => { void doSwitch(); }} onKeep={() => setSwitchTo(null)} />}
       <V2Toast toast={plain ?? toast} onDone={(q) => { setPlain(null); onToastDone(q); }} />
     </>
