@@ -120,9 +120,9 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
     if (r.ok) setSheet(null);
   };
   const saveFlyer = async (url: string | null, label: string) => {
-    if (!onSave || !url) return; // a blank night flyer has no honest writer (blank = back to usual): not offered
+    if (!onSave) return; // url null = REMOVE for this night: the server owns '' (no flyer), null would inherit
     const d = dt ?? await qc.fetchQuery({ queryKey: dateDetailQueryKey(date.id), queryFn: () => fetchDateDetail(date.id) });
-    const step: WriteStep = { part: V2.flyer, target: 'occurrence', id: date.id, version: date.version, command: { kind: 'occurrence.set_override', payload: { cover_image_url: url } }, order: 1 };
+    const step: WriteStep = { part: V2.flyer, target: 'occurrence', id: date.id, version: date.version, command: { kind: 'occurrence.set_override', payload: { cover_image_url: url ?? '' } }, order: 1 };
     await onSave([step], [{ cover_image_url: d.coverImageOverride }], label);
   };
   const saveGallery = async (next: string[], label: string) => {
@@ -144,7 +144,7 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
         <div className="fb-list">
           <div className="trow"><b data-testid="night-name">{dt?.titleOverride ?? s.name}</b>{pill}</div>
           <Fact id="when" label={V2.when} main={long} sub={start ? V2.timeRange(start, end || start) : undefined} onOpen={onSave ? () => setWhenOpen(true) : undefined} />
-          <Fact id="where" label={V2.where} main={venue?.name ?? '—'} sub={venue?.neighbourhood ?? venue?.city_name ?? undefined}
+          <Fact id="where" label={V2.where} main={venue?.name ?? '\u2014'} sub={venue?.neighbourhood ?? venue?.city_name ?? undefined}
             changed={own.where} busy={busy} onBack={back('where', V2.venue)} onOpen={onSave ? () => setSheet('where') : undefined} />
           <Fact id="price" label={V2.price} main={price.m} sub={price.s || undefined} changed={own.price} busy={busy} onBack={back('price', V2.price)} onOpen={onSave ? () => setSheet('price') : onOpenTickets} />
           <Fact id="about" label={V2.description} main={aboutShort(about)} changed={own.about} busy={busy} onBack={back('about', V2.nightAbout)} onOpen={onSave ? () => setSheet('about') : undefined} />

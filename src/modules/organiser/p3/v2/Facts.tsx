@@ -27,7 +27,7 @@ export function priceLabel(i: PriceInput): { mode: PriceMode; m: string; s: stri
 
 /** The Description fact's first line: 60 characters then an ellipsis. */
 export const aboutShort = (t: string | null | undefined): string =>
-  (t ? (t.length > 60 ? `${t.slice(0, 60)}…` : t) : V2.noDescription);
+  (t ? (t.length > 60 ? `${t.slice(0, 60)}\u2026` : t) : V2.noDescription);
 
 /**
  * One fact (prototype `fact()`): a raised button with label, bold value, optional second line, the "Only this night"

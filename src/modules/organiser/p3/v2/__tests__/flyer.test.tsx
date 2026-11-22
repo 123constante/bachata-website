@@ -46,7 +46,7 @@ describe('Flyer and photos on the night card', () => {
     expect(screen.getByText('Photos and videos from this night only. Dancers see them on this night, with the event gallery.')).toBeTruthy();
     expect(screen.getByText('Nothing here yet.')).toBeTruthy();
     expect(screen.getByTestId('flyer-preview').textContent).toBe('No flyer');
-    expect(screen.queryByTestId('flyer-remove')).toBeNull(); // no honest blank flyer on a night
+    expect(screen.queryByTestId('flyer-remove')).toBeNull(); // slice 17i: Remove shows on a night only when a flyer is displayed
     expect(screen.queryByTestId('flyer-back')).toBeNull();
   });
   it('choose flyer: one night step with cover_image_url, before, night toast', async () => {

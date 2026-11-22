@@ -88,7 +88,7 @@ export function FlyerSheet({ seriesId, flyer, gallery, mode, dateWords, dayName,
         </div>
         <button type="button" className="btn sec" data-testid="flyer-choose" disabled={busy} onClick={() => flyerIn.current?.click()}>{busy ? F.uploading : F.choose}</button>
         <input ref={flyerIn} type="file" accept={FLYER_ACCEPT} hidden data-testid="flyer-file" onChange={(e) => { void chooseFlyer(e.target.files); e.target.value = ''; }} />
-        {flyer && mode !== 'night' && <button type="button" className="btn dan" data-testid="flyer-remove" disabled={busy} onClick={() => void onFlyer(null, label)}>{F.remove}</button>}
+        {flyer && <button type="button" className="btn dan" data-testid="flyer-remove" disabled={busy} onClick={() => void onFlyer(null, label)}>{F.remove}</button>}
         {night && changed && onBackToUsual && <button type="button" className="btn sec" data-testid="flyer-back" onClick={() => { void onBackToUsual(); onClose(); }}>{F.backToUsual}</button>}
         <div className="lab">{night ? F.labNight : F.lab}{count ? ` · ${count}` : ''}</div>
         <p className="txt">{night ? F.textNight : mode === 'oneOff' ? F.textOneOff : F.textEvery(dayName)}</p>
