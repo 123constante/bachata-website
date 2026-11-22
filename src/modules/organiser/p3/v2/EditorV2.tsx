@@ -6,16 +6,16 @@ import { fullDate, MONTH_NAMES, WEEKDAY_NAMES } from '../../shared/dateWords';
 import { londonTodayKey, weekdayOfKey } from '@/lib/londonDate';
 import { P3_PATHS } from '../shell/paths';
 import { DATE_TAG_WORD, UPCOMING_PAGE, dateTagOf, upcomingOf } from './editorModel';
-import { V2Toast } from './V2Toast';
+import { V2Toast, type V2ToastState } from './V2Toast';
 import { useSaveNow } from './saveNow';
 import { NightCard } from './NightCard';
 import { DatesSheet } from './DatesSheet';
 import { cancelCommand, cancelOneOffCommand, uncancelCommand, type OwnerCommand } from '../../shared/seriesCommands';
 import { V2 } from './copy';
 import type { WriteStep } from './editorModel';
-import { cancelCommand, cancelOneOffCommand, uncancelCommand } from '../../shared/seriesCommands';
-import type { OwnerCommand } from '../../shared/seriesCommands';
-import { V2 } from './copy';
+import { NightHub } from './NightHub';
+import { publicEventRefOf } from '../data/home';
+import type { Night as RaffleNightRow } from '../events/eventsModel';
 import './v2.css';
 
 type Tab = 'night' | 'every';
@@ -72,6 +72,11 @@ export function EditorV2({ ws }: { ws: EventWorkspace }) {
     ? { part: V2.cancelNight, target: 'series', id: ws.series.id, version: null, command, order: 1 }
     : { part: V2.cancelNight, target: 'occurrence', id: d.id, version: d.version, command, order: 1 });
   const cancelNight = (reason: string) => saveNow([nightStep(picked!, ws.series.format === 'one_off' ? cancelOneOffCommand(reason) : cancelCommand(reason), ws.series.format === 'one_off')], [], V2.cancelledToast(title), { noUndo: true });
+  const [plain, setPlain] = useState<V2ToastState | null>(null);
+  const say = (text: string) => setPlain((p) => ({ seq: (p?.seq ?? 0) + 1, text }));
+  const ref = publicEventRefOf(ws.series);
+  const shareLink = picked && ref && typeof window !== 'undefined'
+    ? `${window.location.origin}/event/${encodeURIComponent(ref)}${weekly ? `?occurrenceId=${picked.id}` : ''}` : null;
   const bringBack = () => saveNow([nightStep(picked!, uncancelCommand(), false)], [], V2.broughtBackToast(title), { noUndo: true });
 
   return (
@@ -108,9 +113,13 @@ export function EditorV2({ ws }: { ws: EventWorkspace }) {
         {!every && picked && (
           <NightCard ws={ws} date={picked} busy={busy} onCancelNight={cancelNight} onBringBack={bringBack} onBack={(step, before, label) => { void saveNow([step], [before], label); }} />
         )}
+        {!every && picked && (
+          <NightHub seriesId={ws.series.id} seriesName={ws.series.name ?? ''} occurrenceId={picked.id} oneOff={!weekly} shareLink={shareLink} toast={say}
+            raffleNight={{ seriesId: ws.series.id, date: picked.occurrence_date, dayLabel: fullDate(picked.occurrence_date) } as unknown as RaffleNightRow} />
+        )}
       </div>
       <DatesSheet open={datesOpen} dates={coming} seriesStatus={ws.series.lifecycle_status} onPick={pickFromSheet} onClose={() => setDatesOpen(false)} />
-      <V2Toast toast={toast} onDone={onToastDone} />
+      <V2Toast toast={plain ?? toast} onDone={(q) => { setPlain(null); onToastDone(q); }} />
     </div>
   );
 }

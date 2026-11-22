@@ -158,6 +158,19 @@ export const V2 = {
     cancelled: 'This night is cancelled, so its sessions cannot change.',
     past: 'This night has passed, so its sessions cannot change.',
   },
+  // night hub (slice 5)
+  goingN: (n: number) => `${n} going`,
+  ticketsSold: 'Tickets sold',
+  money: 'Money',
+  afterFees: 'after fees',
+  thisNight: 'This night',
+  onTheNight: 'On the night',
+  raffle: 'Raffle',
+  raffleOn: (n: number) => `On \u00b7 ${n} ${n === 1 ? 'entry' : 'entries'}`,
+  raffleOff: 'Off',
+  shareLine: 'Send dancers the link to this night.',
+  linkCopied: 'Link copied',
+  linkBlocked: 'Select the link to copy it',
 } as const;
 
 /** The programme row's second line, "Class \u00b7 Ana, Ben \u00b7 Beginner": type, people, levels (prototype). */
