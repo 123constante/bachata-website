@@ -43,6 +43,7 @@ async function open(page: Page, st: St, route = ''): Promise<Env> {
   const ok = (r: import('@playwright/test').Route, body: unknown) => r.fulfill({ json: body });
   await page.route(/\/rest\/v1\/ticket_types\?/, (r) => ok(r, env.tickets.map((t) => ({ id: t.id, event_series_id: sid, occurrence_id: t.occ ?? null, name: t.name, price_pence: t.price, capacity: t.cap, sales_open_at: null, sales_close_at: null, status: 'on_sale', manual_sold_out: false, created_at: '2026-10-01T00:00:00Z' }))));
   await page.route(/\/rest\/v1\/organiser_stripe_accounts/, (r) => ok(r, env.stripe ? { charges_enabled: true, payouts_enabled: true, details_submitted: true } : null));
+  await page.route(/\/rpc\/ticket_night_price_set_v1/, (r) => ok(r, { ok: true }));
   await page.route(/\/rpc\/ticket_night_prices_v1/, (r) => ok(r, { ok: true, night_open: true, tickets: env.tickets.map((t) => ({ ticket_type_id: t.id, name: t.name, usual_price_pence: t.price, night_price_pence: st === 'nightPrice' ? 700 : null, can_change: true })) }));
   await page.route(/\/rpc\/ticket_sales_summary_v2/, (r) => ok(r, { ok: true, money_visible: true, ticket_types: env.tickets.map((t) => ({ id: t.id, event_series_id: sid, name: t.name, status: 'on_sale', price_pence: t.price, capacity: t.cap, reserved_count: t.sold, tickets_sold: t.sold, orders_paid: t.sold, gross_pence: t.sold * t.price })) }));
   await page.route(/\/rpc\/ticket_orders_for_organiser_v1/, (r) => ok(r, { ok: true, orders: [] }));
