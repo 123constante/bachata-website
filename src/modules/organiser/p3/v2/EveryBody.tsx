@@ -205,7 +205,7 @@ export function EveryBody({ ws, day, saveNow, busy, onOpenTickets }: { ws: Event
       return;
     }
     const step: WriteStep = { part: E.toastEnded, target: 'series', id: s.id, version: s.version, command: endRunCommand(today), order: 1 };
-    const r = await saveNow([step], [{ to: s.lifecycle_status ?? 'live' }], E.toastEnded);
+    const r = await saveNow([step], [{ to: s.lifecycle_status ?? 'live', resume: true }], E.toastEnded);
     if (r.ok) setSheet(null); else setStatusError(r.error);
   };
   const saveFlyer = async (url: string | null, lab: string) => {
@@ -229,7 +229,7 @@ export function EveryBody({ ws, day, saveNow, busy, onOpenTickets }: { ws: Event
           <div className="fb-list">
             <div className="trow"><b data-testid="every-name">{name}</b>{pill}</div>
             <Fact id="when" label={V2.when} main={E.everyDay(day)} sub={start ? (endAt ? E.timeRange(start, endAt) : start) : undefined} onOpen={() => { setProgProblem(null); setSheet('prog'); }} />
-            <Fact id="where" label={V2.where} main={venue?.name ?? '—'} sub={venue?.neighbourhood ?? venue?.city_name ?? undefined} busy={busy} onOpen={() => setSheet('where')} />
+            <Fact id="where" label={V2.where} main={venue?.name ?? '\u2014'} sub={venue?.neighbourhood ?? venue?.city_name ?? undefined} busy={busy} onOpen={() => setSheet('where')} />
             <Fact id="price" label={V2.price} main={price.m} sub={price.s || undefined} onOpen={onOpenTickets} />
           </div>
         </div>

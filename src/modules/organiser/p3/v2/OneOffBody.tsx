@@ -62,6 +62,7 @@ export function OneOffBody({ ws, saveNow, busy, onOpenTickets }: { ws: EventWork
     const r = await saveNow([step], [{ to: s.lifecycle_status ?? 'live' }], toast);
     if (r.ok) setSheet(null); else setError(r.error);
   };
+  // End on a one-off: before stays { to } (no resume). A one-off has no saved repeat rule, so Undo is set_lifecycle back.
   const endDo = async () => {
     setError(null);
     const step: WriteStep = { part: E.toastEnded, target: 'series', id: s.id, version: s.version, command: endRunCommand(null), order: 1 };
