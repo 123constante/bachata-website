@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { EventWorkspace } from '../../events/eventModel';
 import { weekdayName } from '../../events/eventModel';
 import { fullDate, MONTH_NAMES, WEEKDAY_NAMES } from '../../shared/dateWords';
@@ -33,6 +33,8 @@ const dayMonth = (date: string) => {
  */
 export function EditorV2({ ws }: { ws: EventWorkspace }) {
   const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
+  const openTickets = () => navigate(`${P3_PATHS.event(ws.series.id)}/tickets`);
   const [datesOpen, setDatesOpen] = useState(false);
   const { saveNow, toast, onToastDone, busy } = useSaveNow(ws.series.id, ws.series.version);
   const today = londonTodayKey();
@@ -112,13 +114,13 @@ export function EditorV2({ ws }: { ws: EventWorkspace }) {
       <p className="ev2-scope" data-testid="ev2-scope">{scope}</p>
       <div data-ev2-slot={every ? 'every' : 'night'}>
         {!every && picked && (
-          <NightCard ws={ws} date={picked} busy={busy} onCancelNight={cancelNight} onBringBack={bringBack} onSave={saveNow} onBack={(step, before, label) => { void saveNow([step], [before], label); }} />
+          <NightCard onOpenTickets={openTickets} ws={ws} date={picked} busy={busy} onCancelNight={cancelNight} onBringBack={bringBack} onSave={saveNow} onBack={(step, before, label) => { void saveNow([step], [before], label); }} />
         )}
         {!every && picked && (
           <NightHub seriesId={ws.series.id} seriesName={ws.series.name ?? ''} occurrenceId={picked.id} oneOff={!weekly} shareLink={shareLink} toast={say}
             raffleNight={{ seriesId: ws.series.id, date: picked.occurrence_date, dayLabel: fullDate(picked.occurrence_date) } as unknown as RaffleNightRow} />
         )}
-        {every && <EveryBody ws={ws} day={day} saveNow={saveNow} busy={busy} />}
+        {every && <EveryBody onOpenTickets={openTickets} ws={ws} day={day} saveNow={saveNow} busy={busy} />}
       </div>
       <DatesSheet open={datesOpen} dates={coming} seriesStatus={ws.series.lifecycle_status} onPick={pickFromSheet} onClose={() => setDatesOpen(false)} />
       <V2Toast toast={plain ?? toast} onDone={(q) => { setPlain(null); onToastDone(q); }} />

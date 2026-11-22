@@ -52,7 +52,9 @@ export function backToUsualStep(d: Pick<WorkspaceDate, 'id' | 'version' | 'overr
 
 const hm = (t: string | null | undefined) => (t ? t.slice(0, 5) : '');
 
-export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBringBack, soldCount = 0 }: {
+export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBringBack, soldCount = 0, onOpenTickets }: {
+  /** opens the Tickets screen; the shell passes it (no router in this component) */
+  onOpenTickets?: () => void;
   ws: EventWorkspace; date: WorkspaceDate; busy?: boolean;
   /** cancel / bring back this night; the shell runs saveNow (no Undo) and returns the result */
   onCancelNight?: (reason: string) => Promise<CancelResult>; onBringBack?: () => Promise<CancelResult>;
@@ -137,7 +139,7 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
           <Fact id="when" label={V2.when} main={long} sub={start ? V2.timeRange(start, end || start) : undefined} onOpen={onSave ? () => setWhenOpen(true) : undefined} />
           <Fact id="where" label={V2.where} main={venue?.name ?? '—'} sub={venue?.neighbourhood ?? venue?.city_name ?? undefined}
             changed={own.where} busy={busy} onBack={back('where', V2.venue)} onOpen={onSave ? () => setSheet('where') : undefined} />
-          <Fact id="price" label={V2.price} main={price.m} sub={price.s || undefined} changed={own.price} busy={busy} onBack={back('price', V2.price)} />
+          <Fact id="price" label={V2.price} main={price.m} sub={price.s || undefined} changed={own.price} busy={busy} onBack={back('price', V2.price)} onOpen={onOpenTickets} />
           <Fact id="about" label={V2.description} main={aboutShort(about)} changed={own.about} busy={busy} onBack={back('about', V2.nightAbout)} onOpen={onSave ? () => setSheet('about') : undefined} />
           <NightCancelArea eventCancelled={s.lifecycle_status === 'cancelled'} nightCancelled={date.lifecycle_status === 'cancelled'}
             nightReason={dt?.cancellationReason} dateLong={long} soldCount={soldCount} busy={busy}

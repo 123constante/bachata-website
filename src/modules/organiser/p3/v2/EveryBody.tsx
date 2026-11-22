@@ -53,7 +53,7 @@ type SeriesBits = { default_city_id?: string | null; default_cover_image_url: st
  * The "Every <day>" tab (flag organiserEditorV2): what dancers see every <day>, then the About group. Every write is
  * a series.upsert carrying `name`. Music / Organisers / Repeats / When / Price taps are PENDING later slices.
  */
-export function EveryBody({ ws, day, saveNow, busy }: { ws: EventWorkspace; day: string; saveNow: OnSave; busy?: boolean }) {
+export function EveryBody({ ws, day, saveNow, busy, onOpenTickets }: { ws: EventWorkspace; day: string; saveNow: OnSave; busy?: boolean; onOpenTickets?: () => void }) {
   const s = ws.series;
   const [sheet, setSheet] = useState<'where' | 'about' | 'flyer' | 'name' | 'music' | 'orgs' | 'repeats' | 'pause' | 'end' | 'cancel' | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
@@ -184,7 +184,7 @@ export function EveryBody({ ws, day, saveNow, busy }: { ws: EventWorkspace; day:
             <div className="trow"><b data-testid="every-name">{name}</b>{pill}</div>
             <Fact id="when" label={V2.when} main={E.everyDay(day)} sub={start ? (endAt ? E.timeRange(start, endAt) : start) : undefined} />
             <Fact id="where" label={V2.where} main={venue?.name ?? '—'} sub={venue?.neighbourhood ?? venue?.city_name ?? undefined} busy={busy} onOpen={() => setSheet('where')} />
-            <Fact id="price" label={V2.price} main={price.m} sub={price.s || undefined} />
+            <Fact id="price" label={V2.price} main={price.m} sub={price.s || undefined} onOpen={onOpenTickets} />
           </div>
         </div>
       </div>
