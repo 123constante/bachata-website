@@ -32,7 +32,7 @@ async function open(page: Page, st: St, route = ''): Promise<Env> {
   if (st === 'endDate') s.ended_on = '2026-12-25'; // the Repeats row reads series.ended_on (EveryBody.tsx:90), not the rule's end
   if (st === 'oneOff' || st === 'oneOffLink') s.format = 'one_off';
   if (st === 'oneOffLink') s.default_ticket_url = 'https://tickets.example/ritmo';
-  if (st === 'door') s.default_ticket_url = null;
+  if (st === 'door') { s.default_ticket_url = null; s.passes = [{ id: '11111111-1111-4111-8111-111111111111', name: 'Door', price: 10 }]; } // door price: the Price fact reads "Pay at the door" (NightCard doorPriceOf)
   if (st === 'link') s.default_ticket_url = 'https://tickets.example/ritmo';
   if (st === 'here' || st === 'sold') env.tickets = [{ id: 't1', name: 'General', price: 800, cap: 50, sold: st === 'sold' ? 4 : 0 }, { id: 't2', name: 'Class and party', price: 1200, cap: 30, sold: 0 }];
   if (st === 'noStripe') { env.stripe = false; env.tickets = []; }
