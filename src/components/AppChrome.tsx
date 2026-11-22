@@ -115,7 +115,7 @@ export function AppChrome({ children }: { children?: React.ReactNode }) {
         </ErrorBoundary>
       </main>
       {/* Footer is suppressed on the full-bleed map home (both breakpoints). */}
-      {!isHome && siteChrome && <GlobalFooter />}
+      {!isHome && siteChrome && !(flags.raffleV2 && flags.raffleRedesign && /^\/raffles\/?$/.test(pathname)) && <GlobalFooter />}
       {!ownChrome && <div className="h-[env(safe-area-inset-bottom)] shrink-0" aria-hidden="true" />}
     </ProfileGateContext.Provider>
   );
