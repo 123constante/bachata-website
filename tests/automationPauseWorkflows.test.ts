@@ -176,7 +176,6 @@ const WRITE_PATTERNS: [string, RegExp][] = [
 const EXEMPT: Record<string, string> = {
   'bot-pr.yml': 'opens a PR for a claude/** push; no merge, no approval (outside the contract reader list; handover item)',
   'types-drift-autoheal.yml': 'force-pushes bot/types-regen and opens/refreshes one PR; no merge (outside the contract reader list; handover item)',
-  'ship-it.yml': 'runs only on an exact "ship it" comment typed by the owner (explicit human action, not automation); arms auto-merge for allowlisted files and its disarm job must keep working while paused',
   'automation-pause-guard.yml': 'the guard itself: re-asserts the label and DISABLES auto-merge (protective; must run while paused)',
 };
 const stripComments = (t: string) => t.split(/\r?\n/).filter((l) => !/^\s*#/.test(l)).join('\n');

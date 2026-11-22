@@ -71,7 +71,32 @@ jobs:
       BODY: ${{ github.event.comment.body }}
       COMMENTER: ${{ github.event.comment.user.login }}
     steps:
+      # The BASE branch, never the PR head: only main's code may read the pause switch.
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      # PAUSE SWITCH (docs/automation-pause.md): exit 3 = paused. continue-on-error so a pause is
+      # not a red run; fail closed: only paused == 'false' (positively read) lets the ship step run.
+      # Only this job reads it: the disarm job stays unconditional (it only turns auto-merge OFF).
+      - name: Read the automation pause switch
+        id: pause
+        # soft-signal: exit 3 = PAUSED is the measured outcome, written to outputs; only paused == 'false' enables (fail closed)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/automation-pause.mjs
+      - name: Refuse while paused (no label, no update-branch, no arming)
+        if: steps.pause.outputs.paused != 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment "$PR" --repo "$REPO" --body "<!-- ship-it -->Not shipped: automation is paused (docs/automation-pause.md). Comment ship it again after it is resumed."
       - name: Check, update branch, arm auto-merge
+        if: steps.pause.outputs.paused == 'false'
         shell: bash
         run: |
           set -euo pipefail
