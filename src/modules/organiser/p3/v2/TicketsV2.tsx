@@ -52,6 +52,8 @@ export interface TicketsViewProps {
   stripeWarn?: boolean;
   /** 12d: the real Stripe redirect is under way / refused / payments not switched on */
   stripeBusy?: boolean;
+  /** 17e: "Check again" under the warn restarts the 30 s poll */
+  onCheckAgain?: () => void;
   stripeNote?: string | null;
   stripeOff?: boolean;
   /** false while the Stripe account is still loading: the Connect screen must not flash (slice 13) */
@@ -82,6 +84,9 @@ export function TicketsView(p: TicketsViewProps) {
           {p.stripeOff ? <p className="warn" role="status" data-testid="tk-stripe-off">{NOT_SWITCHED_ON}</p> : null}
           {p.stripeNote ? <p className="err" role="alert" data-testid="tk-stripe-note">{p.stripeNote}</p> : null}
           {p.stripeWarn ? <p className="warn" data-testid="tk-warn">Dancers can&rsquo;t buy yet. Connect Stripe or choose pay at the door.</p> : null}
+          {p.stripeWarn && p.onCheckAgain ? (
+            <button type="button" className="btn sec" data-testid="tk-check-again" disabled={p.stripeBusy} onClick={p.onCheckAgain}>{V2.ticketsPay.checkAgain}</button>
+          ) : null}
         </div>
       ) : p.mode === 'here' ? (
         <div className="grp">
@@ -183,7 +188,10 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
       id: t.id, name: t.name, qty: t.capacity, sold,
       line: ticketLine(t.pricePence, managed.data?.types.find((m) => m.id === t.id)),
       pence: sales.get(t.id)?.grossPence ?? 0,
-      perDate: coming.map((d) => (t.occurrenceId === d.id ? sold : 0)),
+      // night-bound: its own night; series-wide: that type's per-night count from the summary, else 0 (never invented)
+      perDate: coming.map((d) => (t.occurrenceId
+        ? (t.occurrenceId === d.id ? sold : 0)
+        : (sales.get(t.id)?.nights ?? []).find((n) => n.occurrenceId === d.id)?.ticketsSold ?? 0)),
     };
   });
   const T = V2.ticketsPay;
@@ -372,7 +380,7 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
         stripe={connected} mode={mode} tickets={rows} dates={coming.map((d) => fullDate(d.occurrence_date).replace(/ \d{4}$/, ''))}
         doorPrice={doorPriceOf(s.passes)} link={s.default_ticket_url ?? null}
         stripeReady={stripe.state !== null}
-        stripeWarn={stripeWarn} stripeBusy={onboard.busy} stripeNote={onboard.note} stripeOff={onboard.switchedOff}
+        stripeWarn={stripeWarn} onCheckAgain={ret.again} stripeBusy={onboard.busy} stripeNote={onboard.note} stripeOff={onboard.switchedOff}
         on={{ ticket: openTicket, newTicket: () => openTicket(), stripe: () => { void onboard.go(); }, sellHere: () => { void sellHere(); }, payDoor: () => { void payDoor(); }, link: openLink, doorUsual: () => { setSheetError(null); setSheet('door'); }, howPay: () => setSheet('how') }} />
       {sheet === 'door' && <DoorSheet busy={busy} price={doorPriceOf(s.passes)} day={oneOff ? null : day} error={sheetError} onDone={(r) => { void saveDoor(r); }} onClose={() => setSheet(null)} />}
       {sheet === 'link' && <LinkSheet link={oldUrl ?? ''} busy={busy} error={sheetError} onDone={(u) => { void saveLink(u); }} onClose={() => setSheet(null)} />}

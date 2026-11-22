@@ -353,6 +353,7 @@ export const V2 = {
     loading: 'Loading the prices…',
     linkTitle: 'Link to buy tickets',
     savedOne: 'Saved',
+    gone: 'This night has gone.',
   },
   /** Tickets screen pay sheets (slice 12c). Named ticketsPay: `tickets` above is the row label. */
   ticketsPay: {
@@ -379,6 +380,7 @@ export const V2 = {
     undone: 'Undone',
     notSaved: 'Not saved. Try again.',
     stripeConnected: 'Stripe connected',
+    checkAgain: 'Check again',
     switchTitle: 'Switch how dancers pay?',
     switchText: (n: number) => `${n} ticket${n === 1 ? '' : 's'} already sold here. Buyers keep their tickets. New buyers will not be able to buy here.`,
     switchDo: 'Switch',

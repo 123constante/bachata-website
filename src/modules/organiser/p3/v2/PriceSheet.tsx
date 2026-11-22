@@ -1,4 +1,9 @@
 import { useRef, useState } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchNightPrices, setNightPrice, ticketKeys } from '../../tickets/ticketsApi';
+import { V2Toast } from './V2Toast';
+import { UNDONE_TEXT, UNDO_FAILED_TEXT } from './saveNow';
 import { ownerPassesFromStored, PRICE_RE } from '../../shared/seriesCommands';
 import type { EventWorkspace } from '../../events/eventModel';
 import type { DateDetail, WorkspaceDate } from '../../shared/seriesModel';
@@ -14,7 +19,31 @@ const P = V2.priceSheet;
 
 export type PriceState = 'door' | 'link' | 'noStripe' | 'noTickets' | 'tickets' | 'loading';
 
-export interface PriceTicket { id: string; name: string; pence: number }
+/**
+ * `pence` is what the field shows (night price, else usual). `canChange` is true only when the per-night read said so;
+ * a ticket that is not changeable is read-only (loading, failed read, manager, night gone). `nightPence` null = no override.
+ */
+export interface PriceTicket { id: string; name: string; pence: number; nightPence?: number | null; canChange?: boolean }
+
+export interface TicketChange { id: string; pence: number }
+type Outcome = { ok: boolean; error: string | null };
+
+// The toast has to outlive the sheet (NightCard unmounts it on close), so it lives in its own root on the body.
+let toastRoot: Root | null = null;
+let toastSeq = 0;
+const toastDone = (n: number) => { if (n === toastSeq) toastRoot?.render(<V2Toast toast={null} onDone={toastDone} />); };
+function showToast(text: string, onUndo?: () => void) {
+  if (typeof document === 'undefined') return;
+  if (!toastRoot) { const el = document.createElement('div'); document.body.appendChild(el); toastRoot = createRoot(el); }
+  toastSeq += 1;
+  toastRoot.render(<V2Toast toast={{ seq: toastSeq, text, onUndo }} onDone={toastDone} />);
+}
+/** Tests: drop the toast between cases. */
+export function clearNightPriceToast() { toastSeq += 1; toastRoot?.render(<V2Toast toast={null} onDone={toastDone} />); }
+
+/** Server refusal word to the one plain line. */
+export const nightPriceLine = (reason: string | null): string =>
+  reason === 'night_past' || reason === 'night_cancelled' ? P.gone : reason === 'not_owner_or_admin' ? P.locked : P.notSaved;
 
 export interface PriceSheetProps {
   state: PriceState;
@@ -28,6 +57,12 @@ export interface PriceSheetProps {
   doorPrice: number | null;
   link: string | null;
   tickets: PriceTicket[];
+  /** tickets state: the per-night read answered ok (until then the fields are read-only and Done only closes) */
+  ticketsKnown?: boolean;
+  /** tickets state: Done with changed fields. Resolves with the result; never called for an empty or unchanged field. */
+  onSaveTickets?: (changes: TicketChange[]) => Promise<Outcome>;
+  /** tickets state: remove every ticket's night price */
+  onBackTickets?: () => Promise<Outcome>;
   /** the night owns a price: shows "Back to the usual price(s)" */
   changed: boolean;
   /** door Done: the new price; resolves with the save result. Never called for an empty or unchanged field. */
@@ -60,11 +95,12 @@ export function PriceSheet(p: PriceSheetProps) {
     if (inFlight.current) return;
     inFlight.current = true; setBusy(true); setProblem(null);
     try {
-      const r = (await p.onBack()) as { ok?: boolean; error?: string | null } | undefined;
+      const r = (p.state === 'tickets' && p.onBackTickets ? await p.onBackTickets() : await p.onBack()) as { ok?: boolean; error?: string | null } | undefined;
       if (r && r.ok === false) setProblem(r.error ?? P.notSaved); else p.onClose();
     } catch { setProblem(P.notSaved); } finally { inFlight.current = false; setBusy(false); }
   };
-  const goBack = (label: string) => (p.changed ? (
+  const hasNightPrice = p.state === 'tickets' && !!p.ticketsKnown && p.tickets.some((t) => t.nightPence != null);
+  const goBack = (label: string) => (p.changed || hasNightPrice ? (
     <button type="button" className="btn sec" data-testid="price-back" disabled={busy} onClick={() => { void goBackNow(); }}>{label}</button>
   ) : null);
 
@@ -82,6 +118,27 @@ export function PriceSheet(p: PriceSheetProps) {
     } catch {
       setProblem(P.notSaved);
     } finally { inFlight.current = false; setBusy(false); }
+  };
+
+  const doneTickets = async () => {
+    if (!p.ticketsKnown || !p.onSaveTickets) { p.onClose(); return; }
+    const changes: TicketChange[] = [];
+    for (const t of p.tickets) {
+      if (t.pence <= 0 || !t.canChange) continue;
+      const text = (raw[t.id] ?? '').trim();
+      if (text === '') continue;
+      if (!PRICE_RE.test(text)) { setProblem(P.bad); return; }
+      const pence = Math.round(Number(text) * 100);
+      if (pence < 1 || pence > 1000000) { setProblem(P.bad); return; }
+      if (pence !== t.pence) changes.push({ id: t.id, pence });
+    }
+    if (!changes.length) { p.onClose(); return; }
+    if (inFlight.current) return;
+    inFlight.current = true; setBusy(true); setProblem(null);
+    try {
+      const r = await p.onSaveTickets(changes);
+      if (r.ok) p.onClose(); else setProblem(r.error ?? P.notSaved);
+    } catch { setProblem(P.notSaved); } finally { inFlight.current = false; setBusy(false); }
   };
 
   let body;
@@ -128,7 +185,6 @@ export function PriceSheet(p: PriceSheetProps) {
       </>
     );
   } else {
-    // UNBUILT: no per-night ticket price write exists, so Done closes without saving (see the slice 14 handover).
     body = (
       <>
         {only}
@@ -137,12 +193,12 @@ export function PriceSheet(p: PriceSheetProps) {
           : (
             <div key={t.id}>
               <label className="flab" htmlFor={`p-${t.id}`}>{P.ticketField(t.name)}</label>
-              <input id={`p-${t.id}`} className="fld" type="number" min="0" step="0.5" inputMode="decimal" readOnly aria-readonly="true"
-                value={raw[t.id] ?? String(t.pence / 100)} onChange={(e) => setRaw({ ...raw, [t.id]: e.target.value })} />
+              <input id={`p-${t.id}`} className="fld" type="number" min="0" step="0.5" inputMode="decimal" readOnly={!t.canChange} aria-readonly={!t.canChange}
+                value={raw[t.id] ?? String(t.pence / 100)} onChange={(e) => { setRaw({ ...raw, [t.id]: e.target.value }); setProblem(null); }} />
             </div>
           )))}
         {problem ? <p className="err" role="alert" data-testid="price-err">{problem}</p> : null}
-        <button type="button" className="btn pri" data-testid="price-done" onClick={p.onClose}>{V2.done}</button>
+        <button type="button" className="btn pri" data-testid="price-done" disabled={busy} aria-busy={busy} onClick={() => { void doneTickets(); }}>{V2.done}</button>
         {goBack(P.backTickets)}
         {usual}
       </>
@@ -182,6 +238,57 @@ export function NightPriceSheet({ ws, date, detail, weekly, long, day, dateWords
     else if (!connected) state = 'noStripe';
     else state = here.length ? 'tickets' : 'noTickets';
   }
+  const qc = useQueryClient();
+  const wantNight = state === 'tickets';
+  const np = useQuery({ queryKey: ticketKeys.nightPrices(date.id), queryFn: () => fetchNightPrices(date.id), enabled: wantNight, retry: 1 });
+  const known = wantNight && np.data?.ok === true;
+  const byId = new Map((known ? np.data!.tickets : []).map((t) => [t.ticketTypeId, t]));
+  const ticketRows = here.map((t) => {
+    const n = known ? byId.get(t.id) : undefined;
+    return n
+      ? { id: t.id, name: t.name, pence: n.nightPence ?? n.usualPence, nightPence: n.nightPence, canChange: n.canChange }
+      : { id: t.id, name: t.name, pence: t.pricePence, nightPence: null, canChange: false };
+  });
+  const refreshNight = () => { void qc.invalidateQueries({ queryKey: ticketKeys.all }); };
+  /** One at a time. On the first failure the ones already written go back; the reason becomes one plain line. */
+  const writeAll = async (changes: { id: string; pence: number | null }[]): Promise<Outcome> => {
+    const done: { id: string; before: number | null }[] = [];
+    for (const c of changes) {
+      let reason: string | null = 'unknown';
+      try { const r = await setNightPrice(c.id, date.id, c.pence); if (r.ok) reason = null; else reason = r.reason; } catch { reason = 'unknown'; }
+      if (reason !== null) {
+        for (const d of done.reverse()) { try { await setNightPrice(d.id, date.id, d.before); } catch { /* best effort; the read refetches below */ } }
+        refreshNight();
+        return { ok: false, error: nightPriceLine(reason) };
+      }
+      done.push({ id: c.id, before: byId.get(c.id)?.nightPence ?? null });
+    }
+    refreshNight();
+    return { ok: true, error: null };
+  };
+  const toastWithUndo = (text: string, restore: { id: string; pence: number | null }[]) => {
+    showToast(text, () => {
+      void (async () => {
+        const r = await writeAll(restore);
+        showToast(r.ok ? UNDONE_TEXT : UNDO_FAILED_TEXT);
+      })();
+    });
+  };
+  const saveTickets = async (changes: TicketChange[]): Promise<Outcome> => {
+    const r = await writeAll(changes);
+    if (r.ok) toastWithUndo(oneOff ? P.savedOne : V2.session.savedNight(dateWords), changes.map((c) => ({ id: c.id, pence: byId.get(c.id)?.nightPence ?? null })));
+    return r;
+  };
+  const backTickets = async (): Promise<Outcome> => {
+    const had = [...byId.values()].filter((t) => t.nightPence != null);
+    if (had.length) {
+      const r = await writeAll(had.map((t) => ({ id: t.ticketTypeId, pence: null })));
+      if (!r.ok) return r;
+      if (!changed) toastWithUndo(V2.backToUsualFor(dateWords), had.map((t) => ({ id: t.ticketTypeId, pence: t.nightPence })));
+    }
+    if (changed) return ((await onBack()) as Outcome | undefined) ?? { ok: true, error: null };
+    return { ok: true, error: null };
+  };
   const saveDoor = async (price: number) => {
     const stored = ownerPassesFromStored(passes);
     if (!stored) return { ok: false, error: P.locked };
@@ -194,7 +301,7 @@ export function NightPriceSheet({ ws, date, detail, weekly, long, day, dateWords
   };
   return (
     <PriceSheet state={state} weekly={weekly} long={long} day={day} doorPrice={doorPriceOf(passes)} link={link}
-      tickets={here.map((t) => ({ id: t.id, name: t.name, pence: t.pricePence }))} changed={changed}
+      tickets={ticketRows} ticketsKnown={known} onSaveTickets={saveTickets} onBackTickets={backTickets} changed={changed}
       onSaveDoor={saveDoor} onBack={onBack} onGoTickets={onGoTickets} onLink={onLink} onClose={onClose} />
   );
 }
