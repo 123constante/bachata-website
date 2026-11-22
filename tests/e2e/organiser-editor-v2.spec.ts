@@ -29,6 +29,7 @@ async function open(page: Page, st: St, route = ''): Promise<Env> {
   if (st === 'ended') { s.lifecycle_status = 'ended'; s.ended_on = '2026-10-09'; }
   if (st === 'cancelledEvent') s.lifecycle_status = 'cancelled';
   if (st === 'endDate' && s.recurrence_rule) (s.recurrence_rule as { until?: string }).until = '2026-12-25';
+  if (st === 'oneOff') s.format = 'one_off';
   if (st === 'door') s.default_ticket_url = null;
   if (st === 'link') s.default_ticket_url = 'https://tickets.example/ritmo';
   if (st === 'here' || st === 'sold') env.tickets = [{ id: 't1', name: 'General', price: 800, cap: 50, sold: st === 'sold' ? 4 : 0 }, { id: 't2', name: 'Class and party', price: 1200, cap: 30, sold: 0 }];
@@ -39,7 +40,9 @@ async function open(page: Page, st: St, route = ''): Promise<Env> {
   await page.route(/\/rest\/v1\/organiser_stripe_accounts/, (r) => ok(r, env.stripe ? { charges_enabled: true, payouts_enabled: true, details_submitted: true } : null));
   await page.route(/\/rpc\/ticket_sales_summary_v1/, (r) => ok(r, { ok: true, money_visible: true, ticket_types: env.tickets.map((t) => ({ id: t.id, event_series_id: sid, name: t.name, status: 'active', price_pence: t.price, capacity: t.cap, reserved_count: t.sold, tickets_sold: t.sold, orders_paid: t.sold, gross_pence: t.sold * t.price })) }));
   await page.route(/\/rpc\/ticket_orders_for_organiser_v1/, (r) => ok(r, { ok: true, orders: [] }));
-  await page.route(/\/rpc\/ticket_types_manage_v1/, (r) => ok(r, { ok: true, types: [] }));
+  await page.route(/\/rpc\/ticket_types_manage_v1/, (r) => ok(r, { ok: true, ticket_types: env.tickets.map((t) => ({ id: t.id, base_price_pence: t.price, effective_price_pence: t.price, has_orders: t.sold > 0, has_price_steps: false, steps: [] })) }));
+  await page.route(/\/rpc\/organiser_guest_list_night_v1/, (r) => ok(r, { ok: true, role: 'owner', can_edit: true, can_check_in: true, read_only_reason: null, night: { occurrence_id: 'o', enabled: true, capacity_max: null, cutoff_time: null, closed: false, full: false, past: false, cancelled: false }, counts: { names: 3, in: 0, places_left: null }, total: 3, entries: [{ id: 'g1', first_name: 'Ana', status: 'confirmed' }, { id: 'g2', first_name: 'Ben', status: 'confirmed' }, { id: 'g3', first_name: 'Cat', status: 'confirmed' }] }));
+  await page.route(/\/rpc\/organiser_guest_list_set_night_v1/, (r) => ok(r, { ok: true }));
   await page.route(/\/rpc\/ticket_type_upsert_v1/, (r) => ok(r, { ok: true, id: 't9' }));
   await page.route(/\/rpc\/ticket_type_set_status_v1/, (r) => ok(r, { ok: true }));
   await page.route(/organiser_profiles\?.*id=in\./, (r) => ok(r, [{ id: fake.organisers[0].id, name: fake.organisers[0].name, avatar_url: null }]));
@@ -62,7 +65,8 @@ const noOld = (page: Page) => {
 };
 
 // ---------- tap helpers ----------
-const dlg = (page: Page, title?: string | RegExp) => (title ? page.getByRole('dialog', { name: title }) : page.getByTestId('v2-sheet').getByRole('dialog'));
+// Sheets can stack (session sheet over When sheet): with no title the TOPMOST dialog is the one the person sees.
+const dlg = (page: Page, title?: string | RegExp) => (title ? page.getByRole('dialog', { name: title }) : page.getByTestId('v2-sheet').last().getByRole('dialog'));
 /** tap the visible control by its label (button, tab or link), inside the open sheet when there is one */
 async function tap(page: Page, label: string | RegExp, o: { nth?: number; sheet?: string | RegExp } = {}) {
   const scope = (await page.getByTestId('v2-sheet').count()) > 0 ? dlg(page, o.sheet) : page;
