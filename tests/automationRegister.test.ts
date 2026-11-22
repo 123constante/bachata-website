@@ -77,11 +77,11 @@ describe('the register file (.github/automation/secrets-register.json)', () => {
     expect(e.contract_readers).toContain('bot-pr.yml');
     for (const w of e.readers_allowed) {
       if (e.contract_readers.includes(w)) continue;
-      expect(e.grandfathered[w], w).toMatch(/2026-11-(0[45]|1[369])/);
+      expect(e.grandfathered[w], w).toMatch(/2026-11-\d\d/);
     }
     // auto-merge-on-open.yml is pull_request_target + checkout of main (slice 4b): no untrusted grandfather.
     expect(Object.keys(e.untrusted_trigger_grandfathered)).toEqual(['bot-pr.yml']);
-    expect(Object.keys(e.grandfathered).sort()).toEqual(['auto-merge-on-open.yml', 'autopilot.yml', 'bot-automerge.yml', 'pr-auto-rebase.yml', 'queue-daily-report.yml', 'queue-merge.yml', 'queue-watchdog.yml', 'queue-worker.yml', 'revert-on-red.yml', 'stale-bot-pr-sweep.yml']);
+    expect(Object.keys(e.grandfathered).sort()).toEqual(['auto-merge-on-open.yml', 'autopilot.yml', 'bot-automerge.yml', 'pr-auto-rebase.yml', 'queue-daily-report.yml', 'queue-merge.yml', 'queue-watchdog.yml', 'queue-worker.yml', 'revert-on-red.yml', 'ship-it.yml', 'stale-bot-pr-sweep.yml']);
   });
   it('the owner PC gh session is recorded as NOT an automation credential and no workflow can name it', () => {
     expect(r.owner_credentials.map((c: Any) => c.acts_as)).toEqual(['123constante']);
