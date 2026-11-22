@@ -28,7 +28,7 @@ export const GO_LIVE_BLOCKERS: Readonly<Record<string, BlockerDef>> = {
   city: { label: 'Add a city', section: 'venue' },
   upcoming_date: { label: 'Add a date', section: 'dates' },
   session: { label: 'Add a session with a title, start and end', section: 'programme' },
-  cover: { label: 'Upload a flyer', section: 'cover' },
+  cover: { label: 'A flyer is required to continue', section: 'cover' },
   description: { label: 'Write a description', section: 'about' },
   name: { label: 'Add an event name', section: 'basics' },
   country: { label: 'Pick a city with a country', section: 'venue' },
@@ -37,7 +37,7 @@ export const GO_LIVE_BLOCKERS: Readonly<Record<string, BlockerDef>> = {
   first_date_past: { label: 'Move the first date to today or later', section: 'dates' },
   bad_session_times: { label: 'Fix a session time: each needs a start and a different end', section: 'programme' },
   no_payment: { label: 'Say how dancers pay', section: 'payment' },
-  no_flyer: { label: 'Upload a flyer', section: 'cover', sameAs: 'cover' },
+  no_flyer: { label: 'A flyer is required to continue', section: 'cover', sameAs: 'cover' },
   ticket_link: { label: 'Add a ticket link', section: 'tickets' },
 };
 
