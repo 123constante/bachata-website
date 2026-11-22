@@ -14,7 +14,7 @@ const D1S = 'Fri 9 Oct'; void D1S;
 
 // ---------- states ----------
 type St = 'weekly' | 'changedVenue' | 'cancelledNight' | 'paused' | 'ended' | 'endDate' | 'cancelledEvent' | 'oneOff'
-  | 'door' | 'here' | 'link' | 'oneOffLink' | 'ownTime' | 'noStripe' | 'sold' | 'empty';
+  | 'door' | 'here' | 'link' | 'oneOffLink' | 'ownTime' | 'noStripe' | 'sold' | 'empty' | 'flyer';
 interface Tk { id: string; name: string; price: number; cap: number; sold: number; occ?: string | null }
 interface Env { fake: OrganiserFake; tickets: Tk[]; stripe: boolean; sid: string }
 
@@ -32,6 +32,7 @@ async function open(page: Page, st: St, route = ''): Promise<Env> {
   if (st === 'endDate') s.ended_on = '2026-12-25'; // the Repeats row reads series.ended_on (EveryBody.tsx:90), not the rule's end
   if (st === 'oneOff' || st === 'oneOffLink') s.format = 'one_off';
   if (st === 'oneOffLink') s.default_ticket_url = 'https://tickets.example/ritmo';
+  if (st === 'flyer') (s as { cover_image_url?: string }).cover_image_url = 'https://img.example/flyer.jpg';
   if (st === 'door') { s.default_ticket_url = null; (s as { passes?: unknown }).passes = [{ id: '11111111-1111-4111-8111-111111111111', name: 'Door', price: 10 }]; } // door price: the Price fact reads "Pay at the door" (NightCard doorPriceOf)
   if (st === 'link') s.default_ticket_url = 'https://tickets.example/ritmo';
   if (st === 'here' || st === 'sold') env.tickets = [{ id: 't1', name: 'General', price: 800, cap: 50, sold: st === 'sold' ? 4 : 0 }, { id: 't2', name: 'Class and party', price: 1200, cap: 30, sold: 0 }];
@@ -135,7 +136,7 @@ row({ n: 52, label: 'Back to the usual venue', st: 'changedVenue', pre: (p) => t
 row({ n: 53, label: 'Price Done (night)', st: 'door', pre: async (p) => { await tap(p, /^Price/); await dlg(p).getByRole('spinbutton').first().fill('15'); }, act: (p) => tap(p, 'Done'), expect: async (p) => { await sheetGone(p); await toastIs(p, `Saved for ${D1} only`, true); } });
 row({ n: 55, label: 'Price sheet: change usual -> Tickets', st: 'here', pre: (p) => tap(p, /^Price/), act: (p) => tap(p, /All ticket settings|Change tickets for every|Change the usual price|Set up tickets|Add your first ticket/), expect: async (p) => { await sheetGone(p); expect(route(p)).toMatch(/\/tickets$/); } });
 row({ n: 56, label: 'Change the link (one-off price sheet; weekly shows Change every day)', st: 'oneOffLink', pre: (p) => tap(p, /^Price/), act: (p) => tap(p, 'Change the link'), expect: (p) => sheetOpen(p, 'Link to buy tickets') });
-row({ n: 58, label: 'Remove the flyer', st: 'weekly', pre: (p) => tap(p, /Flyer and photos/), act: (p) => tap(p, 'Remove the flyer'), expect: (p) => toastIs(p, /Saved for/, true), fixme: 'fake has no flyer to remove, button not shown' });
+row({ n: 58, label: 'Remove the flyer', st: 'flyer', pre: (p) => tap(p, /Flyer and photos/), act: (p) => tap(p, 'Remove the flyer'), expect: (p) => toastIs(p, /Saved for/, true) });
 row({ n: 62, label: 'Add a video', st: 'weekly', pre: async (p) => { await tap(p, /Flyer and photos/); await dlg(p).getByPlaceholder('https://').fill('https://youtu.be/dQw4w9WgXcQ'); }, act: (p) => tap(p, 'Add a video'), expect: async (p) => { await expect(dlg(p, 'Flyer and photos')).toBeVisible(); await expect(dlg(p).getByTestId('gallery-tile')).toHaveCount(1); await expect(dlg(p).getByTestId('gallery-tile')).toHaveAttribute('aria-label', /video/i); } });
 row({ n: 67, label: 'Guest list switch', st: 'weekly', pre: (p) => tap(p, /^Guest list/), act: async (p) => { await dlg(p).getByRole('switch').click(); }, expect: (p) => toastIs(p, /Guest list (on|off)/) });
 row({ n: 70, label: 'Cancel this night (sheet)', st: 'weekly', pre: (p) => tap(p, 'Cancel this night', { nth: 0 }), act: (p) => tap(p, 'Cancel this night', { sheet: /Cancel/ }), expect: async (p) => { await sheetGone(p); await toastIs(p, `Cancelled ${D1}`, false); } });
@@ -170,7 +171,7 @@ row({ n: 78, label: 'Repeats Done', st: 'weekly', pre: async (p) => { await ev(p
 row({ n: 81, label: 'Organisers Done', st: 'weekly', pre: async (p) => { await ev(p); await p.getByRole('button', { name: /^Organisers/ }).first().click(); await sheetOpen(p, 'Organisers'); }, act: (p) => tap(p, 'Done'), expect: async (p) => { await sheetGone(p); } });
 row({ n: 82, label: 'Pause the event (sheet)', st: 'weekly', pre: async (p) => { await ev(p); await tap(p, /^Pause the event/); }, act: (p) => tap(p, 'Pause the event', { sheet: 'Pause the event?' }), expect: async (p) => { await sheetGone(p); await toastIs(p, 'Event paused', true); await expect(p.getByText('Paused').first()).toBeVisible(); } });
 row({ n: 83, label: 'End the event (sheet, later last night)', st: 'weekly', pre: async (p) => { await ev(p); await tap(p, /^End the event/); await dlg(p).getByLabel(/^Last night/).fill('2026-12-25'); }, act: (p) => tap(p, 'End the event', { sheet: 'End the event?' }), expect: async (p) => { await sheetGone(p); await toastIs(p, /Ends after/, true); } });
-row({ n: 83.1, label: 'End the event (sheet, no date)', st: 'weekly', pre: async (p) => { await ev(p); await tap(p, /^End the event/); }, act: (p) => tap(p, 'End the event', { sheet: 'End the event?' }), expect: async (p) => { await sheetGone(p); await toastIs(p, /Event ended|Ends after/, true); }, fixme: 'UNBUILT: series.end_run has no inverse (editorModel.ts inverseOf has no case; slice17a.test.tsx pins null), so the Event ended toast has no Undo' });
+row({ n: 83.1, label: 'End the event (sheet, no date)', st: 'weekly', pre: async (p) => { await ev(p); await tap(p, /^End the event/); }, act: (p) => tap(p, 'End the event', { sheet: 'End the event?' }), expect: async (p) => { await sheetGone(p); await toastIs(p, /Event ended|Ends after/, true); } });
 row({ n: 84, label: 'Keep it live', st: 'weekly', pre: async (p) => { await ev(p); await tap(p, /^Pause the event/); }, act: (p) => tap(p, /^Keep it live/), expect: async (p) => { await sheetGone(p); } });
 row({ n: 85, label: 'Cancel the event (sheet)', st: 'weekly', pre: async (p) => { await ev(p); await tap(p, /^Cancel the event/); }, act: (p) => tap(p, 'Cancel the event', { sheet: 'Cancel the event' }), expect: async (p) => { await sheetGone(p); await toastIs(p, 'Event cancelled', false); } });
 row({ n: 86, label: 'Keep the event', st: 'weekly', pre: async (p) => { await ev(p); await tap(p, /^Cancel the event/); }, act: (p) => tap(p, 'Keep the event'), expect: async (p) => { await sheetGone(p); } });
