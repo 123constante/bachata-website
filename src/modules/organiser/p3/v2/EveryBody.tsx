@@ -15,6 +15,9 @@ import { WhereSheet, savedLabel } from './WhereSheet';
 import { AboutSheet } from './AboutSheet';
 import { FlyerSheet } from './FlyerSheet';
 import { NameSheet } from './NameSheet';
+import { MusicSheet } from './MusicSheet';
+import { OrgSheet } from './OrgSheet';
+import type { OwnerCommand } from '../../shared/seriesCommands';
 import { londonTodayKey } from '@/lib/londonDate';
 import { ownerPassesFromStored } from '../../shared/seriesCommands';
 
@@ -41,7 +44,7 @@ type SeriesBits = { default_city_id?: string | null; default_cover_image_url: st
  */
 export function EveryBody({ ws, day, saveNow, busy }: { ws: EventWorkspace; day: string; saveNow: OnSave; busy?: boolean }) {
   const s = ws.series;
-  const [sheet, setSheet] = useState<'where' | 'about' | 'flyer' | 'name' | null>(null);
+  const [sheet, setSheet] = useState<'where' | 'about' | 'flyer' | 'name' | 'music' | 'orgs' | null>(null);
   const venues = useVenueOptions();
   const orgIds = ws.organiserIds ?? [];
   const pages = useQuery({ queryKey: ['org-organiser-pages', ...orgIds], queryFn: () => fetchOrganiserPages(orgIds), enabled: orgIds.length > 0 });
@@ -79,6 +82,12 @@ export function EveryBody({ ws, day, saveNow, busy }: { ws: EventWorkspace; day:
   };
   const saveAbout = async (value: string | null) => { await send(V2.nightAbout, { default_description: value }, { default_description: s.default_description ?? null }); };
   const saveName = async (v: string) => { await send(E.name, { name: v }, {}); };
+  const saveMusic = async (styles: string[]) => { await send(E.music, { default_music_styles: styles }, { default_music_styles: ws.musicStyles ?? [] }); };
+  const saveOrgs = async (command: OwnerCommand, _ids: string[]) => {
+    const step: WriteStep = { part: E.organisers, target: 'series', id: s.id, version: s.version, command, order: 1 };
+    const r = await saveNow([step], [{ organiser_ids: ws.organiserIds }], label);
+    if (r.ok) setSheet(null);
+  };
   const saveFlyer = async (url: string | null, lab: string) => {
     const step: WriteStep = { part: V2.flyer, target: 'series', id: s.id, version: s.version, command: upsertCommand({ name: s.name ?? '', default_cover_image_url: url }), order: 1 };
     await saveNow([step], [{ name: s.name ?? '', default_cover_image_url: flyer ?? null }], lab);
@@ -110,14 +119,16 @@ export function EveryBody({ ws, day, saveNow, busy }: { ws: EventWorkspace; day:
         <div className="card"><div className="fb-list">
           <Line id="name" label={E.name} value={name} onOpen={() => setSheet('name')} />
           <Line id="about" label={V2.description} value={aboutShort(s.default_description)} onOpen={() => setSheet('about')} />
-          <Line id="music" label={E.music} value={music} />
+          <Line id="music" label={E.music} value={music} onOpen={() => setSheet('music')} />
           <Line id="repeats" label={E.repeats} value={repeats} />
-          <Line id="organisers" label={E.organisers} value={orgs} />
+          <Line id="organisers" label={E.organisers} value={orgs} onOpen={() => setSheet('orgs')} />
         </div></div>
       </div>
       {sheet === 'where' && <WhereSheet mode="usual" dateWords={day} current={s.default_venue_id ?? null} onSave={saveVenue} onClose={() => setSheet(null)} />}
       {sheet === 'about' && <AboutSheet mode="usual" dateWords={day} current={s.default_description ?? ''} usual={s.default_description} onSave={saveAbout} onClose={() => setSheet(null)} />}
       {sheet === 'name' && <NameSheet current={name} day={day} onSave={saveName} onClose={() => setSheet(null)} />}
+      {sheet === 'music' && <MusicSheet current={ws.musicStyles ?? []} onSave={saveMusic} onClose={() => setSheet(null)} />}
+      {sheet === 'orgs' && <OrgSheet stored={orgIds} names={Object.fromEntries((pages.data ?? []).map((p) => [p.id, p.name]))} seriesId={s.id} lifecycle={s.lifecycle_status ?? ''} onSave={saveOrgs} onClose={() => setSheet(null)} />}
       {sheet === 'flyer' && <FlyerSheet mode="usual" dateWords={day} seriesId={s.id} flyer={flyer ?? null} gallery={ws.gallery ?? []} dayName={day} onFlyer={saveFlyer} onGallery={saveGallery} onClose={() => setSheet(null)} />}
     </>
   );

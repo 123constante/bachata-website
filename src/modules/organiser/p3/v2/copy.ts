@@ -252,6 +252,14 @@ export const V2 = {
     nameHint: (day: string) => `The name is the same for every ${day}.`,
     nameError: 'Add a name',
     nameDone: 'Done',
+    musicChips: ['Bachata', 'Sensual', 'Dominican', 'Salsa', 'Kizomba'] as readonly string[],
+    musicDone: 'Done',
+    orgGroup: 'Who runs it',
+    orgAdd: 'Add',
+    orgPageLabel: 'Organiser page',
+    orgFallback: 'Organiser',
+    orgDone: 'Done',
+    orgChoose: 'Choose a page',
   },
   // where sheet + description sheet (slice 8)
   whereAbout: {
