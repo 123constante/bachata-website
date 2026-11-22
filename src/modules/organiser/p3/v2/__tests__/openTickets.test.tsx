@@ -13,7 +13,7 @@ vi.mock('../../../shared/publicVenues', () => ({ useVenueOptions: () => ({ data:
 vi.mock('../../../events/programmeSeriesApi', () => ({ fetchOrganiserPages: async () => [] }));
 vi.mock('@/modules/organiser/shared/publicCache', () => ({ invalidatePublicEventCaches: () => undefined }));
 vi.mock('@/lib/londonDate', async (orig) => ({ ...((await orig()) as object), londonTodayKey: () => '2026-11-22' }));
-vi.mock('../../tickets/data', () => ({ useStripe: () => ({ state: 'connected', query: { refetch: vi.fn() } }), useSeriesTypes: () => ({ data: [] }) }));
+vi.mock('../../tickets/data', () => ({ useStripe: () => ({ state: 'connected', query: { refetch: vi.fn() } }), useSeriesTypes: () => ({ data: [] }), useSummary: () => ({ data: undefined }) }));
 import { EditorV2 } from '../EditorV2';
 import { EveryBody } from '../EveryBody';
 import { NightCard } from '../NightCard';

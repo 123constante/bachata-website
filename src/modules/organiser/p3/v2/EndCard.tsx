@@ -25,21 +25,24 @@ function Slim({ id, title, sub, red, onTap, first, stat }: { id: string; title: 
 }
 
 /** E-18..E-25: "Pause, end or cancel" group on the Every tab (weekly). `onCancel` absent = the row shows but does nothing. */
-export function EndCard({ status, endDate, reason, onLive, onPause, onEnd, onCancel }: {
+export function EndCard({ status, endDate, reason, onLive, onPause, onEnd, onCancel, oneOff }: {
   status: LifeState; endDate: string | null; reason: string | null;
   onLive: () => void; onPause: () => void; onEnd: () => void; onCancel?: () => void;
+  /** one-off: no Cancel the event row, End says "Dancers see it as ended." */
+  oneOff?: boolean;
 }) {
   const rows: { id: string; node: (first: boolean) => ReactNode }[] = [];
   if (status !== 'Live') rows.push({ id: 'live', node: (f) => <Slim first={f} id="live" title={E.liveAgain} sub={E.liveAgainSub(status)} onTap={onLive} /> });
   if (status === 'Live' || status === 'Ended') rows.push({ id: 'pause', node: (f) => <Slim first={f} id="pause" title={E.pauseRow} sub={E.pauseRowSub} onTap={onPause} /> });
   if (status === 'Live' || status === 'Paused') {
-    rows.push({ id: 'end', node: (f) => <Slim first={f} id="end" title={E.endRow} sub={endDate && status === 'Live' ? E.endSubDate(endDate) : E.endSubNone} onTap={onEnd} /> });
+    rows.push({ id: 'end', node: (f) => <Slim first={f} id="end" title={E.endRow} sub={oneOff ? V2.oneOff.endSub : endDate && status === 'Live' ? E.endSubDate(endDate) : E.endSubNone} onTap={onEnd} /> });
   }
-  if (status === 'Cancelled') rows.push({ id: 'cancelled', node: (f) => <Slim first={f} id="cancelled" red stat title={E.cancelledRow} sub={reason ? E.cancelledReason(reason) : undefined} /> });
+  if (oneOff) { /* a cancelled one-off is brought back from its night card; no Cancel the event row */ }
+  else if (status === 'Cancelled') rows.push({ id: 'cancelled', node: (f) => <Slim first={f} id="cancelled" red stat title={E.cancelledRow} sub={reason ? E.cancelledReason(reason) : undefined} /> });
   else rows.push({ id: 'cancel', node: (f) => <Slim first={f} id="cancel" red title={E.cancelRow} sub={E.cancelRowSub} onTap={onCancel} /> });
   return (
-    <div className="grp" data-testid="every-end">
-      <div className="lab hd">{E.endHead}</div>
+    <div className="grp" data-testid={oneOff ? 'oneoff-end' : 'every-end'}>
+      {!oneOff && <div className="lab hd">{E.endHead}</div>}
       <div className="card"><div className="fb-list">{rows.map((r, i) => <div key={r.id}>{r.node(i === 0)}</div>)}</div></div>
     </div>
   );

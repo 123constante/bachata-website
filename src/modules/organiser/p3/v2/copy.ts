@@ -421,6 +421,14 @@ export const V2 = {
     birdLive: 'An early bird price has already started, so it cannot be changed.',
     notSaved: 'Not saved. Try again.',
   },
+  /** One-off page (slice 15): "The event" group, End card second line, End sheet. */
+  oneOff: {
+    label: 'What dancers see. Tap to change.',
+    eventHead: 'The event',
+    endSub: 'Dancers see it as ended.',
+    endText: 'Dancers see it as ended. Past nights stay.',
+    ticketsValue: 'Prices and how dancers pay',
+  },
 } as const;
 
 /** The programme row's second line, "Class \u00b7 Ana, Ben \u00b7 Beginner": type, people, levels (prototype). */

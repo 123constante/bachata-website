@@ -21,7 +21,7 @@ export function NameSheet({ current, day, onSave, onClose }: {
       <div className="grp">
         <label className="flab" htmlFor="nm-t">{E.nameField}</label>
         <input id="nm-t" type="text" className="fld" autoComplete="off" value={text} onChange={(e) => { setText(e.target.value); setProblem(false); }} />
-        <p className="hint">{E.nameHint(day)}</p>
+        {day && <p className="hint">{E.nameHint(day)}</p>}
         {problem && <p className="err" role="alert" data-testid="name-error">{E.nameError}</p>}
         <button type="button" className="btn pri" data-testid="name-done" onClick={done}>{E.nameDone}</button>
       </div>

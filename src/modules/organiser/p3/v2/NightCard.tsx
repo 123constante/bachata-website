@@ -85,7 +85,9 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
   const pill = cancelled ? <span className="pill x">{V2.tagCancelled}</span>
     : <span className={status === 'live' ? 'pill' : 'pill off'}>{status === 'live' ? V2.statusLive : status === 'paused' ? V2.statusPaused : V2.statusEnded}</span>;
   const flyer = dt?.coverImageUrl ?? s.default_cover_image_url;
-  const own = { flyer: ownedKeys(date, 'flyer').length > 0, where: ownedKeys(date, 'where').length > 0, price: ownedKeys(date, 'price').length > 0, about: ownedKeys(date, 'about').length > 0 };
+  // O-05: a one-off has no "usual" to go back to, so no "Only this night" tags and no "Back to usual" buttons
+  const mine = s.format !== 'one_off';
+  const own = { flyer: mine && ownedKeys(date, 'flyer').length > 0, where: mine && ownedKeys(date, 'where').length > 0, price: mine && ownedKeys(date, 'price').length > 0, about: mine && ownedKeys(date, 'about').length > 0 };
   const about = dt?.descriptionOverride ?? s.default_description;
   const passes = ownerPassesFromStored(dt?.passesOverride ?? s.passes) ?? [];
   const link = dt?.ticketUrl ?? s.default_ticket_url;
@@ -131,7 +133,7 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
   };
   return (
     <div className="grp" data-testid="night-card">
-      <div className="lab">{V2.nightCardLabel}</div>
+      <div className="lab">{s.format === 'one_off' ? V2.oneOff.label : V2.nightCardLabel}</div>
       <div className="card">
         <div className={flyer ? 'flyer f1' : 'flyer none'} style={flyer ? { backgroundImage: `linear-gradient(#00000033,#00000066), url(${flyer})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
           <span>{flyer ? V2.flyerWord : V2.noFlyer}{own.flyer ? V2.onlyThisNightFlyer : ''}</span>

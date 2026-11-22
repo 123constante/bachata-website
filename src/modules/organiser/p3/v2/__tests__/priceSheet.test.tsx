@@ -24,6 +24,7 @@ vi.mock('@/lib/londonDate', async (orig) => ({ ...((await orig()) as object), lo
 vi.mock('../../tickets/data', () => ({
   useStripe: () => ({ state: h.stripe, query: { refetch: vi.fn() } }),
   useSeriesTypes: () => ({ data: h.types }),
+  useSummary: () => ({ data: undefined }),
 }));
 import { EditorV2 } from '../EditorV2';
 import { PriceSheet } from '../PriceSheet';

@@ -16,6 +16,8 @@ import { V2 } from './copy';
 import type { WriteStep } from './editorModel';
 import { EveryBody } from './EveryBody';
 import { NightHub } from './NightHub';
+import { OneOffBody } from './OneOffBody';
+import { useSeriesTypes, useSummary } from '../tickets/data';
 import { publicEventRefOf } from '../data/home';
 import type { Night as RaffleNightRow } from '../events/eventsModel';
 import './v2.css';
@@ -41,6 +43,9 @@ export function EditorV2({ ws }: { ws: EventWorkspace }) {
   const [datesOpen, setDatesOpen] = useState(false);
   const { saveNow, toast, onToastDone, busy } = useSaveNow(ws.series.id, ws.series.version);
   const today = londonTodayKey();
+  const orgId = ws.organiserIds?.[0];
+  const typesQ = useSeriesTypes(orgId, ws.series.id, true);
+  const summaryQ = useSummary(orgId, true);
   const weekly = ws.series.format !== 'one_off';
   const coming = upcomingOf(ws.dates, today);
   const chips = coming.slice(0, UPCOMING_PAGE);
@@ -68,6 +73,12 @@ export function EditorV2({ ws }: { ws: EventWorkspace }) {
     window.scrollTo?.({ top: 0 });
   };
   const every = tab === 'every';
+  // Sold on this page: a one-off sells every type of the event; a weekly night counts the types tied to that night only
+  // (a series-wide type has no per-night figure in the sales read: UNBUILT, see the slice 15 handover).
+  const sales = new Map((summaryQ.data?.ok ? summaryQ.data.types : []).map((t) => [t.id, t]));
+  const here = (typesQ.data ?? []).filter((t) => (weekly ? !!picked && t.occurrenceId === picked.id : true));
+  const ticketsSold = here.reduce((n, t) => n + (sales.get(t.id)?.ticketsSold ?? 0), 0);
+  const moneyPence = here.reduce((n, t) => n + (sales.get(t.id)?.grossPence ?? 0), 0);
   /** tap 55: weekly goes to the "Every <day>" tab first, so coming back lands there; then the Tickets screen */
   const goTickets = () => { if (weekly) setTab('every'); openTickets(); };
   const saveLink = async (url: string) => {
@@ -77,7 +88,7 @@ export function EditorV2({ ws }: { ws: EventWorkspace }) {
     const r = await saveNow([step], [{ name: ws.series.name ?? '', default_ticket_url: old }], V2.ticketsPay.toastLink);
     if (r.ok) setLinkOpen(false); else setLinkError(r.error ?? V2.ticketsPay.notSaved);
   };
-  const title = every ? `Every ${day}` : (picked ? fullDate(picked.occurrence_date).replace(/ \d{4}$/, '') : (ws.series.name ?? ''));
+  const title = !weekly ? (picked ? fullDate(picked.occurrence_date) : (ws.series.name ?? '')) : every ? `Every ${day}` : (picked ? fullDate(picked.occurrence_date).replace(/ \d{4}$/, '') : (ws.series.name ?? ''));
   const scope = every
     ? `Changes here are for every ${day}. A night you changed on its own keeps its change.`
     : 'Changes here are for this night only.';
@@ -123,15 +134,16 @@ export function EditorV2({ ws }: { ws: EventWorkspace }) {
         </div>
       )}
       <h1 className="ev2-title" data-testid="ev2-title">{title}</h1>
-      <p className="ev2-scope" data-testid="ev2-scope">{scope}</p>
+      {weekly && <p className="ev2-scope" data-testid="ev2-scope">{scope}</p>}
       <div data-ev2-slot={every ? 'every' : 'night'}>
         {!every && picked && (
-          <NightCard onOpenTickets={goTickets} onChangeLink={() => { setLinkError(null); setLinkOpen(true); }} ws={ws} date={picked} busy={busy} onCancelNight={cancelNight} onBringBack={bringBack} onSave={saveNow} onBack={(step, before, label) => { void saveNow([step], [before], label); }} />
+          <NightCard soldCount={ticketsSold} onOpenTickets={goTickets} onChangeLink={() => { setLinkError(null); setLinkOpen(true); }} ws={ws} date={picked} busy={busy} onCancelNight={cancelNight} onBringBack={bringBack} onSave={saveNow} onBack={(step, before, label) => { void saveNow([step], [before], label); }} />
         )}
         {!every && picked && (
-          <NightHub seriesId={ws.series.id} seriesName={ws.series.name ?? ''} occurrenceId={picked.id} oneOff={!weekly} shareLink={shareLink} toast={say}
+          <NightHub seriesId={ws.series.id} seriesName={ws.series.name ?? ''} occurrenceId={picked.id} oneOff={!weekly} ticketsSold={ticketsSold} moneyPence={moneyPence} shareLink={shareLink} toast={say}
             raffleNight={{ seriesId: ws.series.id, date: picked.occurrence_date, dayLabel: fullDate(picked.occurrence_date) } as unknown as RaffleNightRow} />
         )}
+        {!weekly && !every && <OneOffBody ws={ws} saveNow={saveNow} busy={busy} onOpenTickets={openTickets} />}
         {every && <EveryBody onOpenTickets={openTickets} ws={ws} day={day} saveNow={saveNow} busy={busy} />}
       </div>
       {linkOpen && <LinkSheet link={ws.series.default_ticket_url ?? ''} busy={busy} error={linkError} onDone={(u) => { void saveLink(u); }} onClose={() => setLinkOpen(false)} />}
