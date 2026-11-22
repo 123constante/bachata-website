@@ -24,7 +24,7 @@ vi.mock('@/lib/breadcrumbs', () => ({ buildBreadcrumbs: () => [] }));
 vi.mock('@/lib/seo', () => ({ buildSeoForRoute: () => ({}), useSeo: () => {} }));
 vi.mock('@/components/raffles/RaffleHero', () => ({ default: () => <div data-testid="legacy-hero" /> }));
 vi.mock('@/components/raffles/OpenRafflesGrid', () => ({ default: () => null }));
-vi.mock('@/components/raffles/RaffleInfoBands', () => ({ HowItWorks: () => null, JackpotCounter: () => null, OrganiserCTA: () => null }));
+vi.mock('@/components/raffles/RaffleInfoBands', () => ({ HowItWorks: () => <div data-testid="how-it-works" />, JackpotCounter: () => null, OrganiserCTA: () => null }));
 vi.mock('@/modules/event-page/bento/modals/RaffleEntryDialog', () => ({
   RaffleEntryDialog: ({ open }: { open: boolean }) => (open ? <div data-testid="entry-dialog" /> : null),
 }));
@@ -98,6 +98,20 @@ describe('/raffles board: shape x screen', () => {
     mount();
     expect(screen.getByTestId('raffles-youre-in')).toBeTruthy();
     expect(screen.queryByTestId('raffles-enter')).toBeNull();
+  });
+  it('lists open nights (no winner) and the how-it-works band; hides open nights when none', () => {
+    const mk = (nights: unknown[]) => parseRaffleBoard({ pool_count: 1, winners_this_month: 0, total_winners: 0, nights });
+    const night = (id: string, w: string | null) => ({ occurrence_id: id, public_event_id: id, title: 'T' + id, start_local: '2026-11-06T21:00:00', venue_name: 'V' + id, winner_first_name: w });
+    h.board = { ...h.board, data: mk([night('a', null), night('b', 'Ana')]), isError: false, isLoading: false };
+    mount();
+    const open = screen.getByTestId('raffles-open-nights');
+    expect(open.textContent).toContain('Ta');
+    expect(open.textContent).not.toContain('Tb');
+    expect(screen.getByTestId('how-it-works')).toBeTruthy();
+    cleanup();
+    h.board = { ...h.board, data: mk([night('b', 'Ana')]), isError: false, isLoading: false };
+    mount();
+    expect(screen.queryByTestId('raffles-open-nights')).toBeNull();
   });
   it('flag OFF renders the legacy page', () => {
     h.flag.raffleV2 = false;
