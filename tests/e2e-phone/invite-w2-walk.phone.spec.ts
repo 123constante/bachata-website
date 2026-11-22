@@ -50,7 +50,7 @@ test('fix 5: the Go live list names every server code, each with a link; the fly
   const card = page.getByTestId('org-life-list');
   await expect(card).toBeVisible();
   await expect(card).not.toContainText(UNKNOWN);
-  await expect(card.getByText('Upload a flyer')).toHaveCount(1);
+  await expect(card.getByText('A flyer is required to continue')).toHaveCount(1);
   await expect(card.getByText('Say how dancers pay')).toBeVisible();
   await screenChecks(page, 'golive list');
   await shot(page, 'walk-golive-list');
