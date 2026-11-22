@@ -13,6 +13,8 @@ import { Fact, aboutShort, priceLabel } from './Facts';
 import { WhenSheet, type OnSave } from './WhenSheet';
 import { WhereSheet, savedLabel } from './WhereSheet';
 import { AboutSheet } from './AboutSheet';
+import { FlyerSheet } from './FlyerSheet';
+import { dateGalleryOf, dateGalleryPatch } from '../data/dateFields';
 import { venueOverridePatch } from '../../dates/venueOverride';
 import { NightCancelArea, type CancelResult } from './CancelNight';
 
@@ -63,7 +65,7 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
 }) {
   const qc = useQueryClient();
   const [whenOpen, setWhenOpen] = useState(false);
-  const [sheet, setSheet] = useState<'where' | 'about' | null>(null);
+  const [sheet, setSheet] = useState<'where' | 'about' | 'flyer' | null>(null);
   const s = ws.series;
   const detail = useQuery({ queryKey: dateDetailQueryKey(date.id), queryFn: () => fetchDateDetail(date.id) });
   const dt = detail.data;
@@ -108,13 +110,27 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
     const r = await onSave([step], [{ description: d.descriptionOverride }], savedLabel('night', dateWords));
     if (r.ok) setSheet(null);
   };
+  const saveFlyer = async (url: string | null, label: string) => {
+    if (!onSave || !url) return; // a blank night flyer has no honest writer (blank = back to usual): not offered
+    const d = dt ?? await qc.fetchQuery({ queryKey: dateDetailQueryKey(date.id), queryFn: () => fetchDateDetail(date.id) });
+    const step: WriteStep = { part: V2.flyer, target: 'occurrence', id: date.id, version: date.version, command: { kind: 'occurrence.set_override', payload: { cover_image_url: url } }, order: 1 };
+    await onSave([step], [{ cover_image_url: d.coverImageOverride }], label);
+  };
+  const saveGallery = async (next: string[], label: string) => {
+    if (!onSave) return;
+    const d = dt ?? await qc.fetchQuery({ queryKey: dateDetailQueryKey(date.id), queryFn: () => fetchDateDetail(date.id) });
+    const patch = dateGalleryPatch(ws, d, next);
+    if (!patch) return;
+    const step: WriteStep = { part: V2.gallery, target: 'occurrence', id: date.id, version: date.version, command: { kind: 'occurrence.set_override', payload: patch }, order: 1 };
+    await onSave([step], [{ gallery: d.galleryOverride }], label);
+  };
   return (
     <div className="grp" data-testid="night-card">
       <div className="lab">{V2.nightCardLabel}</div>
       <div className="card">
         <div className={flyer ? 'flyer f1' : 'flyer none'} style={flyer ? { backgroundImage: `linear-gradient(#00000033,#00000066), url(${flyer})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
           <span>{flyer ? V2.flyerWord : V2.noFlyer}{own.flyer ? V2.onlyThisNightFlyer : ''}</span>
-          <button type="button" className="fpill" data-testid="fact-flyer">{V2.flyerAndPhotos}</button>
+          <button type="button" className="fpill" data-testid="fact-flyer" onClick={onSave ? () => setSheet('flyer') : undefined}>{V2.flyerAndPhotos}</button>
         </div>
         <div className="fb-list">
           <div className="trow"><b data-testid="night-name">{dt?.titleOverride ?? s.name}</b>{pill}</div>
@@ -135,6 +151,11 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
       {sheet === 'about' && onSave && (
         <AboutSheet current={about ?? ''} usual={s.default_description} mode="night" dateWords={dateWords} changed={own.about}
           onSave={saveAbout} onBack={back('about', V2.nightAbout)} onClose={() => setSheet(null)} />
+      )}
+      {sheet === 'flyer' && onSave && (
+        <FlyerSheet seriesId={s.id} flyer={flyer ?? null} gallery={dateGalleryOf(ws, dt ?? null) ?? []} mode="night" dateWords={dateWords}
+          dayName={fullDate(date.occurrence_date).split(' ')[0]} changed={own.flyer}
+          onFlyer={saveFlyer} onGallery={saveGallery} onBackToUsual={back('flyer', V2.flyer)} onClose={() => setSheet(null)} />
       )}
       {whenOpen && onSave && <WhenSheet date={date} oneOff={s.format === 'one_off'} today={today} onSave={onSave} onClose={() => setWhenOpen(false)} />}
     </div>
