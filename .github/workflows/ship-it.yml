@@ -28,10 +28,10 @@ name: Ship it (owner comment arms auto-merge)
 #  - No third-party actions, so nothing to pin. Only `gh` (preinstalled).
 #  - Refuses unless the `main` ruleset has a required_status_checks rule (auto-merge would merge at once).
 #  - Disarm, fail CLOSED: on every synchronize / reopened / ready_for_review of a same-repo PR that is
-#    armed or labelled `ship-it`, the `disarm` job switches auto-merge OFF first and never re-arms.
+#    labelled `ship-it` (the label is added BEFORE arming), the `disarm` job switches auto-merge OFF first and never re-arms.
 #    After any push the owner must comment `ship it` again. (Definition comes from main.)
-#    This disables auto-merge on ANY push to an armed or labelled same-repo PR, whoever armed it (also
-#    auto-merge-on-open, bot-automerge, dependabot-automerge, queue-merge arming). Intended, fail closed.
+#    Only PRs labelled `ship-it` are touched: PRs armed by auto-merge-on-open, bot-automerge,
+#    dependabot-automerge or queue-merge carry no such label and are never disarmed here.
 #    Consequence: there is no push-to-main branch updater; arming waits on the update the ship job does itself.
 #  - Token: BOT_PR_TOKEN when present, else GITHUB_TOKEN. A branch update pushed with GITHUB_TOKEN does
 #    not trigger the PR's checks (GitHub rule); pr-auto-rebase.yml uses BOT_PR_TOKEN for the same reason.
@@ -207,7 +207,7 @@ jobs:
           gh pr comment "$PR" --repo "$REPO" --body "ship-it: auto-merge on, waits for required checks and up-to-date branch"
 
   disarm:
-    # Fail CLOSED: every new head of a same-repo PR that is armed or labelled loses auto-merge. No re-arm here.
+    # Fail CLOSED: every new head of a same-repo PR labelled ship-it loses auto-merge. No re-arm here.
     if: >-
       github.event_name == 'pull_request_target' &&
       github.event.pull_request.head.repo.full_name == github.repository
@@ -235,10 +235,8 @@ jobs:
           # Any error from here on: try once more to switch it off, and keep the run RED.
           trap 'off; echo "disarm errored: auto-merge forced off, run is red"; exit 1' ERR
 
-          info="$(gh pr view "$PR" --repo "$REPO" --json autoMergeRequest,labels --jq '[(.autoMergeRequest != null), ([.labels[].name] | index("ship-it") != null)] | @csv')"
-          case "$info" in
-            false,false) echo "not armed, not labelled: nothing to do"; exit 0 ;;
-          esac
+          labelled="$(gh pr view "$PR" --repo "$REPO" --json labels --jq '[.labels[].name] | index("ship-it") != null')"
+          [ "$labelled" = "true" ] || { echo "no ship-it label: not ours, nothing to do"; exit 0; }
 
           # FIRST action: switch it off (no allowlist check before this).
           gh pr edit "$PR" --repo "$REPO" --remove-label ship-it >/dev/null || true
