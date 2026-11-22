@@ -358,7 +358,7 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
           <input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={(e) => pickCover(e.target.files?.[0])} data-testid="p3-new-cover-input" />
         </label>
         {cover && !d.created && <button type="button" className="p3-btn p3-btn-line p3-new-file" disabled={busy} onClick={removeCover} data-testid="p3-new-cover-remove">Remove photo</button>}
-        {coverError ? <p className="p3-error" data-testid="p3-new-cover-error">{coverError}</p> : <p className="p3-note">{COPY.photoNote} Needed to go live.</p>}
+        {coverError ? <p className="p3-error" data-testid="p3-new-cover-error">{coverError}</p> : <p className="p3-note">{cover ? `${COPY.photoNote} Needed to go live.` : `A flyer is required to continue. ${COPY.photoNote}`}</p>}
       </div>
 
       {busy && <p className="p3-ok" role="status" data-testid="p3-new-saving">Saving&hellip;</p>}
