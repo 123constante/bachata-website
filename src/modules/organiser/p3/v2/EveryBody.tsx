@@ -134,14 +134,15 @@ export function EveryBody({ ws, day, saveNow, busy, onOpenTickets }: { ws: Event
   }));
   const SECTION: Record<string, string> = { class: 'classes', masterclass: 'masterclass', party: 'party', performance: 'showcase' };
   /** Usual-week programme: one series.set_program with the whole programme; Undo puts the old days back. */
-  const saveProg = async (next: PTree, label2: string) => {
+  const saveProg = async (next: PTree, label2: string): Promise<boolean> => {
     const bad = validateTree(next, progTree)[0];
-    if (bad) { setProgProblem(bad.message); return; }
+    if (bad) { setProgProblem(bad.message); return false; }
     const command = programCommand(next, progTree);
-    if (!command) return;
+    if (!command) return false;
     const step: WriteStep = { part: V2.nightSessions, target: 'series', id: s.id, version: s.version, command, order: 1 };
     const r = await saveNow([step], [{ days: buildDays(progTree) }], label2);
     setProgProblem(r.ok ? null : r.error);
+    return r.ok;
   };
   const progDone = (row: DraftSession) => {
     setEditing(null);
@@ -163,7 +164,7 @@ export function EveryBody({ ws, day, saveNow, busy, onOpenTickets }: { ws: Event
   const progRemove = (row: DraftSession) => {
     setEditing(null);
     if (!row.original) return;
-    void saveProg(removeSession(progTree, row.key), label);
+    void saveProg(removeSession(progTree, row.key), label).then((ok) => { if (ok) setSheet(null); });
   };
   const life: LifeState = cancelled ? 'Cancelled' : status === 'paused' ? 'Paused' : status === 'ended' ? 'Ended' : 'Live';
   const nightStep = (d: { id: string; version: number }, command: OwnerCommand): WriteStep => ({ part: E.toastCancelled, target: 'occurrence', id: d.id, version: d.version, command, order: 1 });

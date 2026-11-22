@@ -10,6 +10,7 @@ import { londonTodayKey } from '@/lib/londonDate';
 import { V2 } from './copy';
 import { nightFieldState, type WriteStep } from './editorModel';
 import { Fact, aboutShort, priceLabel } from './Facts';
+import { doorPriceOf } from './payMode';
 import { WhenSheet, type OnSave } from './WhenSheet';
 import { WhereSheet, savedLabel } from './WhereSheet';
 import { AboutSheet } from './AboutSheet';
@@ -92,7 +93,7 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
   const passes = ownerPassesFromStored(dt?.passesOverride ?? s.passes) ?? [];
   const link = dt?.ticketUrl ?? s.default_ticket_url;
   const prices = passes.map((p) => p.price).filter((p): p is number => typeof p === 'number' && p > 0);
-  const price = priceLabel({ link, ticketCount: link ? 0 : 0, minPrice: prices.length ? Math.min(...prices) : null });
+  const price = priceLabel({ link, doorPrice: !link && doorPriceOf(dt?.passesOverride ?? s.passes) != null ? String(doorPriceOf(dt?.passesOverride ?? s.passes)) : null, ticketCount: 0, minPrice: prices.length ? Math.min(...prices) : null });
   const start = hm(dt?.start ?? s.default_local_start_time);
   const end = hm(dt?.end);
   const back = (fact: FactId, part: string) => async () => {

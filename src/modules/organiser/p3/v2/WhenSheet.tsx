@@ -77,13 +77,14 @@ export function WhenSheet({ date, oneOff, today, onSave, onClose }: {
     if (r.ok) onClose(); else setProblem(r.error);
   };
 
-  const save = async (next: DraftSession[]) => {
-    if (!prog.data) return;
+  const save = async (next: DraftSession[]): Promise<boolean> => {
+    if (!prog.data) return false;
     const bad = validateProgramme(next).rows[0];
-    if (bad) { setProblem(bad.message); return; }
+    if (bad) { setProblem(bad.message); return false; }
     const step: WriteStep = { part: V2.nightSessions, target: 'programme', id: date.id, version: prog.data.version, command: null, payload: buildPayload(next), order: 2 };
     const r = await onSave([step], [{ payload: buildPayload(original) }], V2.session.savedNight(long));
     setProblem(r.ok ? null : r.error);
+    return r.ok;
   };
   const onDone = (row: DraftSession) => {
     setEditing(null);
@@ -92,7 +93,8 @@ export function WhenSheet({ date, oneOff, today, onSave, onClose }: {
   const onRemove = (row: DraftSession) => {
     setEditing(null);
     if (!row.original) return;
-    void save(original.map((r) => (r.key === row.key ? { ...r, removed: true } : r)));
+    // row 48: Remove closes the session sheet AND this sheet back to the tab (toast + Undo come from onSave)
+    void save(original.map((r) => (r.key === row.key ? { ...r, removed: true } : r))).then((ok) => { if (ok) onClose(); });
   };
   const saveDate = async () => {
     if (!dateVal) { setDateErr(true); return; }
