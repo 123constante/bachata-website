@@ -104,7 +104,7 @@ describe('Every tab body', () => {
     expect(before[0]).toEqual({ name: 'Thursdays' });
     expect(label).toBe('Saved for every Thursday');
   });
-  it('Flyer: choose, remove and add photos write the series keys', async () => {
+  it('Flyer: choose and add photos write the series keys', async () => {
     const save = mount();
     net.upload.mockResolvedValue('https://x.test/new.jpg');
     fireEvent.click(screen.getByTestId('fact-flyer'));
@@ -115,11 +115,9 @@ describe('Every tab body', () => {
     expect(c[0][0].target).toBe('series');
     expect(c[0][0].command.payload).toEqual({ name: 'Thursdays', default_cover_image_url: 'https://x.test/new.jpg' });
     expect(c[1][0]).toEqual({ name: 'Thursdays', default_cover_image_url: 'https://x.test/f.jpg' });
-    fireEvent.click(screen.getByTestId('flyer-remove'));
-    await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
-    expect(last(save)[0][0].command.payload).toEqual({ name: 'Thursdays', default_cover_image_url: null });
+    expect(screen.queryByTestId('flyer-remove')).toBeNull();
     fireEvent.change(screen.getByTestId('gallery-file'), { target: { files: [new File(['x'], 'b.jpg', { type: 'image/jpeg' })] } });
-    await waitFor(() => expect(save).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
     c = last(save);
     expect(c[0][0].command.payload).toEqual({ name: 'Thursdays', default_gallery: ['https://x.test/g1.jpg', 'https://x.test/new.jpg'] });
     expect(c[1][0]).toEqual({ name: 'Thursdays', default_gallery: ['https://x.test/g1.jpg'] });

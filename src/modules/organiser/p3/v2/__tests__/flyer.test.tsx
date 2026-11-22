@@ -46,7 +46,8 @@ describe('Flyer and photos on the night card', () => {
     expect(screen.getByText('Photos and videos from this night only. Dancers see them on this night, with the event gallery.')).toBeTruthy();
     expect(screen.getByText('Nothing here yet.')).toBeTruthy();
     expect(screen.getByTestId('flyer-preview').textContent).toBe('No flyer');
-    expect(screen.queryByTestId('flyer-remove')).toBeNull(); // slice 17i: Remove shows on a night only when a flyer is displayed
+    expect(screen.queryByTestId('flyer-remove')).toBeNull();
+    expect(screen.getByTestId('flyer-required')).toBeTruthy();
     expect(screen.queryByTestId('flyer-back')).toBeNull();
   });
   it('choose flyer: one night step with cover_image_url, before, night toast', async () => {
@@ -158,10 +159,16 @@ describe('FlyerSheet (controlled)', () => {
     expect(screen.getByText('Photos and videos · 1 photo')).toBeTruthy();
     expect(screen.getByText('Tap a photo or video to see it large or remove it.')).toBeTruthy();
   });
-  it('usual: Remove the flyer calls onFlyer(null)', () => {
-    const p = sheet({ flyer: 'https://x.test/f.jpg' });
-    fireEvent.click(screen.getByText('Remove the flyer'));
-    expect(p.onFlyer).toHaveBeenCalledWith(null, 'Saved for every Thursday');
+  it('no remove button in night, every, one-off', () => {
+    for (const mode of ['usual', 'oneOff'] as const) {
+      sheet({ mode, flyer: 'https://x.test/f.jpg' });
+      expect(screen.queryByTestId('flyer-remove')).toBeNull();
+      expect(screen.queryByText('Remove the flyer')).toBeNull();
+      expect(screen.queryByTestId('flyer-required')).toBeNull();
+      cleanup();
+    }
+    sheet({ mode: 'oneOff' });
+    expect(screen.getByTestId('flyer-required').textContent).toBe('A flyer is required to continue.');
   });
   it('usual: a picked photo calls onGallery with the usual label', async () => {
     net.upload.mockResolvedValue(P(5));
