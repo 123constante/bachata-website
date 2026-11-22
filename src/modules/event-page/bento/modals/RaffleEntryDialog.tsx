@@ -110,17 +110,7 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
   onSubmitted,
   redesign = false,
 }) => {
-  // Redesign: lift the sheet above the phone keyboard (visualViewport) via --rd-kb.
-  useEffect(() => {
-    if (!redesign || !open || typeof window === 'undefined' || !window.visualViewport) return;
-    const vv = window.visualViewport;
-    const root = document.documentElement;
-    const sync = () => root.style.setProperty('--rd-kb', `${Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))}px`);
-    sync();
-    vv.addEventListener('resize', sync);
-    vv.addEventListener('scroll', sync);
-    return () => { vv.removeEventListener('resize', sync); vv.removeEventListener('scroll', sync); root.style.removeProperty('--rd-kb'); };
-  }, [redesign, open]);
+
   const [phoneE164, setPhoneE164] = useState('');
   const [phoneValid, setPhoneValid] = useState(false);
   const [consent, setConsent] = useState(false);

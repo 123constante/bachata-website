@@ -7,7 +7,7 @@
 // RaffleEntryDialog.
 // =============================================================================
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useRaffleBoard } from '@/hooks/useRaffleBoard';
 import { nightsWithWinner, thisWeeksWinners } from '@/lib/raffleBoard';
@@ -44,6 +44,18 @@ export const RaffleRedesignA = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [joined, setJoined] = useState<boolean>(() => isRafflePoolJoined());
   const onSubmitted = useCallback(() => { markRafflePoolJoined(); setJoined(true); }, []);
+
+  // Lift the entry sheet above the phone keyboard (visualViewport) via --rd-kb.
+  useEffect(() => {
+    const vv = typeof window === 'undefined' ? null : window.visualViewport;
+    if (!dialogOpen || !vv) return;
+    const root = document.documentElement;
+    const sync = () => root.style.setProperty('--rd-kb', `${Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))}px`);
+    sync();
+    vv.addEventListener('resize', sync);
+    vv.addEventListener('scroll', sync);
+    return () => { vv.removeEventListener('resize', sync); vv.removeEventListener('scroll', sync); root.style.removeProperty('--rd-kb'); };
+  }, [dialogOpen]);
 
   const winners = useMemo(() => (board ? thisWeeksWinners(board, new Date()) : []), [board]);
   const openNights = board ? board.nights.filter((n) => !n.winnerFirstName) : [];
