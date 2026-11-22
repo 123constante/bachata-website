@@ -185,7 +185,7 @@ describe('a non-owner summary keeps no pence (F3)', () => {
     const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
     const { result } = renderHook(() => real.useSummary('org-1', money), { wrapper });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(rpc).toHaveBeenCalledWith('ticket_sales_summary_v1', { p_organiser_id: 'org-1' });
+    expect(rpc).toHaveBeenCalledWith('ticket_sales_summary_v2', { p_organiser_id: 'org-1' });
     const cached = client.getQueryCache().getAll();
     expect(cached.map((c) => c.queryKey)).toEqual([['org-tickets', 'summary', 'org-1', tail]]);
     const all = pence(cached.map((c) => c.state.data));

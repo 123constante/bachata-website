@@ -43,6 +43,7 @@ export const ticketKeys = {
   stripe: (organiserId: string | undefined) => ['org-tickets', 'stripe', organiserId] as const,
   summary: (organiserId: string | undefined) => ['org-tickets', 'summary', organiserId] as const,
   types: (organiserId: string | undefined, seriesId: string | undefined) => ['org-tickets', 'types', organiserId, seriesId] as const,
+  nightPrices: (occurrenceId: string | undefined) => ['org-tickets', 'night-prices', occurrenceId] as const,
   orders: (organiserId: string | undefined, seriesId: string | undefined) => ['org-tickets', 'orders', organiserId, seriesId] as const,
 };
 
@@ -56,11 +57,16 @@ export async function fetchStripeAccount(organiserId: string): Promise<StripeRow
   return (data as StripeRow | null) ?? null;
 }
 
+/** Sold per night for one ticket type (ticket_sales_summary_v2 `nights`). Counts only, so money stripping never touches it. */
+export interface NightSold { occurrenceId: string; ticketsSold: number }
+/** A type's sales plus its per-night counts; `nights` is always set by parseSummary (a v1 answer gives []). */
+export type SalesWithNights = TypeSales & { nights?: NightSold[] };
+
 /** ok=false carries the server's refusal word (not_authorised) and no rows. */
 export interface SummaryResult {
   ok: boolean;
   reason: string | null;
-  types: TypeSales[];
+  types: SalesWithNights[];
   /**
    * The server's top-level `money_visible` (Part B): true for an owner seat or platform admin, false for a
    * manager. null = the server did not say (old server) and on every refusal. false always means counts only.
@@ -86,6 +92,9 @@ export const parseSummary = (data: unknown, opts: { money?: boolean } = {}): Sum
     reason: null,
     moneyVisible,
     types: rows.map((r) => ({
+      nights: (Array.isArray(r.nights) ? (r.nights as Record<string, unknown>[]) : [])
+        .filter((n) => n && typeof n.occurrence_id === 'string')
+        .map((n) => ({ occurrenceId: String(n.occurrence_id), ticketsSold: num(n.tickets_sold) })),
       id: String(r.id),
       seriesId: String(r.event_series_id),
       name: String(r.name ?? ''),
@@ -107,7 +116,7 @@ export const parseSummary = (data: unknown, opts: { money?: boolean } = {}): Sum
 };
 
 export async function fetchSalesSummary(organiserId: string, opts: { money: boolean }): Promise<SummaryResult> {
-  const { data, error } = await db().rpc('ticket_sales_summary_v1', { p_organiser_id: organiserId });
+  const { data, error } = await db().rpc('ticket_sales_summary_v2', { p_organiser_id: organiserId });
   if (error) throw error;
   return parseSummary(data, opts);
 }
@@ -281,6 +290,48 @@ export async function setPriceStep(cmd: StepCommand): Promise<WriteResult> {
 
 export async function removePriceStep(stepId: string): Promise<WriteResult> {
   const { data, error } = await db().rpc('ticket_price_step_remove_v1', { p_step_id: stepId });
+  if (error) throw error;
+  return writeResult(data);
+}
+
+// ---- Per-night ticket price (editor v2 slice 17e; admin #2114) -----------------------------
+
+export interface NightPriceTicket {
+  ticketTypeId: string;
+  name: string;
+  /** the base or live step price */
+  usualPence: number;
+  /** null = this night has no override */
+  nightPence: number | null;
+  canChange: boolean;
+}
+export interface NightPrices { ok: boolean; reason: string | null; nightOpen: boolean; tickets: NightPriceTicket[] }
+
+/** Fail closed: anything but ok:true is unknown (no tickets). */
+export const parseNightPrices = (data: unknown): NightPrices => {
+  const d = (data ?? {}) as { ok?: unknown; reason?: unknown; night_open?: unknown; tickets?: unknown };
+  if (d.ok !== true || !Array.isArray(d.tickets)) return { ok: false, reason: typeof d.reason === 'string' ? d.reason : 'unknown', nightOpen: false, tickets: [] };
+  return {
+    ok: true, reason: null, nightOpen: d.night_open === true,
+    tickets: (d.tickets as Record<string, unknown>[]).map((r) => ({
+      ticketTypeId: String(r.ticket_type_id),
+      name: String(r.name ?? ''),
+      usualPence: num(r.usual_price_pence),
+      nightPence: r.night_price_pence == null ? null : num(r.night_price_pence),
+      canChange: r.can_change === true,
+    })),
+  };
+};
+
+export async function fetchNightPrices(occurrenceId: string): Promise<NightPrices> {
+  const { data, error } = await db().rpc('ticket_night_prices_v1', { p_occurrence_id: occurrenceId });
+  if (error) throw error;
+  return parseNightPrices(data);
+}
+
+/** pence null removes the night's override ("Back to the usual prices"). Owner money seat only; refusals come back as { ok: false, reason }. */
+export async function setNightPrice(typeId: string, occurrenceId: string, pence: number | null): Promise<WriteResult> {
+  const { data, error } = await db().rpc('ticket_night_price_set_v1', { p_ticket_type_id: typeId, p_occurrence_id: occurrenceId, p_price_pence: pence });
   if (error) throw error;
   return writeResult(data);
 }

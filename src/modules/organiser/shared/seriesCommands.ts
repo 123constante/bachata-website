@@ -21,6 +21,8 @@ export const OWNER_COMMAND_KINDS = [
   'series.cancel_one_off',
   // P3 W3a: the event's group chat link (owner and manager; check_owner_command_allowlist_v1 lists it, read 2026-10-27).
   'series.set_group_chat',
+  // admin 20261121200531 C2: undo of End the event (owner/manager; payload exactly {}).
+  'series.resume_run',
 ] as const;
 
 /**

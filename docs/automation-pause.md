@@ -36,6 +36,7 @@ its own switch; the orchestrator sets both repos' labels when it pauses.
 | `scripts/autopilot-step.mjs` (autopilot + merge lane) | at the start of each repo, then again before EVERY write (every non-GET through the guarded API) and explicitly before EACH merge (`mergePr`) | writes nothing, merges nothing; PR rows say `paused: <reason>`; summary says PAUSED; exit 0 |
 | `bot-automerge.yml` | after checkout of main, and again immediately before `Enable auto-merge` | no enable; the existing disable step runs (an armed auto-merge would merge later) |
 | `dependabot-automerge.yml` | checkout of main, before `Enable auto-merge` | no enable; an armed auto-merge on the PR is disabled |
+| `ship-it.yml` (`ship` job only) | after checkout of main, before the check/update-branch/arm step | no label, no update-branch, no arming; a comment says paused. The `disarm` job is unconditional (it only turns auto-merge off) |
 | `stale-bot-pr-sweep.yml` (daily 04:23 UTC + manual) | after checkout of main, before the sweep step | closes nothing; a notice step says so (a failed read is treated as paused) |
 | `revert-on-red.yml` (merge tiers) | before it opens a revert PR | skips SILENTLY: no revert PR, no comment, the job ends green; only the step log says paused |
 | `post-merge-prod-alarm.yml` (brake) | `--info`, logged only | the brake ALWAYS runs: a pause stops merging, never alerting |

@@ -63,6 +63,9 @@ const RULES = [
     allowFiles: new Set([
       'src/modules/organiser/shared/selfServeApi.ts',
       'src/modules/organiser/shared/goLiveCheck.ts',
+      // Editor v2 save engine: the series.set_organisers step payload key is organiser_ids (admin RPC contract).
+      'src/modules/organiser/p3/v2/editorModel.ts',
+      'src/modules/organiser/p3/v2/__tests__/saveNow.test.ts',
       // Organiser ticketing (S3): the ticketing RPCs, tables and edge functions key rows by
       // organiser_id; ticketsApi.ts is their one boundary, and its spec feeds it server rows.
       'src/modules/organiser/tickets/ticketsApi.ts',
