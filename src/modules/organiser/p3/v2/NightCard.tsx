@@ -9,6 +9,7 @@ import { londonTodayKey } from '@/lib/londonDate';
 import { V2 } from './copy';
 import { nightFieldState, type WriteStep } from './editorModel';
 import { Fact, aboutShort, priceLabel } from './Facts';
+import { NightCancelArea, type CancelResult } from './CancelNight';
 
 /** The override keys each fact owns. A fact shows "Only this night" only when one of these is saved on the date. */
 export const FACT_KEYS = {
@@ -44,8 +45,12 @@ export function backToUsualStep(d: Pick<WorkspaceDate, 'id' | 'version' | 'overr
 
 const hm = (t: string | null | undefined) => (t ? t.slice(0, 5) : '');
 
-export function NightCard({ ws, date, onBack, busy }: {
+export function NightCard({ ws, date, onBack, busy, onCancelNight, onBringBack, soldCount = 0 }: {
   ws: EventWorkspace; date: WorkspaceDate; busy?: boolean;
+  /** cancel / bring back this night; the shell runs saveNow (no Undo) and returns the result */
+  onCancelNight?: (reason: string) => Promise<CancelResult>; onBringBack?: () => Promise<CancelResult>;
+  /** tickets sold on this night; slice 15 (money/tickets) supplies it */
+  soldCount?: number;
   /** runs the Back to usual step; the shell owns saveNow and the toast */
   onBack: (step: WriteStep, before: Record<string, unknown> | null, label: string) => void;
 }) {
@@ -92,6 +97,9 @@ export function NightCard({ ws, date, onBack, busy }: {
             changed={own.where} busy={busy} onBack={back('where', V2.venue)} />
           <Fact id="price" label={V2.price} main={price.m} sub={price.s || undefined} changed={own.price} busy={busy} onBack={back('price', V2.price)} />
           <Fact id="about" label={V2.description} main={aboutShort(about)} changed={own.about} busy={busy} onBack={back('about', V2.nightAbout)} />
+          <NightCancelArea eventCancelled={s.lifecycle_status === 'cancelled'} nightCancelled={date.lifecycle_status === 'cancelled'}
+            nightReason={dt?.cancellationReason} dateLong={long} soldCount={soldCount} busy={busy}
+            onCancelNight={onCancelNight ?? (async () => ({ ok: false, error: null }))} onBringBack={onBringBack ?? (async () => ({ ok: false, error: null }))} />
         </div>
       </div>
     </div>

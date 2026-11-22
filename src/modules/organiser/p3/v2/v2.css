@@ -205,3 +205,17 @@ h2.v2-card-h { display: block; color: #1a1a1a; visibility: visible; }
 .ev2-sheet .row b { font-weight: 600; }
 .ev2-sheet .row .v { color: #464646; font-size: 15px; text-align: right; flex: none; max-width: 55%; }
 .ev2-sheet .hint { font-size: 13px; color: #696969; margin: 0; }
+
+/* Cancel and bring back a night (slice 4, N-27..N-30, SH-CANCELN, SH-BRING). */
+.ev2 .btn, .ev2-sheet .btn { min-height: 48px; border-radius: 8px; display: grid; place-items: center; font-weight: 600; font-size: 16px; width: 100%; border: 1px solid transparent; padding: 6px 12px; text-align: center; background: #FFF; }
+.ev2 .btn:disabled, .ev2-sheet .btn:disabled { opacity: .5; }
+.ev2 .btn.pri, .ev2-sheet .btn.pri { background: var(--p-acc, #C2410C); color: #FFF; }
+.ev2 .btn.dan, .ev2-sheet .btn.dan { background: #FFF; color: var(--p-danger, #B42318); border-color: #E9E9E9; }
+.ev2 .btn.dan.solid, .ev2-sheet .btn.dan.solid { background: var(--p-danger, #B42318); color: #FFF; border-color: var(--p-danger, #B42318); }
+.ev2 .btn.dan.fcan { border: 1.5px solid var(--p-danger, #B42318); border-bottom-width: 4px; }
+.ev2 .btn.sec, .ev2-sheet .btn.sec { background: #FFF; color: #030303; border-color: #CFCFCF; }
+.ev2 .why, .ev2-sheet .why { font-size: 13px; color: #696969; text-align: center; margin-top: 6px; }
+.ev2-sheet .warn { font-size: 14px; color: #8A4B00; background: #FFF6E0; border-radius: 8px; padding: 10px 12px; margin: 0; }
+.ev2-sheet .txt { margin: 0; font-size: 15px; color: #464646; }
+.ev2-sheet .radio { display: flex; align-items: center; gap: 10px; min-height: 48px; font-size: 16px; }
+.ev2-sheet .radio input { width: 22px; height: 22px; accent-color: var(--p-acc, #C2410C); }

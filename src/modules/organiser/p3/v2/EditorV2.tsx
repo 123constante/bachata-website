@@ -10,6 +10,12 @@ import { V2Toast } from './V2Toast';
 import { useSaveNow } from './saveNow';
 import { NightCard } from './NightCard';
 import { DatesSheet } from './DatesSheet';
+import { cancelCommand, cancelOneOffCommand, uncancelCommand, type OwnerCommand } from '../../shared/seriesCommands';
+import { V2 } from './copy';
+import type { WriteStep } from './editorModel';
+import { cancelCommand, cancelOneOffCommand, uncancelCommand } from '../../shared/seriesCommands';
+import type { OwnerCommand } from '../../shared/seriesCommands';
+import { V2 } from './copy';
 import './v2.css';
 
 type Tab = 'night' | 'every';
@@ -61,6 +67,13 @@ export function EditorV2({ ws }: { ws: EventWorkspace }) {
     ? `Changes here are for every ${day}. A night you changed on its own keeps its change.`
     : 'Changes here are for this night only.';
 
+  // cancel / bring back run at once with no Undo (prototype); a one-off cancels through series.cancel_one_off
+  const nightStep = (d: { id: string; version: number }, command: OwnerCommand, series: boolean): WriteStep => (series
+    ? { part: V2.cancelNight, target: 'series', id: ws.series.id, version: null, command, order: 1 }
+    : { part: V2.cancelNight, target: 'occurrence', id: d.id, version: d.version, command, order: 1 });
+  const cancelNight = (reason: string) => saveNow([nightStep(picked!, ws.series.format === 'one_off' ? cancelOneOffCommand(reason) : cancelCommand(reason), ws.series.format === 'one_off')], [], V2.cancelledToast(title), { noUndo: true });
+  const bringBack = () => saveNow([nightStep(picked!, uncancelCommand(), false)], [], V2.broughtBackToast(title), { noUndo: true });
+
   return (
     <div className="ev2 ev2-page v2-page" data-testid="ev2-page">
       <Link to={P3_PATHS.events} className="ev2-back" data-testid="ev2-back">&larr; Events</Link>
@@ -93,7 +106,7 @@ export function EditorV2({ ws }: { ws: EventWorkspace }) {
       <p className="ev2-scope" data-testid="ev2-scope">{scope}</p>
       <div data-ev2-slot={every ? 'every' : 'night'}>
         {!every && picked && (
-          <NightCard ws={ws} date={picked} busy={busy} onBack={(step, before, label) => { void saveNow([step], [before], label); }} />
+          <NightCard ws={ws} date={picked} busy={busy} onCancelNight={cancelNight} onBringBack={bringBack} onBack={(step, before, label) => { void saveNow([step], [before], label); }} />
         )}
       </div>
       <DatesSheet open={datesOpen} dates={coming} seriesStatus={ws.series.lifecycle_status} onPick={pickFromSheet} onClose={() => setDatesOpen(false)} />

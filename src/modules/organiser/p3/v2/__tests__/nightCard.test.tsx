@@ -16,6 +16,7 @@ vi.mock('../../../shared/selfServeApi', () => ({
   runOccurrenceCommand: (env: unknown) => net.occ(env),
   saveOccurrenceProgramme: vi.fn(),
   fetchDateDetail: (id: string) => net.detail(id),
+  fetchCancellationReasons: async () => [],
 }));
 vi.mock('../../../shared/publicVenues', () => ({ useVenueOptions: () => ({ data: [{ id: 'v1', name: 'Club Uno', neighbourhood: 'Soho', city_name: 'London' }] }) }));
 vi.mock('@/modules/organiser/shared/publicCache', () => ({ invalidatePublicEventCaches: () => undefined }));
