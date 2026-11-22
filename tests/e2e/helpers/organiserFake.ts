@@ -345,7 +345,7 @@ export class OrganiserFake {
       occurrences: [...this.dates(s)].reverse().map((d) => ({
         id: this.occId(s, d), occurrence_date: d, lifecycle_status: s.cancelled[d] ? 'cancelled' : 'scheduled', version: 1,
         has_override: !!(s.night_venue?.[d] || s.night_description?.[d]), session_overrides_count: 0,
-        override_keys: [...(s.night_venue?.[d] ? ['venue_id'] : []), ...(s.night_description?.[d] ? ['description'] : []), ...((s as { night_cover?: Record<string, string> }).night_cover?.[d] ? ['flyer'] : [])], materialised_start_utc: `${d}T${s.night_start?.[d] ?? '20:00'}:00+00:00`,
+        override_keys: [...(s.night_venue?.[d] ? ['venue_id'] : []), ...(s.night_description?.[d] ? ['description'] : []), ...((s as { night_cover?: Record<string, string> }).night_cover?.[d] ? ['cover_image_url'] : [])], materialised_start_utc: `${d}T${s.night_start?.[d] ?? '20:00'}:00+00:00`,
         added_sessions_count: (this.programmes.get(this.occId(s, d))?.sessions ?? []).filter((x) => x.added_session_id && x.removed !== true).length,
       })),
     };
