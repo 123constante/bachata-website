@@ -295,7 +295,7 @@ test('X-08 one-off has no tabs', async ({ page }) => {
 for (const [mode, st, fact] of [['door', 'door', /Pay at the door/], ['tickets here', 'here', /From|Add a ticket|£/], ['link', 'link', /Tickets on another site|your link/], ['no Stripe', 'noStripe', /Not on sale yet|Set up tickets|Add a ticket/]] as const) {
   // door: UNBUILT, NightCard.tsx:95 calls priceLabel without doorPrice, so the night Price fact never reads "Pay at the door"
   // (Facts.tsx:16 is only reached with doorPrice). Its sheet and Tickets screen are walked by the next test; the fact is this fixme.
-  const fn = st === 'door' ? test.fixme : test;
+  const fn = test;
   fn(`X-09 Price in ${mode}: fact, Price sheet, Tickets screen`, async ({ page }) => {
     await open(page, st);
     await expect(page.getByRole('button', { name: /^Price/ })).toContainText(fact);

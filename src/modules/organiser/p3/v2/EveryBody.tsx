@@ -28,6 +28,7 @@ import { DATE_TAG_WORD, dateTagOf } from './editorModel';
 import type { OwnerCommand } from '../../shared/seriesCommands';
 import { londonTodayKey, weekdayOfKey } from '@/lib/londonDate';
 import { ownerWeeklyRule } from '@/modules/organiser/shared/eventState';
+import { doorPriceOf } from './payMode';
 import { ownerPassesFromStored, lifecycleCommand } from '../../shared/seriesCommands';
 import { endRunCommand, tonightDate } from '../../events/eventModel';
 import { EndCard, type LifeState } from './EndCard';
@@ -84,7 +85,7 @@ export function EveryBody({ ws, day, saveNow, busy, onOpenTickets }: { ws: Event
   const passes = ownerPassesFromStored(s.passes) ?? [];
   const link = s.default_ticket_url;
   const prices = passes.map((p) => p.price).filter((p): p is number => typeof p === 'number' && p > 0);
-  const price = priceLabel({ link, ticketCount: 0, minPrice: prices.length ? Math.min(...prices) : null });
+  const price = priceLabel({ link, doorPrice: !link && doorPriceOf(s.passes) != null ? String(doorPriceOf(s.passes)) : null, ticketCount: 0, minPrice: prices.length ? Math.min(...prices) : null });
   const name = s.name ?? '';
   const music = (ws.musicStyles ?? []).length ? ws.musicStyles.join(', ') : E.noneYet;
   const repeats = ws.endedOn ? E.repeatsEnds(day, fullDate(ws.endedOn, londonTodayKey())) : E.repeatsNoEnd(day);

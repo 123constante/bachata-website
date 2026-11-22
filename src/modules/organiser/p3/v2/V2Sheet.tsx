@@ -11,7 +11,7 @@ const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:n
 export function V2Sheet({ open, title, onClose, children }: { open: boolean; title: string; onClose: () => void; children?: ReactNode }) {
   const panel = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  useEffect(() => { onCloseRef.current = onClose; });
   useEffect(() => {
     if (!open) return undefined;
     const before = document.activeElement as HTMLElement | null;
