@@ -264,3 +264,17 @@ h2.v2-card-h { display: block; color: #1a1a1a; visibility: visible; }
 .ev2-sheet .pickopt:first-child { border-top: 0; }
 .ev2-sheet .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .ev2-sheet .err { font-size: 14px; color: #B42318; margin: 0; }
+
+/* Tickets screen (slice 12a): prototype scrTickets */
+.ev2 .back { background: none; border: 0; padding: 0 16px; min-height: 44px; display: inline-flex; align-items: center; color: #464646; font-size: 15px; text-decoration: none; align-self: flex-start; }
+.ev2 .ttl { font-size: 24px; font-weight: 700; line-height: 1.2; margin: 0; padding: 0 16px; text-wrap: balance; }
+.ev2 .sub { font-size: 15px; color: #464646; padding: 0 16px; }
+.ev2 .grp .sub { padding: 0; }
+.ev2 .btn.big { min-height: 56px; font-size: 17px; }
+.ev2 .warn { font-size: 14px; color: #8A4B00; background: #FFF6E0; border-radius: 8px; padding: 10px 12px; margin: 0; }
+.ev2 .sent { font-size: 15px; color: #464646; margin: 0; padding: 0 16px; text-align: center; }
+.ev2 .inl { background: none; border: 0; padding: 0; color: var(--p-acc, #C2410C); font-weight: 600; text-decoration: underline; min-height: 0; font-size: inherit; }
+.ev2 .tcard { width: 100%; text-align: left; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; border: 1.5px solid #CFCFCF; border-bottom-width: 3px; border-radius: 10px; background: #FFF; }
+.ev2 .tcard b { font-weight: 600; }
+.ev2 .tcard .s { font-size: 14px; color: #464646; }
+.ev2 .plist { margin: 6px 0 0; font-size: 13px; color: #696969; display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; font-variant-numeric: tabular-nums; }
