@@ -75,7 +75,7 @@ const PROBLEM_COPY: Record<SeriesProblem, {
   sub: (series: HomeSeriesFull, today: string) => string;
 }> = {
   no_dates_left: { chip: 'Needs dates', title: (n) => `Add dates: ${n}`, sub: () => 'No coming dates, so dancers see nothing' },
-  no_cover: { chip: `Needs a ${FLYER_WORD}`, title: (n) => `Add a ${FLYER_WORD}: ${n}`, sub: () => `Events with a ${FLYER_WORD} get more clicks` },
+  no_cover: { chip: `Needs a ${FLYER_WORD}`, title: (n) => `Add a ${FLYER_WORD}: ${n}`, sub: () => `A ${FLYER_WORD} is required to continue` },
   stale_draft: {
     chip: NOT_LIVE_YET,
     title: (n) => `Finish and go live: ${n}`,

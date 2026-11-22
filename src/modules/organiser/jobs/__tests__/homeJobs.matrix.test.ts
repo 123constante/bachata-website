@@ -116,7 +116,7 @@ describe('homeJobs: the Home matrix (4.5)', () => {
   it('live with no cover -> no_cover', () => {
     const s = series({ name: 'Bare', default_cover_image_url: null });
     const jobs = homeJobs(page([s]), [], today());
-    expect(jobs[3]).toEqual({ kind: 'no_cover', n: 4, title: 'Add a flyer: Bare', sub: 'Events with a flyer get more clicks', to: ORG_PATHS.cover(s.id), tone: 'problem' });
+    expect(jobs[3]).toEqual({ kind: 'no_cover', n: 4, title: 'Add a flyer: Bare', sub: 'A flyer is required to continue', to: ORG_PATHS.cover(s.id), tone: 'problem' });
   });
 
   it('an open join request -> join_request', () => {
