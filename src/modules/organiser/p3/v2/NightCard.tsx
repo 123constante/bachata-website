@@ -11,6 +11,9 @@ import { V2 } from './copy';
 import { nightFieldState, type WriteStep } from './editorModel';
 import { Fact, aboutShort, priceLabel } from './Facts';
 import { WhenSheet, type OnSave } from './WhenSheet';
+import { WhereSheet, savedLabel } from './WhereSheet';
+import { AboutSheet } from './AboutSheet';
+import { venueOverridePatch } from '../../dates/venueOverride';
 import { NightCancelArea, type CancelResult } from './CancelNight';
 
 /** The override keys each fact owns. A fact shows "Only this night" only when one of these is saved on the date. */
@@ -60,6 +63,7 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
 }) {
   const qc = useQueryClient();
   const [whenOpen, setWhenOpen] = useState(false);
+  const [sheet, setSheet] = useState<'where' | 'about' | null>(null);
   const s = ws.series;
   const detail = useQuery({ queryKey: dateDetailQueryKey(date.id), queryFn: () => fetchDateDetail(date.id) });
   const dt = detail.data;
@@ -87,6 +91,23 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
     const b = backToUsualStep(date, fact, d, part);
     if (b) onBack(b.step, b.before, V2.backToUsualFor(dateWords));
   };
+  const saveVenue = async (id: string) => {
+    if (!onSave) return;
+    const d = dt ?? await qc.fetchQuery({ queryKey: dateDetailQueryKey(date.id), queryFn: () => fetchDateDetail(date.id) });
+    // The city follows the venue, sent the way the old editor sends it; the old pair is what Undo puts back.
+    const patch = await venueOverridePatch(id === s.default_venue_id ? null : id, venues.data);
+    const prev = await venueOverridePatch(d.venueOverride, venues.data);
+    const step: WriteStep = { part: V2.venue, target: 'occurrence', id: date.id, version: date.version, command: { kind: 'occurrence.set_override', payload: patch }, order: 1 };
+    const r = await onSave([step], [prev], savedLabel('night', dateWords));
+    if (r.ok) setSheet(null);
+  };
+  const saveAbout = async (value: string | null) => {
+    if (!onSave) return;
+    const d = dt ?? await qc.fetchQuery({ queryKey: dateDetailQueryKey(date.id), queryFn: () => fetchDateDetail(date.id) });
+    const step: WriteStep = { part: V2.nightAbout, target: 'occurrence', id: date.id, version: date.version, command: { kind: 'occurrence.set_override', payload: { description: value } }, order: 1 };
+    const r = await onSave([step], [{ description: d.descriptionOverride }], savedLabel('night', dateWords));
+    if (r.ok) setSheet(null);
+  };
   return (
     <div className="grp" data-testid="night-card">
       <div className="lab">{V2.nightCardLabel}</div>
@@ -99,14 +120,22 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
           <div className="trow"><b data-testid="night-name">{dt?.titleOverride ?? s.name}</b>{pill}</div>
           <Fact id="when" label={V2.when} main={long} sub={start ? V2.timeRange(start, end || start) : undefined} onOpen={onSave ? () => setWhenOpen(true) : undefined} />
           <Fact id="where" label={V2.where} main={venue?.name ?? '—'} sub={venue?.neighbourhood ?? venue?.city_name ?? undefined}
-            changed={own.where} busy={busy} onBack={back('where', V2.venue)} />
+            changed={own.where} busy={busy} onBack={back('where', V2.venue)} onOpen={onSave ? () => setSheet('where') : undefined} />
           <Fact id="price" label={V2.price} main={price.m} sub={price.s || undefined} changed={own.price} busy={busy} onBack={back('price', V2.price)} />
-          <Fact id="about" label={V2.description} main={aboutShort(about)} changed={own.about} busy={busy} onBack={back('about', V2.nightAbout)} />
+          <Fact id="about" label={V2.description} main={aboutShort(about)} changed={own.about} busy={busy} onBack={back('about', V2.nightAbout)} onOpen={onSave ? () => setSheet('about') : undefined} />
           <NightCancelArea eventCancelled={s.lifecycle_status === 'cancelled'} nightCancelled={date.lifecycle_status === 'cancelled'}
             nightReason={dt?.cancellationReason} dateLong={long} soldCount={soldCount} busy={busy}
             onCancelNight={onCancelNight ?? (async () => ({ ok: false, error: null }))} onBringBack={onBringBack ?? (async () => ({ ok: false, error: null }))} />
         </div>
       </div>
+      {sheet === 'where' && onSave && (
+        <WhereSheet current={venueId ?? null} mode="night" dateWords={dateWords} changed={own.where}
+          onSave={saveVenue} onBack={back('where', V2.venue)} onClose={() => setSheet(null)} />
+      )}
+      {sheet === 'about' && onSave && (
+        <AboutSheet current={about ?? ''} usual={s.default_description} mode="night" dateWords={dateWords} changed={own.about}
+          onSave={saveAbout} onBack={back('about', V2.nightAbout)} onClose={() => setSheet(null)} />
+      )}
       {whenOpen && onSave && <WhenSheet date={date} oneOff={s.format === 'one_off'} today={today} onSave={onSave} onClose={() => setWhenOpen(false)} />}
     </div>
   );

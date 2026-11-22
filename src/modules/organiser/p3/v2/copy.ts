@@ -206,6 +206,21 @@ export const V2 = {
     savedEvery: (day: string) => `Saved for every ${day}`,
     savedOneOff: 'Saved',
   },
+  // where sheet + description sheet (slice 8)
+  whereAbout: {
+    searchVenue: 'Search for a venue',
+    typeName: 'Type a name',
+    now: 'Now',
+    backToUsualVenue: 'Back to the usual venue',
+    readOnly: (date: string) => `What dancers read on ${date} only`,
+    read: 'What dancers read',
+    aboutPlaceholder: 'What happens, who it is for',
+    done: 'Done',
+    backToUsualAbout: 'Back to the usual description',
+    tooLong: (max: number) => `Keep it under ${max} characters.`,
+    noMatch: 'No venue matches that name.',
+    loading: 'Loading venues\u2026',
+  },
   // when sheet + classes and party sheet (slice 7b)
   whenSheet: {
     tapToChange: 'Tap a class or the party to change its time',
