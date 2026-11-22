@@ -22,5 +22,5 @@ X-06 (seed `ended_on`), X-12 (the When row now opens the Classes and party sheet
 prototype for every passing row. FIXME: 58, 36.1, 83.1, X-09 door fact. Row 56 prototype (one-off). Row 83 later-date prototype, no-date OLD (no Undo).
 
 ## Verified / Not verified
-Verified: spec counts above; `npm run check:mojibake` clean; `npm run check:e2e-spec-coverage` OK; OLD-URL guard untouched on every tap; other organiser specs re-run (result in the final report).
-Not verified: one more full run after the row 48/62 fix; `npx tsc` result if not stated in the final report; real-data survey (tests only).
+Verified: spec counts above; `npm run check:mojibake` clean; `npm run check:e2e-spec-coverage` OK; OLD-URL guard untouched on every tap; other `organiser-*.spec.ts` (date, events, home, layout, legacy-redirects, loop, onboarding, profile, tap-targets, team) re-run at default env: 7 pass / 69 fail. SAME failures with the pre-16e `organiserFake.ts` (re-ran organiser-home against 6e914b0's fake: still all red; the specs target the pre-P3 organiser screens, `/account/p3/create` redirects), so NOT caused by this slice. With the P3 flags on they were 8 pass / 68 fail.
+Not verified: one more full run after the row 48/62 fix; `npx tsc --noEmit -p tsconfig.app.json`: no output for the two touched files, but tests/e2e may not be in that project (`tsc run on` the head SHA: not proven to cover them); real-data survey (tests only).
