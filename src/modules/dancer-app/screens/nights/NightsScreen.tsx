@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { QrCode } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { Card, EmptyState, GhostButton } from '@/modules/organiser/ui';
@@ -15,7 +15,7 @@ import { DateBlock, StatusPill } from './nightsUi';
 import { Sheet } from '../options/optionsUi';
 import { FIND_A_NIGHT } from '../../copy/sharedCopy';
 import type { MyTicket } from '@/modules/tickets/myTicketsModel';
-import { NIGHTS_TICKET_QR_ENABLED, ticketsByNight } from './nightsTicket';
+import { NIGHTS_TICKET_QR_ENABLED } from './nightsTicketFlag';
 
 /**
  * Going P2: the nights the person said I'm going to (get_my_going_v1), in the
@@ -124,9 +124,8 @@ const NightsView = ({ going }: { going: NightsGoing }) => {
   const complete = profile.data?.complete === true;
   // One focused row: the most recent past night of that series.
   const qrOn = NIGHTS_TICKET_QR_ENABLED && nights.upcoming.length > 0;
-  const [allTickets, setAllTickets] = useState<MyTicket[]>([]);
+  const [byNight, setByNight] = useState<Map<string, MyTicket[]>>(() => new Map());
   const [qrFor, setQrFor] = useState<NightRowData | null>(null);
-  const byNight = useMemo(() => (qrOn ? ticketsByNight(nights.upcoming, allTickets) : new Map<string, MyTicket[]>()), [qrOn, nights.upcoming, allTickets]);
   const focusedKey = focus ? nights.past.find((n) => n.seriesId === focus) : undefined;
 
   return (
@@ -196,10 +195,10 @@ const NightsView = ({ going }: { going: NightsGoing }) => {
       )}
       {qrOn && (
         <Suspense fallback={null}>
-          <NightTicketQr onTickets={setAllTickets} />
+          <NightTicketQr nights={nights.upcoming} onTickets={setByNight} />
         </Suspense>
       )}
-      {qrOn && qrFor && (byNight.get(qrFor.occurrenceId)?.length ?? 0) > 0 && (
+      {qrOn && qrFor && byNight.has(qrFor.occurrenceId) && (
         <Sheet title={qrFor.name} testId="night-qr-sheet" onClose={() => setQrFor(null)}>
           <Suspense fallback={null}>
             <NightQrBody key={qrFor.occurrenceId} night={qrFor} tickets={byNight.get(qrFor.occurrenceId) ?? []} />

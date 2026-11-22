@@ -1,12 +1,8 @@
 import type { MyTicket } from '@/modules/tickets/myTicketsModel';
 import { ticketQrShown, ticketStatusAt } from '@/modules/tickets/ticketCardStatus';
 
-/**
- * Nights ticket QR (brief #1920): which tickets belong to a Going night. Pure; no React.
- * Flag off (default) = Nights as today, no ticket read, no ticket chunk loaded.
- * Read at render in NightsView (like GOING_CHECKIN_ENABLED) so tests can flip it.
- */
-export const NIGHTS_TICKET_QR_ENABLED: boolean = import.meta.env.VITE_ENABLE_NIGHTS_TICKET_QR === 'true';
+/** Nights ticket QR (brief #1920): which tickets belong to a Going night. Pure; no React. Imported only by the lazy chunk. */
+export { NIGHTS_TICKET_QR_ENABLED } from './nightsTicketFlag';
 
 export type TicketNight = { occurrenceId: string; seriesId: string | null; date: string | null; status: string };
 

@@ -5,6 +5,7 @@ import { doorCodeText, type MyTicket } from '@/modules/tickets/myTicketsModel';
 import TicketQrCode from '@/modules/tickets/TicketQrCode';
 import DoorCodeLine from '@/modules/tickets/DoorCodeLine';
 import { ticketDoorCode } from '@/modules/organiser/p3/door/doorFlags';
+import { ticketsByNight, type TicketNight } from './nightsTicket';
 import { doorDate, stepTicket, ticketCountLine } from '../tickets/cardKit';
 
 /**
@@ -14,17 +15,21 @@ import { doorDate, stepTicket, ticketCountLine } from '../tickets/cardKit';
  */
 export type QrNight = { occurrenceId: string; name: string; date: string | null };
 
-/** The ticket read: renders nothing, hands the tickets back once. */
-const NightTicketFeed = ({ onTickets }: { onTickets: (all: MyTicket[]) => void }) => {
+/** The ticket read: renders nothing, reads once, matches to the upcoming nights and hands the Map back. */
+const NightTicketFeed = ({ nights, onTickets }: { nights: (TicketNight & { past: boolean })[]; onTickets: (byNight: Map<string, MyTicket[]>) => void }) => {
+  const [all, setAll] = useState<MyTicket[] | null>(null);
   useEffect(() => {
     let live = true;
     void fetchMyTickets().then((r) => {
-      if (live && r.kind === 'ok') onTickets(r.reply.tickets);
+      if (live && r.kind === 'ok') setAll(r.reply.tickets);
     });
     return () => {
       live = false;
     };
-  }, [onTickets]);
+  }, []);
+  useEffect(() => {
+    if (all) onTickets(ticketsByNight(nights, all));
+  }, [all, nights, onTickets]);
   return null;
 };
 

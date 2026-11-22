@@ -14,7 +14,7 @@ const h = vi.hoisted(() => ({
   rpc: null as unknown as (fn: string, args?: Record<string, unknown>) => Promise<unknown>,
 }));
 vi.mock('@/lib/goingCheckin', () => ({ get GOING_CHECKIN_ENABLED() { return h.on; } }));
-vi.mock('../nightsTicket', async (orig) => ({ ...(await orig<typeof import('../nightsTicket')>()), get NIGHTS_TICKET_QR_ENABLED() { return h.qr; } }));
+vi.mock('../nightsTicketFlag', () => ({ get NIGHTS_TICKET_QR_ENABLED() { return h.qr; } }));
 vi.mock('@/hooks/useAuth', async (importOriginal) =>
   (await import('@/modules/dancer-app/shell/testAuth')).authModuleMock(importOriginal));
 h.rpc = async (fn: string, args?: Record<string, unknown>) => {
