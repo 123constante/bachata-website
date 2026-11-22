@@ -3,6 +3,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import type { EventWorkspace } from '../../../events/eventModel';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+vi.mock('../../../shared/runCommands', () => ({ eventWorkspaceQueryKey: (id: string) => ['ws', id], useSendOnce: () => vi.fn() }));
+vi.mock('../../../shared/selfServeApi', () => ({
+  dateDetailQueryKey: (id: string) => ['d', id], occurrenceProgrammeQueryKey: (id: string) => ['p', id],
+  runOccurrenceCommand: vi.fn(), saveOccurrenceProgramme: vi.fn(), fetchDateDetail: () => new Promise(() => undefined),
+}));
+vi.mock('../../../shared/publicVenues', () => ({ useVenueOptions: () => ({ data: [] }) }));
+vi.mock('@/modules/organiser/shared/publicCache', () => ({ invalidatePublicEventCaches: () => undefined }));
 import { EditorV2 } from '../EditorV2';
 import { V2Sheet } from '../V2Sheet';
 
@@ -15,7 +23,7 @@ const ws = (format: string, dates: unknown[]) => ({ series: { id: 's1', format, 
 const weeklyDates = ['2026-11-26', '2026-12-03', '2026-12-10', '2026-12-17', '2026-12-24', '2026-12-31', '2027-01-07'].map((d, i) =>
   date(`o${i}`, d, i === 1 ? { lifecycle_status: 'cancelled' } : i === 2 ? { has_override: true } : {}));
 function Where() { const l = useLocation(); return <output data-testid="where">{l.search}</output>; }
-const at = (w: EventWorkspace, url = '/e') => render(<MemoryRouter initialEntries={[url]}><EditorV2 ws={w} /><Where /></MemoryRouter>);
+const at = (w: EventWorkspace, url = '/e') => render(<QueryClientProvider client={new QueryClient()}><MemoryRouter initialEntries={[url]}><EditorV2 ws={w} /><Where /></MemoryRouter></QueryClientProvider>);
 afterEach(cleanup);
 
 describe('EditorV2', () => {

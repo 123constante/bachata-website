@@ -173,3 +173,35 @@ h2.v2-card-h { display: block; color: #1a1a1a; visibility: visible; }
 .ev2-sheet .ev2-sheet-head { display: flex; align-items: center; justify-content: space-between; }
 .ev2-sheet .ev2-sheet-title { font-size: 18px; font-weight: 700; margin: 0; }
 .ev2-sheet .ev2-sheet-x { width: 44px; height: 44px; border-radius: 50%; background: #EFEFEF; border: 0; font-size: 22px; }
+
+/* Night card (slice 3, N-10..N-26, SH-DATES). */
+.ev2 .card, .ev2-sheet .card { background: #FFFFFF; border: 1px solid #E9E9E9; border-radius: 8px; }
+.ev2 .lab { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: #696969; font-weight: 600; }
+.ev2 .grp { display: flex; flex-direction: column; gap: 12px; padding: 0 16px; }
+.ev2 .flyer { height: 150px; display: flex; align-items: flex-end; padding: 12px; color: #FFF; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; justify-content: space-between; border-radius: 7px 7px 0 0; box-sizing: border-box; }
+.ev2 .flyer.f1 { background: linear-gradient(135deg, #7A1F0A, #C2410C 55%, #F2A65A); }
+.ev2 .flyer.none { background: #EFEFEF; color: #696969; }
+.ev2 .fpill { background: #FFF; color: #030303; font-weight: 600; font-size: 14px; letter-spacing: 0; text-transform: none; min-height: 40px; padding: 0 14px; border-radius: 99px; border: 1px solid #CFCFCF; border-bottom-width: 3px; box-shadow: 0 2px 6px #00000033; }
+.ev2 .fb-list { padding: 14px 12px; display: flex; flex-direction: column; gap: 12px; }
+.ev2 .trow { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; }
+.ev2 .trow b { font-size: 20px; line-height: 1.25; min-width: 0; overflow-wrap: anywhere; }
+.ev2 .pill { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; padding: 4px 8px; border-radius: 99px; background: #FFFAF7; color: #C2410C; border: 1px solid #F5D5C3; white-space: nowrap; margin-top: 3px; flex: none; }
+.ev2 .pill.off { background: #EFEFEF; color: #464646; border-color: #DDD; }
+.ev2 .pill.x { background: #FEF3F2; color: #B42318; border-color: #F7C9C4; }
+.ev2 .fwrap { display: flex; flex-direction: column; gap: 6px; }
+.ev2 .fopts { display: flex; gap: 8px; }
+.ev2 .fopt { flex: 1 1 0; min-height: 44px; padding: 6px 8px; border-radius: 10px; border: 1px solid #E9E9E9; border-bottom-width: 3px; background: #FFF; color: #030303; font-size: 14px; font-weight: 600; }
+.ev2 .fbtn { width: 100%; text-align: left; min-height: 66px; padding: 10px 10px 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #FFF; border: 1.5px solid #E2A988; border-bottom: 4px solid #C2410C; border-radius: 12px; box-shadow: 0 2px 6px rgba(124,45,18,.16); }
+.ev2 .fbtn:active { transform: translateY(2px); border-bottom-width: 2px; margin-bottom: 2px; box-shadow: none; }
+.ev2 .fbtn > span:first-child { min-width: 0; }
+.ev2 .fbtn .lab, .ev2 .fbtn b, .ev2 .fbtn .s { display: block; }
+.ev2 .fbtn b { font-weight: 600; overflow-wrap: anywhere; }
+.ev2 .fbtn .s { font-size: 13px; color: #696969; }
+.ev2 .only { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px; background: #FFE9DC; color: #9A3412; margin-top: 3px; }
+.ev2 .fgo { flex: none; color: #C2410C; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 4px; }
+.ev2-sheet .row { width: 100%; min-height: 52px; padding: 8px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: none; border: 0; border-top: 1px solid #E9E9E9; text-align: left; box-sizing: border-box; }
+.ev2-sheet .row:first-child { border-top: 0; }
+.ev2-sheet .row > span:first-child { min-width: 0; flex: 1; }
+.ev2-sheet .row b { font-weight: 600; }
+.ev2-sheet .row .v { color: #464646; font-size: 15px; text-align: right; flex: none; max-width: 55%; }
+.ev2-sheet .hint { font-size: 13px; color: #696969; margin: 0; }

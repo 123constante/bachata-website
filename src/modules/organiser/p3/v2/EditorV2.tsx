@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import type { EventWorkspace } from '../../events/eventModel';
 import { weekdayName } from '../../events/eventModel';
@@ -6,7 +6,10 @@ import { fullDate, MONTH_NAMES, WEEKDAY_NAMES } from '../../shared/dateWords';
 import { londonTodayKey, weekdayOfKey } from '@/lib/londonDate';
 import { P3_PATHS } from '../shell/paths';
 import { DATE_TAG_WORD, UPCOMING_PAGE, dateTagOf, upcomingOf } from './editorModel';
-import { V2Toast, type V2ToastState } from './V2Toast';
+import { V2Toast } from './V2Toast';
+import { useSaveNow } from './saveNow';
+import { NightCard } from './NightCard';
+import { DatesSheet } from './DatesSheet';
 import './v2.css';
 
 type Tab = 'night' | 'every';
@@ -21,9 +24,10 @@ const dayMonth = (date: string) => {
  * Editor v2 page frame (flag organiserEditorV2): back link, tabs, date chips (weekly only), title, scope line and
  * a slot per tab that later slices fill. The picked night lives in `?night=`, the tab in `?tab=every`.
  */
-export function EditorV2({ ws, onMoreDates }: { ws: EventWorkspace; onMoreDates?: () => void }) {
+export function EditorV2({ ws }: { ws: EventWorkspace }) {
   const [params, setParams] = useSearchParams();
-  const [toast, setToast] = useState<V2ToastState | null>(null);
+  const [datesOpen, setDatesOpen] = useState(false);
+  const { saveNow, toast, onToastDone, busy } = useSaveNow(ws.series.id, ws.series.version);
   const today = londonTodayKey();
   const weekly = ws.series.format !== 'one_off';
   const coming = upcomingOf(ws.dates, today);
@@ -34,7 +38,6 @@ export function EditorV2({ ws, onMoreDates }: { ws: EventWorkspace; onMoreDates?
   const day = weekly
     ? (picked ? weekdayName(picked.occurrence_date) : WEEKDAY_NAMES[weekdayOfKey(today)])
     : '';
-  const dismiss = useCallback((seq: number) => setToast((t) => (t && t.seq === seq ? null : t)), []);
 
   const setTab = (t: Tab) => setParams((p) => {
     const n = new URLSearchParams(p);
@@ -47,6 +50,11 @@ export function EditorV2({ ws, onMoreDates }: { ws: EventWorkspace; onMoreDates?
     return n;
   }, { replace: true, preventScrollReset: true });
 
+  const pickFromSheet = (id: string) => {
+    setDatesOpen(false);
+    setParams((p) => { const n = new URLSearchParams(p); n.set('night', id); n.delete('tab'); return n; }, { replace: true, preventScrollReset: true });
+    window.scrollTo?.({ top: 0 });
+  };
   const every = tab === 'every';
   const title = every ? `Every ${day}` : (picked ? fullDate(picked.occurrence_date).replace(/ \d{4}$/, '') : (ws.series.name ?? ''));
   const scope = every
@@ -76,15 +84,20 @@ export function EditorV2({ ws, onMoreDates }: { ws: EventWorkspace; onMoreDates?
               </button>
             );
           })}
-          <button type="button" className="ev2-chip ev2-chip-more" data-testid="ev2-more-dates" onClick={() => onMoreDates?.()}>
+          <button type="button" className="ev2-chip ev2-chip-more" data-testid="ev2-more-dates" onClick={() => setDatesOpen(true)}>
             <span className="ev2-chip-b">More dates</span>
           </button>
         </div>
       )}
       <h1 className="ev2-title" data-testid="ev2-title">{title}</h1>
       <p className="ev2-scope" data-testid="ev2-scope">{scope}</p>
-      <div data-ev2-slot={every ? 'every' : 'night'} />
-      <V2Toast toast={toast} onDone={dismiss} />
+      <div data-ev2-slot={every ? 'every' : 'night'}>
+        {!every && picked && (
+          <NightCard ws={ws} date={picked} busy={busy} onBack={(step, before, label) => { void saveNow([step], [before], label); }} />
+        )}
+      </div>
+      <DatesSheet open={datesOpen} dates={coming} seriesStatus={ws.series.lifecycle_status} onPick={pickFromSheet} onClose={() => setDatesOpen(false)} />
+      <V2Toast toast={toast} onDone={onToastDone} />
     </div>
   );
 }
