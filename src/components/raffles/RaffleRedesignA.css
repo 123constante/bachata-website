@@ -45,3 +45,23 @@
 .rd-bar-btn:active{scale:.95}
 .rd-state{padding:12px 0;font-size:14px}
 @media (prefers-reduced-motion:reduce){.rd-root *{animation:none!important}}
+/* Part B2: recent winners medals (link cards, 44px+ taps) */
+.rd-medals{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.rd-medal{display:flex;flex-direction:column;gap:2px;min-height:76px;padding:12px;border-radius:12px;border:1px solid var(--rd-line);background:#130E09;color:var(--rd-ink);text-decoration:none;min-width:0}
+.rd-medal b{font:italic 900 18px/1.15 var(--rd-disp);overflow-wrap:anywhere}
+.rd-medal span{font-size:13px;color:var(--rd-muted);overflow-wrap:anywhere}
+.rd-medal em{margin-top:auto;padding-top:4px;font:700 13px/1.2 system-ui,sans-serif;font-style:normal;color:var(--rd-hot)}
+.rd-medal-gold{border-color:#E8B923;background:linear-gradient(160deg,#3A2A06,#130E09 70%)}
+.rd-medal-silver{border-color:#B9BFC7;background:linear-gradient(160deg,#2B2E33,#130E09 70%)}
+.rd-medal-bronze{border-color:#B8742E;background:linear-gradient(160deg,#35200C,#130E09 70%)}
+/* Part B2: entry sheet (Radix portal, so not under .rd-root). Look only. */
+.rd-sheet{top:auto!important;bottom:var(--rd-kb,0px)!important;left:50%!important;translate:none!important;transform:translateX(-50%)!important;width:100%;max-height:92dvh;overflow-y:auto;border:0!important;border-top:1px solid #32271A!important;border-radius:20px 20px 0 0!important;background:#050404!important;color:#FBF4EA!important;padding-bottom:env(safe-area-inset-bottom,0px)}
+.rd-sheet h2{color:#FFD58A!important;font:italic 900 22px/1.1 Georgia,'Times New Roman',serif}
+.rd-sheet p,.rd-sheet label,.rd-sheet div{color:inherit}
+.rd-sheet [id^="radix-"][class*="A59474"],.rd-sheet [class*="A59474"]{color:#A99C88!important}
+.rd-sheet a{color:#FFA600!important;text-decoration:underline;text-underline-offset:3px;display:inline-flex;align-items:center;min-height:44px}
+.rd-sheet input:not([type=checkbox]){min-height:48px;font-size:16px!important;background:#130E09!important;border:1px solid #32271A!important;color:#FBF4EA!important}
+.rd-sheet input:not([type=checkbox]):focus{border-color:#FFA600!important;outline:none}
+.rd-sheet button{min-height:44px}
+.rd-sheet-go{min-height:56px!important;border-radius:999px!important;background:#FFA600!important;color:#150B00!important;font:800 16px/1 system-ui,sans-serif!important}
+.rd-sheet-cancel{width:100%;color:#A99C88!important;background:transparent!important}

@@ -44,6 +44,8 @@ interface RaffleEntryDialogProps {
   eventId?: string;
   consentVersion: string | null;
   onSubmitted: () => void;
+  /** /raffles redesign look (black + orange sheet). Look only: same logic. */
+  redesign?: boolean;
 }
 
 type SubmitResponse =
@@ -106,7 +108,19 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
   eventId,
   consentVersion,
   onSubmitted,
+  redesign = false,
 }) => {
+  // Redesign: lift the sheet above the phone keyboard (visualViewport) via --rd-kb.
+  useEffect(() => {
+    if (!redesign || !open || typeof window === 'undefined' || !window.visualViewport) return;
+    const vv = window.visualViewport;
+    const root = document.documentElement;
+    const sync = () => root.style.setProperty('--rd-kb', `${Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))}px`);
+    sync();
+    vv.addEventListener('resize', sync);
+    vv.addEventListener('scroll', sync);
+    return () => { vv.removeEventListener('resize', sync); vv.removeEventListener('scroll', sync); root.style.removeProperty('--rd-kb'); };
+  }, [redesign, open]);
   const [phoneE164, setPhoneE164] = useState('');
   const [phoneValid, setPhoneValid] = useState(false);
   const [consent, setConsent] = useState(false);
@@ -345,7 +359,7 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="mx-auto max-w-[430px] p-0 border-[rgba(197,148,10,0.3)] bg-[#1A2E2A] text-[#D8CCB0]">
+      <DialogContent className={redesign ? 'rd-sheet mx-auto max-w-[430px] p-0' : 'mx-auto max-w-[430px] p-0 border-[rgba(197,148,10,0.3)] bg-[#1A2E2A] text-[#D8CCB0]'}>
         <DialogHeader className="px-4 pt-4">
           <DialogTitle className="flex items-center gap-2 text-[#F5D563]">
             <Sparkles className="w-4 h-4" aria-hidden />
@@ -457,7 +471,7 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
                 <Button
                   type="submit"
                   disabled={!canSubmit}
-                  className="w-full bg-[#B38A4E] hover:bg-[#c99a54] text-[#1A2E2A] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={redesign ? 'rd-sheet-go w-full disabled:opacity-50 disabled:cursor-not-allowed' : 'w-full bg-[#B38A4E] hover:bg-[#c99a54] text-[#1A2E2A] font-semibold disabled:opacity-50 disabled:cursor-not-allowed'}
                 >
                   {phase === 'submitting' ? 'Entering…' : waFailed ? 'Try again' : 'Enter raffle'}
                 </Button>
@@ -471,7 +485,7 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
                     variant="ghost"
                     onClick={() => onOpenChange(false)}
                     disabled={phase !== 'form'}
-                    className="text-[#A59474] hover:text-[#D8CCB0]"
+                    className={redesign ? 'rd-sheet-cancel' : 'text-[#A59474] hover:text-[#D8CCB0]'}
                   >
                     Cancel
                   </Button>
