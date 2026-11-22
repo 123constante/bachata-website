@@ -54,7 +54,7 @@ describe('Every tab body', () => {
   });
   it('pending rows do nothing on tap', () => {
     mount();
-    for (const id of ['fact-when', 'fact-price']) fireEvent.click(screen.getByTestId(id).querySelector('button')!);
+    for (const id of ['fact-price']) fireEvent.click(screen.getByTestId(id).querySelector('button')!);
     expect(screen.queryByTestId('v2-sheet')).toBeNull();
   });
   it('Where saves the series venue and city, Undo before holds the old pair', async () => {

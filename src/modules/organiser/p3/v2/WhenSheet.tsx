@@ -1,6 +1,9 @@
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { hasOwnTime } from '../../flows/change/changeModel';
+import { eventWorkspaceQueryKey } from '../../shared/runCommands';
 import { LEVEL_LABEL, buildPayload, notEditableCopy, validateProgramme, type DraftSession } from '../../shared/programmeModel';
-import { moveDateCommand } from '../../shared/seriesCommands';
+import { moveDateCommand, resetTimeCommand } from '../../shared/seriesCommands';
 import { fullDate } from '../../shared/dateWords';
 import type { WorkspaceDate } from '../../shared/seriesModel';
 import { typeLabel } from '../../dates/dateModel';
@@ -60,6 +63,19 @@ export function WhenSheet({ date, oneOff, today, onSave, onClose }: {
   const [dateVal, setDateVal] = useState(date.occurrence_date);
   const [dateErr, setDateErr] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  // the series' usual start, from the workspace the shell already loaded (no extra read)
+  const qc = useQueryClient();
+  const wsData = qc.getQueryData(eventWorkspaceQueryKey(prog.data?.seriesId)) as { series?: { default_local_start_time?: string | null } } | undefined;
+  const usualStart = wsData?.series?.default_local_start_time ?? null;
+  const ownStart = date.materialised_start_utc?.match(/T(\d{2}:\d{2})/)?.[1] ?? null;
+  const ownTime = hasOwnTime(date, usualStart);
+
+  /** Back to the usual times: occurrence.set_time reset. Undo puts the night's own start back (its end is not read here: the server keeps the length). */
+  const backToUsual = async () => {
+    const step: WriteStep = { part: W.backToUsualTimes, target: 'occurrence', id: date.id, version: date.version, command: resetTimeCommand(), order: 1 };
+    const r = await onSave([step], [{ new_local_start: ownStart, new_local_end: null }], V2.backToUsualFor(long));
+    if (r.ok) onClose(); else setProblem(r.error);
+  };
 
   const save = async (next: DraftSession[]) => {
     if (!prog.data) return;
@@ -104,6 +120,7 @@ export function WhenSheet({ date, oneOff, today, onSave, onClose }: {
           {prog.data && <SessionRows rows={original} onOpen={(r) => setEditing({ row: r })} />}
           <button type="button" className="btn sec" disabled={!prog.data} onClick={() => setEditing({ row: null })}>{W.add}</button>
           <p className="hint">{W.foot}</p>
+          {ownTime && <button type="button" className="btn sec" data-testid="when-back-usual" onClick={() => void backToUsual()}>{W.backToUsualTimes}</button>}
         </div>
       )}
       {problem && <p className="err" role="alert" data-testid="when-problem">{problem}</p>}

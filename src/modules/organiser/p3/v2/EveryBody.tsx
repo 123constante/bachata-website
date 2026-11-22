@@ -10,7 +10,11 @@ import { upsertCommand } from '../../shared/seriesCommands';
 import { V2 } from './copy';
 import type { WriteStep } from './editorModel';
 import { Fact, aboutShort, priceLabel } from './Facts';
-import type { OnSave } from './WhenSheet';
+import { ProgSheet, type OnSave } from './WhenSheet';
+import { SessionSheetV2 } from './SessionSheetV2';
+import { addSession, allItems, buildDays, programCommand, profileTypeOf, removeSession, updateItem, validateTree, type PItem, type PTree } from '../../events/programmeSeriesModel';
+import { seriesTree } from '../data/sessions';
+import { isEditableRole, sessionLevels, type DraftSession, type PeopleRole } from '../../shared/programmeModel';
 import { WhereSheet, savedLabel } from './WhereSheet';
 import { AboutSheet } from './AboutSheet';
 import { FlyerSheet } from './FlyerSheet';
@@ -55,7 +59,9 @@ type SeriesBits = { default_city_id?: string | null; default_cover_image_url: st
  */
 export function EveryBody({ ws, day, saveNow, busy, onOpenTickets }: { ws: EventWorkspace; day: string; saveNow: OnSave; busy?: boolean; onOpenTickets?: () => void }) {
   const s = ws.series;
-  const [sheet, setSheet] = useState<'where' | 'about' | 'flyer' | 'name' | 'music' | 'orgs' | 'repeats' | 'pause' | 'end' | 'cancel' | null>(null);
+  const [sheet, setSheet] = useState<'where' | 'about' | 'flyer' | 'name' | 'music' | 'orgs' | 'repeats' | 'pause' | 'end' | 'cancel' | 'prog' | null>(null);
+  const [editing, setEditing] = useState<{ row: DraftSession | null } | null>(null);
+  const [progProblem, setProgProblem] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const venues = useVenueOptions();
   const orgIds = ws.organiserIds ?? [];
@@ -121,6 +127,44 @@ export function EveryBody({ ws, day, saveNow, busy, onOpenTickets }: { ws: Event
     const r = await saveNow([step], [old], 'Saved');
     if (r.ok) setSheet(null);
   };
+  const progTree = seriesTree(ws);
+  const progRows: DraftSession[] = allItems(progTree).map((it) => ({
+    key: it.key, original: it.raw as unknown as DraftSession['original'], type: it.type, title: it.title, start: it.start, end: it.end, levels: it.levels, removed: false,
+    people: it.people.map((p) => ({ id: p.profileId, name: p.name, role: p.role, origin: 'stored' as const, removed: false })),
+  }));
+  const SECTION: Record<string, string> = { class: 'classes', masterclass: 'masterclass', party: 'party', performance: 'showcase' };
+  /** Usual-week programme: one series.set_program with the whole programme; Undo puts the old days back. */
+  const saveProg = async (next: PTree, label2: string) => {
+    const bad = validateTree(next, progTree)[0];
+    if (bad) { setProgProblem(bad.message); return; }
+    const command = programCommand(next, progTree);
+    if (!command) return;
+    const step: WriteStep = { part: V2.nightSessions, target: 'series', id: s.id, version: s.version, command, order: 1 };
+    const r = await saveNow([step], [{ days: buildDays(progTree) }], label2);
+    setProgProblem(r.ok ? null : r.error);
+  };
+  const progDone = (row: DraftSession) => {
+    setEditing(null);
+    const peopleOf = (it: PItem | null, list: DraftSession['people']): PItem['people'] => {
+      const all = list ?? [];
+      const kept = (it?.people ?? []).filter((p) => !all.some((q) => q.id === p.profileId && q.origin === 'stored' && q.removed));
+      const added = all.filter((p) => p.origin === 'added' && !p.removed && isEditableRole(p.role))
+        .map((p) => ({ profileId: p.id, name: p.name, profileType: profileTypeOf(p.role as PeopleRole), role: p.role, level: null }));
+      return [...kept, ...added] as PItem['people'];
+    };
+    const fields = (it: PItem) => ({ type: row.type, title: row.title, start: row.start, end: row.end, levels: sessionLevels({ type: row.type, levels: row.levels }), people: peopleOf(it, row.people) });
+    const stored = allItems(progTree).find((i) => i.key === row.key);
+    if (stored) { void saveProg(updateItem(progTree, stored.key, fields(stored)), label); return; }
+    const type = row.type ?? 'class';
+    const added = addSession(progTree, SECTION[type] ?? 'party', type);
+    const it = allItems(added.tree).find((i) => i.key === added.key)!;
+    void saveProg(updateItem(added.tree, added.key, fields(it)), label);
+  };
+  const progRemove = (row: DraftSession) => {
+    setEditing(null);
+    if (!row.original) return;
+    void saveProg(removeSession(progTree, row.key), label);
+  };
   const life: LifeState = cancelled ? 'Cancelled' : status === 'paused' ? 'Paused' : status === 'ended' ? 'Ended' : 'Live';
   const nightStep = (d: { id: string; version: number }, command: OwnerCommand): WriteStep => ({ part: E.toastCancelled, target: 'occurrence', id: d.id, version: d.version, command, order: 1 });
   /** Cancel the event: one occurrence.cancel per coming night that is not already cancelled; one save, no Undo. */
@@ -182,7 +226,7 @@ export function EveryBody({ ws, day, saveNow, busy, onOpenTickets }: { ws: Event
           </div>
           <div className="fb-list">
             <div className="trow"><b data-testid="every-name">{name}</b>{pill}</div>
-            <Fact id="when" label={V2.when} main={E.everyDay(day)} sub={start ? (endAt ? E.timeRange(start, endAt) : start) : undefined} />
+            <Fact id="when" label={V2.when} main={E.everyDay(day)} sub={start ? (endAt ? E.timeRange(start, endAt) : start) : undefined} onOpen={() => { setProgProblem(null); setSheet('prog'); }} />
             <Fact id="where" label={V2.where} main={venue?.name ?? '—'} sub={venue?.neighbourhood ?? venue?.city_name ?? undefined} busy={busy} onOpen={() => setSheet('where')} />
             <Fact id="price" label={V2.price} main={price.m} sub={price.s || undefined} onOpen={onOpenTickets} />
           </div>
@@ -200,6 +244,13 @@ export function EveryBody({ ws, day, saveNow, busy, onOpenTickets }: { ws: Event
       </div>
       <EndCard status={life} endDate={ws.endedOn ? fullDate(ws.endedOn, londonTodayKey()) : null} reason={cancelled ? (reasonQ.data?.cancellationReason ?? null) : null}
         onLive={() => void liveAgain()} onCancel={() => { setStatusError(null); setSheet('cancel'); }} onPause={() => { setStatusError(null); setSheet('pause'); }} onEnd={() => { setStatusError(null); setSheet('end'); }} />
+      {sheet === 'prog' && (
+        <ProgSheet rows={progRows} oneOff={false} onOpenSession={(r) => setEditing({ row: r })} onClose={() => { setSheet(null); setEditing(null); }} />
+      )}
+      {sheet === 'prog' && progProblem && <p className="err" role="alert" data-testid="prog-problem">{progProblem}</p>}
+      {sheet === 'prog' && editing && (
+        <SessionSheetV2 row={editing.row} count={progRows.length} ctx="usual" dayLabel={day} onDone={progDone} onRemove={progRemove} onClose={() => setEditing(null)} />
+      )}
       {sheet === 'pause' && <StatusSheet to="Paused" from={life} lastNight="" tonight={false} error={statusError} onDo={() => setLife('paused', E.toastPaused)} onClose={() => setSheet(null)} />}
       {sheet === 'cancel' && <CancelEventSheetV2 soldCount={0} error={statusError} onCancel={cancelEventDo} onClose={() => setSheet(null)} />}
       {sheet === 'end' && <StatusSheet to="Ended" from={life} lastNight={ws.endedOn ?? ''} tonight={!!tonightDate(ws, londonTodayKey())} error={statusError} onDo={endDo} onClose={() => setSheet(null)} />}
