@@ -109,7 +109,7 @@ export default function P3Routes() {
           <Route index element={inSuspense(<R4Home />)} />
           <Route path="events" element={inSuspense(<R4Events />)} />
           <Route path="tickets" element={inSuspense(<R4Tickets />)} />
-          <Route path="events/:seriesId" element={flags.organiserEditorV2 ? lazyScreen(<R4EditorGate fallback={<R4Night />} v2="editor" />, 'tab', toEvent) : inSuspense(<R4Night />)} />
+          <Route path="events/:seriesId" element={flags.organiserEditorV2 ? lazyScreen(<R4EditorGate fallback={<R4Night />} />, 'tab', toEvent) : inSuspense(<R4Night />)} />
           <Route path="events/:seriesId/all" element={lazyScreen(<EventPage />, 'tab', toEvent)} />
           <Route path="events/:seriesId/edit" element={flags.organiserEditorV2 ? <ToEditor /> : lazyScreen(<R4EditNight />, 'tab', toEvent)} />
           {flags.organiserEditorV2 && <Route path="events/:seriesId/tickets" element={lazyScreen(<TicketsV2 />, 'tab', toEvent)} />}
