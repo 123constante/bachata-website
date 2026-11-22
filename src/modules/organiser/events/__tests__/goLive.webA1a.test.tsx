@@ -35,7 +35,7 @@ const SIX: Array<[code: string, section: string, word: string, screen: (id: stri
   ['city', 'venue', 'Add a city', (id) => ORG_PATHS.eventDetails(id)],
   ['upcoming_date', 'dates', 'Add a date', (id) => ORG_PATHS.addEvent(id)],
   ['session', 'programme', 'Add a session with a title, start and end', (id) => ORG_PATHS.eventProgramme(id)],
-  ['cover', 'cover', 'Upload a flyer', (id) => ORG_PATHS.cover(id)],
+  ['cover', 'cover', 'A flyer is required to continue', (id) => ORG_PATHS.cover(id)],
   ['description', 'about', 'Write a description', (id) => `${ORG_PATHS.eventDetails(id)}?edit=about`],
 ];
 
@@ -142,7 +142,7 @@ describe('Go live renders the server list, one label per code (D49)', () => {
     refusal = { message: `permission_denied: series.set_lifecycle draft -> live needs a ready series: ${JSON.stringify(notReady('cover', 'cover'))}`, details: null, code: 'P0001' };
     mount(ORG_PATHS.event(DRAFT), routes);
     fireEvent.click(await screen.findByTestId('org-life-golive'));
-    expect(words(await screen.findByTestId('org-life-item-cover'))).toBe('Upload a flyer');
+    expect(words(await screen.findByTestId('org-life-item-cover'))).toBe('A flyer is required to continue');
   });
 
   it('mutating the one map changes the Go live list AND the refusal render', async () => {
@@ -178,7 +178,7 @@ const NINE: Array<[code: string, section: string, word: string, to: (id: string)
   ['city', 'venue', 'Add a city', (id) => ORG_PATHS.eventDetails(id), 'org-detail-venue'],
   ['upcoming_date', 'dates', 'Add a date', (id) => ORG_PATHS.addEvent(id), 'landed-dates'],
   ['session', 'programme', 'Add a session with a title, start and end', (id) => ORG_PATHS.eventProgramme(id), 'landed'],
-  ['cover', 'cover', 'Upload a flyer', (id) => ORG_PATHS.cover(id), 'landed-cover'],
+  ['cover', 'cover', 'A flyer is required to continue', (id) => ORG_PATHS.cover(id), 'landed-cover'],
   ['description', 'about', 'Write a description', (id) => `${ORG_PATHS.eventDetails(id)}?edit=about`, 'org-detail-input'],
   ['name', 'basics', 'Add an event name', (id) => ORG_PATHS.eventDetails(id), 'org-detail-name'],
   ['country', 'venue', 'Pick a city with a country', (id) => ORG_PATHS.eventDetails(id), 'org-detail-venue'],
