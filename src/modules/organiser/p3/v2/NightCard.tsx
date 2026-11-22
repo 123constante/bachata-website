@@ -67,7 +67,7 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
   /** runs the Back to usual step; the shell owns saveNow and the toast */
   /** saves at once through saveNow (When sheet) */
   onSave?: OnSave;
-  onBack: (step: WriteStep, before: Record<string, unknown> | null, label: string) => void;
+  onBack: (step: WriteStep, before: Record<string, unknown> | null, label: string) => unknown;
 }) {
   const qc = useQueryClient();
   const [whenOpen, setWhenOpen] = useState(false);
@@ -99,7 +99,8 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
   const back = (fact: FactId, part: string) => async () => {
     const d = dt ?? await qc.fetchQuery({ queryKey: dateDetailQueryKey(date.id), queryFn: () => fetchDateDetail(date.id) });
     const b = backToUsualStep(date, fact, d, part);
-    if (b) onBack(b.step, b.before, V2.backToUsualFor(dateWords));
+    if (b) return onBack(b.step, b.before, V2.backToUsualFor(dateWords));
+    return undefined;
   };
   const saveVenue = async (id: string) => {
     if (!onSave) return;

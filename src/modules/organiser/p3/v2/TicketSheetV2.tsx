@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { fetchManagedTypes, removePriceStep, setPriceStep, setTicketStatus, upsertTicketType, type WriteResult } from '../../tickets/ticketsApi';
-import { formatPence, reasonMessage, type TicketType } from '../../tickets/ticketModel';
+import { formatPence, isoToLondonInput, reasonMessage, type TicketType } from '../../tickets/ticketModel';
 import { stepReasonMessage, type PriceStep } from '../../tickets/priceSteps';
 import { V2 } from './copy';
 import { V2Sheet } from './V2Sheet';
@@ -10,7 +10,7 @@ const T = V2.ticketSheet;
 
 export interface TicketForm { name: string; free: boolean; price: string; qty: number; birds: Bird[] }
 
-type Out = { ok: true; id: string | null; changed: boolean } | { ok: false; error: string; wrote?: boolean };
+type Out = { ok: true; id: string | null; changed: boolean } | { ok: false; error: string; wrote?: boolean; createdId?: string };
 type Existing = Pick<TicketType, 'id' | 'name' | 'capacity' | 'occurrenceId' | 'salesOpenAt' | 'salesCloseAt'>;
 
 const sameAt = (a: string, b: string) => new Date(a).getTime() === new Date(b).getTime();
@@ -22,18 +22,25 @@ const refusal = (r: WriteResult, steps = false) => (steps ? stepReasonMessage(r.
  * Steps that went away are removed first; a step already live is never moved or removed (refused before any write).
  * An untouched ticket sends nothing.
  */
-export async function writeTicket(a: { organiserId: string; seriesId: string; type: Existing | null; basePence: number; steps: readonly PriceStep[]; form: TicketForm }): Promise<Out> {
+export async function writeTicket(a: { organiserId: string; seriesId: string; type: Existing | null; basePence: number; steps: readonly PriceStep[]; form: TicketForm; force?: boolean }): Promise<Out> {
   const w = wantedOf(a.form.free, a.form.price, a.form.birds);
   if ('error' in w) return { ok: false, error: w.error };
   const name = a.form.name.trim() || 'Ticket';
   let wrote = false;
   const cur = [...a.steps];
   const keep = Math.min(cur.length, w.steps.length);
-  const moves = w.steps.map((s, i) => ({ s, was: cur[i] as PriceStep | undefined })).filter((m) => !m.was || !sameAt(m.was.effectiveFrom, m.s.at) || m.was.pricePence !== m.s.pence);
+  // a stored step at another time of day is the same step while its London day is unchanged: keep its instant
+  const sameDay = (a: string, b: string) => isoToLondonInput(a).slice(0, 10) === isoToLondonInput(b).slice(0, 10);
+  const moves = w.steps
+    .map((s, i) => {
+      const was = cur[i] as PriceStep | undefined;
+      return { s: was && sameDay(was.effectiveFrom, s.at) ? { ...s, at: was.effectiveFrom } : s, was };
+    })
+    .filter((m) => !m.was || !sameAt(m.was.effectiveFrom, m.s.at) || m.was.pricePence !== m.s.pence);
   const gone = cur.slice(keep);
   if (moves.some((m) => m.was?.isLive) || gone.some((g) => g.isLive)) return { ok: false, error: T.birdLive };
-  const baseSame = !!a.type && a.basePence === w.basePence && a.type.name === name && a.type.capacity === a.form.qty;
-  if (a.type && baseSame && !moves.length && !gone.length) return { ok: true, id: a.type.id, changed: false };
+  const baseSame = !a.force && !!a.type && a.basePence === w.basePence && a.type.name === name && a.type.capacity === a.form.qty;
+  if (!a.force && a.type && baseSame && !moves.length && !gone.length) return { ok: true, id: a.type.id, changed: false };
   for (const g of [...gone].reverse()) {
     const r = await removePriceStep(g.id);
     if (!r.ok) return { ok: false, error: refusal(r, true), wrote };
@@ -50,14 +57,15 @@ export async function writeTicket(a: { organiserId: string; seriesId: string; ty
     id = id ?? r.id ?? null;
   }
   if (!id) return { ok: false, error: T.notSaved, wrote };
+  const createdId = a.type ? undefined : id;
   for (const m of moves) {
     const r = await setPriceStep({ p_ticket_type_id: id, p_step_id: m.was?.id ?? null, p_effective_from: m.s.at, p_price_pence: m.s.pence });
-    if (!r.ok) return { ok: false, error: refusal(r, true), wrote };
+    if (!r.ok) return { ok: false, error: refusal(r, true), wrote, createdId };
     wrote = true;
   }
   if (!a.type) {
     const st = await setTicketStatus(id, 'on_sale');
-    if (!st.ok) return { ok: false, error: refusal(st), wrote };
+    if (!st.ok) return { ok: false, error: refusal(st), wrote, createdId };
   }
   return { ok: true, id, changed: true };
 }
@@ -76,6 +84,8 @@ export interface TicketSheetProps {
   /** tickets sold (busiest-night count) and across all dates, with the pence taken */
   soldMax: number;
   soldAll: number;
+  /** false while the sales summary is loading or failed: sold-count guards then refuse (never read as 0) */
+  soldKnown?: boolean;
   pence: number;
   onClose: () => void;
   /** a write landed (or the ticket was removed): the screen refreshes and shows the toast */
@@ -107,12 +117,13 @@ export function TicketSheetV2(p: TicketSheetProps) {
   const restore = async (back: TicketForm, type: Existing) => {
     const fresh = await fetchManagedTypes(p.seriesId);
     const row = fresh.types.find((m) => m.id === type.id);
-    const r = await writeTicket({ organiserId: p.organiserId, seriesId: p.seriesId, type, basePence: row?.basePricePence ?? 0, steps: row?.steps ?? [], form: back });
+    const r = await writeTicket({ organiserId: p.organiserId, seriesId: p.seriesId, type, basePence: row?.basePricePence ?? 0, steps: row?.steps ?? [], form: back, force: true });
     if ('error' in r) throw new Error(r.error);
   };
 
   const done = () => run(async () => {
     const f = current();
+    if (!isNew && p.soldKnown === false) { setErr(T.notSaved); return; }
     if (!Number.isFinite(f.qty) || f.qty < 0) { setErr(T.qtyBad); return; }
     if (f.qty < p.soldMax) { setErr(T.qtyLow(p.soldMax)); return; }
     const back = p.type ? formOfType(p.type, p.steps, p.basePence) : null;
@@ -121,6 +132,8 @@ export function TicketSheetV2(p: TicketSheetProps) {
     if ('error' in out) {
       // a write may have landed before the failure: put the old ticket back, best effort
       if (p.type && back && out.wrote === true) { try { await restore(back, p.type); } catch { /* the refresh shows the truth */ } }
+      // a new ticket whose later step failed: close the half-made row so a retry cannot make a second one
+      if (!p.type && out.createdId) { try { await setTicketStatus(out.createdId, 'closed'); } catch { /* the refresh shows the truth */ } }
       setErr(out.error); p.onFail(out.error);
       return;
     }
@@ -133,7 +146,7 @@ export function TicketSheetV2(p: TicketSheetProps) {
 
   const remove = () => run(async () => {
     const t = p.type;
-    if (!t || sold > 0) return;
+    if (!t || sold > 0 || p.soldKnown === false) return;
     let r: WriteResult;
     try { r = await setTicketStatus(t.id, 'closed'); } catch { r = { ok: false, reason: null }; }
     if (!r.ok) { setErr(reasonMessage(r.reason)); p.onFail(reasonMessage(r.reason)); return; }
@@ -164,7 +177,7 @@ export function TicketSheetV2(p: TicketSheetProps) {
         <button type="button" className="btn pri" data-testid="t-done" disabled={busy} aria-busy={busy} onClick={() => { void done(); }}>{T.done}</button>
         {isNew ? null : (
           <>
-            <button type="button" className="btn dan" data-testid="t-remove" disabled={busy || sold > 0} aria-busy={busy} onClick={() => { void remove(); }}>{T.remove}</button>
+            <button type="button" className="btn dan" data-testid="t-remove" disabled={busy || sold > 0 || p.soldKnown === false} aria-busy={busy} onClick={() => { void remove(); }}>{T.remove}</button>
             {sold > 0 ? <p className="hint" data-testid="t-remove-hint">{T.removeSold}</p> : null}
           </>
         )}

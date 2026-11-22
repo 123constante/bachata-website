@@ -182,11 +182,11 @@ describe('7 Undo only when it can work', () => {
     await waitFor(() => expect(toast()).toContain('Dancers pay at the door'));
     expect(screen.queryByTestId('v2-toast-undo')).toBeNull();
   });
-  it('nothing changed at all: the toast shows without an Undo that would do nothing', async () => {
+  it('nothing could be reopened (17d): no false success toast, no Undo that would do nothing', async () => {
     h.types.data = [ty('t1', 'paused')];
     mount(mk());
     tap('tk-sellHere');
-    await waitFor(() => expect(toast()).toContain('Selling tickets here'));
+    await waitFor(() => expect(toast()).toContain('Not saved'));
     expect(h.status).not.toHaveBeenCalled();
     expect(screen.queryByTestId('v2-toast-undo')).toBeNull();
   });

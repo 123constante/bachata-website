@@ -322,6 +322,8 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
   };
   const sellHere = async () => {
     const mine = readPausedBySwitch(s.id);
+    // paused types this screen cannot prove it paused (storage lost on reload): never claim they reopened
+    if (list.length > 0 && paused.length > 0 && !paused.some((id) => mine.has(id)) && !onSale.length) { say(T.notSaved); return; }
     await change({ part: T.toastSell, label: T.toastSell, reopen: paused.filter((id) => mine.has(id)), flag: list.length === 0 ? true : undefined });
   };
   const openLink = () => {
@@ -331,7 +333,7 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
     });
   };
   const openTicket = (id?: string) => {
-    if (id && !managed.data?.types.some((m) => m.id === id)) { say(T.notSaved); return; } // steps not read yet: never open on a guess
+    if (id && (!managed.data?.types.some((m) => m.id === id) || !summary.data?.ok)) { say(T.notSaved); return; } // steps not read yet: never open on a guess
     setTicketOpen(id ?? 'new');
   };
   const sheetType = ticketOpen && ticketOpen !== 'new' ? list.find((t) => t.id === ticketOpen) ?? null : null;
@@ -377,7 +379,7 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
       {sheet === 'how' && <HowPaySheet busy={busy} door={mode === 'door'} hasLink={!!oldUrl} onDoor={() => { void payDoor(); }} onLink={openLink} onClose={() => setSheet(null)} />}
       {ticketOpen && orgId && (ticketOpen === 'new' || (sheetType && sheetManaged)) && (
         <TicketSheetV2 organiserId={orgId} seriesId={s.id} type={ticketOpen === 'new' ? null : sheetType} basePence={sheetManaged?.basePricePence ?? 0} steps={sheetManaged?.steps ?? []}
-          oneOff={oneOff} soldMax={sheetType && !sheetType.occurrenceId ? Math.min(sheetSold, sheetType.capacity) : sheetSold} soldAll={sheetSold} pence={sheetSales?.grossPence ?? 0}
+          soldKnown={!!summary.data?.ok} oneOff={oneOff} soldMax={sheetType && !sheetType.occurrenceId ? Math.min(sheetSold, sheetType.capacity) : sheetSold} soldAll={sheetSold} pence={sheetSales?.grossPence ?? 0}
           onClose={() => setTicketOpen(null)} onFail={() => refresh()}
           onDone={(text, undo) => {
             refresh();

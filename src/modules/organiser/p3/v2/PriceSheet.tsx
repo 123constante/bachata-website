@@ -56,8 +56,16 @@ export function PriceSheet(p: PriceSheetProps) {
   const usual = (
     <button type="button" className="lnk" data-testid="price-usual-link" onClick={p.onGoTickets}>{p.weekly ? P.changeUsual : P.allSettings}</button>
   );
+  const goBackNow = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true; setBusy(true); setProblem(null);
+    try {
+      const r = (await p.onBack()) as { ok?: boolean; error?: string | null } | undefined;
+      if (r && r.ok === false) setProblem(r.error ?? P.notSaved); else p.onClose();
+    } catch { setProblem(P.notSaved); } finally { inFlight.current = false; setBusy(false); }
+  };
   const goBack = (label: string) => (p.changed ? (
-    <button type="button" className="btn sec" data-testid="price-back" disabled={busy} onClick={() => { void p.onBack(); p.onClose(); }}>{label}</button>
+    <button type="button" className="btn sec" data-testid="price-back" disabled={busy} onClick={() => { void goBackNow(); }}>{label}</button>
   ) : null);
 
   const doneDoor = async () => {
@@ -129,10 +137,11 @@ export function PriceSheet(p: PriceSheetProps) {
           : (
             <div key={t.id}>
               <label className="flab" htmlFor={`p-${t.id}`}>{P.ticketField(t.name)}</label>
-              <input id={`p-${t.id}`} className="fld" type="number" min="0" step="0.5" inputMode="decimal"
+              <input id={`p-${t.id}`} className="fld" type="number" min="0" step="0.5" inputMode="decimal" readOnly aria-readonly="true"
                 value={raw[t.id] ?? String(t.pence / 100)} onChange={(e) => setRaw({ ...raw, [t.id]: e.target.value })} />
             </div>
           )))}
+        {problem ? <p className="err" role="alert" data-testid="price-err">{problem}</p> : null}
         <button type="button" className="btn pri" data-testid="price-done" onClick={p.onClose}>{V2.done}</button>
         {goBack(P.backTickets)}
         {usual}
