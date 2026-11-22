@@ -12,6 +12,7 @@ import type { Night } from './nightsModel';
 import { MoonArt } from '../art';
 import { ScreenTitle, SectionTitle } from '../blocks';
 import { DateBlock, StatusPill } from './nightsUi';
+import { Sheet } from '../options/optionsUi';
 import { FIND_A_NIGHT } from '../../copy/sharedCopy';
 import type { MyTicket } from '@/modules/tickets/myTicketsModel';
 import { NIGHTS_TICKET_QR_ENABLED, ticketsByNight } from './nightsTicket';
@@ -58,6 +59,7 @@ const NIGHTS_GOING_LOADING: NightsGoing = {
 const NightsGoingFeed = lazyWithRetry(() => import('./nightsGoing'));
 /** Ticket QR (flag VITE_ENABLE_NIGHTS_TICKET_QR): the ticket read and the QR sheet, one lazy chunk. */
 const NightTicketQr = lazyWithRetry(() => import('./NightTicketQr'));
+const NightQrBody = lazyWithRetry(() => import('./NightTicketQr').then((m) => ({ default: m.NightQrBody })));
 
 /** `rate`: this row carries its series' level vote (one per series, review N10: the vote is series-wide). */
 const NightRow = ({ night, profileComplete, focused, rate, onQr }: { night: NightRowData; profileComplete: boolean; focused: boolean; rate: boolean; onQr?: () => void }) => {
@@ -194,13 +196,15 @@ const NightsView = ({ going }: { going: NightsGoing }) => {
       )}
       {qrOn && (
         <Suspense fallback={null}>
-          <NightTicketQr
-            onTickets={setAllTickets}
-            night={qrFor}
-            tickets={qrFor ? byNight.get(qrFor.occurrenceId) ?? [] : []}
-            onClose={() => setQrFor(null)}
-          />
+          <NightTicketQr onTickets={setAllTickets} />
         </Suspense>
+      )}
+      {qrOn && qrFor && (byNight.get(qrFor.occurrenceId)?.length ?? 0) > 0 && (
+        <Sheet title={qrFor.name} testId="night-qr-sheet" onClose={() => setQrFor(null)}>
+          <Suspense fallback={null}>
+            <NightQrBody key={qrFor.occurrenceId} night={qrFor} tickets={byNight.get(qrFor.occurrenceId) ?? []} />
+          </Suspense>
+        </Sheet>
       )}
     </div>
   );

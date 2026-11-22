@@ -89,7 +89,7 @@ describe('Nights ticket QR x shapes (flag on)', () => {
     open();
     fireEvent.click(await screen.findByTestId('night-qr'));
     const sheet = await screen.findByTestId('night-qr-sheet');
-    expect(within(sheet).getByTestId('ticket-qr')).toBeTruthy();
+    expect(await within(sheet).findByTestId('ticket-qr')).toBeTruthy();
     expect(sheet.textContent).toContain('Alpha');
     expect(sheet.textContent).toContain('General');
     expect(within(sheet).queryByTestId('night-qr-next')).toBeNull();
