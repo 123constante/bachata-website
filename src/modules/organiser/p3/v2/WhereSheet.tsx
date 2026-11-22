@@ -47,6 +47,9 @@ export function WhereSheet({ current, mode, dateWords, changed, onSave, onBack, 
               </button>
             ))}
             {rows.length === 0 && <p className="hint" style={{ padding: '12px 16px' }}>{W.noMatch}</p>}
+            <button type="button" className="row" data-testid="where-add-soon" disabled aria-disabled="true">
+              <span className="hint">{W.addVenueSoon}</span>
+            </button>
           </div>
         )}
         {mode === 'night' && changed && onBack && (

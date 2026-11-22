@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { EventWorkspace } from '../../../events/eventModel';
 import type { WorkspaceDate } from '../../../shared/seriesModel';
 
-const net = vi.hoisted(() => ({ detail: vi.fn() }));
+const net = vi.hoisted(() => ({ detail: vi.fn(), pending: false }));
 vi.mock('../../../shared/selfServeApi', () => ({
   dateDetailQueryKey: (id: string) => ['d', id],
   fetchDateDetail: (id: string) => net.detail(id),
@@ -15,7 +15,7 @@ const venues = [
   { id: 'v1', name: 'Club Uno', neighbourhood: 'Soho', city_name: 'London' },
   { id: 'v2', name: 'Salsa Hall', neighbourhood: null, city_name: 'Leeds' },
 ];
-vi.mock('../../../shared/publicVenues', () => ({ useVenueOptions: () => ({ data: venues, isPending: false }) }));
+vi.mock('../../../shared/publicVenues', () => ({ useVenueOptions: () => (net.pending ? { data: undefined, isPending: true } : { data: venues, isPending: false }) }));
 vi.mock('../../../dates/venueOverride', () => ({
   venueOverridePatch: async (id: string | null) => (id ? { venue_id: id, city_id: `c-${id}` } : { venue_id: null, city_id: null }),
 }));
@@ -76,6 +76,30 @@ describe('Where sheet', () => {
     fireEvent.change(screen.getByLabelText('Search for a venue'), { target: { value: 'Nowhere Bar' } });
     expect(screen.queryByText(/^Use /)).toBeNull();
     expect(screen.queryAllByTestId('where-row')).toHaveLength(0);
+  });
+  it('venue placeholder: disabled "Adding venues: coming soon" row, no write, not a where-row', () => {
+    const onSave = vi.fn();
+    render(<WhereSheet current="v1" mode="night" dateWords="Thursday 26 November" onSave={onSave} onClose={vi.fn()} />);
+    const soon = screen.getByTestId('where-add-soon') as HTMLButtonElement;
+    expect(soon.disabled).toBe(true);
+    expect(soon.textContent).toBe('Adding venues: coming soon');
+    fireEvent.click(soon);
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getAllByTestId('where-row')).toHaveLength(2);
+  });
+  it('unknown name: no where-row, placeholder still there', () => {
+    render(<WhereSheet current="v1" mode="night" dateWords="Thursday 26 November" onSave={vi.fn()} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('Search for a venue'), { target: { value: 'Nowhere Bar' } });
+    expect(screen.queryAllByTestId('where-row')).toHaveLength(0);
+    expect(screen.getByTestId('where-add-soon')).toBeTruthy();
+  });
+  it('loading venues: no placeholder, loading ends with the ellipsis', () => {
+    net.pending = true;
+    try {
+      render(<WhereSheet current="v1" mode="night" dateWords="Thursday 26 November" onSave={vi.fn()} onClose={vi.fn()} />);
+      expect(screen.queryByTestId('where-add-soon')).toBeNull();
+      expect(screen.getByText('Loading venues\u2026')).toBeTruthy();
+    } finally { net.pending = false; }
   });
   it('Back to the usual venue only when changed; runs back and closes', async () => {
     const { onBack } = card(date({ override_keys: ['venue_id', 'city_id'] }));
