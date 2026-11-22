@@ -251,7 +251,7 @@ export function NightPriceSheet({ ws, date, detail, weekly, long, day, dateWords
   });
   const refreshNight = () => { void qc.invalidateQueries({ queryKey: ticketKeys.all }); };
   /** One at a time. On the first failure the ones already written go back; the reason becomes one plain line. */
-  const writeAll = async (changes: { id: string; pence: number | null }[]): Promise<Outcome> => {
+  const writeAll = async (changes: { id: string; pence: number | null; before: number | null }[]): Promise<Outcome> => {
     const done: { id: string; before: number | null }[] = [];
     for (const c of changes) {
       let reason: string | null = 'unknown';
@@ -261,12 +261,12 @@ export function NightPriceSheet({ ws, date, detail, weekly, long, day, dateWords
         refreshNight();
         return { ok: false, error: nightPriceLine(reason) };
       }
-      done.push({ id: c.id, before: byId.get(c.id)?.nightPence ?? null });
+      done.push({ id: c.id, before: c.before });
     }
     refreshNight();
     return { ok: true, error: null };
   };
-  const toastWithUndo = (text: string, restore: { id: string; pence: number | null }[]) => {
+  const toastWithUndo = (text: string, restore: { id: string; pence: number | null; before: number | null }[]) => {
     showToast(text, () => {
       void (async () => {
         const r = await writeAll(restore);
@@ -275,18 +275,29 @@ export function NightPriceSheet({ ws, date, detail, weekly, long, day, dateWords
     });
   };
   const saveTickets = async (changes: TicketChange[]): Promise<Outcome> => {
-    const r = await writeAll(changes);
-    if (r.ok) toastWithUndo(oneOff ? P.savedOne : V2.session.savedNight(dateWords), changes.map((c) => ({ id: c.id, pence: byId.get(c.id)?.nightPence ?? null })));
+    const withBefore = changes.map((c) => ({ id: c.id, pence: c.pence as number | null, before: byId.get(c.id)?.nightPence ?? null }));
+    const r = await writeAll(withBefore);
+    if (r.ok) toastWithUndo(oneOff ? P.savedOne : V2.session.savedNight(dateWords), withBefore.map((c) => ({ id: c.id, pence: c.before, before: c.pence })));
     return r;
   };
   const backTickets = async (): Promise<Outcome> => {
     const had = [...byId.values()].filter((t) => t.nightPence != null);
     if (had.length) {
-      const r = await writeAll(had.map((t) => ({ id: t.ticketTypeId, pence: null })));
+      const r = await writeAll(had.map((t) => ({ id: t.ticketTypeId, pence: null, before: t.nightPence })));
       if (!r.ok) return r;
-      if (!changed) toastWithUndo(V2.backToUsualFor(dateWords), had.map((t) => ({ id: t.ticketTypeId, pence: t.nightPence })));
+      if (!changed) toastWithUndo(V2.backToUsualFor(dateWords), had.map((t) => ({ id: t.ticketTypeId, pence: t.nightPence, before: null })));
     }
-    if (changed) return ((await onBack()) as Outcome | undefined) ?? { ok: true, error: null };
+    if (changed) {
+      let failure: Outcome | null = null;
+      try {
+        const o = (await onBack()) as Outcome | undefined;
+        if (o && o.ok === false) failure = { ok: false, error: o.error ?? P.notSaved };
+      } catch { failure = { ok: false, error: P.notSaved }; }
+      if (failure) {
+        if (had.length) await writeAll(had.map((t) => ({ id: t.ticketTypeId, pence: t.nightPence, before: null })));
+        return failure;
+      }
+    }
     return { ok: true, error: null };
   };
   const saveDoor = async (price: number) => {
