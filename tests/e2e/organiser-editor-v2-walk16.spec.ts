@@ -11,7 +11,7 @@ const OUT = 'test-results/editor-v2-phone';
 mkdirSync(OUT, { recursive: true });
 
 type St = 'weekly' | 'changedVenue' | 'sold' | 'noStripe' | 'empty' | 'flyer' | 'gallery' | 'door';
-interface Tk { id: string; name: string; price: number; cap: number; sold: number }
+interface Tk { id: string; name: string; price: number; cap: number; sold: number; occ?: string }
 
 async function open(page: Page, st: St, route = '') {
   const fake = new OrganiserFake();
@@ -23,11 +23,14 @@ async function open(page: Page, st: St, route = '') {
   if (st === 'flyer') (s as { cover_image_url?: string }).cover_image_url = 'https://img.example/flyer.jpg';
   if (st === 'gallery') s.night_gallery = { '2026-10-09': ['https://img.example/p1.jpg'] };
   if (st === 'door') { s.default_ticket_url = null; (s as { passes?: unknown }).passes = [{ id: '11111111-1111-4111-8111-111111111111', name: 'Door', price: 10 }]; }
-  if (st === 'sold') tickets = [{ id: 't1', name: 'General', price: 800, cap: 50, sold: 4 }];
+  const up = fake.upcoming(s);
+  // weekly nights count only types tied to that night (EditorV2.tsx 'here'); 'empty' = a type exists but on ANOTHER night -> noTickets
+  if (st === 'sold') tickets = [{ id: 't1', name: 'General', price: 800, cap: 50, sold: 4, occ: fake.occId(s, up[0]) }];
+  if (st === 'empty') tickets = [{ id: 't2', name: 'Other night', price: 800, cap: 50, sold: 0, occ: fake.occId(s, up[1]) }];
   if (st === 'noStripe') stripe = false;
   await fake.install(page);
   const ok = (r: import('@playwright/test').Route, body: unknown) => r.fulfill({ json: body });
-  await page.route(/\/rest\/v1\/ticket_types\?/, (r) => ok(r, tickets.map((t) => ({ id: t.id, event_series_id: sid, occurrence_id: null, name: t.name, price_pence: t.price, capacity: t.cap, sales_open_at: null, sales_close_at: null, status: 'on_sale', manual_sold_out: false, created_at: '2026-10-01T00:00:00Z' }))));
+  await page.route(/\/rest\/v1\/ticket_types\?/, (r) => ok(r, tickets.map((t) => ({ id: t.id, event_series_id: sid, occurrence_id: t.occ ?? null, name: t.name, price_pence: t.price, capacity: t.cap, sales_open_at: null, sales_close_at: null, status: 'on_sale', manual_sold_out: false, created_at: '2026-10-01T00:00:00Z' }))));
   await page.route(/\/rest\/v1\/organiser_stripe_accounts/, (r) => ok(r, stripe ? { charges_enabled: true, payouts_enabled: true, details_submitted: true } : null));
   await page.route(/\/rpc\/ticket_night_prices_v1/, (r) => ok(r, { ok: true, night_open: true, tickets: tickets.map((t) => ({ ticket_type_id: t.id, name: t.name, usual_price_pence: t.price, night_price_pence: null, can_change: true })) }));
   await page.route(/\/rpc\/ticket_sales_summary_v2/, (r) => ok(r, { ok: true, money_visible: true, ticket_types: tickets.map((t) => ({ id: t.id, event_series_id: sid, name: t.name, status: 'on_sale', price_pence: t.price, capacity: t.cap, reserved_count: t.sold, tickets_sold: t.sold, orders_paid: t.sold, gross_pence: t.sold * t.price })) }));
