@@ -183,6 +183,29 @@ export const V2 = {
   guestShareLine: 'Share this link so dancers can put their name down.',
   guestLoading: 'Loading the guest list\u2026',
   guestLoadFailed: 'We could not load the guest list. Close this and try again.',
+  // session sheet (slice 7a)
+  session: {
+    addTitle: 'Add a class or party',
+    titleLabel: 'Title',
+    titlePh: 'For example Beginners class',
+    type: 'Type',
+    starts: 'Starts',
+    ends: 'Ends',
+    endsBefore: 'Ends before it starts. Check the end time.',
+    level: 'Level',
+    noneYet: 'None yet',
+    add: 'Add',
+    removeName: (name: string) => `Remove ${name}`,
+    partyDancers: 'A party has DJs only. To add dancers, add a Performance.',
+    teamAdds: 'The team adds performers.',
+    willRemove: (names: string) => `${names} will be removed.`,
+    done: 'Done',
+    removeThis: 'Remove this one',
+    needOne: 'An event needs at least one class or party.',
+    savedNight: (date: string) => `Saved for ${date} only`,
+    savedEvery: (day: string) => `Saved for every ${day}`,
+    savedOneOff: 'Saved',
+  },
 } as const;
 
 /** The programme row's second line, "Class \u00b7 Ana, Ben \u00b7 Beginner": type, people, levels (prototype). */
