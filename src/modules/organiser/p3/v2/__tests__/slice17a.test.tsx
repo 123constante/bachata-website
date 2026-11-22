@@ -103,8 +103,17 @@ describe('End the event Undo (row 83)', () => {
     const plan = undoPlan([step as never], [{ ...RULE }]);
     expect(plan?.[0].command).toEqual({ kind: 'series.set_recurrence', payload: { ...RULE } });
   });
-  it('no date (series.end_run) has NO inverse in editorModel.inverseOf: UNBUILT, see handover', () => {
-    const step = { ...night, command: { kind: 'series.end_run', payload: {} } };
-    expect(undoPlan([step as never], [{ to: 'live' }])).toBeNull();
+  const endStep = { ...night, command: { kind: 'series.end_run', payload: {} } };
+  it('no date (series.end_run) on a weekly event: Undo is series.resume_run {}', () => {
+    const plan = undoPlan([endStep as never], [{ to: 'live', resume: true }]);
+    expect(plan?.[0].command).toEqual({ kind: 'series.resume_run', payload: {} });
+  });
+  it('no date (series.end_run) on a one-off: Undo sets the old lifecycle back', () => {
+    expect(undoPlan([endStep as never], [{ to: 'live' }])?.[0].command).toEqual({ kind: 'series.set_lifecycle', payload: { to: 'live' } });
+    expect(undoPlan([endStep as never], [{ to: 'paused' }])?.[0].command).toEqual({ kind: 'series.set_lifecycle', payload: { to: 'paused' } });
+  });
+  it('no date (series.end_run) with no usable before has no Undo', () => {
+    expect(undoPlan([endStep as never], [null])).toBeNull();
+    expect(undoPlan([endStep as never], [{}])).toBeNull();
   });
 });

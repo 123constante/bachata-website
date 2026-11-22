@@ -47,9 +47,9 @@ beforeEach(() => { net.series.mockReset(); net.occ.mockReset().mockResolvedValue
 afterEach(cleanup);
 
 describe('row 83.1 End with no date', () => {
-  it('series.end_run has no safe inverse from the before snapshot: no Undo is claimed (UNBUILT, see handover)', () => {
+  it('series.end_run with no usable before snapshot claims no Undo (17j: a before with to/resume does)', () => {
     const step = { target: 'series' as const, id: 's1', version: 7, part: 'x', order: 1, command: { kind: 'series.end_run', payload: {} } };
-    expect(undoPlan([step as never], [{ to: 'live' }])).toBeNull();
+    expect(undoPlan([step as never], [{}])).toBeNull();
   });
 });
 
