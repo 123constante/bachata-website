@@ -13,6 +13,7 @@ import { DatesSheet } from './DatesSheet';
 import { cancelCommand, cancelOneOffCommand, uncancelCommand, type OwnerCommand } from '../../shared/seriesCommands';
 import { V2 } from './copy';
 import type { WriteStep } from './editorModel';
+import { EveryBody } from './EveryBody';
 import { NightHub } from './NightHub';
 import { publicEventRefOf } from '../data/home';
 import type { Night as RaffleNightRow } from '../events/eventsModel';
@@ -117,6 +118,7 @@ export function EditorV2({ ws }: { ws: EventWorkspace }) {
           <NightHub seriesId={ws.series.id} seriesName={ws.series.name ?? ''} occurrenceId={picked.id} oneOff={!weekly} shareLink={shareLink} toast={say}
             raffleNight={{ seriesId: ws.series.id, date: picked.occurrence_date, dayLabel: fullDate(picked.occurrence_date) } as unknown as RaffleNightRow} />
         )}
+        {every && <EveryBody ws={ws} day={day} saveNow={saveNow} busy={busy} />}
       </div>
       <DatesSheet open={datesOpen} dates={coming} seriesStatus={ws.series.lifecycle_status} onPick={pickFromSheet} onClose={() => setDatesOpen(false)} />
       <V2Toast toast={plain ?? toast} onDone={(q) => { setPlain(null); onToastDone(q); }} />

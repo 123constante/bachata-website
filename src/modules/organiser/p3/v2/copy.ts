@@ -234,6 +234,25 @@ export const V2 = {
     badLink: 'Paste a full link starting with https://',
     atLimit: 'That is the most photos and videos for one event.',
   },
+  // every-<day> tab: card, About group, Name sheet (slice 10a)
+  every: {
+    label: (day: string) => `What dancers see every ${day}. Tap to change.`,
+    aboutHead: 'About this event',
+    name: 'Name',
+    music: 'Music',
+    repeats: 'Repeats',
+    organisers: 'Organisers',
+    noneYet: 'None yet',
+    everyDay: (day: string) => `Every ${day}`,
+    timeRange: (a: string, b: string) => `${a} to ${b}`,
+    repeatsNoEnd: (day: string) => `Every ${day}, no end date`,
+    repeatsEnds: (day: string, date: string) => `Every ${day}, ends after ${date}`,
+    organisersN: (n: number) => `${n} ${n === 1 ? 'organiser' : 'organisers'}`,
+    nameField: 'Event name',
+    nameHint: (day: string) => `The name is the same for every ${day}.`,
+    nameError: 'Add a name',
+    nameDone: 'Done',
+  },
   // where sheet + description sheet (slice 8)
   whereAbout: {
     searchVenue: 'Search for a venue',

@@ -1,0 +1,124 @@
+import { useQuery } from '@tanstack/react-query';
+import { useState, type ReactNode } from 'react';
+import type { EventWorkspace } from '../../events/eventModel';
+import { fetchOrganiserPages } from '../../events/programmeSeriesApi';
+import { fullDate } from '../../shared/dateWords';
+import { useVenueOptions } from '../../shared/publicVenues';
+import { venueOverridePatch } from '../../dates/venueOverride';
+import { durationMinutes } from '../../shared/seriesModel';
+import { upsertCommand } from '../../shared/seriesCommands';
+import { V2 } from './copy';
+import type { WriteStep } from './editorModel';
+import { Fact, aboutShort, priceLabel } from './Facts';
+import type { OnSave } from './WhenSheet';
+import { WhereSheet, savedLabel } from './WhereSheet';
+import { AboutSheet } from './AboutSheet';
+import { FlyerSheet } from './FlyerSheet';
+import { NameSheet } from './NameSheet';
+import { londonTodayKey } from '@/lib/londonDate';
+import { ownerPassesFromStored } from '../../shared/seriesCommands';
+
+const E = V2.every;
+
+/** One raised one-line row (prototype factLn): label left, bold value (one line, ellipsis), a chevron. Tap does nothing when `onOpen` is absent (pending slice). */
+function Line({ id, label, value, onOpen }: { id: string; label: string; value: ReactNode; onOpen?: () => void }) {
+  return (
+    <div className="fwrap" data-testid={`row-${id}`}>
+      <button type="button" className="fbtn ln" onClick={() => onOpen?.()}>
+        <span className="lt">{label}</span>
+        <span className="lv"><b>{value}</b></span>
+        <span className="fgo">&rsaquo;</span>
+      </button>
+    </div>
+  );
+}
+
+type SeriesBits = { default_city_id?: string | null; default_cover_image_url: string | null };
+
+/**
+ * The "Every <day>" tab (flag organiserEditorV2): what dancers see every <day>, then the About group. Every write is
+ * a series.upsert carrying `name`. Music / Organisers / Repeats / When / Price taps are PENDING later slices.
+ */
+export function EveryBody({ ws, day, saveNow, busy }: { ws: EventWorkspace; day: string; saveNow: OnSave; busy?: boolean }) {
+  const s = ws.series;
+  const [sheet, setSheet] = useState<'where' | 'about' | 'flyer' | 'name' | null>(null);
+  const venues = useVenueOptions();
+  const orgIds = ws.organiserIds ?? [];
+  const pages = useQuery({ queryKey: ['org-organiser-pages', ...orgIds], queryFn: () => fetchOrganiserPages(orgIds), enabled: orgIds.length > 0 });
+  const venue = venues.data?.find((v) => v.id === s.default_venue_id);
+  const label = savedLabel('usual', day);
+  const cancelled = s.lifecycle_status === 'cancelled';
+  const status = s.lifecycle_status === 'paused' ? 'paused' : s.lifecycle_status === 'ended' ? 'ended' : 'live';
+  const pill = cancelled ? <span className="pill x">{V2.tagCancelled}</span>
+    : <span className={status === 'live' ? 'pill' : 'pill off'}>{status === 'live' ? V2.statusLive : status === 'paused' ? V2.statusPaused : V2.statusEnded}</span>;
+  const flyer = s.default_cover_image_url;
+  const hm = (t: string | null | undefined) => (t ? t.slice(0, 5) : '');
+  const start = hm(s.default_local_start_time);
+  const mins = durationMinutes(s.default_duration);
+  const endAt = start && mins ? (() => { const t = (Number(start.slice(0, 2)) * 60 + Number(start.slice(3, 5)) + mins) % 1440; return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`; })() : '';
+  const passes = ownerPassesFromStored(s.passes) ?? [];
+  const link = s.default_ticket_url;
+  const prices = passes.map((p) => p.price).filter((p): p is number => typeof p === 'number' && p > 0);
+  const price = priceLabel({ link, ticketCount: 0, minPrice: prices.length ? Math.min(...prices) : null });
+  const name = s.name ?? '';
+  const music = (ws.musicStyles ?? []).length ? ws.musicStyles.join(', ') : E.noneYet;
+  const repeats = ws.endedOn ? E.repeatsEnds(day, fullDate(ws.endedOn, londonTodayKey())) : E.repeatsNoEnd(day);
+  const orgs = orgIds.length === 0 ? E.noneYet : pages.data?.length ? pages.data.map((p) => p.name).join(', ') : E.organisersN(orgIds.length);
+
+  const send = async (part: string, payload: Record<string, unknown>, before: Record<string, unknown>) => {
+    const step: WriteStep = { part, target: 'series', id: s.id, version: s.version, command: upsertCommand({ name: s.name ?? '', ...payload }), order: 1 };
+    const r = await saveNow([step], [{ name: s.name ?? '', ...before }], label);
+    if (r.ok) setSheet(null);
+    return r;
+  };
+  const saveVenue = async (id: string) => {
+    const patch = await venueOverridePatch(id, venues.data);
+    const city = patch.city_id;
+    const oldCity = (s as unknown as SeriesBits).default_city_id ?? null;
+    await send(V2.venue, { default_venue_id: id, ...(city ? { default_city_id: city } : {}) }, { default_venue_id: s.default_venue_id, ...(city ? { default_city_id: oldCity } : {}) });
+  };
+  const saveAbout = async (value: string | null) => { await send(V2.nightAbout, { default_description: value }, { default_description: s.default_description ?? null }); };
+  const saveName = async (v: string) => { await send(E.name, { name: v }, {}); };
+  const saveFlyer = async (url: string | null, lab: string) => {
+    const step: WriteStep = { part: V2.flyer, target: 'series', id: s.id, version: s.version, command: upsertCommand({ name: s.name ?? '', default_cover_image_url: url }), order: 1 };
+    await saveNow([step], [{ name: s.name ?? '', default_cover_image_url: flyer ?? null }], lab);
+  };
+  const saveGallery = async (next: string[], lab: string) => {
+    const step: WriteStep = { part: V2.gallery, target: 'series', id: s.id, version: s.version, command: upsertCommand({ name: s.name ?? '', default_gallery: next }), order: 1 };
+    await saveNow([step], [{ name: s.name ?? '', default_gallery: ws.gallery ?? [] }], lab);
+  };
+
+  return (
+    <>
+      <div className="grp" data-testid="every-card">
+        <div className="lab">{E.label(day)}</div>
+        <div className="card">
+          <div className={flyer ? 'flyer f1' : 'flyer none'} style={flyer ? { backgroundImage: `linear-gradient(#00000033,#00000066), url(${flyer})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
+            <span>{flyer ? V2.flyerWord : V2.noFlyer}</span>
+            <button type="button" className="fpill" data-testid="fact-flyer" onClick={() => setSheet('flyer')}>{V2.flyerAndPhotos}</button>
+          </div>
+          <div className="fb-list">
+            <div className="trow"><b data-testid="every-name">{name}</b>{pill}</div>
+            <Fact id="when" label={V2.when} main={E.everyDay(day)} sub={start ? (endAt ? E.timeRange(start, endAt) : start) : undefined} />
+            <Fact id="where" label={V2.where} main={venue?.name ?? '—'} sub={venue?.neighbourhood ?? venue?.city_name ?? undefined} busy={busy} onOpen={() => setSheet('where')} />
+            <Fact id="price" label={V2.price} main={price.m} sub={price.s || undefined} />
+          </div>
+        </div>
+      </div>
+      <div className="grp" data-testid="every-about">
+        <div className="lab hd">{E.aboutHead}</div>
+        <div className="card"><div className="fb-list">
+          <Line id="name" label={E.name} value={name} onOpen={() => setSheet('name')} />
+          <Line id="about" label={V2.description} value={aboutShort(s.default_description)} onOpen={() => setSheet('about')} />
+          <Line id="music" label={E.music} value={music} />
+          <Line id="repeats" label={E.repeats} value={repeats} />
+          <Line id="organisers" label={E.organisers} value={orgs} />
+        </div></div>
+      </div>
+      {sheet === 'where' && <WhereSheet mode="usual" dateWords={day} current={s.default_venue_id ?? null} onSave={saveVenue} onClose={() => setSheet(null)} />}
+      {sheet === 'about' && <AboutSheet mode="usual" dateWords={day} current={s.default_description ?? ''} usual={s.default_description} onSave={saveAbout} onClose={() => setSheet(null)} />}
+      {sheet === 'name' && <NameSheet current={name} day={day} onSave={saveName} onClose={() => setSheet(null)} />}
+      {sheet === 'flyer' && <FlyerSheet mode="usual" dateWords={day} seriesId={s.id} flyer={flyer ?? null} gallery={ws.gallery ?? []} dayName={day} onFlyer={saveFlyer} onGallery={saveGallery} onClose={() => setSheet(null)} />}
+    </>
+  );
+}
