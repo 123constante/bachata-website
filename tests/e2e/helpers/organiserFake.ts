@@ -333,7 +333,7 @@ export class OrganiserFake {
     return {
       meta: { version: s.version, has_more: false },
       series: {
-        series: { ...series, default_local_start_time: '20:00:00', default_duration: null, default_level: null, default_cover_image_url: null,
+        series: { ...series, organiser_ids: this.organisers.filter((o) => o.series.includes(s.id)).map((o) => o.id), default_local_start_time: '20:00:00', default_duration: null, default_level: null, default_cover_image_url: null,
           instagram_url: null, passes: null, created_at: '2026-09-01T10:00:00+00:00', gallery, video_urls, default_music_styles },
         // As admin_event_workspace_p5 answers: the series programme, and per date the date-only sessions it holds.
         program: s.series_items.length ? [{ sections: [{ items: s.series_items.map((x) => ({ item: { type: x.type, start_time: x.start_time } })) }] }] : [],
