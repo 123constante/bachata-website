@@ -7,7 +7,7 @@
 // RaffleEntryDialog.
 // =============================================================================
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useRaffleBoard } from '@/hooks/useRaffleBoard';
 import { nightsWithWinner, thisWeeksWinners } from '@/lib/raffleBoard';
@@ -26,6 +26,7 @@ const fmtNight = (iso: string): string => {
   return new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/London' }).format(d);
 };
 
+const MEDALS = ['gold', 'silver', 'bronze'] as const;
 const STEPS = ['Pick a night', 'Add your phone', 'Win a free entry'];
 const fmtCount = (n: number): string => n.toLocaleString('en-GB');
 
@@ -45,6 +46,18 @@ export const RaffleRedesignA = () => {
   const [dialogEventId, setDialogEventId] = useState<string | undefined>(undefined);
   const [joined, setJoined] = useState<boolean>(() => isRafflePoolJoined());
   const onSubmitted = useCallback(() => { markRafflePoolJoined(); setJoined(true); }, []);
+
+  // Lift the entry sheet above the phone keyboard (visualViewport) via --rd-kb.
+  useEffect(() => {
+    const vv = typeof window === 'undefined' ? null : window.visualViewport;
+    if (!dialogOpen || !vv) return;
+    const root = document.documentElement;
+    const sync = () => root.style.setProperty('--rd-kb', `${Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))}px`);
+    sync();
+    vv.addEventListener('resize', sync);
+    vv.addEventListener('scroll', sync);
+    return () => { vv.removeEventListener('resize', sync); vv.removeEventListener('scroll', sync); root.style.removeProperty('--rd-kb'); };
+  }, [dialogOpen]);
 
   const winners = useMemo(() => (board ? thisWeeksWinners(board, new Date()) : []), [board]);
   const openNights = board ? board.nights.filter((n) => !n.winnerFirstName) : [];
@@ -135,6 +148,22 @@ export const RaffleRedesignA = () => {
             />
           ) : null}
           <div className="rd-slot" data-slot="raffle-part-b" />
+          {board?.winners && board.winners.length > 0 ? (
+            <section aria-labelledby="rd-recent-h" data-testid="raffles-recent-winners">
+              <h2 id="rd-recent-h" className="rd-h2">Recent winners</h2>
+              <ul className="rd-medals">
+                {board.winners.map((w, i) => (
+                  <li key={`${w.profileSlug}-${w.wonAt ?? i}`}>
+                    <Link to={`/dancers/${encodeURIComponent(w.profileSlug)}`} className={`rd-medal rd-medal-${MEDALS[i] ?? 'plain'}`}>
+                      <b>{w.firstName}</b>
+                      {w.nightTitle ? <span>{w.nightTitle}</span> : null}
+                      <em>View profile &rsaquo;</em>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
         </main>
 
         <footer className="rd-wrap rd-foot">
@@ -158,7 +187,7 @@ export const RaffleRedesignA = () => {
           )}
         </div>
       </div>
-      <RaffleEntryDialog open={dialogOpen} onOpenChange={setDialogOpen} eventId={dialogEventId} consentVersion={null} onSubmitted={onSubmitted} />
+      <RaffleEntryDialog open={dialogOpen} onOpenChange={setDialogOpen} eventId={dialogEventId} consentVersion={null} onSubmitted={onSubmitted} redesign />
     </GlobalLayout>
   );
 };
