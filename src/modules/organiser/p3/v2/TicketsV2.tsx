@@ -1,5 +1,5 @@
-import { Link } from 'react-router-dom';
-import { useState, type ReactNode } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { ownerPassesFromStored, PRICE_RE, upsertCommand } from '../../shared/seriesCommands';
 import { setTicketStatus, ticketKeys } from '../../tickets/ticketsApi';
@@ -7,14 +7,15 @@ import { V2 } from './copy';
 import type { WriteStep } from './editorModel';
 import { UNDO_FAILED_TEXT, undoPlan, useSaveNow } from './saveNow';
 import { V2Toast, type V2ToastState } from './V2Toast';
-import { DoorSheet, HowPaySheet, LinkSheet } from './PaySheets';
+import { DoorSheet, HowPaySheet, LinkSheet, SwitchPaySheet } from './PaySheets';
 import type { EventWorkspace } from '../../events/eventModel';
 import { weekdayName } from '../../events/eventModel';
 import { fullDate } from '../../shared/dateWords';
 import { londonTodayKey } from '@/lib/londonDate';
-import { formatPence, type StripeState } from '../../tickets/ticketModel';
+import { formatPence, NOT_SWITCHED_ON, stripeStateOf, type StripeState } from '../../tickets/ticketModel';
 import type { ManagedType } from '../../tickets/priceSteps';
-import { useManagedTypes, useSeriesTypes, useStripe, useSummary } from '../tickets/data';
+import { useManagedTypes, useSeriesTypes, useStartOnboarding, useStripe, useSummary } from '../tickets/data';
+import { returnKindOf } from '../tickets/connectReturn';
 import { WorkspaceGate } from '../screens/EventPage';
 import { P3_PATHS } from '../shell/paths';
 import { upcomingOf } from './editorModel';
@@ -46,14 +47,18 @@ export interface TicketsViewProps {
   dates: string[];
   doorPrice: number | null;
   link: string | null;
-  /** 12b sets this after "Not now"; the box shows only while selling here without Stripe */
+  /** 12d sets this when the person comes back from Stripe and the account is still not connected (SH-STRIPE-03) */
   stripeWarn?: boolean;
+  /** 12d: the real Stripe redirect is under way / refused / payments not switched on */
+  stripeBusy?: boolean;
+  stripeNote?: string | null;
+  stripeOff?: boolean;
   /** Buttons render fully; a tap does nothing until the slice that owns the sheet gives a handler. */
   on?: Partial<Record<'stripe' | 'ticket' | 'newTicket' | 'sellHere' | 'payDoor' | 'link' | 'doorUsual' | 'howPay', (id?: string) => void>>;
 }
 
-const Btn = ({ cls, id, onTap, children, ticketId }: { cls: string; id: string; onTap?: (id?: string) => void; children: ReactNode; ticketId?: string }) => (
-  <button type="button" className={cls} data-testid={`tk-${id}${ticketId ? `-${ticketId}` : ''}`} onClick={() => onTap?.(ticketId)}>{children}</button>
+const Btn = ({ cls, id, onTap, children, ticketId, disabled }: { cls: string; id: string; onTap?: (id?: string) => void; children: ReactNode; ticketId?: string; disabled?: boolean }) => (
+  <button type="button" disabled={disabled} className={cls} data-testid={`tk-${id}${ticketId ? `-${ticketId}` : ''}`} onClick={() => onTap?.(ticketId)}>{children}</button>
 );
 
 /** The Tickets screen (prototype scrTickets). Pure view: every state is a prop so each can be rendered and tested. */
@@ -67,9 +72,11 @@ export function TicketsView(p: TicketsViewProps) {
       {!p.oneOff && <div className="sub" data-testid="tk-weekly-sub">The usual prices, for every {p.day}.</div>}
       {!p.stripe ? (
         <div className="grp">
-          <Btn cls="btn pri big" id="stripe" onTap={on.stripe}>Sell tickets here</Btn>
+          <Btn cls="btn pri big" id="stripe" onTap={on.stripe} disabled={p.stripeBusy}>Sell tickets here</Btn>
           <p className="sent">Connect Stripe and get paid in seconds. No commission from Bachata Calendar. Stripe card fees apply.</p>
-          {p.stripeWarn && p.mode === 'here' ? <p className="warn" data-testid="tk-warn">Dancers can&rsquo;t buy yet. Connect Stripe or choose pay at the door.</p> : null}
+          {p.stripeOff ? <p className="warn" role="status" data-testid="tk-stripe-off">{NOT_SWITCHED_ON}</p> : null}
+          {p.stripeNote ? <p className="err" role="alert" data-testid="tk-stripe-note">{p.stripeNote}</p> : null}
+          {p.stripeWarn ? <p className="warn" data-testid="tk-warn">Dancers can&rsquo;t buy yet. Connect Stripe or choose pay at the door.</p> : null}
         </div>
       ) : p.mode === 'here' ? (
         <div className="grp">
@@ -133,6 +140,11 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
   const [sheet, setSheet] = useState<'door' | 'link' | 'how' | null>(null);
   const [sheetError, setSheetError] = useState<string | null>(null);
   const [sellingHere, setSellingHere] = useState(false);
+  const [switchTo, setSwitchTo] = useState<'door' | 'link' | null>(null);
+  const [stripeWarn, setStripeWarn] = useState(false);
+  const onboard = useStartOnboarding(orgId ?? '', undefined, `${P3_PATHS.event(s.id)}/tickets`);
+  const [params, setParams] = useSearchParams();
+  const back = useRef(returnKindOf(params.get('stripe')));
   const list = types.data ?? [];
   const connected = (stripe.state as StripeState | null) === 'connected';
   const payMode = payModeOf({ ticketTypes: list, defaultTicketUrl: s.default_ticket_url, stripeConnected: connected });
@@ -154,6 +166,20 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
   const T = V2.ticketsPay;
   const say = (text: string, onUndo?: () => void) => { plainSeq += 1; setPlain({ seq: plainSeq, text, onUndo }); };
   const refresh = () => { void qc.invalidateQueries({ queryKey: ticketKeys.all }); };
+  /** Back from Stripe: drop the param, read the account once, then say what happened (SH-STRIPE-02 / 03). */
+  useEffect(() => {
+    if (!back.current || !orgId) return;
+    back.current = null;
+    const next = new URLSearchParams(params);
+    next.delete('stripe');
+    setParams(next, { replace: true });
+    void (async () => {
+      const r = await stripe.query?.refetch();
+      if (r && stripeStateOf(r.data as never) === 'connected') say(T.stripeConnected);
+      else setStripeWarn(true);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const setStatuses = async (ids: string[], status: 'paused' | 'on_sale') => {
     for (const id of ids) {
       const r = await setTicketStatus(id, status);
@@ -211,20 +237,31 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
   const oldUrl = s.default_ticket_url ?? null;
   const onSale = list.filter((t) => t.status === 'on_sale').map((t) => t.id);
   const paused = list.filter((t) => t.status === 'paused').map((t) => t.id);
-  /** A switch away from selling here is refused once anything sold (slice 12d builds the Switch sheet). */
-  const locked = !soldKnown || soldTotal > 0;
+  /** Selling here with sales: leaving needs the Switch sheet. Sales not read yet: unknown, so never switch blind. */
+  const needsSwitch = mode === 'here' && soldKnown && soldTotal > 0;
+  const blind = mode === 'here' && !soldKnown;
 
   const payDoor = async () => {
-    if (locked) return;
+    if (blind) return;
+    if (needsSwitch) { setSheet(null); setSwitchTo('door'); return; }
     const ok = await change({ part: T.toastDoor, label: T.toastDoor, payload: oldUrl ? { default_ticket_url: null } : undefined, before: { default_ticket_url: oldUrl }, pause: onSale });
     if (ok) setSheet(null);
   };
   const sellHere = async () => {
     await change({ part: T.toastSell, label: T.toastSell, reopen: paused, flag: list.length === 0 ? true : undefined });
   };
-  const openLink = () => { if (mode === 'here' && locked) return; setSheetError(null); setSheet('link'); };
+  const openLink = () => {
+    if (blind) return;
+    if (needsSwitch) { setSheet(null); setSwitchTo('link'); return; }
+    setSheetError(null); setSheet('link');
+  };
+  const doSwitch = async () => {
+    const to = switchTo;
+    setSwitchTo(null);
+    if (to === 'door') await change({ part: T.toastDoor, label: T.toastDoor, payload: oldUrl ? { default_ticket_url: null } : undefined, before: { default_ticket_url: oldUrl }, pause: onSale });
+    else if (to === 'link') { setSheetError(null); setSheet('link'); }
+  };
   const saveLink = async (url: string) => {
-    if (mode === 'here' && locked) return;
     const ok = await change({ part: T.toastLink, label: T.toastLink, payload: { default_ticket_url: url }, before: { default_ticket_url: oldUrl }, pause: mode === 'here' ? onSale : [] });
     if (ok) setSheet(null);
   };
@@ -249,10 +286,12 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
       <TicketsView name={s.name ?? ''} oneOff={oneOff} day={day} backTo={P3_PATHS.event(s.id)}
         stripe={connected} mode={mode} tickets={rows} dates={coming.map((d) => fullDate(d.occurrence_date).replace(/ \d{4}$/, ''))}
         doorPrice={doorPriceOf(s.passes)} link={s.default_ticket_url ?? null}
-        on={{ sellHere: () => { void sellHere(); }, payDoor: () => { void payDoor(); }, link: openLink, doorUsual: () => { setSheetError(null); setSheet('door'); }, howPay: () => setSheet('how') }} />
+        stripeWarn={stripeWarn} stripeBusy={onboard.busy} stripeNote={onboard.note} stripeOff={onboard.switchedOff}
+        on={{ stripe: () => { void onboard.go(); }, sellHere: () => { void sellHere(); }, payDoor: () => { void payDoor(); }, link: openLink, doorUsual: () => { setSheetError(null); setSheet('door'); }, howPay: () => setSheet('how') }} />
       {sheet === 'door' && <DoorSheet price={doorPriceOf(s.passes)} day={oneOff ? null : day} error={sheetError} onDone={(r) => { void saveDoor(r); }} onClose={() => setSheet(null)} />}
       {sheet === 'link' && <LinkSheet link={oldUrl ?? ''} error={sheetError} onDone={(u) => { void saveLink(u); }} onClose={() => setSheet(null)} />}
       {sheet === 'how' && <HowPaySheet door={mode === 'door'} hasLink={!!oldUrl} onDoor={() => { void payDoor(); }} onLink={openLink} onClose={() => setSheet(null)} />}
+      {switchTo && <SwitchPaySheet sold={soldTotal} onSwitch={() => { void doSwitch(); }} onKeep={() => setSwitchTo(null)} />}
       <V2Toast toast={plain ?? toast} onDone={(q) => { setPlain(null); onToastDone(q); }} />
     </>
   );

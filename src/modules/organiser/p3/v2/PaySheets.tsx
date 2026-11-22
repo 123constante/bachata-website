@@ -53,3 +53,16 @@ export function HowPaySheet({ door, hasLink, onDoor, onLink, onClose }: { door: 
     </V2Sheet>
   );
 }
+
+/** SH-PAY-02 / 03: leaving "sell here" once tickets are sold. Buyers keep what they bought. */
+export function SwitchPaySheet({ sold, onSwitch, onKeep }: { sold: number; onSwitch: () => void; onKeep: () => void }) {
+  return (
+    <V2Sheet open title={T.switchTitle} onClose={onKeep}>
+      <div className="grp">
+        <p className="txt" data-testid="switch-text">{T.switchText(sold)}</p>
+        <button type="button" className="btn pri" data-testid="switch-do" onClick={onSwitch}>{T.switchDo}</button>
+        <button type="button" className="btn sec" data-testid="switch-keep" onClick={onKeep}>{T.switchKeep}</button>
+      </div>
+    </V2Sheet>
+  );
+}

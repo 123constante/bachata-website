@@ -25,6 +25,7 @@ vi.mock('../../tickets/data', () => ({
   useSeriesTypes: () => h.types,
   useSummary: () => h.summary,
   useManagedTypes: () => ({ data: { types: [] } }),
+  useStartOnboarding: () => ({ go: vi.fn(), busy: false, note: null, switchedOff: false }),
 }));
 vi.mock('../../screens/EventPage', () => ({ WorkspaceGate: ({ children }: { children: (w: unknown) => React.ReactNode }) => <>{children(h.ws)}</> }));
 vi.mock('../../../tickets/ticketsApi', async (orig) => ({ ...((await orig()) as object), setTicketStatus: (id: string, s: string) => h.status(id, s) }));
@@ -115,11 +116,12 @@ describe('pay at the door and sell here', () => {
     await waitFor(() => expect(h.status.mock.calls).toContainEqual(['t1', 'on_sale']));
     expect(sent()[1]).toEqual({ name: 'Thursdays', default_ticket_url: 'https://t.test/x' });
   });
-  it('something sold: pay at the door is a no-op', async () => {
+  it('something sold: pay at the door opens the Switch sheet and writes nothing', async () => {
     h.types.data = [ty('t1', 'on_sale')];
     h.summary.data = { ok: true, types: [{ id: 't1', ticketsSold: 2, grossPence: 2000 }] };
     mount(mk('recurring'));
     tap('tk-payDoor');
+    expect(screen.getByTestId('switch-text').textContent).toContain('2 tickets already sold here');
     await new Promise((r) => { setTimeout(r, 20); });
     expect(h.series).not.toHaveBeenCalled();
     expect(h.status).not.toHaveBeenCalled();

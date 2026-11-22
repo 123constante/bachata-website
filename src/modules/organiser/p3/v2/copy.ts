@@ -353,6 +353,11 @@ export const V2 = {
     savedEvery: (day: string) => `Saved for every ${day}`,
     undone: 'Undone',
     notSaved: 'Not saved. Try again.',
+    stripeConnected: 'Stripe connected',
+    switchTitle: 'Switch how dancers pay?',
+    switchText: (n: number) => `${n} ticket${n === 1 ? '' : 's'} already sold here. Buyers keep their tickets. New buyers will not be able to buy here.`,
+    switchDo: 'Switch',
+    switchKeep: 'Keep selling',
   },
 } as const;
 
