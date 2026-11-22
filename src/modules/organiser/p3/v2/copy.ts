@@ -171,6 +171,18 @@ export const V2 = {
   shareLine: 'Send dancers the link to this night.',
   linkCopied: 'Link copied',
   linkBlocked: 'Select the link to copy it',
+  // guest list (slice 6)
+  guestOn: (n: number) => `On \u00b7 ${n} ${n === 1 ? 'name' : 'names'}`,
+  guestOff: 'Off',
+  guestToastOn: 'Guest list on',
+  guestToastOff: 'Guest list off',
+  guestOffText: 'Off. Dancers cannot put their name down. Turn it on to get a link to share.',
+  guestCount: (n: number, date: string) => `${n} ${n === 1 ? 'name' : 'names'} for ${date}.`,
+  guestShowing: (shown: number, total: number) => `Showing ${shown} of ${total}.`,
+  guestNone: 'No names yet.',
+  guestShareLine: 'Share this link so dancers can put their name down.',
+  guestLoading: 'Loading the guest list\u2026',
+  guestLoadFailed: 'We could not load the guest list. Close this and try again.',
 } as const;
 
 /** The programme row's second line, "Class \u00b7 Ana, Ben \u00b7 Beginner": type, people, levels (prototype). */

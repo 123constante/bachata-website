@@ -7,6 +7,7 @@ import { useRaffleNights, rowFor } from '../events/raffle/RaffleParts';
 import type { Night } from '../events/eventsModel';
 import { V2Sheet } from './V2Sheet';
 import { V2 } from './copy';
+import { GuestRow } from './GuestSheet';
 
 /** Money as the prototype gbp(): whole pounds with no pence, else 2 decimals. */
 export const gbp = (pence: number): string => {
@@ -126,6 +127,7 @@ export function NightHub({ seriesId, seriesName, occurrenceId, raffleNight, oneO
         <div className="lab hd">{oneOff ? V2.onTheNight : V2.thisNight}</div>
         <div className="card">
           <div className="fb-list">
+            <GuestRow occurrenceId={occurrenceId} longDate={raffleNight.dayLabel} link={shareLink} toast={toast} />
             <RaffleRow night={raffleNight} />
             {children}
           </div>

@@ -238,3 +238,12 @@ h2.v2-card-h { display: block; color: #1a1a1a; visibility: visible; }
 .ev2 .fgo { flex: none; color: #C2410C; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 4px; }
 .ev2 .box, .ev2-sheet .box { border: 1px dashed #CFCFCF; border-radius: 8px; padding: 12px; font-size: 14px; overflow-wrap: anywhere; user-select: all; background: #FAFAFA; }
 .ev2 .txt, .ev2-sheet .txt { margin: 0 0 12px; font-size: 15px; color: #464646; }
+/* guest list sheet (slice 6): switch row */
+.ev2-sheet .swrow { width: 100%; min-height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; background: none; border: 0; font-size: 16px; font-weight: 600; color: #030303; text-align: left; }
+.ev2-sheet .swrow:disabled { opacity: .55; }
+.ev2-sheet .sw { flex: none; position: relative; width: 44px; height: 26px; border-radius: 99px; background: #CFCFCF; transition: background .15s; }
+.ev2-sheet .sw::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #FFF; transition: transform .15s; }
+.ev2-sheet .sw.on { background: var(--p-acc, #C2410C); }
+.ev2-sheet .sw.on::after { transform: translateX(18px); }
+.ev2-sheet .card .row { border-top: 0; border-bottom: 1px solid var(--p-line, #E9E9E9); padding: 12px 16px; }
+.ev2-sheet .card .row:last-child { border-bottom: 0; }
