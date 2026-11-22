@@ -12,6 +12,7 @@ import { Link } from 'react-router-dom';
 import { useRaffleBoard } from '@/hooks/useRaffleBoard';
 import { nightsWithWinner, thisWeeksWinners } from '@/lib/raffleBoard';
 import { isRafflePoolJoined, markRafflePoolJoined } from '@/lib/raffleSession';
+import { ACCOUNT_CONTACT_EMAIL } from '@/lib/accountDeletionCopy';
 import { RaffleEntryDialog } from '@/modules/event-page/bento/modals/RaffleEntryDialog';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
@@ -131,7 +132,7 @@ export const RaffleRedesignA = () => {
           <nav aria-label="Footer">
             <Link to="/terms">Rules</Link>
             <Link to="/privacy">Privacy</Link>
-            <a href="mailto:support@bachatacalendar.co.uk">Contact</a>
+            <a href={`mailto:${ACCOUNT_CONTACT_EMAIL}`}>Contact</a>
           </nav>
         </footer>
 
