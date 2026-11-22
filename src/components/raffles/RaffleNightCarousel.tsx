@@ -22,7 +22,8 @@ export const RaffleNightCarousel = ({ nights, joined, onEnter }: Props) => {
     if (!el || el.children.length === 0) return;
     const first = el.children[0] as HTMLElement;
     const step = first.offsetWidth + 14;
-    setIdx(Math.min(items.length - 1, Math.max(0, Math.round(el.scrollLeft / step))));
+    const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 2;
+    setIdx(atEnd ? items.length - 1 : Math.min(items.length - 1, Math.max(0, Math.round(el.scrollLeft / step))));
   }, [items.length]);
 
   useEffect(() => { onScroll(); }, [onScroll]);
