@@ -43,7 +43,7 @@ describe('Every tab body', () => {
     await waitFor(() => expect(screen.getByTestId('row-organisers').textContent).toContain('Org a, Org b'));
     expect(screen.queryByText(/Only this night/)).toBeNull();
     expect(screen.queryByText(/Back to usual/i)).toBeNull();
-    expect(screen.queryByText(/Cancel this night|Share|Pause, end/i)).toBeNull();
+    expect(screen.queryByText(/Cancel this night|Share/i)).toBeNull();
   });
   it('falls back to None yet / No description and shows an end date', () => {
     mount(ws({ musicStyles: [], organiserIds: [], endedOn: '2027-01-14' }, { default_description: null }));

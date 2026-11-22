@@ -24,7 +24,10 @@ import { DATE_TAG_WORD, dateTagOf } from './editorModel';
 import type { OwnerCommand } from '../../shared/seriesCommands';
 import { londonTodayKey, weekdayOfKey } from '@/lib/londonDate';
 import { ownerWeeklyRule } from '@/modules/organiser/shared/eventState';
-import { ownerPassesFromStored } from '../../shared/seriesCommands';
+import { ownerPassesFromStored, lifecycleCommand } from '../../shared/seriesCommands';
+import { endRunCommand, tonightDate } from '../../events/eventModel';
+import { EndCard, type LifeState } from './EndCard';
+import { StatusSheet, type TodayAnswer } from './StatusSheets';
 
 const E = V2.every;
 
@@ -49,7 +52,8 @@ type SeriesBits = { default_city_id?: string | null; default_cover_image_url: st
  */
 export function EveryBody({ ws, day, saveNow, busy }: { ws: EventWorkspace; day: string; saveNow: OnSave; busy?: boolean }) {
   const s = ws.series;
-  const [sheet, setSheet] = useState<'where' | 'about' | 'flyer' | 'name' | 'music' | 'orgs' | 'repeats' | null>(null);
+  const [sheet, setSheet] = useState<'where' | 'about' | 'flyer' | 'name' | 'music' | 'orgs' | 'repeats' | 'pause' | 'end' | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
   const venues = useVenueOptions();
   const orgIds = ws.organiserIds ?? [];
   const pages = useQuery({ queryKey: ['org-organiser-pages', ...orgIds], queryFn: () => fetchOrganiserPages(orgIds), enabled: orgIds.length > 0 });
@@ -110,6 +114,32 @@ export function EveryBody({ ws, day, saveNow, busy }: { ws: EventWorkspace; day:
     const r = await saveNow([step], [old], 'Saved');
     if (r.ok) setSheet(null);
   };
+  const life: LifeState = cancelled ? 'Cancelled' : status === 'paused' ? 'Paused' : status === 'ended' ? 'Ended' : 'Live';
+  const setLife = async (to: 'paused' | 'live', toast: string) => {
+    const step: WriteStep = { part: toast, target: 'series', id: s.id, version: s.version, command: lifecycleCommand(to), order: 1 };
+    const r = await saveNow([step], [{ to: s.lifecycle_status ?? 'live' }], toast);
+    if (r.ok) setSheet(null); else setStatusError(r.error);
+  };
+  /** End: a later last night only sets the end date (status stays Live); otherwise series.end_run. */
+  const endDo = async (last: string, today: TodayAnswer | null) => {
+    const t = londonTodayKey();
+    setStatusError(null);
+    if (last && last < t) { setStatusError(V2.lastDatePast); return; }
+    if (last && weekdayOfKey(last) !== ruleDay) { setStatusError(V2.lastDateWeekday(WEEKDAY_NAMES[ruleDay])); return; }
+    const first = (ws.dates ?? []).map((x) => x.occurrence_date).filter((d) => d >= t).sort()[0];
+    if (last && first && last >= first) {
+      const base = dayChangeCommand(s.recurrence_rule, ruleDay);
+      const command = { ...base, payload: { ...base.payload, end: { kind: 'until_date', date: last } } };
+      const step: WriteStep = { part: E.repeats, target: 'series', id: s.id, version: s.version, command, order: 1 };
+      const old = s.recurrence_rule && typeof s.recurrence_rule === 'object' ? { ...(s.recurrence_rule as Record<string, unknown>) } : {};
+      const r = await saveNow([step], [old], E.toastEndsAfter(fullDate(last, t)));
+      if (r.ok) setSheet(null); else setStatusError(r.error);
+      return;
+    }
+    const step: WriteStep = { part: E.toastEnded, target: 'series', id: s.id, version: s.version, command: endRunCommand(today), order: 1 };
+    const r = await saveNow([step], [{ to: s.lifecycle_status ?? 'live' }], E.toastEnded);
+    if (r.ok) setSheet(null); else setStatusError(r.error);
+  };
   const saveFlyer = async (url: string | null, lab: string) => {
     const step: WriteStep = { part: V2.flyer, target: 'series', id: s.id, version: s.version, command: upsertCommand({ name: s.name ?? '', default_cover_image_url: url }), order: 1 };
     await saveNow([step], [{ name: s.name ?? '', default_cover_image_url: flyer ?? null }], lab);
@@ -146,6 +176,10 @@ export function EveryBody({ ws, day, saveNow, busy }: { ws: EventWorkspace; day:
           <Line id="organisers" label={E.organisers} value={orgs} onOpen={() => setSheet('orgs')} />
         </div></div>
       </div>
+      <EndCard status={life} endDate={ws.endedOn ? fullDate(ws.endedOn, londonTodayKey()) : null} reason={null}
+        onLive={() => void setLife('live', E.toastLive)} onPause={() => { setStatusError(null); setSheet('pause'); }} onEnd={() => { setStatusError(null); setSheet('end'); }} />
+      {sheet === 'pause' && <StatusSheet to="Paused" from={life} lastNight="" tonight={false} error={statusError} onDo={() => setLife('paused', E.toastPaused)} onClose={() => setSheet(null)} />}
+      {sheet === 'end' && <StatusSheet to="Ended" from={life} lastNight={ws.endedOn ?? ''} tonight={!!tonightDate(ws, londonTodayKey())} error={statusError} onDo={endDo} onClose={() => setSheet(null)} />}
       {sheet === 'where' && <WhereSheet mode="usual" dateWords={day} current={s.default_venue_id ?? null} onSave={saveVenue} onClose={() => setSheet(null)} />}
       {sheet === 'about' && <AboutSheet mode="usual" dateWords={day} current={s.default_description ?? ''} usual={s.default_description} onSave={saveAbout} onClose={() => setSheet(null)} />}
       {sheet === 'name' && <NameSheet current={name} day={day} onSave={saveName} onClose={() => setSheet(null)} />}
