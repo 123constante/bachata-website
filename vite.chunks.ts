@@ -394,6 +394,12 @@ export const LIB_EVENT_RULES_MODULES = [
   "/src/hooks/useGeolocation.ts",
   "/src/lib/geo/nearMeFix.ts",
   "/src/lib/analytics.ts",
+  // Venue video link parser (editor v2 flyer sheet, 2026-11-22): a pure leaf read by the
+  // public event page (VideoBlock) and, now, by the lazy organiser v2 flyer sheet. Shared by
+  // the two, rollup cut it into a chunk of its own: +1 first-load request on /event (chunk
+  // ratchet 40 vs 39: main builds 39, this PR 40). Pinned here it rides a chunk /event
+  // already loads.
+  "/src/lib/parseVenueVideoUrl.ts",
 ];
 
 // The SECOND first-party group (2026-10-16, dancer journey fixes): the ONE avatar

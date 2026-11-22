@@ -20,6 +20,9 @@ const R4Tickets = lazyWithRetry(() => import('../r4/R4Tickets').then((m) => ({ d
 const R4Team = lazyWithRetry(() => import('../r4/R4Team').then((m) => ({ default: m.R4Team })));
 const R4Compare = lazyWithRetry(() => import('../r4/R4Compare').then((m) => ({ default: m.R4Compare })));
 const R4DoorInvite = lazyWithRetry(() => import('../r4/R4DoorInvite').then((m) => ({ default: m.R4DoorInvite })));
+// Editor v2 S1 (flag organiserEditorV2): the gate and the night screen load on their own, never on first load.
+const R4EditorGate = lazyWithRetry(() => import('../v2/EditorGate').then((m) => ({ default: m.R4EditorGate })));
+const TicketsV2 = lazyWithRetry(() => import('../v2/TicketsV2').then((m) => ({ default: m.TicketsV2 })));
 const inSuspense = (el: ReactNode) => <Suspense fallback={null}>{el}</Suspense>;
 
 // The You hub and the R1 screens it pushes: lazy, as in OrganiserRoutes. Static imports here put
@@ -75,6 +78,12 @@ function OldNewStep() {
   // review 1 F9 / F10: the format and the page ride along (a named page is not asked again)
   return <Navigate to={seriesId ? P3_PATHS.event(seriesId) : P3_PATHS.createForFormat(params.get('format'), params.get('o'))} replace />;
 }
+/** Editor v2: the old edit and night URLs become the one editor page (the night id rides in ?night=). */
+function ToEditor() {
+  const { seriesId, occurrenceId } = useParams();
+  const q = occurrenceId ? `?night=${encodeURIComponent(occurrenceId)}` : '';
+  return <Navigate to={`${P3_PATHS.event(seriesId ?? '')}${q}`} replace />;
+}
 function lazyScreen(el: ReactNode, frame: P3RouteFrame, back: (p: Readonly<Params>) => P3RouteBack) {
   return <P3RouteBoundary frame={frame} back={back}><Suspense fallback={null}>{el}</Suspense></P3RouteBoundary>;
 }
@@ -100,9 +109,11 @@ export default function P3Routes() {
           <Route index element={inSuspense(<R4Home />)} />
           <Route path="events" element={inSuspense(<R4Events />)} />
           <Route path="tickets" element={inSuspense(<R4Tickets />)} />
-          <Route path="events/:seriesId" element={inSuspense(<R4Night />)} />
+          <Route path="events/:seriesId" element={flags.organiserEditorV2 ? lazyScreen(<R4EditorGate fallback={<R4Night />} />, 'tab', toEvent) : inSuspense(<R4Night />)} />
           <Route path="events/:seriesId/all" element={lazyScreen(<EventPage />, 'tab', toEvent)} />
-          <Route path="events/:seriesId/edit" element={lazyScreen(<R4EditNight />, 'tab', toEvent)} />
+          <Route path="events/:seriesId/edit" element={flags.organiserEditorV2 ? <ToEditor /> : lazyScreen(<R4EditNight />, 'tab', toEvent)} />
+          {flags.organiserEditorV2 && <Route path="events/:seriesId/tickets" element={lazyScreen(<TicketsV2 />, 'tab', toEvent)} />}
+          {flags.organiserEditorV2 && <Route path="events/:seriesId/night/:occurrenceId" element={<ToEditor />} />}
           <Route path="events/:seriesId/raffle" element={lazyScreen(<R4Raffle />, 'tab', toEvent)} />
           <Route path="events/:seriesId/dates" element={lazyScreen(<AllDatesScreen />, 'tab', toEvent)} />
           <Route path="events/:seriesId/details" element={lazyScreen(<DetailsScreen />, 'tab', toEvent)} />
