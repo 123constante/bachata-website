@@ -1,4 +1,5 @@
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { QrCode } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { Card, EmptyState, GhostButton } from '@/modules/organiser/ui';
 import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
@@ -12,6 +13,8 @@ import { MoonArt } from '../art';
 import { ScreenTitle, SectionTitle } from '../blocks';
 import { DateBlock, StatusPill } from './nightsUi';
 import { FIND_A_NIGHT } from '../../copy/sharedCopy';
+import type { MyTicket } from '@/modules/tickets/myTicketsModel';
+import { NIGHTS_TICKET_QR_ENABLED, ticketsByNight } from './nightsTicket';
 
 /**
  * Going P2: the nights the person said I'm going to (get_my_going_v1), in the
@@ -53,9 +56,11 @@ const NIGHTS_GOING_LOADING: NightsGoing = {
 };
 
 const NightsGoingFeed = lazyWithRetry(() => import('./nightsGoing'));
+/** Ticket QR (flag VITE_ENABLE_NIGHTS_TICKET_QR): the ticket read and the QR sheet, one lazy chunk. */
+const NightTicketQr = lazyWithRetry(() => import('./NightTicketQr'));
 
 /** `rate`: this row carries its series' level vote (one per series, review N10: the vote is series-wide). */
-const NightRow = ({ night, profileComplete, focused, rate }: { night: NightRowData; profileComplete: boolean; focused: boolean; rate: boolean }) => {
+const NightRow = ({ night, profileComplete, focused, rate, onQr }: { night: NightRowData; profileComplete: boolean; focused: boolean; rate: boolean; onQr?: () => void }) => {
   const ref = useRef<HTMLLIElement | null>(null);
   const note = night.note;
   useEffect(() => {
@@ -94,6 +99,17 @@ const NightRow = ({ night, profileComplete, focused, rate }: { night: NightRowDa
           </div>
         )}
       </div>
+      {onQr && (
+        <button
+          type="button"
+          data-testid="night-qr"
+          aria-label={`Show ticket QR code for ${night.name}`}
+          onClick={onQr}
+          className="grid h-[44px] w-[44px] shrink-0 place-items-center self-center rounded-[12px] border border-[var(--line)] bg-[var(--card)] text-[var(--fg)]"
+        >
+          <QrCode size={22} aria-hidden="true" />
+        </button>
+      )}
     </li>
   );
 };
@@ -105,6 +121,10 @@ const NightsView = ({ going }: { going: NightsGoing }) => {
   const focus = params.get('focus');
   const complete = profile.data?.complete === true;
   // One focused row: the most recent past night of that series.
+  const qrOn = NIGHTS_TICKET_QR_ENABLED && nights.upcoming.length > 0;
+  const [allTickets, setAllTickets] = useState<MyTicket[]>([]);
+  const [qrFor, setQrFor] = useState<NightRowData | null>(null);
+  const byNight = useMemo(() => (qrOn ? ticketsByNight(nights.upcoming, allTickets) : new Map<string, MyTicket[]>()), [qrOn, nights.upcoming, allTickets]);
   const focusedKey = focus ? nights.past.find((n) => n.seriesId === focus) : undefined;
 
   return (
@@ -142,7 +162,7 @@ const NightsView = ({ going }: { going: NightsGoing }) => {
               ) : (
                 <ul className="m-0 list-none divide-y divide-[var(--line)] p-0">
                   {nights.upcoming.map((n, i) => (
-                    <NightRow key={n.occurrenceId} night={n} profileComplete={complete} focused={false} rate={false} />
+                    <NightRow key={n.occurrenceId} night={n} profileComplete={complete} focused={false} rate={false} onQr={byNight.has(n.occurrenceId) ? () => setQrFor(n) : undefined} />
                   ))}
                 </ul>
               )}
@@ -171,6 +191,16 @@ const NightsView = ({ going }: { going: NightsGoing }) => {
             </Card>
           </section>
         </>
+      )}
+      {qrOn && (
+        <Suspense fallback={null}>
+          <NightTicketQr
+            onTickets={setAllTickets}
+            night={qrFor}
+            tickets={qrFor ? byNight.get(qrFor.occurrenceId) ?? [] : []}
+            onClose={() => setQrFor(null)}
+          />
+        </Suspense>
       )}
     </div>
   );
