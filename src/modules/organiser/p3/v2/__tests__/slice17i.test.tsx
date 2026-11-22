@@ -15,7 +15,6 @@ vi.mock('../../../shared/publicVenues', () => ({ useVenueOptions: () => ({ data:
 vi.mock('../../../events/media', () => ({ uploadEventPicture: vi.fn(async () => 'https://x.test/new.jpg') }));
 vi.mock('@/lib/londonDate', async (orig) => ({ ...((await orig()) as object), londonTodayKey: () => '2026-11-22' }));
 import { NightCard } from '../NightCard';
-import { undoPlan } from '../saveNow';
 
 const SERIES = 'https://x.test/series.jpg';
 const date = (over: Partial<WorkspaceDate> = {}) => ({ id: 'o1', occurrence_date: '2026-11-26', version: 3, lifecycle_status: 'scheduled', has_override: false, override_keys: [], session_overrides_count: 0, added_sessions_count: 0, ...over }) as WorkspaceDate;
@@ -29,41 +28,20 @@ const card = (d = date(), w = ws()) => {
   return { onSave, onBack };
 };
 const open = async () => { await screen.findByText('Thursdays'); await waitFor(() => expect(screen.getByTestId('fact-flyer')).toBeTruthy()); fireEvent.click(screen.getByTestId('fact-flyer')); };
-const removeAndRead = async (prior: string | null) => {
-  net.detail.mockResolvedValue(detail({ coverImageOverride: prior, coverImageUrl: prior ?? SERIES }));
-  const { onSave } = card();
-  await open();
-  fireEvent.click(screen.getByTestId('flyer-remove'));
-  await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
-  return onSave.mock.calls[0] as unknown as [Step[], Record<string, unknown>[], string];
-};
 beforeEach(() => net.detail.mockReset().mockResolvedValue(detail()));
 afterEach(cleanup);
 
-describe('slice 17i: remove the flyer for one night', () => {
-  it('Remove shows on a night with a flyer, not on one without', async () => {
+describe('slice 17i: flyer is required, no remove button',() => {
+  it('night sheet has no Remove with or without a flyer; shows the required line only without', async () => {
     card();
     await open();
-    expect(screen.getByTestId('flyer-remove').textContent).toBe('Remove the flyer');
+    expect(screen.queryByTestId('flyer-remove')).toBeNull();
+    expect(screen.queryByTestId('flyer-required')).toBeNull();
     cleanup();
     card(date(), ws(null));
     await open();
     expect(screen.queryByTestId('flyer-remove')).toBeNull();
-  });
-  it('Remove sends cover_image_url "" for the night, before = prior override, one-night label', async () => {
-    const [steps, before, label] = await removeAndRead(null);
-    expect(steps).toHaveLength(1);
-    expect(steps[0]).toMatchObject({ target: 'occurrence', id: 'o1', command: { kind: 'occurrence.set_override', payload: { cover_image_url: '' } } });
-    expect(before).toEqual([{ cover_image_url: null }]);
-    expect(label).toBe('Saved for Thursday 26 November only');
-  });
-  it('Undo of a removal inherits (null prior) or restores the exact own flyer', async () => {
-    const [s1, b1] = await removeAndRead(null);
-    expect(undoPlan(s1 as never, b1 as never)?.[0].command.payload).toEqual({ cover_image_url: null });
-    cleanup(); net.detail.mockReset();
-    const [s2, b2] = await removeAndRead('https://x.test/own.jpg');
-    expect(b2).toEqual([{ cover_image_url: 'https://x.test/own.jpg' }]);
-    expect(undoPlan(s2 as never, b2 as never)?.[0].command.payload).toEqual({ cover_image_url: 'https://x.test/own.jpg' });
+    expect(screen.getByTestId('flyer-required').textContent).toBe('A flyer is required to continue.');
   });
   it('choosing a new flyer still sends the url', async () => {
     const { onSave } = card();
