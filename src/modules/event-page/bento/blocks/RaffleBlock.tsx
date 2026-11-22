@@ -125,7 +125,7 @@ function Cabinet({ spinPhase, prizeFull, winnerName, marquee, youreIn }: {
           ))}
         </div>
         <div className={`rsb-reel-flash${spinPhase === 'landed' ? ' show' : ''}`} aria-hidden="true">
-          <span>You&rsquo;re in the draw!</span>
+          <span>You&rsquo;re in!</span>
         </div>
         {youreIn && (
           <div className="rsb-youre-in" role="status" data-testid="raffle-youre-in">
@@ -403,10 +403,10 @@ const RaffleBlockLegacy = ({ eventId }: { eventId: string | null }) => {
                 {entered ? (
                   <div className="rsb-chip" role="status">
                     <span className="rsb-chip-ico" aria-hidden="true" />
-                    You&rsquo;re entered &#8212; good luck
+                    You&rsquo;re in
                   </div>
                 ) : (
-                  <p className="rsb-status"><b>Entries closed</b> &#8212; winner drawn soon</p>
+                  <p className="rsb-status"><b>Entries closed</b> &#8212; winners are drawn soon</p>
                 )}
               </div>
             )}
