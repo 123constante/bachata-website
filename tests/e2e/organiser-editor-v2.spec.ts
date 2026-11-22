@@ -224,6 +224,8 @@ row({ n: 80, label: 'Keep the current repeat', st: 'changedVenue', pre: askRepea
 row({ n: 113, label: 'Escape closes a sheet, nothing saved', st: 'weekly', pre: (p) => tap(p, /^Where/), act: async (p) => { await p.keyboard.press('Escape'); }, expect: async (p) => { await sheetGone(p); await expect(toast(p)).toHaveCount(0); } });
 row({ n: 113.1, label: 'scrim tap closes a sheet, nothing saved', st: 'weekly', pre: (p) => tap(p, /^Where/), act: async (p) => { await p.mouse.click(195, 40); }, expect: async (p) => { await sheetGone(p); await expect(toast(p)).toHaveCount(0); } });
 
+row({ n: 1, label: '<- Events (first screen)', st: 'weekly', act: (p) => p.locator('.ev2 button, .ev2 a').filter({ hasText: /Events|←|Back/ }).first().click(), expect: async (p) => { expect(route(p)).not.toMatch(/\/events\/[^/]+$/); } });
+row({ n: 18, label: 'Raffle row opens the raffle', st: 'weekly', act: (p) => tap(p, /^Raffle/), expect: async (p) => { await expect(p.getByRole('dialog').first()).toBeVisible(); } });
 for (const r of ROWS) {
   const name = `row ${r.n} ${r.label} [${r.st}]`;
   const fn = r.fixme && /UNBUILT|fake has no/.test(r.fixme) ? test.fixme : test;
