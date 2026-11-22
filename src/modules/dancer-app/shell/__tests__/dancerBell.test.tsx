@@ -32,7 +32,8 @@ vi.mock('@/modules/tickets/myTicketsApi', () => ({
 }));
 
 import DancerBell from '../DancerBell';
-import { badgeText, loadRead, rateAlert, readKey, ticketAlerts } from '../bellAlerts';
+import { badgeText, bellRateTitle, loadRead, rateAlert, readKey, ticketAlerts } from '../bellAlerts';
+import { nudgeTitle } from '../../screens/home/RateNudge';
 import { renderInShell, resetShell } from '../renderInShell';
 import { FAKE_USER_ID } from '../../api/fixtures';
 
@@ -100,6 +101,9 @@ describe('model', () => {
   });
   it('ticket: a night dated tomorrow gives nothing', () => {
     expect(ticketAlerts([night({ date: '2026-11-23' })] as never, [ticket({ date: '2026-11-23' })] as never, TODAY, at('2026-11-22T12:00:00Z'))).toHaveLength(0);
+  });
+  it('rate title is the one RateNudge shows', () => {
+    for (const d of ['2026-11-21', '2026-11-18', '2026-11-16']) expect(bellRateTitle(d, TODAY)).toBe(nudgeTitle(d, TODAY));
   });
   it('rate: id, title and path from the one candidate; nothing without one', () => {
     const a = rateAlert(night({ past: true, date: '2026-11-21', status: 'ended' }) as never, TODAY);

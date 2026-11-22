@@ -1,7 +1,7 @@
-import { londonMinutesOfDay } from '@/lib/londonDate';
+import { londonDaysBetweenKeys, londonMinutesOfDay } from '@/lib/londonDate';
 import type { MyTicket } from '@/modules/tickets/myTicketsModel';
-import { nudgeTitle } from '../screens/home/RateNudge';
-import { nightsPath, type Night } from '../screens/nights/nightsModel';
+import { nightsPath, shortDate } from '../screens/nights/nightsDates';
+import type { Night } from '../screens/nights/nightsModel';
 import { ticketsForNight } from '../screens/nights/nightsTicket';
 
 /**
@@ -19,6 +19,14 @@ export const BELL_ERROR_LINE = 'Couldn’t load alerts. Try again';
 export type BellAlert =
   | { id: string; kind: 'ticket'; title: string; line: string; occurrenceId: string; nightName: string; nightDate: string | null }
   | { id: string; kind: 'rate'; title: string; line: string; to: string };
+
+/**
+ * The same title RateNudge's nudgeTitle gives ("Rate last night", else "Rate Sat 10 Oct"). Restated
+ * here, not imported: RateNudge.tsx lives in the dancer-app chunk, and a lazy chunk importing it makes
+ * src/modules/dancer-app/dancer-app.tsx a non-entry chunk (bundle-budget). The test pins the two equal.
+ */
+export const bellRateTitle = (dateKey: string | null, todayKey: string): string =>
+  dateKey && londonDaysBetweenKeys(dateKey, todayKey) === 1 ? 'Rate last night' : `Rate ${shortDate(dateKey)}`;
 
 export const ticketAlertId = (orderId: string, dateKey: string): string => `ticket:${orderId}:${dateKey}`;
 export const rateAlertId = (seriesId: string, dateKey: string): string => `rate:${seriesId}:${dateKey}`;
@@ -55,7 +63,7 @@ export const rateAlert = (night: Night | null, todayKey: string): BellAlert | nu
     ? {
         id: rateAlertId(night.seriesId, night.date),
         kind: 'rate',
-        title: nudgeTitle(night.date, todayKey),
+        title: bellRateTitle(night.date, todayKey),
         line: `${night.name} · how was the level?`,
         to: nightsPath(night.seriesId),
       }

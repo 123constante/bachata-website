@@ -11,7 +11,6 @@ import type { MyTicket } from '@/modules/tickets/myTicketsModel';
 import { useMyNights } from '../screens/nights/useMyNights';
 import { nudgeCandidates, type Night } from '../screens/nights/nightsModel';
 import { ticketsForNight } from '../screens/nights/nightsTicket';
-import { Sheet } from '../screens/options/optionsUi';
 import {
   BELL_EMPTY_LINE, BELL_ERROR_LINE, badgeText, bellAlerts, bellLabel, loadRead, pruneRead, rateAlert, saveRead, ticketAlerts, unreadCount,
   type BellAlert,
@@ -140,6 +139,10 @@ const DancerBell = () => {
     };
   }, [open, close]);
 
+  const closeQr = () => {
+    setQr(null);
+    button.current?.focus();
+  };
   const markRead = (id: string) => {
     if (!userId) return;
     const next = new Set(read);
@@ -205,11 +208,27 @@ const DancerBell = () => {
         </div>
       )}
       {qr && (
-        <Sheet title={qr.name} testId="bell-qr-sheet" onClose={() => { setQr(null); button.current?.focus(); }}>
-          <Suspense fallback={null}>
-            <NightQrBody key={qr.occurrenceId} night={qr} tickets={qrTickets} />
-          </Suspense>
-        </Sheet>
+        // Its own small overlay, not the options Sheet: that lives in the dancer-app chunk, and a lazy
+        // chunk importing it breaks the dancer-app.tsx entry key the bundle-budget check looks for.
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={qr.name}
+          data-testid="bell-qr-sheet"
+          style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,.55)', display: 'grid', placeItems: 'end center' }}
+          onClick={(e) => { if (e.target === e.currentTarget) closeQr(); }}
+          onKeyDown={(e) => { if (e.key === 'Escape') closeQr(); }}
+        >
+          <div style={{ width: 'min(480px, 100%)', maxHeight: '90vh', overflow: 'auto', background: 'var(--card, #fff)', color: 'var(--fg, inherit)', borderRadius: '20px 20px 0 0', padding: 16, paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
+            <h2 className="m-0 mb-[8px] text-center text-[16px]">{qr.name}</h2>
+            <Suspense fallback={null}>
+              <NightQrBody key={qr.occurrenceId} night={qr} tickets={qrTickets} />
+            </Suspense>
+            <button type="button" autoFocus className="da-tap mt-[12px] w-full rounded-[12px] border border-[var(--line)] p-[10px] text-[14px]" onClick={closeQr} data-testid="bell-qr-close">
+              Close
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
