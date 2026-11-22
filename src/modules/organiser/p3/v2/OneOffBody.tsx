@@ -6,6 +6,7 @@ import { fetchOrganiserPages } from '../../events/programmeSeriesApi';
 import { lifecycleCommand, upsertCommand, type OwnerCommand } from '../../shared/seriesCommands';
 import { V2 } from './copy';
 import type { WriteStep } from './editorModel';
+import { organisersPayload } from './editorModel';
 import type { OnSave } from './WhenSheet';
 import { savedLabel } from './WhereSheet';
 import { NameSheet } from './NameSheet';
@@ -54,7 +55,7 @@ export function OneOffBody({ ws, saveNow, busy, onOpenTickets }: { ws: EventWork
   };
   const saveOrgs = async (command: OwnerCommand) => {
     const step: WriteStep = { part: E.organisers, target: 'series', id: s.id, version: s.version, command, order: 1 };
-    const r = await saveNow([step], [{ organiser_ids: ws.organiserIds }], label);
+    const r = await saveNow([step], [organisersPayload(ws.organiserIds)], label);
     if (r.ok) setSheet(null);
   };
   const setLife = async (to: 'paused' | 'live', toast: string) => {

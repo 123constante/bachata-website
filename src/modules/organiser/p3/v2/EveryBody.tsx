@@ -34,7 +34,7 @@ import { endRunCommand, tonightDate } from '../../events/eventModel';
 import { EndCard, type LifeState } from './EndCard';
 import { StatusSheet, CancelEventSheetV2, type TodayAnswer } from './StatusSheets';
 import { cancelCommand, uncancelCommand } from '../../shared/seriesCommands';
-import { upcomingOf } from './editorModel';
+import { upcomingOf, organisersPayload } from './editorModel';
 import { dateDetailQueryKey, fetchDateDetail } from '../../shared/selfServeApi';
 
 const E = V2.every;
@@ -108,7 +108,7 @@ export function EveryBody({ ws, day, saveNow, busy, onOpenTickets }: { ws: Event
   const saveMusic = async (styles: string[]) => { await send(E.music, { default_music_styles: styles }, { default_music_styles: ws.musicStyles ?? [] }); };
   const saveOrgs = async (command: OwnerCommand, _ids: string[]) => {
     const step: WriteStep = { part: E.organisers, target: 'series', id: s.id, version: s.version, command, order: 1 };
-    const r = await saveNow([step], [{ organiser_ids: ws.organiserIds }], label);
+    const r = await saveNow([step], [organisersPayload(ws.organiserIds)], label);
     if (r.ok) setSheet(null);
   };
   const ruleDay = (() => { const w = ownerWeeklyRule(s)?.weekdays[0]; return typeof w === 'number' ? w : Math.max(0, WEEKDAY_NAMES.indexOf(day)); })();

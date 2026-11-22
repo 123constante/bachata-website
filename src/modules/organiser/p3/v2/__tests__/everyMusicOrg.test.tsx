@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { EventWorkspace } from '../../../events/eventModel';
+import { organisersPayload } from '../editorModel';
 
 const role = vi.hoisted(() => ({ v: { role: 'owner', loading: false, myPages: [] as unknown[] } }));
 vi.mock('../../../shared/publicVenues', () => ({ useVenueOptions: () => ({ data: [], isPending: false }) }));
@@ -76,8 +77,8 @@ describe('Organisers sheet', () => {
     const [steps, before, label] = save.mock.calls[0] as unknown as Call;
     expect(steps[0]).toMatchObject({ part: 'Organisers', target: 'series', id: 's1', version: 7, order: 1 });
     expect(steps[0].command.kind).toBe('series.set_organisers');
-    expect(steps[0].command.payload).toEqual({ organiser_ids: ['a', 'b', 'c'] });
-    expect(before).toEqual([{ organiser_ids: ['a', 'b'] }]);
+    expect(steps[0].command.payload).toEqual(organisersPayload(['a', 'b', 'c']));
+    expect(before).toEqual([organisersPayload(['a', 'b'])]);
     expect(label).toBe('Saved for every Thursday');
   });
   it('remove then Done saves the list without it; last organiser has no x', async () => {
@@ -88,7 +89,7 @@ describe('Organisers sheet', () => {
     expect(screen.getByText('An event needs at least one organiser.')).toBeTruthy();
     fireEvent.click(screen.getByTestId('org-done'));
     await waitFor(() => expect(save).toHaveBeenCalled());
-    expect((save.mock.calls[0] as unknown as Call)[0][0].command.payload).toEqual({ organiser_ids: ['b'] });
+    expect((save.mock.calls[0] as unknown as Call)[0][0].command.payload).toEqual(organisersPayload(['b']));
   });
   it('no addable page shows the hint; unchanged Done saves nothing', () => {
     const save = mount(); open('row-organisers');

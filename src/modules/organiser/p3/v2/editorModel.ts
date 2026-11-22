@@ -305,3 +305,6 @@ export function inverseOf(step: WriteStep, before: StepBefore | null | undefined
       return null;
   }
 }
+
+/** The series.set_organisers payload / before-snapshot (admin RPC contract key). Callers outside the allow-listed files build it here. */
+export const organisersPayload = (ids: string[]): { organiser_ids: string[] } => ({ organiser_ids: ids });
