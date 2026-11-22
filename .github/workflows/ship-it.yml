@@ -220,6 +220,9 @@ jobs:
             check_or_stop
           fi
 
+          # Re-read the pause switch right before arming (it can flip during the update-branch wait). Fail closed.
+          node scripts/automation-pause.mjs >/dev/null 2>&1 || fail "automation was paused (or the switch was unreadable) just before arming."
+
           # Label first, then arm. Arming fails: remove the label, comment, red run.
           gh label create ship-it --repo "$REPO" --color 0E8A16 --description "owner said ship it: auto-merge armed" 2>/dev/null || true
           gh pr edit "$PR" --repo "$REPO" --add-label ship-it >/dev/null
