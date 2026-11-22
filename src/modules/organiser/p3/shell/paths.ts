@@ -33,6 +33,9 @@ export const P3_PATHS = {
   eventAll: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/all`,
   /** R4: the one-form Edit night and the Raffle page of the next night. */
   eventEdit: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/edit`,
+  /** Editor v2 (flag organiserEditorV2): one night's own changes. */
+  eventNight: (seriesId: string, occurrenceId: string) =>
+    `${P3_BASE}/events/${encodeURIComponent(seriesId)}/night/${encodeURIComponent(occurrenceId)}`,
   eventRaffle: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/raffle`,
   /** One event's All dates (W2b). */
   eventDates: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/dates`,

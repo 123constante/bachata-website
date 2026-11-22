@@ -47,7 +47,7 @@ describe('parsing', () => {
   });
   it('maps entries; Every week, waitlist, team and checked in', () => {
     const v = view({ entries: [{ id: 'a', first_name: 'Sol', status: 'waitlist', is_permanent: true, added_via: 'organiser', checked_in_at: '2026-11-13T20:00:00Z' }, { first_name: 'no id' }] });
-    expect(v.entries).toEqual([{ id: 'a', firstName: 'Sol', everyWeek: true, waitlist: true, byTeam: true, checkedIn: true }]);
+    expect(v.entries).toEqual([{ id: 'a', firstName: 'Sol', everyWeek: true, waitlist: true, byTeam: true, checkedIn: true, plusOnes: 0 }]);
   });
   it('every refusal reason the RPCs return has words that say nothing changed or why', () => {
     for (const r of ['not_signed_in', 'night_not_found', 'not_on_team', 'view_only', 'cancelled', 'past', 'bad_capacity', 'bad_cutoff_time', 'name_required', 'name_too_long', 'duplicate_name', 'not_restorable', 'not_on_list', 'not_found', 'other_night']) {
