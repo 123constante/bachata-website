@@ -24,6 +24,8 @@ export type RaffleNight = {
   start: string;
   venue: string | null;
   winnerFirstName: string | null;
+  /** Flyer URL from nights[].poster_url; absent when the board sends none. */
+  posterUrl?: string;
 };
 
 /** Top-level `winners[]` of the board JSON (claimed + visible only, max 12, last 7 days). */
@@ -67,6 +69,7 @@ function parseNight(raw: unknown): RaffleNight | null {
   const rawStart = str(raw.start_local);
   const start = rawStart ? asUtcInstant(rawStart) : null;
   if (!occurrenceId || !publicEventId || !start || Number.isNaN(Date.parse(start))) return null;
+  const posterUrl = str(raw.poster_url);
   return {
     occurrenceId,
     publicEventId,
@@ -74,6 +77,7 @@ function parseNight(raw: unknown): RaffleNight | null {
     start,
     venue: str(raw.venue_name),
     winnerFirstName: str(raw.winner_first_name),
+    ...(posterUrl ? { posterUrl } : {}),
   };
 }
 
