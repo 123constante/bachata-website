@@ -19,6 +19,9 @@ const ELL = '\u2026';
 export interface MyTicket {
   orderId: string;
   seriesId: string | null;
+  /** The public event id (my_tickets_v1 event_id); NOT seriesId. */
+  eventId: string | null;
+  occurrenceId: string | null;
   title: string;
   /** "YYYY-MM-DD", or null for a series-wide ticket with no scheduled night. */
   date: string | null;
@@ -86,6 +89,8 @@ export function parseMyTickets(data: unknown): MyTicketsReply | null {
       orderId,
       ticketId,
       seriesId: str(r.event_series_id),
+      eventId: str(r.event_id),
+      occurrenceId: str(r.occurrence_id),
       title: str(r.event_title) ?? 'Event',
       date: date && DATE_RE.test(date) ? date : null,
       startTime: time && TIME_RE.test(time) ? time : null,
