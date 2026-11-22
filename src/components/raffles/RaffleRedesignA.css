@@ -1,5 +1,5 @@
 /* /raffles redesign part A (look C v6). Scoped .rd-*; mobile-first, gutters >= 16px. */
-.rd-root{--rd-bg:#050404;--rd-ink:#FBF4EA;--rd-muted:#A99C88;--rd-line:#32271A;--rd-acc:#FFA600;--rd-hot:#FFD58A;--rd-on:#150B00;--rd-disp:Georgia,'Times New Roman',serif;position:relative;background:var(--rd-bg);color:var(--rd-ink);overflow-x:hidden;padding-bottom:calc(108px + env(safe-area-inset-bottom,0px))}
+.rd-root{--rd-bg:#050404;--rd-ink:#FBF4EA;--rd-muted:#A99C88;--rd-line:#32271A;--rd-acc:#FFA600;--rd-hot:#FFD58A;--rd-on:#150B00;--rd-disp:Georgia,'Times New Roman',serif;position:relative;background:var(--rd-bg);color:var(--rd-ink);overflow-x:hidden;padding-bottom:calc(150px + env(safe-area-inset-bottom,0px))}
 .rd-wrap{max-width:720px;margin-inline:auto;padding-inline:16px}
 .rd-hero{position:relative;overflow:hidden;text-align:center;min-height:420px;display:grid;place-items:center;padding:28px 0 84px;background:radial-gradient(120% 70% at 50% 0,#2A1A05 0,transparent 70%)}
 .rd-beam{position:absolute;top:-6%;width:70%;height:118%;background:linear-gradient(180deg,rgba(255,176,40,.38),rgba(255,166,0,.08) 60%,transparent 88%);clip-path:polygon(46% 0,54% 0,100% 100%,0 100%);transform-origin:50% 0;filter:blur(7px);mix-blend-mode:screen;pointer-events:none}
@@ -35,7 +35,7 @@
 .rd-foot{margin-top:40px;text-align:center;color:var(--rd-muted);font-size:14px}
 .rd-foot nav{display:flex;flex-wrap:wrap;justify-content:center;gap:2px}
 .rd-foot a{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;text-decoration:underline;text-underline-offset:4px;text-decoration-color:var(--rd-line);color:inherit}
-.rd-bar{position:fixed;left:0;right:0;bottom:0;z-index:40;background:rgba(12,9,6,.8);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-top:1px solid var(--rd-line);padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px))}
+.rd-bar{position:fixed;left:0;right:0;bottom:0;z-index:40;background:rgba(12,9,6,.97);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-top:1px solid var(--rd-line);padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px))}
 .route-shell:has(.rd-root){filter:none!important;transform:none!important}
 .rd-bar-in{display:flex;align-items:center;gap:12px;max-width:688px;margin-inline:auto;min-height:56px}
 .rd-bar-txt{flex:1;min-width:0;font-size:12.5px;line-height:1.3;color:var(--rd-muted)}
@@ -55,7 +55,7 @@
 .rd-medal-silver{border-color:#B9BFC7;background:linear-gradient(160deg,#2B2E33,#130E09 70%)}
 .rd-medal-bronze{border-color:#B8742E;background:linear-gradient(160deg,#35200C,#130E09 70%)}
 /* Part B2: entry sheet (Radix portal, so not under .rd-root). Look only. */
-.rd-sheet{top:auto!important;bottom:var(--rd-kb,0px)!important;left:50%!important;translate:none!important;transform:translateX(-50%)!important;width:100%;max-height:calc(100dvh - var(--rd-kb,0px) - 8px);overflow-y:auto;border:0!important;border-top:1px solid #32271A!important;border-radius:20px 20px 0 0!important;background:#050404!important;color:#FBF4EA!important;padding-bottom:env(safe-area-inset-bottom,0px)}
+.rd-sheet{top:auto!important;bottom:var(--rd-kb,0px)!important;left:50%!important;translate:none!important;transform:translateX(-50%)!important;width:100%;max-height:calc(100dvh - var(--rd-kb,0px) - 68px);overflow-y:auto;border:0!important;border-top:1px solid #32271A!important;border-radius:20px 20px 0 0!important;background:#050404!important;color:#FBF4EA!important;padding-bottom:env(safe-area-inset-bottom,0px)}
 .rd-sheet h2{color:#FFD58A!important;font:italic 900 22px/1.1 Georgia,'Times New Roman',serif}
 .rd-sheet p,.rd-sheet label,.rd-sheet div{color:inherit}
 .rd-sheet [id^="radix-"][class*="A59474"],.rd-sheet [class*="A59474"]{color:#A99C88!important}
@@ -69,7 +69,7 @@
 .rd-pick{margin-top:8px}
 .rd-car{list-style:none;margin:0 -16px;padding:4px 16px 12px;display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-padding-inline:16px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .rd-car::-webkit-scrollbar{display:none}
-.rd-card{flex:none;width:min(64vw,170px);scroll-snap-align:start;display:flex;flex-direction:column;align-items:center;gap:10px}
+.rd-card{flex:none;width:min(calc(100vw - 64px),320px);scroll-snap-align:start;display:flex;flex-direction:column;align-items:center;gap:10px}
 .rd-flyer{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:12px;border:1px solid var(--rd-line);display:block}
 .rd-flyer-tile{display:grid;place-items:center;background:radial-gradient(circle at 50% 30%,#3A2608,#130E09 75%);font:italic 900 40px/1 var(--rd-disp);color:var(--rd-hot)}
 .rd-card-name{margin:0;font-size:14px;font-weight:700;text-align:center;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}

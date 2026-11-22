@@ -7,10 +7,10 @@
 // RaffleEntryDialog.
 // =============================================================================
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useRaffleBoard } from '@/hooks/useRaffleBoard';
-import { nightsWithWinner, thisWeeksWinners } from '@/lib/raffleBoard';
+import { nightsWithWinner } from '@/lib/raffleBoard';
 import { isRafflePoolJoined, markRafflePoolJoined } from '@/lib/raffleSession';
 import { ACCOUNT_CONTACT_EMAIL } from '@/lib/accountDeletionCopy';
 import { RaffleEntryDialog } from '@/modules/event-page/bento/modals/RaffleEntryDialog';
@@ -19,12 +19,6 @@ import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { buildSeoForRoute, useSeo } from '@/lib/seo';
 import { RaffleNightCarousel } from './RaffleNightCarousel';
 import './RaffleRedesignA.css';
-
-const fmtNight = (iso: string): string => {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/London' }).format(d);
-};
 
 const MEDALS = ['gold', 'silver', 'bronze'] as const;
 const STEPS = ['Pick a night', 'Add your phone', 'Win a free entry'];
@@ -59,7 +53,6 @@ export const RaffleRedesignA = () => {
     return () => { vv.removeEventListener('resize', sync); vv.removeEventListener('scroll', sync); root.style.removeProperty('--rd-kb'); };
   }, [dialogOpen]);
 
-  const winners = useMemo(() => (board ? thisWeeksWinners(board, new Date()) : []), [board]);
   const openNights = board ? board.nights.filter((n) => !n.winnerFirstName) : [];
   // Winners listed from the nights the board lists, never total_winners (counts ~766 attendance pairs on prod).
   const winnersListed = board ? nightsWithWinner(board).length : 0;
@@ -95,7 +88,7 @@ export const RaffleRedesignA = () => {
           </ol>
         </div>
 
-        <main className="rd-wrap rd-main">
+        <div className="rd-wrap rd-main">
           {isError ? (
             <div role="alert" data-testid="raffles-board-error" className="rd-state">
               <p>We couldn&rsquo;t load the raffle board.</p>
@@ -104,42 +97,7 @@ export const RaffleRedesignA = () => {
             </div>
           ) : isLoading || !board ? (
             <div role="status" aria-busy="true" data-testid="raffles-board-loading" className="rd-state">Loading the raffle board&hellip;</div>
-          ) : (
-            <>
-              <section aria-labelledby="rd-week-h">
-                <h2 id="rd-week-h" className="rd-h2">This week&rsquo;s winners</h2>
-                {winners.length === 0 ? (
-                  <p className="text-sm" data-testid="raffles-week-empty">
-                    {board.nights.length === 0
-                      ? 'No raffle nights are open right now. Check back soon, or enter and you will be in when the next one opens.'
-                      : 'No winners yet this week. Enter now and you could be next.'}
-                  </p>
-                ) : (
-                  <ul className="rd-list" data-testid="raffles-week-list">
-                    {winners.map((n) => (
-                      <li key={n.occurrenceId} className="rd-row">
-                        <b>{n.winnerFirstName}</b> &mdash; {n.title} &middot; {fmtNight(n.start)}
-                        {n.venue ? <> &middot; {n.venue}</> : null}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-              {openNights.length > 0 ? (
-                <section aria-labelledby="rd-open-h" data-testid="raffles-open-nights">
-                  <h2 id="rd-open-h" className="rd-h2">Nights you can win</h2>
-                  <ul className="rd-list">
-                    {openNights.map((n) => (
-                      <li key={n.occurrenceId} className="rd-row">
-                        {fmtNight(n.start)} &middot; {n.title}
-                        {n.venue ? <> &middot; {n.venue}</> : null}
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ) : null}
-            </>
-          )}
+          ) : null}
           {board && openNights.length > 0 ? (
             <RaffleNightCarousel
               nights={openNights}
@@ -164,7 +122,7 @@ export const RaffleRedesignA = () => {
               </ul>
             </section>
           ) : null}
-        </main>
+        </div>
 
         <footer className="rd-wrap rd-foot">
           <nav aria-label="Footer">
