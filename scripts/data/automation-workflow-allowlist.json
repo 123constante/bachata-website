@@ -15,6 +15,5 @@
   "autopilot.yml",
   "automation-pause-guard.yml",
   "preview-shots.yml",
-  "pr-auto-rebase.yml",
-  "ship-it.yml"
+  "pr-auto-rebase.yml"
 ]
