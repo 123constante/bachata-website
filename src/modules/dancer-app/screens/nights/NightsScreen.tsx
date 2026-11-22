@@ -1,5 +1,4 @@
 import { Suspense, useEffect, useRef, useState } from 'react';
-import { QrCode } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { Card, EmptyState, GhostButton } from '@/modules/organiser/ui';
 import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
@@ -109,7 +108,12 @@ const NightRow = ({ night, profileComplete, focused, rate, onQr }: { night: Nigh
           onClick={onQr}
           className="grid h-[44px] w-[44px] shrink-0 place-items-center self-center rounded-[12px] border border-[var(--line)] bg-[var(--card)] text-[var(--fg)]"
         >
-          <QrCode size={22} aria-hidden="true" />
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect width="5" height="5" x="3" y="3" rx="1" />
+            <rect width="5" height="5" x="16" y="3" rx="1" />
+            <rect width="5" height="5" x="3" y="16" rx="1" />
+            <path d="M21 16h-3a2 2 0 0 0-2 2v3M21 21v.01M12 7v3a2 2 0 0 1-2 2H7M3 12h.01M12 3h.01M12 16v.01M16 12h1M21 12v.01M12 21v-1" />
+          </svg>
         </button>
       )}
     </li>
