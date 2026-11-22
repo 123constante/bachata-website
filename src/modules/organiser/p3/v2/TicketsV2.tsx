@@ -12,10 +12,10 @@ import type { EventWorkspace } from '../../events/eventModel';
 import { weekdayName } from '../../events/eventModel';
 import { fullDate } from '../../shared/dateWords';
 import { londonTodayKey } from '@/lib/londonDate';
-import { formatPence, NOT_SWITCHED_ON, stripeStateOf, type StripeState } from '../../tickets/ticketModel';
+import { formatPence, NOT_SWITCHED_ON, type StripeState } from '../../tickets/ticketModel';
 import type { ManagedType } from '../../tickets/priceSteps';
 import { useManagedTypes, useSeriesTypes, useStartOnboarding, useStripe, useSummary } from '../tickets/data';
-import { returnKindOf } from '../tickets/connectReturn';
+import { returnKindOf, useConnectReturn, type ReturnKind } from '../tickets/connectReturn';
 import { WorkspaceGate } from '../screens/EventPage';
 import { P3_PATHS } from '../shell/paths';
 import { upcomingOf } from './editorModel';
@@ -126,6 +126,18 @@ export function ticketLine(pricePence: number, m: Pick<ManagedType, 'steps'> | u
 
 let plainSeq = 1_000_000;
 
+/** Ticket types THIS screen paused when the person switched away from selling here (never a type paused by hand). */
+const pausedKey = (seriesId: string) => `v2-paused-by-switch:${seriesId}`;
+const readPausedBySwitch = (seriesId: string): Set<string> => {
+  try { const v = JSON.parse(sessionStorage.getItem(pausedKey(seriesId)) ?? '[]') as unknown; return new Set(Array.isArray(v) ? (v as string[]) : []); } catch { return new Set(); }
+};
+const writePausedBySwitch = (seriesId: string, ids: Set<string>) => {
+  try { sessionStorage.setItem(pausedKey(seriesId), JSON.stringify([...ids])); } catch { /* storage blocked: the list lives for this visit only */ }
+};
+type StatusMove = { id: string; from: string; to: 'paused' | 'on_sale' };
+
+interface ChangeOpts { part: string; label: string; payload?: Record<string, unknown>; before?: Record<string, unknown>; pause?: string[]; reopen?: string[]; flag?: boolean }
+
 function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
   const s = ws.series;
   const orgId = ws.organiserIds?.[0];
@@ -141,19 +153,23 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
   const [sheetError, setSheetError] = useState<string | null>(null);
   const [sellingHere, setSellingHere] = useState(false);
   const [switchTo, setSwitchTo] = useState<'door' | 'link' | null>(null);
-  const [stripeWarn, setStripeWarn] = useState(false);
+  const [switchSold, setSwitchSold] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const inFlight = useRef(false);
+  const checking = useRef(false);
   const onboard = useStartOnboarding(orgId ?? '', undefined, `${P3_PATHS.event(s.id)}/tickets`);
   const [params, setParams] = useSearchParams();
-  const back = useRef(returnKindOf(params.get('stripe')));
+  const [backKind, setBackKind] = useState<ReturnKind>(() => returnKindOf(params.get('stripe')));
+  const handled = useRef(false);
   const list = types.data ?? [];
+  const listRef = useRef(list);
+  useEffect(() => { listRef.current = list; });
   const connected = (stripe.state as StripeState | null) === 'connected';
   const payMode = payModeOf({ ticketTypes: list, defaultTicketUrl: s.default_ticket_url, stripeConnected: connected });
   const mode: PayMode = sellingHere && list.length === 0 ? 'here' : payMode;
   const coming = oneOff ? [] : upcomingOf(ws.dates ?? [], londonTodayKey()).slice(0, 6);
   const day = coming[0] ? weekdayName(coming[0].occurrence_date) : '';
   const sales = new Map((summary.data?.ok ? summary.data.types : []).map((t) => [t.id, t]));
-  const soldKnown = !!summary.data?.ok;
-  const soldTotal = list.reduce((n, t) => n + (sales.get(t.id)?.ticketsSold ?? 0), 0);
   const rows: TicketRow[] = list.filter((t) => t.status !== 'closed').map((t) => {
     const sold = sales.get(t.id)?.ticketsSold ?? 0;
     return {
@@ -166,65 +182,98 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
   const T = V2.ticketsPay;
   const say = (text: string, onUndo?: () => void) => { plainSeq += 1; setPlain({ seq: plainSeq, text, onUndo }); };
   const refresh = () => { void qc.invalidateQueries({ queryKey: ticketKeys.all }); };
-  /** Back from Stripe: drop the param, read the account once, then say what happened (SH-STRIPE-02 / 03). */
+  /** Back from Stripe: once the organiser is known, drop the param. `refresh` (expired link) restarts sign-up; `return` is polled below. */
   useEffect(() => {
-    if (!back.current || !orgId) return;
-    back.current = null;
+    if (!backKind || !orgId || handled.current) return;
+    handled.current = true;
     const next = new URLSearchParams(params);
     next.delete('stripe');
     setParams(next, { replace: true });
-    void (async () => {
-      const r = await stripe.query?.refetch();
-      if (r && stripeStateOf(r.data as never) === 'connected') say(T.stripeConnected);
-      else setStripeWarn(true);
-    })();
+    if (backKind === 'refresh') void onboard.go();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  const setStatuses = async (ids: string[], status: 'paused' | 'on_sale') => {
-    for (const id of ids) {
-      const r = await setTicketStatus(id, status);
-      if (!r.ok) throw new Error(r.reason ?? 'failed');
-    }
-  };
+  }, [backKind, orgId]);
+  const ret = useConnectReturn(backKind === 'return' && !!orgId, connected, () => stripe.query?.refetch());
+  /** Only a return that polled to the end still not connected warns; it clears the moment `connected` turns true. */
+  const stripeWarn = backKind === 'return' && ret.phase === 'timeout' && !connected;
+  useEffect(() => {
+    if (backKind === 'return' && connected && handled.current) { setBackKind(null); say(T.stripeConnected); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [backKind, connected]);
   const seriesStep = (part: string, payload: Record<string, unknown>): WriteStep =>
     ({ part, target: 'series', id: s.id, version: s.version, command: upsertCommand({ name: s.name ?? '', ...payload }), order: 1 });
+  const move = async (m: StatusMove) => {
+    const r = await setTicketStatus(m.id, m.to);
+    if (!r.ok) throw new Error(r.reason ?? 'failed');
+  };
+  const trackSwitch = (moves: StatusMove[], undo: boolean) => {
+    const ids = readPausedBySwitch(s.id);
+    for (const m of moves) {
+      const paused = undo ? m.to === 'on_sale' : m.to === 'paused';
+      if (paused) ids.add(m.id); else ids.delete(m.id);
+    }
+    writePausedBySwitch(s.id, ids);
+  };
 
-  /** One pay change: an optional series write, plus ticket types paused / re-opened. Undo puts all of it back. */
-  const change = async (o: { part: string; label: string; payload?: Record<string, unknown>; before?: Record<string, unknown>; pause?: string[]; reopen?: string[]; flag?: boolean }): Promise<boolean> => {
-    const pause = o.pause ?? [];
-    const reopen = o.reopen ?? [];
+  /** One pay change at a time: a second tap while one runs is ignored. */
+  const change = async (o: ChangeOpts): Promise<boolean> => {
+    if (inFlight.current) return false;
+    inFlight.current = true; setBusy(true);
+    try { return await changeOnce(o); } finally { inFlight.current = false; setBusy(false); }
+  };
+
+  /**
+   * One pay change: ticket types paused / re-opened FIRST, the series write LAST, so a failure leaves nothing
+   * half-switched (finished type moves are rolled back). Undo puts back each type's own prior status.
+   */
+  const changeOnce = async (o: ChangeOpts): Promise<boolean> => {
+    const now = new Map(listRef.current.map((t) => [t.id, t.status]));
+    const moves: StatusMove[] = [
+      ...(o.pause ?? []).map((id): StatusMove => ({ id, from: now.get(id) ?? 'on_sale', to: 'paused' })),
+      ...(o.reopen ?? []).map((id): StatusMove => ({ id, from: now.get(id) ?? 'paused', to: 'on_sale' })),
+    ];
     const steps = o.payload ? [seriesStep(o.part, o.payload)] : [];
     const before = o.before ? [{ name: s.name ?? '', ...o.before }] : [];
-    const touchesTypes = pause.length + reopen.length > 0 || o.flag !== undefined;
+    const touchesTypes = moves.length > 0 || o.flag !== undefined;
     setSheetError(null);
+    const done: StatusMove[] = [];
+    const rollBack = async () => {
+      for (const m of [...done].reverse()) { try { await setTicketStatus(m.id, m.from); } catch { /* best effort; the refresh shows the truth */ } }
+    };
     try {
       setPlain(null);
+      if (!touchesTypes && !steps.length) { say(o.label); return true; } // nothing to write: say so, no Undo that would do nothing
       if (!touchesTypes) {
         const r = await saveNow(steps, before, o.label);
         if (!r.ok) { setSheetError(r.error ?? T.notSaved); return false; }
         return true;
       }
+      for (const m of moves) { await move(m); done.push(m); }
       if (steps.length) {
         const r = await saveNow(steps, before, o.label, { noUndo: true });
-        if (!r.ok) { setSheetError(r.error ?? T.notSaved); return false; }
+        if (!r.ok) throw new Error(r.error ?? 'save');
       }
-      await setStatuses(pause, 'paused');
-      await setStatuses(reopen, 'on_sale');
       if (o.flag !== undefined) setSellingHere(o.flag);
+      trackSwitch(done, false);
       refresh();
     } catch {
+      await rollBack();
       refresh();
       setSheetError(T.notSaved);
       say(T.notSaved);
       return false;
     }
     const inverse = steps.length ? undoPlan(steps, before) : [];
-    say(o.label, inverse ? () => {
+    const changed = steps.length > 0 || done.length > 0 || o.flag !== undefined;
+    say(o.label, inverse && changed ? () => {
       void (async () => {
         try {
+          for (const m of [...done].reverse()) {
+            const cur = listRef.current.find((t) => t.id === m.id)?.status;
+            if (cur !== m.to && cur !== m.from) continue; // changed since: leave it alone
+            await move({ id: m.id, from: m.to, to: m.from as StatusMove['to'] });
+          }
           if (inverse.length) { const r = await saveNow(inverse, [], T.undone, { noUndo: true }); if (!r.ok) throw new Error('undo'); }
-          await setStatuses(reopen, 'paused');
-          await setStatuses(pause, 'on_sale');
+          trackSwitch(done, true);
           if (o.flag !== undefined) setSellingHere(!o.flag);
           refresh();
           say(T.undone);
@@ -234,31 +283,50 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
     return true;
   };
 
+  /** A fresh read of what is sold; null when it cannot be read (never decide on a stale count). */
+  const freshSold = async (): Promise<number | null> => {
+    try {
+      const d = (await summary.refetch()).data;
+      if (!d?.ok) return null;
+      return listRef.current.reduce((n, t) => n + (d.types.find((x) => x.id === t.id)?.ticketsSold ?? 0), 0);
+    } catch { return null; }
+  };
+  /** While selling here: re-read sales, then run `ok(sold)`. A failed read says so and acts on nothing. */
+  const guardSold = async (ok: (sold: number) => void | Promise<void>) => {
+    if (mode !== 'here') { await ok(0); return; }
+    if (checking.current || inFlight.current) return;
+    checking.current = true; setBusy(true);
+    let n: number | null;
+    try { n = await freshSold(); } finally { checking.current = false; setBusy(false); }
+    if (n === null) { say(T.notSaved); return; }
+    await ok(n);
+  };
+
   const oldUrl = s.default_ticket_url ?? null;
   const onSale = list.filter((t) => t.status === 'on_sale').map((t) => t.id);
   const paused = list.filter((t) => t.status === 'paused').map((t) => t.id);
-  /** Selling here with sales: leaving needs the Switch sheet. Sales not read yet: unknown, so never switch blind. */
-  const needsSwitch = mode === 'here' && soldKnown && soldTotal > 0;
-  const blind = mode === 'here' && !soldKnown;
+  const toDoor = () => change({ part: T.toastDoor, label: T.toastDoor, payload: oldUrl ? { default_ticket_url: null } : undefined, before: { default_ticket_url: oldUrl }, pause: onSale });
 
   const payDoor = async () => {
-    if (blind) return;
-    if (needsSwitch) { setSheet(null); setSwitchTo('door'); return; }
-    const ok = await change({ part: T.toastDoor, label: T.toastDoor, payload: oldUrl ? { default_ticket_url: null } : undefined, before: { default_ticket_url: oldUrl }, pause: onSale });
-    if (ok) setSheet(null);
+    await guardSold(async (n) => {
+      if (n > 0) { setSheet(null); setSwitchSold(n); setSwitchTo('door'); return; }
+      if (await toDoor()) setSheet(null);
+    });
   };
   const sellHere = async () => {
-    await change({ part: T.toastSell, label: T.toastSell, reopen: paused, flag: list.length === 0 ? true : undefined });
+    const mine = readPausedBySwitch(s.id);
+    await change({ part: T.toastSell, label: T.toastSell, reopen: paused.filter((id) => mine.has(id)), flag: list.length === 0 ? true : undefined });
   };
   const openLink = () => {
-    if (blind) return;
-    if (needsSwitch) { setSheet(null); setSwitchTo('link'); return; }
-    setSheetError(null); setSheet('link');
+    void guardSold((n) => {
+      if (n > 0) { setSheet(null); setSwitchSold(n); setSwitchTo('link'); return; }
+      setSheetError(null); setSheet('link');
+    });
   };
   const doSwitch = async () => {
     const to = switchTo;
     setSwitchTo(null);
-    if (to === 'door') await change({ part: T.toastDoor, label: T.toastDoor, payload: oldUrl ? { default_ticket_url: null } : undefined, before: { default_ticket_url: oldUrl }, pause: onSale });
+    if (to === 'door') await toDoor();
     else if (to === 'link') { setSheetError(null); setSheet('link'); }
   };
   const saveLink = async (url: string) => {
@@ -288,10 +356,10 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
         doorPrice={doorPriceOf(s.passes)} link={s.default_ticket_url ?? null}
         stripeWarn={stripeWarn} stripeBusy={onboard.busy} stripeNote={onboard.note} stripeOff={onboard.switchedOff}
         on={{ stripe: () => { void onboard.go(); }, sellHere: () => { void sellHere(); }, payDoor: () => { void payDoor(); }, link: openLink, doorUsual: () => { setSheetError(null); setSheet('door'); }, howPay: () => setSheet('how') }} />
-      {sheet === 'door' && <DoorSheet price={doorPriceOf(s.passes)} day={oneOff ? null : day} error={sheetError} onDone={(r) => { void saveDoor(r); }} onClose={() => setSheet(null)} />}
-      {sheet === 'link' && <LinkSheet link={oldUrl ?? ''} error={sheetError} onDone={(u) => { void saveLink(u); }} onClose={() => setSheet(null)} />}
-      {sheet === 'how' && <HowPaySheet door={mode === 'door'} hasLink={!!oldUrl} onDoor={() => { void payDoor(); }} onLink={openLink} onClose={() => setSheet(null)} />}
-      {switchTo && <SwitchPaySheet sold={soldTotal} onSwitch={() => { void doSwitch(); }} onKeep={() => setSwitchTo(null)} />}
+      {sheet === 'door' && <DoorSheet busy={busy} price={doorPriceOf(s.passes)} day={oneOff ? null : day} error={sheetError} onDone={(r) => { void saveDoor(r); }} onClose={() => setSheet(null)} />}
+      {sheet === 'link' && <LinkSheet link={oldUrl ?? ''} busy={busy} error={sheetError} onDone={(u) => { void saveLink(u); }} onClose={() => setSheet(null)} />}
+      {sheet === 'how' && <HowPaySheet busy={busy} door={mode === 'door'} hasLink={!!oldUrl} onDoor={() => { void payDoor(); }} onLink={openLink} onClose={() => setSheet(null)} />}
+      {switchTo && <SwitchPaySheet busy={busy} sold={switchSold} onSwitch={() => { void doSwitch(); }} onKeep={() => setSwitchTo(null)} />}
       <V2Toast toast={plain ?? toast} onDone={(q) => { setPlain(null); onToastDone(q); }} />
     </>
   );

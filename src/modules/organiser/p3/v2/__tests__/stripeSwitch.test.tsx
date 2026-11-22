@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { EventWorkspace } from '../../../events/eventModel';
@@ -25,7 +25,7 @@ vi.mock('@/lib/londonDate', async (orig) => ({ ...((await orig()) as object), lo
 vi.mock('../../tickets/data', () => ({
   useStripe: () => ({ state: h.stripeState === 'none' ? 'none' : h.stripeState, query: { refetch: h.refetch } }),
   useSeriesTypes: () => h.types,
-  useSummary: () => h.summary,
+  useSummary: () => ({ ...h.summary, refetch: async () => ({ data: h.summary.data }) }),
   useManagedTypes: () => ({ data: { types: [] } }),
   useStartOnboarding: (...a: unknown[]) => { h.onboardArgs = a; return { go: h.go, ...h.onboard }; },
 }));
@@ -55,7 +55,7 @@ beforeEach(() => {
   h.stripeState = 'connected';
   h.types.data = []; h.summary.data = { ok: true, types: [] };
 });
-afterEach(cleanup);
+afterEach(() => { cleanup(); sessionStorage.clear(); });
 
 describe('real Stripe sign-up (SH-STRIPE-01)', () => {
   beforeEach(() => { h.stripeState = 'none'; });
@@ -75,19 +75,22 @@ describe('real Stripe sign-up (SH-STRIPE-01)', () => {
 });
 
 describe('return from Stripe (SH-STRIPE-02 / 03)', () => {
-  it('connected: toast "Stripe connected", query param cleared, one refetch', async () => {
+  it('connected: toast "Stripe connected", query param cleared', async () => {
     mount(mk(), '/?stripe=return');
     await waitFor(() => expect(screen.getByTestId('v2-toast').textContent).toContain('Stripe connected'));
-    expect(h.refetch).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('where').textContent).toBe('');
     expect(screen.queryByTestId('tk-warn')).toBeNull();
   });
-  it('not connected after the refetch: the T-06 warning box, param cleared, no toast', async () => {
-    h.stripeState = 'none';
-    mount(mk(), '/?stripe=refresh');
-    await waitFor(() => expect(screen.getByTestId('tk-warn').textContent).toContain('Dancers can’t buy yet'));
-    expect(screen.queryByTestId('v2-toast')).toBeNull();
-    expect(screen.getByTestId('where').textContent).toBe('');
+  it('not connected after polling ends: the T-06 warning box, param cleared, no toast', async () => {
+    vi.useFakeTimers();
+    try {
+      h.stripeState = 'none';
+      mount(mk(), '/?stripe=return');
+      await act(async () => { await vi.advanceTimersByTimeAsync(31_000); });
+      expect(screen.getByTestId('tk-warn').textContent).toContain('Dancers can’t buy yet');
+      expect(screen.queryByTestId('v2-toast')).toBeNull();
+      expect(screen.getByTestId('where').textContent).toBe('');
+    } finally { vi.useRealTimers(); }
   });
   it('no stripe param: no refetch, no toast', () => {
     mount(mk());
@@ -97,21 +100,21 @@ describe('return from Stripe (SH-STRIPE-02 / 03)', () => {
 });
 
 describe('Switch how dancers pay (SH-PAY-02 / 03)', () => {
-  it.each([[1, '1 ticket already sold here.'], [3, '3 tickets already sold here.']])('%i sold: text, for the door and the link target', (n, lead) => {
+  it.each([[1, '1 ticket already sold here.'], [3, '3 tickets already sold here.']])('%i sold: text, for the door and the link target', async (n, lead) => {
     h.types.data = [ty('t1', 'on_sale')]; sold(n);
     mount(mk());
     tap('tk-payDoor');
-    expect(screen.getByTestId('switch-text').textContent).toBe(`${lead} Buyers keep their tickets. New buyers will not be able to buy here.`);
+    expect((await screen.findByTestId('switch-text')).textContent).toBe(`${lead} Buyers keep their tickets. New buyers will not be able to buy here.`);
     expect(screen.getByText('Switch how dancers pay?')).toBeTruthy();
     tap('switch-keep');
     expect(screen.queryByTestId('switch-text')).toBeNull();
     tap('tk-link');
-    expect(screen.getByTestId('switch-text').textContent).toContain(lead);
+    await waitFor(() => expect(screen.getByTestId('switch-text').textContent).toContain(lead));
   });
   it('Keep selling closes and writes nothing', async () => {
     h.types.data = [ty('t1', 'on_sale')]; sold(2);
     mount(mk());
-    tap('tk-payDoor'); tap('switch-keep');
+    tap('tk-payDoor'); await screen.findByTestId('switch-keep'); tap('switch-keep');
     await new Promise((r) => { setTimeout(r, 20); });
     expect(h.series).not.toHaveBeenCalled();
     expect(h.status).not.toHaveBeenCalled();
@@ -120,7 +123,7 @@ describe('Switch how dancers pay (SH-PAY-02 / 03)', () => {
   it('Switch (door): pauses on-sale types, clears the link, toast + Undo re-opens and restores it', async () => {
     h.types.data = [ty('t1', 'on_sale')]; sold(2);
     mount(mk('recurring', { default_ticket_url: 'https://t.test/x' }));
-    tap('tk-payDoor'); tap('switch-do');
+    tap('tk-payDoor'); await screen.findByTestId('switch-do'); tap('switch-do');
     await waitFor(() => expect(screen.getByTestId('v2-toast').textContent).toContain('Dancers pay at the door'));
     expect(h.status.mock.calls).toEqual([['t1', 'paused']]);
     expect(sent()[0]).toEqual({ name: 'Thursdays', default_ticket_url: null });
@@ -131,7 +134,7 @@ describe('Switch how dancers pay (SH-PAY-02 / 03)', () => {
   it('Switch (link): opens the Link sheet; saving pauses the on-sale types; nothing written before', async () => {
     h.types.data = [ty('t1', 'on_sale')]; sold(2);
     mount(mk());
-    tap('tk-link'); tap('switch-do');
+    tap('tk-link'); await screen.findByTestId('switch-do'); tap('switch-do');
     expect(h.series).not.toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText('Where dancers buy'), { target: { value: 'https://t.test/y' } });
     tap('link-done');

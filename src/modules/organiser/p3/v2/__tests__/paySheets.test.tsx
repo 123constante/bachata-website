@@ -23,7 +23,7 @@ vi.mock('@/lib/londonDate', async (orig) => ({ ...((await orig()) as object), lo
 vi.mock('../../tickets/data', () => ({
   useStripe: () => ({ state: 'connected' }),
   useSeriesTypes: () => h.types,
-  useSummary: () => h.summary,
+  useSummary: () => ({ ...h.summary, refetch: async () => ({ data: h.summary.data }) }),
   useManagedTypes: () => ({ data: { types: [] } }),
   useStartOnboarding: () => ({ go: vi.fn(), busy: false, note: null, switchedOff: false }),
 }));
@@ -49,7 +49,7 @@ beforeEach(() => {
   h.status.mockReset().mockResolvedValue({ ok: true, reason: null });
   h.types.data = []; h.summary.data = { ok: true, types: [] };
 });
-afterEach(cleanup);
+afterEach(() => { cleanup(); sessionStorage.clear(); });
 
 describe('door price sheet (SH-DOOR)', () => {
   it('weekly: hint, replaces only the first price, toast "Saved for every Thursday", Undo restores', async () => {
@@ -121,7 +121,7 @@ describe('pay at the door and sell here', () => {
     h.summary.data = { ok: true, types: [{ id: 't1', ticketsSold: 2, grossPence: 2000 }] };
     mount(mk('recurring'));
     tap('tk-payDoor');
-    expect(screen.getByTestId('switch-text').textContent).toContain('2 tickets already sold here');
+    expect((await screen.findByTestId('switch-text')).textContent).toContain('2 tickets already sold here');
     await new Promise((r) => { setTimeout(r, 20); });
     expect(h.series).not.toHaveBeenCalled();
     expect(h.status).not.toHaveBeenCalled();
@@ -129,6 +129,7 @@ describe('pay at the door and sell here', () => {
   });
   it('sell here: re-opens paused types, toast, Undo re-pauses', async () => {
     h.types.data = [ty('t1', 'paused')];
+    sessionStorage.setItem('v2-paused-by-switch:s1', '["t1"]'); // the switch paused it
     mount(mk('recurring'));
     tap('tk-sellHere');
     await waitFor(() => expect(screen.getByTestId('v2-toast').textContent).toContain('Selling tickets here'));
