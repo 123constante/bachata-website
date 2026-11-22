@@ -16,6 +16,5 @@
   "automation-pause-guard.yml",
   "preview-shots.yml",
   "pr-auto-rebase.yml",
-  "ship-it.yml",
-  "bot-automerge.yml"
+  "ship-it.yml"
 ]
