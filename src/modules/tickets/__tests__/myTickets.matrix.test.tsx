@@ -208,6 +208,16 @@ describe('my tickets: door code (reply shape x ticket state)', () => {
     await waitFor(() => expect(screen.getAllByTestId('ticket-qr')).toHaveLength(3));
     expect(screen.getAllByTestId('my-ticket-short-code')).toHaveLength(5);
   });
+  it('parser: event_id and occurrence_id map through', () => {
+    const t = parseMyTickets({ tickets: [row({ event_id: 'ev-1', occurrence_id: 'oc-1' })] })!.tickets[0];
+    expect(t.eventId).toBe('ev-1');
+    expect(t.occurrenceId).toBe('oc-1');
+  });
+  it('parser: ids absent on an old reply are null', () => {
+    const t = parseMyTickets({ tickets: [row()] })!.tickets[0];
+    expect(t.eventId).toBeNull();
+    expect(t.occurrenceId).toBeNull();
+  });
   it('parser: short code per shape', () => {
     for (const [, extra, want] of CODE_SHAPES) {
       const t = parseMyTickets({ tickets: [row(extra)] })!.tickets[0];
