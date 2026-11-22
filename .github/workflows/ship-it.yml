@@ -30,6 +30,8 @@ name: Ship it (owner comment arms auto-merge)
 #  - Disarm, fail CLOSED: on every synchronize / reopened / ready_for_review of a same-repo PR that is
 #    armed or labelled `ship-it`, the `disarm` job switches auto-merge OFF first and never re-arms.
 #    After any push the owner must comment `ship it` again. (Definition comes from main.)
+#    This disables auto-merge on ANY push to an armed or labelled same-repo PR, whoever armed it (also
+#    auto-merge-on-open, bot-automerge, dependabot-automerge, queue-merge arming). Intended, fail closed.
 #    Consequence: there is no push-to-main branch updater; arming waits on the update the ship job does itself.
 #  - Token: BOT_PR_TOKEN when present, else GITHUB_TOKEN. A branch update pushed with GITHUB_TOKEN does
 #    not trigger the PR's checks (GitHub rule); pr-auto-rebase.yml uses BOT_PR_TOKEN for the same reason.
@@ -88,18 +90,39 @@ jobs:
             esac
             return 1
           }
-          # Sets HEAD_SHA; sets REFUSED_PATH and returns 1 if any file (or rename source) is not allowed.
+          # Reads the file list until two reads 5s apart are identical (max 30s): the list can lag a push.
+          stable_files() {
+            local prev cur i
+            prev=""
+            for i in 1 2 3 4 5 6; do
+              cur="$(gh api --paginate "repos/$REPO/pulls/$PR/files?per_page=100" --jq '.[] | .filename, (.previous_filename // empty)')"
+              if [ "$i" -gt 1 ] && [ "$cur" = "$prev" ]; then STABLE="$cur"; return 0; fi
+              prev="$cur"; sleep 5
+            done
+            return 1
+          }
+          # Sets HEAD_SHA (head BEFORE the file read must equal head AFTER); sets REFUSED_PATH and returns 1 if any
+          # file (or rename source) is not allowed. Returns 2 if the list or the head never settled.
           check_pr() {
+            local h1 n f
+            h1="$(gh api "repos/$REPO/pulls/$PR" --jq .head.sha)"
+            stable_files || return 2
             HEAD_SHA="$(gh api "repos/$REPO/pulls/$PR" --jq .head.sha)"
-            local files n f
-            files="$(gh api --paginate "repos/$REPO/pulls/$PR/files?per_page=100" --jq '.[] | .filename, (.previous_filename // empty)')"
-            n="$(printf '%s\n' "$files" | grep -c . || true)"
+            [ "$HEAD_SHA" = "$h1" ] || return 2
+            n="$(printf '%s\n' "$STABLE" | grep -c . || true)"
             if [ "$n" -ge 3000 ]; then REFUSED_PATH="(3000+ files)"; return 1; fi
             while IFS= read -r f; do
               [ -n "$f" ] || continue
               if ! allowed "$f"; then REFUSED_PATH="$f"; return 1; fi
-            done <<< "$files"
+            done <<< "$STABLE"
             return 0
+          }
+          # check_pr, then refuse/fail on any non-zero result. Exits the script on failure.
+          check_or_stop() {
+            local rc=0
+            check_pr || rc=$?
+            if [ "$rc" = "1" ]; then refuse; exit 0; fi
+            if [ "$rc" = "2" ]; then fail "the PR head or file list was still changing. Comment ship it again."; fi
           }
           # $1 = comment text, $2 = key. Skips when the LAST marked bot comment (last non-empty line) has the same key.
           say_once() {
@@ -109,9 +132,19 @@ jobs:
             gh pr comment "$PR" --repo "$REPO" --body "<!-- ship-it -->$1 <!-- $2 -->"
           }
           clean() { printf '%s' "$1" | tr -d '@`[]()' | cut -c1-200; }
+          # Switch auto-merge off, re-read it, retry 3x; still on = red run (exit 1).
           disarm() {
-            gh pr merge "$PR" --repo "$REPO" --disable-auto >/dev/null 2>&1 || true
+            local i armed
             gh pr edit "$PR" --repo "$REPO" --remove-label ship-it >/dev/null 2>&1 || true
+            for i in 1 2 3; do
+              gh pr merge "$PR" --repo "$REPO" --disable-auto >/dev/null 2>&1 || true
+              armed="$(gh pr view "$PR" --repo "$REPO" --json autoMergeRequest --jq '.autoMergeRequest != null' 2>/dev/null || echo unknown)"
+              [ "$armed" = "false" ] && return 0
+              sleep 3
+            done
+            echo "auto-merge is STILL on (or unreadable) after 3 disable attempts"
+            gh pr comment "$PR" --repo "$REPO" --body "<!-- ship-it -->ship-it ERROR: could not switch auto-merge off. Disable it by hand. <!-- disarm-failed -->" || true
+            exit 1
           }
           refuse() {
             local p; p="$(clean "$REFUSED_PATH")"
@@ -129,7 +162,7 @@ jobs:
           n_req="$(gh api "repos/$REPO/rules/branches/main" --jq '[.[] | select(.type == "required_status_checks") | (.parameters.required_status_checks | length)] | add // 0')"
           if [ "${n_req:-0}" -lt 1 ]; then say_once "ship-it: refused, main has no required status checks in its ruleset, auto-merge would merge immediately." "norule"; exit 0; fi
 
-          if ! check_pr; then refuse; exit 0; fi
+          check_or_stop
 
           # Behind main: update the branch, wait for the head sha to change, re-check the final sha.
           old_sha="$HEAD_SHA"
@@ -144,7 +177,17 @@ jobs:
               if [ "$cur" != "$old_sha" ]; then changed=1; break; fi
             done
             [ "$changed" = "1" ] || fail "branch update did not land within 60s."
-            if ! check_pr; then refuse; exit 0; fi
+            # The update push can fire the disarm job on the new head. Wait (max 120s) until that run is
+            # completed before arming. No run appearing for 30s = the push fired no event (GITHUB_TOKEN): go on.
+            new_sha="$cur"; seen=0
+            for t in $(seq 1 24); do
+              st="$(gh run list --repo "$REPO" --workflow ship-it.yml --event pull_request_target --limit 30 --json headSha,status --jq "[.[] | select(.headSha == \"$new_sha\")] | if length == 0 then \"none\" elif all(.[]; .status == \"completed\") then \"done\" else \"running\" end")"
+              [ "$st" = "done" ] && { seen=1; break; }
+              [ "$st" = "none" ] && [ "$t" -ge 6 ] && break
+              sleep 5
+            done
+            if [ "$st" = "running" ]; then fail "the disarm run for the new head did not finish within 120s."; fi
+            check_or_stop
           fi
 
           # Label first, then arm. Arming fails: remove the label, comment, red run.
@@ -155,16 +198,12 @@ jobs:
           fi
           gh pr edit "$PR" --repo "$REPO" --remove-label ship-it-refused >/dev/null 2>&1 || true
 
-          # The update-branch push above can fire the disarm job after we armed. If the head is unchanged and
-          # auto-merge went off, arm once more; if the head moved, a real push happened: stay disarmed.
-          sleep 25
-          cur="$(gh api "repos/$REPO/pulls/$PR" --jq .head.sha)"
+          # After arming: the final head and file list must still be allowed and the head unchanged.
+          pinned="$HEAD_SHA"
+          check_or_stop
+          if [ "$HEAD_SHA" != "$pinned" ]; then fail "a push landed after ship it. Comment ship it again."; fi
           armed="$(gh pr view "$PR" --repo "$REPO" --json autoMergeRequest --jq '.autoMergeRequest != null')"
-          if [ "$cur" != "$HEAD_SHA" ]; then fail "a push landed after ship it. Comment ship it again."; fi
-          if [ "$armed" != "true" ]; then
-            gh pr merge "$PR" --repo "$REPO" --auto --squash --match-head-commit "$HEAD_SHA" || fail "could not re-arm auto-merge."
-            gh pr edit "$PR" --repo "$REPO" --add-label ship-it >/dev/null 2>&1 || true
-          fi
+          if [ "$armed" != "true" ]; then fail "auto-merge is not on after arming (a push or the disarm job turned it off). Comment ship it again."; fi
           gh pr comment "$PR" --repo "$REPO" --body "ship-it: auto-merge on, waits for required checks and up-to-date branch"
 
   disarm:
@@ -192,6 +231,7 @@ jobs:
         run: |
           set -euo pipefail
           off() { gh pr merge "$PR" --repo "$REPO" --disable-auto >/dev/null 2>&1 || true; }
+          is_armed() { gh pr view "$PR" --repo "$REPO" --json autoMergeRequest --jq '.autoMergeRequest != null'; }
           # Any error from here on: try once more to switch it off, and keep the run RED.
           trap 'off; echo "disarm errored: auto-merge forced off, run is red"; exit 1' ERR
 
@@ -201,10 +241,19 @@ jobs:
           esac
 
           # FIRST action: switch it off (no allowlist check before this).
-          off
-          gh pr edit "$PR" --repo "$REPO" --remove-label ship-it >/dev/null
-          still="$(gh pr view "$PR" --repo "$REPO" --json autoMergeRequest --jq '.autoMergeRequest != null')"
-          if [ "$still" != "false" ]; then echo "auto-merge is STILL on after disable"; exit 1; fi
+          gh pr edit "$PR" --repo "$REPO" --remove-label ship-it >/dev/null || true
+          still=true
+          for i in 1 2 3; do
+            off
+            still="$(is_armed || echo unknown)"
+            [ "$still" = "false" ] && break
+            sleep 3
+          done
+          if [ "$still" != "false" ]; then
+            echo "auto-merge is STILL on (or unreadable) after 3 disable attempts"
+            gh pr comment "$PR" --repo "$REPO" --body "<!-- ship-it -->ship-it ERROR: could not switch auto-merge off after a push. Disable it by hand. <!-- disarm-failed -->" || true
+            exit 1
+          fi
 
           # Merge commits from update-branch are quiet; any other push says why. No PR checkout.
           shopt -s nocasematch
