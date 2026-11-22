@@ -22,6 +22,9 @@ export const flags = {
   // Raffle v2 (win a free night; raffle_public_board_v1 board on event pages and /raffles).
   // Arc: raffle-r3a/r3b. Default OFF; nothing reads it yet (R3a is foundations only).
   raffleV2:            import.meta.env.VITE_ENABLE_RAFFLE_V2 === 'true',
+  // /raffles redesign part A (look C v6: hero, orbs, steps, footer, sticky bar). Only read when raffleV2 is on.
+  // OFF = today's board page, unchanged. Turn on with VITE_ENABLE_RAFFLE_REDESIGN=true.
+  raffleRedesign:      import.meta.env.VITE_ENABLE_RAFFLE_REDESIGN === 'true',
   // Federated search v5 (Cmd+K / mobile full-screen overlay + search_public_v5).
   // When false the existing HeaderSearch omnibox (search_public_v4) renders
   // unchanged, so prod is untouched until this flips per-environment.
