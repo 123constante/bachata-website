@@ -16,6 +16,7 @@ import { AboutSheet } from './AboutSheet';
 import { FlyerSheet } from './FlyerSheet';
 import { dateGalleryOf, dateGalleryPatch } from '../data/dateFields';
 import { venueOverridePatch } from '../../dates/venueOverride';
+import { NightPriceSheet } from './PriceSheet';
 import { NightCancelArea, type CancelResult } from './CancelNight';
 
 /** The override keys each fact owns. A fact shows "Only this night" only when one of these is saved on the date. */
@@ -52,7 +53,9 @@ export function backToUsualStep(d: Pick<WorkspaceDate, 'id' | 'version' | 'overr
 
 const hm = (t: string | null | undefined) => (t ? t.slice(0, 5) : '');
 
-export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBringBack, soldCount = 0, onOpenTickets }: {
+export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBringBack, soldCount = 0, onOpenTickets, onChangeLink }: {
+  /** one-off, link mode: opens the Link to buy tickets sheet */
+  onChangeLink?: () => void;
   /** opens the Tickets screen; the shell passes it (no router in this component) */
   onOpenTickets?: () => void;
   ws: EventWorkspace; date: WorkspaceDate; busy?: boolean;
@@ -67,7 +70,7 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
 }) {
   const qc = useQueryClient();
   const [whenOpen, setWhenOpen] = useState(false);
-  const [sheet, setSheet] = useState<'where' | 'about' | 'flyer' | null>(null);
+  const [sheet, setSheet] = useState<'where' | 'about' | 'flyer' | 'price' | null>(null);
   const s = ws.series;
   const detail = useQuery({ queryKey: dateDetailQueryKey(date.id), queryFn: () => fetchDateDetail(date.id) });
   const dt = detail.data;
@@ -139,7 +142,7 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
           <Fact id="when" label={V2.when} main={long} sub={start ? V2.timeRange(start, end || start) : undefined} onOpen={onSave ? () => setWhenOpen(true) : undefined} />
           <Fact id="where" label={V2.where} main={venue?.name ?? '—'} sub={venue?.neighbourhood ?? venue?.city_name ?? undefined}
             changed={own.where} busy={busy} onBack={back('where', V2.venue)} onOpen={onSave ? () => setSheet('where') : undefined} />
-          <Fact id="price" label={V2.price} main={price.m} sub={price.s || undefined} changed={own.price} busy={busy} onBack={back('price', V2.price)} onOpen={onOpenTickets} />
+          <Fact id="price" label={V2.price} main={price.m} sub={price.s || undefined} changed={own.price} busy={busy} onBack={back('price', V2.price)} onOpen={onSave ? () => setSheet('price') : onOpenTickets} />
           <Fact id="about" label={V2.description} main={aboutShort(about)} changed={own.about} busy={busy} onBack={back('about', V2.nightAbout)} onOpen={onSave ? () => setSheet('about') : undefined} />
           {s.format === 'one_off' && onOpenTickets ? (
             <div className="fwrap" data-testid="row-goTickets">
@@ -167,6 +170,12 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
         <FlyerSheet seriesId={s.id} flyer={flyer ?? null} gallery={dateGalleryOf(ws, dt ?? null) ?? []} mode="night" dateWords={dateWords}
           dayName={fullDate(date.occurrence_date).split(' ')[0]} changed={own.flyer}
           onFlyer={saveFlyer} onGallery={saveGallery} onBackToUsual={back('flyer', V2.flyer)} onClose={() => setSheet(null)} />
+      )}
+      {sheet === 'price' && onSave && (
+        <NightPriceSheet ws={ws} date={date} detail={dt} weekly={s.format !== 'one_off'} long={fullDate(date.occurrence_date, today).replace(/ \d{4}$/, '')}
+          day={fullDate(date.occurrence_date).split(' ')[0]} dateWords={dateWords} oneOff={s.format === 'one_off'} changed={own.price} onSave={onSave}
+          onBack={back('price', V2.price)} onGoTickets={() => { setSheet(null); onOpenTickets?.(); }}
+          onLink={() => { setSheet(null); onChangeLink?.(); }} onClose={() => setSheet(null)} />
       )}
       {whenOpen && onSave && <WhenSheet date={date} oneOff={s.format === 'one_off'} today={today} onSave={onSave} onClose={() => setWhenOpen(false)} />}
     </div>

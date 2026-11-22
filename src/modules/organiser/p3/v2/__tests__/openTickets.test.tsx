@@ -13,6 +13,7 @@ vi.mock('../../../shared/publicVenues', () => ({ useVenueOptions: () => ({ data:
 vi.mock('../../../events/programmeSeriesApi', () => ({ fetchOrganiserPages: async () => [] }));
 vi.mock('@/modules/organiser/shared/publicCache', () => ({ invalidatePublicEventCaches: () => undefined }));
 vi.mock('@/lib/londonDate', async (orig) => ({ ...((await orig()) as object), londonTodayKey: () => '2026-11-22' }));
+vi.mock('../../tickets/data', () => ({ useStripe: () => ({ state: 'connected', query: { refetch: vi.fn() } }), useSeriesTypes: () => ({ data: [] }) }));
 import { EditorV2 } from '../EditorV2';
 import { EveryBody } from '../EveryBody';
 import { NightCard } from '../NightCard';
@@ -49,9 +50,10 @@ describe('open the Tickets screen from the Price fact (taps 22, 22n)', () => {
     wrap(<NightCard ws={ws()} date={date as never} onBack={vi.fn()} />);
     expect(() => fireEvent.click(priceBtn())).not.toThrow();
   });
-  it('shell: the night Price fact navigates to the tickets path', () => {
+  it('shell: the night Price fact opens the Price sheet; its usual-price link navigates to the tickets path (tap 55)', async () => {
     wrap(<><EditorV2 ws={ws()} /><Where /></>);
     fireEvent.click(priceBtn());
+    fireEvent.click(await screen.findByTestId('price-usual-link'));
     expect(screen.getByTestId('where').textContent).toMatch(/\/events\/s1\/tickets$/);
   });
   it('shell: the Every tab Price fact navigates to the tickets path', () => {
