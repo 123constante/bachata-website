@@ -336,7 +336,7 @@ describe('D82: the Go live card, every state', () => {
     for (const code of codes) {
       expect(GO_LIVE_LABEL[code], code).toBeTruthy();
       expect(goLiveLabel(code), code).not.toBe(UNKNOWN_ITEM_LABEL);
-      expect(goLiveLabel(code), code).toMatch(/^(Add|Upload|Write|Pick|Link|Give|Move|Fix|Say) /);
+      expect(goLiveLabel(code), code).toMatch(/^(Add|Upload|Write|Pick|Link|Give|Move|Fix|Say|A flyer is required) /);
     }
     expect(Object.keys(GO_LIVE_LABEL).sort()).toEqual([...new Set(codes)].sort());
   });
