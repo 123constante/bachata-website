@@ -17,6 +17,7 @@ import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { buildSeoForRoute, useSeo } from '@/lib/seo';
 import { useOpenRaffles, useRaffleStats } from '@/hooks/useOpenRaffles';
+import RaffleRedesignA from '@/components/raffles/RaffleRedesignA';
 import RaffleHero from '@/components/raffles/RaffleHero';
 import OpenRafflesGrid from '@/components/raffles/OpenRafflesGrid';
 import { HowItWorks, JackpotCounter, OrganiserCTA } from '@/components/raffles/RaffleInfoBands';
@@ -70,12 +71,13 @@ const RafflesBoard = () => {
   const nightsOpen = board ? board.nights.filter((n) => !n.winnerFirstName).length : 0;
   // Winners come from the nights the board lists (locked/attended wins), never total_winners,
   // which on prod counts ~766 attendance pairs.
+  const openNights = board ? board.nights.filter((n) => !n.winnerFirstName) : [];
   const winnersListed = board ? nightsWithWinner(board).length : 0;
 
   return (
     <GlobalLayout breadcrumbs={buildBreadcrumbs('raffles')} showGradientBg={false}>
       <div className="rp-root rp-board p-3 space-y-3">
-        <h1 className="text-lg font-bold">Win a free night</h1>
+        <h1 className="rp-bh1">Win a free night</h1>
 
         {isError ? (
           <div role="alert" data-testid="raffles-board-error" className="text-sm">
@@ -93,13 +95,13 @@ const RafflesBoard = () => {
         ) : (
           <>
             <dl className="grid grid-cols-3 gap-2 text-center" data-testid="raffles-board-counters">
-              <div><dd className="text-xl font-bold" data-testid="raffles-count-pool">{board.poolCount}</dd><dt className="text-xs">In the draw</dt></div>
-              <div><dd className="text-xl font-bold" data-testid="raffles-count-open">{nightsOpen}</dd><dt className="text-xs">Nights open</dt></div>
-              <div><dd className="text-xl font-bold" data-testid="raffles-count-winners">{winnersListed}</dd><dt className="text-xs">Winners listed</dt></div>
+              <div className="rp-bc"><dd className="rp-bc-num" data-testid="raffles-count-pool">{board.poolCount}</dd><dt className="rp-bc-cap">In the draw</dt></div>
+              <div className="rp-bc"><dd className="rp-bc-num" data-testid="raffles-count-open">{nightsOpen}</dd><dt className="rp-bc-cap">Nights open</dt></div>
+              <div className="rp-bc"><dd className="rp-bc-num" data-testid="raffles-count-winners">{winnersListed}</dd><dt className="rp-bc-cap">Winners listed</dt></div>
             </dl>
 
-            <section aria-labelledby="raffles-week-h">
-              <h2 id="raffles-week-h" className="text-sm font-bold">This week&rsquo;s winners</h2>
+            <section aria-labelledby="raffles-week-h" className="rp-bsec">
+              <h2 id="raffles-week-h" className="rp-bh">This week&rsquo;s winners</h2>
               {winners.length === 0 ? (
                 <p className="text-sm" data-testid="raffles-week-empty">
                   {board.nights.length === 0
@@ -109,7 +111,7 @@ const RafflesBoard = () => {
               ) : (
                 <ul className="space-y-1 text-sm" data-testid="raffles-week-list">
                   {winners.map((n) => (
-                    <li key={n.occurrenceId}>
+                    <li key={n.occurrenceId} className="rp-brow">
                       <b>{n.winnerFirstName}</b> &mdash; {n.title} &middot; {fmtNight(n.start)}
                       {n.venue ? <> &middot; {n.venue}</> : null}
                     </li>
@@ -121,23 +123,37 @@ const RafflesBoard = () => {
         )}
 
         {joined ? (
-          <p role="status" className="text-sm font-bold" data-testid="raffles-youre-in">You&rsquo;re in</p>
+          <p role="status" className="rp-benter rp-benter-in" data-testid="raffles-youre-in">You&rsquo;re in</p>
         ) : (
           <button
             type="button"
-            className="min-h-[44px] w-full rounded-md bg-primary px-4 font-bold text-primary-foreground"
+            className="rp-benter"
             onClick={() => setDialogOpen(true)}
             data-testid="raffles-enter"
           >
             Enter the raffle
           </button>
         )}
+        {board && !isError && !isLoading && openNights.length > 0 ? (
+          <section aria-labelledby="raffles-open-h" className="rp-bsec" data-testid="raffles-open-nights">
+            <h2 id="raffles-open-h" className="rp-bh">Nights you can win</h2>
+            <ul className="space-y-1 text-sm">
+              {openNights.map((n) => (
+                <li key={n.occurrenceId} className="rp-brow">
+                  {fmtNight(n.start)} &middot; {n.title}
+                  {n.venue ? <> &middot; {n.venue}</> : null}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+        <HowItWorks />
       </div>
       <RaffleEntryDialog open={dialogOpen} onOpenChange={setDialogOpen} consentVersion={null} onSubmitted={onSubmitted} />
     </GlobalLayout>
   );
 };
 
-const Raffles = () => (flags.raffleV2 ? <RafflesBoard /> : <RafflesLegacy />);
+const Raffles = () => (flags.raffleV2 ? (flags.raffleRedesign ? <RaffleRedesignA /> : <RafflesBoard />) : <RafflesLegacy />);
 
 export default Raffles;

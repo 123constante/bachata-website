@@ -655,3 +655,15 @@
      animation the strip must be statically positioned on the jackpot row. */
   .rh-strip { transform: translateY(-930px); }
 }
+
+/* Raffle v2 board (owner pick C) */
+.rp-board { color: var(--rp-cream); }
+.rp-bh1 { font-size: 20px; font-weight: 800; color: var(--rp-gold); }
+.rp-bh { font-size: 14px; font-weight: 700; color: var(--rp-gold); margin-bottom: 6px; }
+.rp-bc { background: var(--rp-ink-2); border: 1px solid var(--rp-line); border-radius: 10px; padding: 10px 4px; }
+.rp-bc-num { font-size: 24px; font-weight: 800; color: var(--rp-gold); line-height: 1.1; }
+.rp-bc-cap { font-size: 12px; color: var(--rp-muted); }
+.rp-bsec { padding-top: 4px; }
+.rp-brow { background: var(--rp-ink-2); border: 1px solid var(--rp-line); border-radius: 8px; padding: 8px 10px; }
+.rp-benter { display: block; width: 100%; min-height: 48px; border-radius: 10px; font-weight: 800; font-size: 16px; text-align: center; line-height: 48px; color: var(--rp-ink); background: linear-gradient(180deg, var(--rp-gold-lt), var(--rp-gold) 55%, var(--rp-gold-dk)); }
+.rp-benter-in { opacity: 0.85; }
