@@ -100,13 +100,14 @@ const DancerBell = () => {
     },
   });
   const [open, setOpen] = useState(false);
-  // New-message alert: fetched only once the dropdown is open and there is a chat. Same key family as
+  // New-message alert: fetched whenever there is an open chat (the badge rises without opening the bell). Same key family as
   // UNREAD_KEY (['party-unread'], restated: a static import of partyChatApi breaks bundle-budget), so the
   // chat screen's invalidation clears it. null (failure) = today's "open" row.
   const chatId = partyOn && pq.data && pq.data.state === 'open' ? pq.data.chat_id : null;
   const uq = useQuery({
     queryKey: ['party-unread', chatId],
-    enabled: open && Boolean(chatId),
+    enabled: Boolean(chatId),
+    staleTime: 60_000,
     retry: false,
     queryFn: async () => {
       try {
