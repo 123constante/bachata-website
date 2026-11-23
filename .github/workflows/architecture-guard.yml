@@ -43,8 +43,18 @@ jobs:
         if: steps.changes.outputs.docs_only != 'true'
         run: npm install -g npm@11
 
-      - name: Install dependencies
+      # node_modules cached on package-lock.json (+ node 22): a hit skips `npm ci`.
+      # A miss runs the same `npm ci`.
+      - name: Cache node_modules
+        id: nm
         if: steps.changes.outputs.docs_only != 'true'
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+
+      - name: Install dependencies
+        if: steps.changes.outputs.docs_only != 'true' && steps.nm.outputs.cache-hit != 'true'
         run: npm ci
 
       - name: Make scripts executable
