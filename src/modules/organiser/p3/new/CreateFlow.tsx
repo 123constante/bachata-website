@@ -208,6 +208,13 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
   const draftWhy = draftBlock(d, today);
   const liveWhy = liveBlock(d, today, hasCover);
   const busy = save.state.s === 'busy';
+  const failedRef = useRef<HTMLDivElement>(null);
+  const isFailed = save.state.s === 'failed';
+  useEffect(() => {
+    if (!isFailed || !failedRef.current) return;
+    failedRef.current.scrollIntoView?.({ block: 'center' });
+    failedRef.current.focus();
+  }, [isFailed]);
   const stripeState = useStripe(flags.stripeNudgeV2 && CREATE_LOOK ? organiser.id : undefined).state;
   const back = backOf('form', kind.kind, organiser.id, pageCount);
   const cancel = () => {
@@ -322,10 +329,12 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
     <Frame title={title} back={back} end={end} testId="p3-new-form">
       {/* F-15: an onboarding refusal opens the shared gate sheet (useCreateSave), so only other failures show here */}
       {failed && (
-        <StateCard title={RESULT_COPY.nothingSaved} testId="p3-new-failed-error">
-          <p>{failed.message} What you typed is still here.</p>
-          <RetryButton onClick={() => void save.retry()} />
-        </StateCard>
+        <div ref={failedRef} tabIndex={-1} data-testid="p3-new-failed-wrap" style={{ outline: 'none' }}>
+          <StateCard title={RESULT_COPY.nothingSaved} testId="p3-new-failed-error">
+            <p>{failed.message} What you typed is still here.</p>
+            <RetryButton onClick={() => void save.retry()} />
+          </StateCard>
+        </div>
       )}
 
       {flyer && flyer.notes.length > 0 && (

@@ -128,7 +128,7 @@ function GetPaidBody({ org, back }: { org: HomeOrganiser; back: 'return' | 'refr
   const summary = useSummary(org.id, isOwner(org.role));
   const { go, busy, note, switchedOff } = useStartOnboarding(org.id);
   const manager = canManage(org.role);
-  useConnectReturn(back === 'return' && canSetUpPayouts(org.role), state === 'connected', () => query.refetch());
+  const { phase, again } = useConnectReturn(back === 'return' && canSetUpPayouts(org.role), state === 'connected', () => query.refetch());
   if (query.isPending) return <StateCard title="Loading your payment set-up&hellip;" testId="tix-getpaid-stripe-loading">This takes a second.</StateCard>;
   if (query.isError || !state) {
     return (
@@ -148,7 +148,13 @@ function GetPaidBody({ org, back }: { org: HomeOrganiser; back: 'return' | 'refr
   const hub = stripeNudgeV2On() && (state === 'connected' || (owner && !switchedOff && (state === 'none' || state === 'started')));
   return (
     <>
-      {back && state !== 'connected' && <p className="p3-warn" data-testid="tix-getpaid-back">{state === 'waiting' ? BACK_NOTE_WAITING : BACK_NOTE[back]}</p>}
+      {back && state !== 'connected' && phase === 'timeout' && (
+        <div className="p3-stack-s" data-testid="tix-getpaid-still">
+          <p className="p3-warn" role="status" data-testid="tix-getpaid-back">Still checking.</p>
+          <button type="button" className="p3-btn" style={{ minHeight: 48 }} onClick={() => again()} data-testid="tix-getpaid-check-again">Check again</button>
+        </div>
+      )}
+      {back && state !== 'connected' && phase !== 'timeout' && <p className="p3-warn" data-testid="tix-getpaid-back">{state === 'waiting' ? BACK_NOTE_WAITING : BACK_NOTE[back]}</p>}
       {hub && (
         <section className="p3-card p3-stack-s" data-testid="tix-hub" data-state={state}>
           {state === 'connected' && <p className="p3-ok" role="status" data-testid="tix-hub-connected">{HUB_COPY.connected}</p>}

@@ -113,6 +113,8 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
   const payPence = heldNow ? heldNow.totalPence : promoTotal ?? sum.totalPence;
   const priceNote = heldNow ? priceChangedText(heldNow.totalPence) : '';
   const freeOnly = isFreeOnly(clean, types);
+  // the label also reads free on an all-free event at 0 tickets (the greyed button)
+  const freeTotal = freeOnly || (sum.count === 0 && types.length > 0 && types.every((t) => t.pricePence <= 0));
   const summaryLines = basketSummaryLines(clean, types);
   const atCap = sum.count >= MAX_PER_ORDER;
   // Before any field: a preview can never complete checkout (same guard as the classic page).
@@ -444,7 +446,7 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
             </p>
           )}
           {BUYER_ONBOARDING_ENABLED && notYouErr && <p role="alert" data-testid="picker-not-you-error" className="mb-2 text-[12px]" style={{ color: BAD }}>{notYouErr}</p>}
-          <button type="button" data-testid="picker-continue" onClick={onContinue} disabled={continueOff} className={btn} style={primary(continueOff)}>{heldNow ? PRICE_CONFIRM_LABEL : freeOnly ? (knownEmail ? 'Get my free tickets' : 'Continue') : knownEmail ? 'Continue to Stripe' : 'Continue'}</button>
+          <button type="button" data-testid="picker-continue" onClick={onContinue} disabled={continueOff} className={btn} style={primary(continueOff)}>{heldNow ? PRICE_CONFIRM_LABEL : freeTotal ? (knownEmail ? 'Get my free tickets' : 'Continue') : knownEmail ? 'Continue to Stripe' : 'Continue'}</button>
           {knownEmail ? (
             <>
               {/* Signed in: the terms link and the trust line share one row so the bar stays short and the promo box is never covered. */}
