@@ -165,7 +165,7 @@ export interface CreateStripeFirst { connected: boolean; busy: boolean; why: str
 export const STRIPE_FIRST = {
   title: 'Sell tickets in the app',
   body: 'Dancers pay by card. Money goes to your bank. We take no commission. About 5 minutes to set up.',
-  button: 'Connect Stripe and set a price',
+  button: 'Connect Stripe',
   connectedBody: 'Dancers pay by card in the app. Add your tickets and prices from the event\u2019s Tickets sheet once it is saved.',
   other: 'Other ways',
   ownSite: 'Use my own ticket site',

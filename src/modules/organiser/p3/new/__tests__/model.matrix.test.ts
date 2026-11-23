@@ -227,7 +227,7 @@ describe('go live: what is missing, in words; disabled says why', () => {
 
   it('no photo: Go live off, Save draft works now', () => {
     const d = ready('one_date');
-    expect(liveBlock(d, TODAY, false)).toBe('A flyer is required to continue. Save draft works now.');
+    expect(liveBlock(d, TODAY, false)).toBe('A flyer is needed to go live. Save draft works now.');
     expect(liveBlock(d, TODAY, true)).toBeNull();
   });
 
