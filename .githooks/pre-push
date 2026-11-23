@@ -212,9 +212,13 @@ if [ "$unit_where" = "here" ]; then
     # (a test may read a json/sql/css fixture).
     if [ -n "$(git diff --name-only --diff-filter=DR "$fb_base"...HEAD 2>/dev/null)" ] \
         || printf '%s\n' "$fb_changed" | grep -q '[^A-Za-z0-9_./@()+-]' \
-        || printf '%s\n' "$fb_changed" | grep -v -E '\.(ts|tsx|js|jsx|mjs|md|txt)$' | grep -q .; then
+        || printf '%s\n' "$fb_changed" | grep -v -E '\.(ts|tsx|js|jsx|mjs|md|txt)$' | grep -v -E '^\.github/workflows/[A-Za-z0-9_.-]+\.ya?ml$' | grep -q .; then
         fb_full=1
     fi
+    # A changed workflow file is the one non-code file with a known reader set: the tests that open
+    # .github/workflows (they read it with fs, so `vitest related` never selects them). Run exactly
+    # those instead of the full suite; CI runs everything.
+    fb_wf=$(printf '%s\n' "$fb_changed" | grep -E '^\.github/workflows/[A-Za-z0-9_.-]+\.ya?ml$' || true)
     if [ "$fb_full" -eq 1 ]; then
         echo "> pre-push: unit gate (full offline suite: no base ref, or runner config changed)..."
         if ! npm run test:unit:offline -- --reporter=dot --reporter=json --outputFile.json="$unit_json"; then
@@ -222,8 +226,16 @@ if [ "$unit_where" = "here" ]; then
         fi
     else
         fb_src=$(printf '%s\n' "$fb_changed" | grep -E '\.(ts|tsx|js|jsx|mjs)$' || true)
+        if [ -n "$fb_wf" ]; then
+            fb_wf_tests=$(grep -rlE "\.github/workflows|\.github', 'workflows|'workflows'" tests src scripts --include='*.test.ts' --include='*.test.tsx' --include='*.test.mjs' 2>/dev/null | tr '\n' ' ')
+            echo "> pre-push: workflow file changed -- running the tests that read .github/workflows (CI runs the full suite)..."
+            # shellcheck disable=SC2086
+            if ! npx vitest run --reporter=dot --reporter=json --outputFile.json="$unit_json" $fb_wf_tests; then
+                unit_fail "Workflow-reading unit tests failed."
+            fi
+        fi
         if [ -z "$fb_src" ]; then
-            echo "> pre-push: no code files changed -- unit gate skipped (CI runs the full suite)."
+            [ -n "$fb_wf" ] || echo "> pre-push: no code files changed -- unit gate skipped (CI runs the full suite)."
         else
             echo "> pre-push: fast unit gate (tests related to changed files; CI runs the full suite)..."
             # shellcheck disable=SC2086
