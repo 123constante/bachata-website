@@ -217,6 +217,41 @@ describe('owner-approval audit -- reviewer doc evidence', () => {
   });
 });
 
+describe('owner-approval audit -- bot Hard-tier PASS marker', () => {
+  const HEAD = 'a'.repeat(40);
+  const OLD = 'b'.repeat(40);
+  const files = ['scripts/owner-approval-audit.mjs'];
+  const pass = (sha: string, login = 'kiki-claude-bot') => ({ user: { login }, body: `ok\nHard-tier PASS at ${sha}\n` });
+
+  it('owner approve at head stays green', () => {
+    expect(decideAudit({ files, prs: [{ number: 1, headSha: HEAD, reviews: [approve(HEAD)] }] }).code).toBe(0);
+  });
+  it('PASS comment at head is green and names the path', () => {
+    const v = decideAudit({ files, prs: [{ number: 2, headSha: HEAD, reviews: [], comments: [pass(HEAD)] }] });
+    expect(v.code).toBe(0);
+    expect(v.reason).toContain('Hard-tier PASS');
+  });
+  it('PASS in a bot review body at head is green', () => {
+    expect(decideAudit({ files, prs: [{ number: 3, headSha: HEAD, reviews: [pass(HEAD)], comments: [] }] }).code).toBe(0);
+  });
+  it('PASS at an OLD head is RED', () => {
+    expect(decideAudit({ files, prs: [{ number: 4, headSha: HEAD, reviews: [], comments: [pass(OLD)] }] }).code).toBe(1);
+  });
+  it('PASS by another login is RED', () => {
+    expect(decideAudit({ files, prs: [{ number: 5, headSha: HEAD, reviews: [], comments: [pass(HEAD, 'someone-else')] }] }).code).toBe(1);
+  });
+  it('a PASS that is not an exact line is RED', () => {
+    const c = { user: { login: 'kiki-claude-bot' }, body: `not Hard-tier PASS at ${HEAD} really` };
+    expect(decideAudit({ files, prs: [{ number: 6, headSha: HEAD, reviews: [], comments: [c] }] }).code).toBe(1);
+  });
+  it('no PR is RED', () => {
+    expect(decideAudit({ files, prs: [] }).code).toBe(1);
+  });
+  it('botLogin param overrides the default', () => {
+    expect(decideAudit({ files, botLogin: 'other-bot', prs: [{ number: 7, headSha: HEAD, reviews: [], comments: [pass(HEAD, 'other-bot')] }] }).code).toBe(0);
+  });
+});
+
 describe('owner-approval audit -- review doc file names', () => {
   it.each(['1747.md', 'review-1748.md', 'review-1748b.md', 'pr-1747-review.md', 'pr-1741.md', '1741-round2.md'])('accepts %s for its own PR', (name) => {
     const n = name.match(/\d{4}/)![0];

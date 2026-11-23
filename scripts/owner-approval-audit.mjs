@@ -60,7 +60,7 @@ export const BOT_LOGIN = "kiki-claude-bot";
  * On = guard paths count as hard too, and a verdict carries escalate (RED on a guard path), guard
  * (the guard paths touched) and prs (the PR numbers) for escalateRed().
  */
-export function decideAudit({ files, prs, owner = OWNER_LOGIN, escalation = false, mergeTiers = false, tierFiles = null, sha = null }) {
+export function decideAudit({ files, prs, owner = OWNER_LOGIN, escalation = false, mergeTiers = false, tierFiles = null, sha = null, botLogin = BOT_LOGIN }) {
   // Merge tiers (flag on only): tier B lands on green CI with a recorded self-review, no owner click.
   // ONLY the PR whose merge commit IS this sha counts (never another associated PR), and only when the
   // bot authored it. A direct push, a human/other author, or no recorded self-review = today's rule.
@@ -68,13 +68,13 @@ export function decideAudit({ files, prs, owner = OWNER_LOGIN, escalation = fals
     const pr = (prs || []).find((p) => p && p.mergeCommitSha === sha);
     if (pr && pr.author === BOT_LOGIN && hasSelfReview(pr.body)) return { code: 0, reason: `merge tier B (MERGE_TIERS_ENABLED): PR #${pr.number} records a self-review; owner approval not required` };
   }
-  if (escalation !== true) return verdictOf({ files, prs, owner, tierFiles, isHard: (f) => riskTier(f) === "hard" });
-  const v = verdictOf({ files, prs, owner, tierFiles, isHard: (f) => riskTier(f) === "hard" || isGuardPath(f) });
+  if (escalation !== true) return verdictOf({ files, prs, owner, tierFiles, botLogin, isHard: (f) => riskTier(f) === "hard" });
+  const v = verdictOf({ files, prs, owner, tierFiles, botLogin, isHard: (f) => riskTier(f) === "hard" || isGuardPath(f) });
   const guard = (files || []).filter((f) => isGuardPath(f));
   return { ...v, escalate: v.code === 1 && guard.length > 0, guard, prs: (prs || []).map((p) => p.number) };
 }
 
-function verdictOf({ files, prs, owner, isHard, tierFiles = null }) {
+function verdictOf({ files, prs, owner, isHard, tierFiles = null, botLogin = BOT_LOGIN }) {
   const hard = (files || []).filter(isHard);
   if (hard.length === 0) return { code: 0, reason: "no hard-tier path touched" };
   if (!prs || prs.length === 0) {
@@ -83,6 +83,10 @@ function verdictOf({ files, prs, owner, isHard, tierFiles = null }) {
   for (const pr of prs) {
     if (ownerApprovedAtHead(pr, owner)) {
       return { code: 0, reason: `PR #${pr.number} owner-approved at head ${pr.headSha.slice(0, 8)}` };
+    }
+    // Independent reviewer PASS marker at the head (owner click 2026-11-22); self-attested by the bot account.
+    if (botPassAtHead(pr, botLogin)) {
+      return { code: 0, reason: `PR #${pr.number} cleared by bot "Hard-tier PASS at" marker at head ${pr.headSha.slice(0, 8)}` };
     }
     // Guard paths stay owner-only: the bot status never covers them (reviewer finding 1).
     if (reviewerPassAtHead(pr) && !(files || []).some((f) => isGuardPath(f))) {
@@ -96,6 +100,21 @@ function verdictOf({ files, prs, owner, isHard, tierFiles = null }) {
   }
   const nums = prs.map((p) => "#" + p.number).join(", ");
   return { code: 1, reason: `hard-tier change in ${nums} without an owner approval at the PR head: ${hard.join(", ")}` };
+}
+
+/**
+ * A review or PR comment by `botLogin` whose body has the exact line `Hard-tier PASS at <headSha>`
+ * (full 40-char head sha). A PASS for an older head never matches, so a new push voids it.
+ * pr.comments = GET /issues/{n}/comments; pr.reviews bodies count too. Self-attested by the bot account.
+ */
+export function botPassAtHead(pr, botLogin = BOT_LOGIN) {
+  const head = pr && typeof pr.headSha === "string" ? pr.headSha.toLowerCase() : "";
+  if (!/^[0-9a-f]{40}$/.test(head)) return false;
+  const want = `Hard-tier PASS at ${head}`;
+  const mine = (x) => x && x.user && String(x.user.login).toLowerCase() === String(botLogin).toLowerCase();
+  return [...((pr && pr.comments) || []), ...((pr && pr.reviews) || [])]
+    .filter(mine)
+    .some((x) => String(x.body || "").split(/\r?\n/).some((l) => l.trim().toLowerCase() === want.toLowerCase()));
 }
 
 export const REVIEWER_STATUS_CONTEXT = "hard-tier-review";
@@ -300,9 +319,14 @@ async function auditCommit(repo, sha, escalation, mergeTiers = false) {
     if (needStatuses) {
       try { statuses = await paginate(`/repos/${repo}/commits/${p.head.sha}/statuses`); } catch { statuses = []; }
     }
+    // A failed read fails closed: no comments = no PASS marker.
+    let comments = [];
+    if (needStatuses) {
+      try { comments = await paginate(`/repos/${repo}/issues/${p.number}/comments`); } catch { comments = []; }
+    }
     let reviewDocs = [];
     if (needStatuses || files.some((f) => pathClass(f) === "tests")) reviewDocs = await readReviewDocs(repo, p.number);
-    prs.push({ number: p.number, headSha: p.head.sha, mergedAt: p.merged_at, reviews, statuses, reviewDocs, labels: (p.labels || []).map((l) => l && l.name), body: p.body || "", author: (p.user && p.user.login) || "", mergeCommitSha: p.merge_commit_sha || "" });
+    prs.push({ number: p.number, headSha: p.head.sha, mergedAt: p.merged_at, reviews, comments, statuses, reviewDocs, labels: (p.labels || []).map((l) => l && l.name), body: p.body || "", author: (p.user && p.user.login) || "", mergeCommitSha: p.merge_commit_sha || "" });
   }
   // Tier from the full file objects so the money check scans changed lines too, not only paths.
   const v = mergeTiers ? decideAudit({ files, prs, escalation, mergeTiers, tierFiles: commit.files, sha }) : decideAudit({ files, prs, escalation, tierFiles: commit.files });
