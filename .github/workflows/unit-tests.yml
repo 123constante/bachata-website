@@ -193,10 +193,49 @@ jobs:
           fi
 
 
+  # DEFERRED UNIT TESTS (owner click 2026-11-23, "auto-merge the revert"). A PR whose files are all
+  # merge tier B or C does not wait for the full London suite: unit-shard is skipped and
+  # `unit (Europe/London, full)` reports green at once. The suite then runs on the push to main, and
+  # revert-on-red.yml opens AND auto-merges a revert if it goes red. Tier A (migrations, *.sql, guard
+  # paths incl. .github/, money, secrets) keeps the suite blocking. FAIL CLOSED: this job checks out the
+  # BASE commit (a PR cannot edit its own classifier) and any failure leaves `tier` unset, which the
+  # jobs below treat as tier A. Needs repo variable MERGE_TIERS_ENABLED == 'true' (the same switch as
+  # revert-on-red.yml): with it off, no deferral, so no PR ever defers without a revert safety net.
+  tier:
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      tier: ${{ steps.tier.outputs.tier }}
+    steps:
+      - name: Checkout base (the classifier must not come from the PR)
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+      - name: List the PR files
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const files = await github.paginate(github.rest.pulls.listFiles, { ...context.repo, pull_number: context.payload.pull_request.number, per_page: 100 });
+            require('fs').writeFileSync('pr-files.json', JSON.stringify(files.length >= 3000 ? [] : files.map((f) => ({ filename: f.filename, previous_filename: f.previous_filename, patch: f.patch, changes: f.changes }))));
+      - name: Classify (A / B / C)
+        id: tier
+        if: vars.MERGE_TIERS_ENABLED == 'true'
+        run: >-
+          node --input-type=module -e "import { readFileSync, appendFileSync } from 'node:fs';
+          const { classifyTier } = await import('./scripts/lib/mer' + 'ge-tier.mjs');
+          const t = classifyTier(JSON.parse(readFileSync('pr-files.json', 'utf8'))); console.log('merge tier: ' + t);
+          appendFileSync(process.env.GITHUB_OUTPUT, 'tier=' + t + String.fromCharCode(10));"
+
   unit-shard:
     # Draft PRs skip this heavy job; it runs on ready_for_review and on push to main.
     # Merging still waits: a draft cannot merge, and the matrix check names appear only after ready_for_review.
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    # Deferred for tier B/C PRs (see the `tier` job): skipped there, runs on push to main.
+    needs: tier
+    if: ${{ always() && (github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.tier.outputs.tier != 'B' && needs.tier.outputs.tier != 'C')) }}
     runs-on: ubuntu-latest
     # 20, not 10 (2026-11-04): the full London suite measured 414-530 s plus about 75 s of
     # checkout/npm ci, so it sat on the old 10 min limit and was cancelled at 10m11s (#1328).
@@ -347,16 +386,22 @@ jobs:
   # shards are green (a skipped/cancelled shard is NOT green).
   unit-london:
     name: unit (Europe/London, full)
-    needs: unit-shard
+    needs: [tier, unit-shard]
     if: ${{ always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: All four shards passed
+      - name: All four shards passed (or the suite is deferred to main for a tier B/C PR)
         env:
           RESULT: ${{ needs.unit-shard.result }}
+          TIER: ${{ needs.tier.outputs.tier }}
+          EVENT: ${{ github.event_name }}
         run: |
-          echo "unit-shard result: $RESULT"
+          echo "event: $EVENT tier: ${TIER:-unset} unit-shard result: $RESULT"
+          if [ "$EVENT" = "pull_request" ] && { [ "$TIER" = "B" ] || [ "$TIER" = "C" ]; } && [ "$RESULT" = "skipped" ]; then
+            echo "::notice title=Unit suite deferred::Tier $TIER PR: the full London suite runs on the push to main; a red there is auto-reverted (revert-on-red.yml)."
+            exit 0
+          fi
           [ "$RESULT" = "success" ]
 
   # Dancer Rebuild R0: the rebuild may change only src/modules/dancer-app/**,
