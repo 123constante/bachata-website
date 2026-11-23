@@ -113,7 +113,7 @@ test.describe('winner screens', () => {
     await confirm.click();
 
     // Flag raffleSharePoster on: the Share step sits between the lock and the QR. Off: straight to the QR.
-    if (await page.getByRole('heading', { level: 1, name: 'Share your win' }).isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (process.env.VITE_ENABLE_RAFFLE_SHARE_POSTER === 'true') {
       await check(page, 'share', 'Share your win', 'Tell your friends you are going. Your QR code is on the next screen.');
       await expect(page.getByRole('img', { name: 'Share poster: won a free night at Ritmo Friday' })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Share', exact: true })).toBeEnabled();
