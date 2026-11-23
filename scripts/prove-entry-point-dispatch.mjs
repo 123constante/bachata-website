@@ -173,7 +173,6 @@ const TARGETS = [
   { rel: 'scripts/automation-pause.mjs' },
   { rel: 'scripts/backfill-og-images.mjs' },
   { rel: 'scripts/autopilot-step.mjs' },
-  { rel: 'scripts/check-automation-workflow-allowlist.mjs' },
   { rel: 'scripts/check-bundle-budget.mjs' },
   { rel: 'scripts/check-chunk-cycles.mjs' },
   { rel: 'scripts/check-dancer-area-isolation.mjs' },

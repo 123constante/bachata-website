@@ -44,8 +44,7 @@ describe('guard-paths.json + isGuardPath (PART 5.1): section 14.1 for THIS repo,
     '.github/automation/guard-paths.json', '.github/CODEOWNERS',
     'scripts/lib/autopilot.mjs', 'scripts/lib/autopilot-merge.mjs', 'scripts/lib/autopilot-pack.mjs', 'scripts/automerge-classify.mjs',
     'scripts/lib/automation-pause.mjs', 'scripts/automation-pause.mjs', 'scripts/lib/is-money.mjs', 'scripts/lib/required-jobs.mjs',
-    'scripts/lib/arming.mjs', 'scripts/lib/guard-paths.mjs', 'scripts/data/automation-workflow-allowlist.json',
-    'scripts/check-automation-workflow-allowlist.mjs', 'scripts/owner-approval-audit.mjs',
+    'scripts/lib/arming.mjs', 'scripts/lib/guard-paths.mjs', 'scripts/owner-approval-audit.mjs',
     // F7 (review-1370-r1): every guard CLI dispatches through isEntryPoint(); a change there could
     // make every check a silent no-op.
     'scripts/lib/entry-point.mjs',
