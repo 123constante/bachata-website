@@ -1,14 +1,18 @@
 // Raffle v3 winner page /raffle/win/:token (behind flags.raffleV2). Spec: frozen prototype, "Winner" mode.
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { flags } from '@/lib/featureFlags';
 import { useAuth } from '@/hooks/useAuth';
 import { rpcLoose } from '@/integrations/supabase/rpcLoose';
 import TicketQrCode from '@/modules/tickets/TicketQrCode';
 import {
-  doorUrl, formatLocalNight, parseClaim, parseLock, screenForClaim, winAuthHref,
+  doorUrl, formatLocalNight, parseClaim, parseLock, screenAfterLock, screenForClaim, winAuthHref,
   type OpenNight, type WinScreen,
 } from '@/modules/raffle-win/model';
+import {
+  canvasToPng, downloadPng, posterFileName, posterText, renderPoster, sharePosterFile, type PosterText,
+} from '@/modules/raffle-win/sharePoster';
+import { fetchRaffleBoard } from '@/hooks/useRaffleBoard';
 
 const FROM_AUTH_KEY = 'raffle_win_from_auth';
 const readFromAuth = (): boolean => {
@@ -36,6 +40,38 @@ function Shell({ hero, h1, sub, children, note, left }: {
   );
 }
 
+function SharePosterStep({ text, onDone, onSkip }: { text: PosterText; onDone: () => void; onSkip: () => void }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const [readyFor, setReadyFor] = useState<PosterText | null>(null);
+  const ready = readyFor === text;
+  useEffect(() => {
+    let live = true;
+    if (ref.current) void renderPoster(ref.current, text).then(() => { if (live) setReadyFor(text); });
+    return () => { live = false; };
+  }, [text]);
+  const png = async () => (ref.current ? canvasToPng(ref.current) : null);
+  const save = async () => {
+    const b = await png();
+    if (b) downloadPng(b, posterFileName(text.title));
+  };
+  const share = async () => {
+    const b = await png();
+    if (!b) return;
+    const r = await sharePosterFile(b, text);
+    if (r === 'shared') onDone();
+  };
+  return (
+    <Shell h1="Share your win" sub="Tell your friends you are going. Your QR code is on the next screen.">
+      <p className="text-center text-[12px] font-semibold uppercase tracking-wider text-primary">Night confirmed</p>
+      <canvas ref={ref} role="img" aria-label={`Share poster: won a free night at ${text.title}`}
+        className="mx-auto aspect-[4/5] w-[68%] rounded-xl shadow-lg" />
+      <button type="button" className={primary} disabled={!ready} onClick={() => void share()}>Share</button>
+      <button type="button" className={`${btn} border border-border`} disabled={!ready} onClick={() => void save()}>Save image</button>
+      <button type="button" className={`${btn} underline underline-offset-4`} onClick={onSkip}>Skip, show my QR</button>
+    </Shell>
+  );
+}
+
 export default function RaffleWin() {
   const { token = '' } = useParams();
   const { user, isLoading } = useAuth();
@@ -48,6 +84,8 @@ export default function RaffleWin() {
   const [busy, setBusy] = useState(false);
   const [line, setLine] = useState<string | null>(null);
   const [qr, setQr] = useState<{ token: string; night: OpenNight | null } | null>(null);
+  const [firstName, setFirstName] = useState<string | null>(null);
+  const [poolCount, setPoolCount] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setScreen('loading');
@@ -59,6 +97,7 @@ export default function RaffleWin() {
     } catch { r = { kind: 'error' } as const; }
     setFromAuth(false);
     if (r.kind === 'ok') {
+      setFirstName(r.firstName);
       setWinId(r.winId); setNights(r.nights); setChosen(null); setTicked(false);
       if (r.qrToken) setQr({ token: r.qrToken, night: r.night });
     }
@@ -82,7 +121,11 @@ export default function RaffleWin() {
       out = res.error ? ({ kind: 'error' } as const) : parseLock(res.data);
     } catch { out = { kind: 'error' } as const; }
     setBusy(false);
-    if (out.kind === 'qr') { setQr({ token: out.qrToken, night: out.night ?? night }); setScreen('qr'); return; }
+    if (out.kind === 'qr') {
+      setQr({ token: out.qrToken, night: out.night ?? night });
+      if (out.firstName) setFirstName(out.firstName);
+      setScreen(screenAfterLock(flags.raffleSharePoster)); return;
+    }
     if (out.kind === 'screen') { setScreen(out.screen); return; }
     if (out.kind === 'back-to-pick') {
       if (out.dropNight) setNights((ns) => ns.filter((n) => n.occurrenceId !== night.occurrenceId));
@@ -90,6 +133,20 @@ export default function RaffleWin() {
     }
     setScreen('error');
   };
+
+  // Draw count for the poster pill: fetched once when the share step opens; failure = no pill.
+  useEffect(() => {
+    if (screen !== 'share' || poolCount !== null) return;
+    let live = true;
+    fetchRaffleBoard().then((b) => { if (live && b.poolCount > 0) setPoolCount(b.poolCount); }).catch(() => undefined);
+    return () => { live = false; };
+  }, [screen, poolCount]);
+
+  const posterNight = qr?.night ?? null;
+  const poster = useMemo(
+    () => (posterNight ? posterText({ firstName, night: posterNight, poolCount, origin: window.location.origin }) : null),
+    [firstName, posterNight, poolCount],
+  );
 
   if (!flags.raffleV2) return <Navigate to="/" replace />;
 
@@ -148,7 +205,10 @@ export default function RaffleWin() {
       </Shell>
     );
   }
-  if (screen === 'qr' && qr) {
+  if (screen === 'share' && qr && poster) {
+    return <SharePosterStep text={poster} onDone={() => setScreen('qr')} onSkip={() => setScreen('qr')} />;
+  }
+  if ((screen === 'share' || screen === 'qr') && qr) {
     return (
       <Shell h1="You are in"
         sub={`Show this at the door.${qr.night ? ` ${qr.night.title}, ${formatLocalNight(qr.night.startLocal)}` : ''}`}
