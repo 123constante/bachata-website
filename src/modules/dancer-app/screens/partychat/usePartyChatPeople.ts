@@ -3,26 +3,29 @@ import { rpcLoose } from '@/integrations/supabase/rpcLoose';
 import { supabase } from '@/integrations/supabase/client';
 
 export type PartyRole = 'organiser' | 'dj' | 'instructor';
-export type ChatMember = { profile_id: string; first_name: string | null; avatar_url: string | null; top_role: PartyRole | null; joined_at: string };
+export type ChatMember = { profile_id: string; first_name: string | null; avatar_url: string | null; top_role: PartyRole | null; joined_at: string; is_me: boolean };
 
 const str = (v: unknown) => (typeof v === 'string' ? v : null);
 const ROLES: PartyRole[] = ['organiser', 'dj', 'instructor'];
 
 export const parseMembers = (data: unknown): ChatMember[] => {
-  if (!Array.isArray(data)) return [];
+  // RPC shape: {ok, members:[{profile_id, first_name, avatar_url, role, joined_at, is_me}]}; a bare array is also accepted.
+  const list = Array.isArray(data) ? data : (data as { members?: unknown } | null)?.members;
+  if (!Array.isArray(list)) return [];
   const out: ChatMember[] = [];
-  for (const r of data) {
+  for (const r of list) {
     const d = (r ?? {}) as Record<string, unknown>;
     if (typeof d.profile_id !== 'string' || typeof d.joined_at !== 'string') continue;
-    const role = ROLES.find((x) => x === d.top_role) ?? null;
-    out.push({ profile_id: d.profile_id, first_name: str(d.first_name), avatar_url: str(d.avatar_url), top_role: role, joined_at: d.joined_at });
+    const role = ROLES.find((x) => x === (d.role ?? d.top_role)) ?? null;
+    out.push({ profile_id: d.profile_id, first_name: str(d.first_name), avatar_url: str(d.avatar_url), top_role: role, joined_at: d.joined_at, is_me: d.is_me === true });
   }
   return out;
 };
 
 /** Members of the chat (RPC, member-only; any failure = no members, never a crash) plus who is online (Realtime presence). */
-export const usePartyChatPeople = (chatId: string, enabled: boolean, selfId: string | null) => {
+export const usePartyChatPeople = (chatId: string, enabled: boolean, knownSelfId: string | null) => {
   const [members, setMembers] = useState<ChatMember[]>([]);
+  const selfId = knownSelfId ?? members.find((m) => m.is_me)?.profile_id ?? null;
   const [online, setOnline] = useState<Set<string>>(new Set());
   const live = useRef(true);
 
@@ -66,5 +69,5 @@ export const usePartyChatPeople = (chatId: string, enabled: boolean, selfId: str
     }
   }, [chatId, enabled, selfId]);
 
-  return { members, online, refresh };
+  return { members, online, refresh, selfId };
 };
