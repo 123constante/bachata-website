@@ -91,7 +91,7 @@ describe('D83: every job title is an action (and names its event)', () => {
   it('the other two sub-lines say why', () => {
     const jobs = homeJobs(page([series('A', { upcoming_count: 0, next_dates: [] }), series('B', { default_cover_image_url: null })]), [], today());
     expect(jobs.find((j) => j.kind === 'no_dates_left')!.sub).toBe('No coming dates, so dancers see nothing');
-    expect(jobs.find((j) => j.kind === 'no_cover')!.sub).toBe('Events with a flyer get more clicks');
+    expect(jobs.find((j) => j.kind === 'no_cover')!.sub).toBe('A flyer is required to continue');
   });
 });
 
