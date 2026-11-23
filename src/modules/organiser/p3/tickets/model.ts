@@ -192,6 +192,6 @@ export const hubSteps = (state: 'none' | 'started' | 'waiting' | 'connected'): H
   return [
     { key: 'ready', label: on ? '1. Bank details and ID' : '1. Have your bank details and photo ID ready', done: on },
     { key: 'connect', label: on ? '2. Connect Stripe' : '2. Connect Stripe (about 5 minutes)', done: on || state === 'started' || state === 'waiting' },
-    { key: 'done', label: on ? '3. Done' : '3. Come back here: you’re done', done: on },
+    { key: 'done', label: on ? '3. Done' : '3. Come back here: you\u2019re done', done: on },
   ];
 };
