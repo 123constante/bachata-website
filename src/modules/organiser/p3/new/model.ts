@@ -114,6 +114,9 @@ export function createSig(d: CreateDraft): string {
 /** Nothing typed or picked since the kind (a photo counts as a change). */
 export const isUntouched = (d: CreateDraft, hasCover = false): boolean => !hasCover && createSig(d) === createSig(blankCreate(d.kind, d.seriesId));
 
+/** Option C leave sheet: the draft has something typed and its create has not landed. */
+export const leaveSheetNeeded = (d: CreateDraft, hasCover = false): boolean => !d.created && !isUntouched(d, hasCover);
+
 // ---- dates ------------------------------------------------------------------------------
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -209,6 +212,8 @@ export const COPY = {
   leaveTitle: 'Leave this event?',
   leaveBody: 'Nothing is saved yet. Save it as a draft to finish later, or leave without saving.',
   leaveNoName: 'Nothing is saved yet. To keep it as a draft, add a name first.',
+  leaveLookTitle: "Your event isn't saved yet",
+  leaveLookBody: 'If you leave now, what you entered is lost.',
 } as const;
 
 const list = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
