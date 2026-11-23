@@ -123,6 +123,8 @@ const DancerBell = () => {
   const unread = loading || failed ? 0 : unreadCount(alerts, read);
   const badge = badgeText(unread);
   const [open, setOpen] = useState(false);
+  // Fixed to the viewport (not the bell): Switch sits right of the bell, so a bell-anchored card ran off the left edge.
+  const [pos, setPos] = useState({ top: 56, arrowRight: 40 });
   const [qr, setQr] = useState<{ occurrenceId: string; name: string; date: string | null } | null>(null);
   const wrap = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
@@ -175,7 +177,11 @@ const DancerBell = () => {
         aria-expanded={open}
         aria-haspopup="true"
         data-testid="dancer-bell-button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          const r = button.current?.getBoundingClientRect();
+          if (r) setPos({ top: r.bottom + 8, arrowRight: Math.max(12, window.innerWidth - (r.left + r.width / 2) - 12 - 5) });
+          setOpen((o) => !o);
+        }}
         style={{ position: 'relative', minWidth: 44, minHeight: 44, display: 'grid', placeItems: 'center' }}
       >
         <Bell aria-hidden="true" style={{ width: 22, height: 22 }} />
@@ -194,9 +200,9 @@ const DancerBell = () => {
           role="region"
           aria-label="Alerts"
           data-testid="dancer-bell-dropdown"
-          style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 'min(320px, calc(100vw - 24px))', zIndex: 30, background: 'var(--card, #fff)', color: 'var(--fg, inherit)', border: '1px solid var(--line, rgba(0,0,0,.12))', borderRadius: 16, padding: 8, boxShadow: '0 8px 24px rgba(0,0,0,.18)' }}
+          style={{ position: 'fixed', top: pos.top, right: 12, width: 'min(320px, calc(100vw - 24px))', zIndex: 30, background: 'var(--card, #fff)', color: 'var(--fg, inherit)', border: '1px solid var(--line, rgba(0,0,0,.12))', borderRadius: 16, padding: 8, boxShadow: '0 8px 24px rgba(0,0,0,.18)' }}
         >
-          <span aria-hidden="true" style={{ position: 'absolute', top: -6, right: 18, width: 10, height: 10, transform: 'rotate(45deg)', background: 'var(--card, #fff)', borderLeft: '1px solid var(--line, rgba(0,0,0,.12))', borderTop: '1px solid var(--line, rgba(0,0,0,.12))' }} />
+          <span aria-hidden="true" style={{ position: 'absolute', top: -6, right: pos.arrowRight, width: 10, height: 10, transform: 'rotate(45deg)', background: 'var(--card, #fff)', borderLeft: '1px solid var(--line, rgba(0,0,0,.12))', borderTop: '1px solid var(--line, rgba(0,0,0,.12))' }} />
           {failed ? (
             <button type="button" className="da-tap w-full p-[10px] text-left text-[14px]" onClick={() => { my.retry(); void tq.refetch(); }} data-testid="bell-retry">
               {BELL_ERROR_LINE}
