@@ -654,7 +654,7 @@ function TypeRow({
           <span className="p3-grow">
             <span className="p3-row-t p3-block">{t.name}</span>
             <span className="p3-row-s" data-testid="tix-type-line">
-              {priceLabel(t.pricePence)} &middot; {countsLine(sales ? sales.ticketsSold : null, leftOf(t))}
+              {priceLabel(t.pricePence)} &middot; {countsLine(sales ? sales.ticketsSold : null, leftOf(sales ? { capacity: t.capacity, reserved: Math.max(t.reserved, sales.ticketsSold) } : t))}
             </span>
           </span>
         </button>
