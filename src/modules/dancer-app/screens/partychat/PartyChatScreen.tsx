@@ -4,7 +4,7 @@ import { ArrowLeft, MoreVertical } from 'lucide-react';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { rpcLoose } from '@/integrations/supabase/rpcLoose';
 import { SheetView, useKeyboardInset } from '@/modules/organiser/ui';
-import PersonAvatar from '@/components/account/profiles/PersonAvatar';
+import { PersonAvatar } from '@/components/account/profiles/PersonAvatar';
 import { PARTY_CHAT_ENABLED } from '../nights/partyChatFlag';
 
 const NIGHTS = '/app/nights';
