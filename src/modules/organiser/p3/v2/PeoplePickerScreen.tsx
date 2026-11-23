@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { PEOPLE_SEARCH_MIN } from '@/modules/organiser/shared/selfServeApi';
 import type { PeopleRole } from '../../shared/programmeModel';
 import { pickerQueryKey, searchPickerRows, type PickerRow } from '../../dates/peoplePicker';
+import { fetchAllTeacherRows, groupTeachers, teacherListQueryKey } from '../../dates/teacherList';
+import { flags } from '@/lib/featureFlags';
 
 /** Copy for the people picker lives here (organiserPeoplePicker flag). */
 export const PICKER_COPY = {
@@ -12,6 +14,8 @@ export const PICKER_COPY = {
   noResults: 'No one found for that name.',
   title: (word: string) => `Add a ${word}`,
   addRow: (word: string) => `+ Add a ${word}`,
+  team: 'On your team',
+  allTeachers: 'All teachers',
 };
 
 /** The role word the group's rows use: teacher, DJ, MC, performer, dancer. */
@@ -46,10 +50,12 @@ export interface PeoplePickerScreenProps {
   onIds: ReadonlySet<string>;
   onPick: (row: PickerRow) => void;
   onBack: () => void;
+  /** Teachers already on this page's team (listed first when the search is empty). */
+  teamIds?: ReadonlySet<string>;
 }
 
 /** Full-screen search. Height follows the visual viewport so the keyboard never covers a row. */
-export function PeoplePickerScreen({ role, onIds, onPick, onBack }: PeoplePickerScreenProps) {
+export function PeoplePickerScreen({ role, onIds, onPick, onBack, teamIds }: PeoplePickerScreenProps) {
   const [term, setTerm] = useState('');
   const [h, setH] = useState<number | null>(() => (typeof window !== 'undefined' ? window.visualViewport?.height ?? null : null));
   const input = useRef<HTMLInputElement>(null);
@@ -58,6 +64,17 @@ export function PeoplePickerScreen({ role, onIds, onPick, onBack }: PeoplePicker
   const q = useQuery({ queryKey: pickerQueryKey(role, t), queryFn: () => searchPickerRows(t, role), enabled: ready, staleTime: 60_000 });
   const rows = ready ? (q.data ?? []).filter((r) => !onIds.has(r.id)) : [];
   const word = roleWord(role);
+  const listMode = flags.organiserPickerList && role === 'teaching';
+  const all = useQuery({ queryKey: teacherListQueryKey, queryFn: fetchAllTeacherRows, enabled: listMode && t.length === 0, staleTime: 5 * 60_000 });
+  const groups = listMode && t.length === 0 ? groupTeachers(all.data ?? [], teamIds ?? new Set(), onIds) : null;
+  const showRow = (r: PickerRow) => (
+    <button type="button" role="option" aria-selected={false} key={r.id} onClick={() => onPick(r)}
+      style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', minHeight: 52, padding: '8px 12px', border: 0, borderTop: '1px solid #E9E9E9', background: '#FFFFFF', textAlign: 'left' }}>
+      <Avatar id={r.id} name={r.name} url={r.avatarUrl} size={36} />
+      <b style={{ fontSize: 15, fontWeight: 600 }}>{r.name}</b>
+    </button>
+  );
+  const head = (text: string) => <div role="presentation" style={{ padding: '8px 12px', fontSize: 13, fontWeight: 600, color: '#6B6B6B' }}>{text}</div>;
 
   useEffect(() => { input.current?.focus(); }, []);
   useEffect(() => {
@@ -80,8 +97,14 @@ export function PeoplePickerScreen({ role, onIds, onPick, onBack }: PeoplePicker
           onChange={(e) => setTerm(e.target.value)} style={{ width: '100%', minHeight: 46, fontSize: 16, padding: '0 12px', color: '#1A1A1A', background: '#FFFFFF' }} />
       </div>
       <div role="listbox" aria-label="Results" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        {groups && (
+          <>
+            {groups.team.length > 0 && <>{head(PICKER_COPY.team)}{groups.team.map(showRow)}</>}
+            {groups.all.length > 0 && <>{head(PICKER_COPY.allTeachers)}{groups.all.map(showRow)}</>}
+          </>
+        )}
         {ready && !q.isLoading && rows.length === 0 && <p style={{ padding: '0 12px', color: '#6B6B6B', fontSize: 15 }}>{PICKER_COPY.noResults}</p>}
-        {rows.map((r) => (
+        {listMode ? rows.map(showRow) : rows.map((r) => (
           <button type="button" role="option" aria-selected={false} key={r.id} onClick={() => onPick(r)}
             style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', minHeight: 52, padding: '8px 12px', border: 0, borderTop: '1px solid #E9E9E9', background: '#FFFFFF', textAlign: 'left' }}>
             <Avatar id={r.id} name={r.name} url={r.avatarUrl} size={36} />
