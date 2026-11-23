@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 const h = vi.hoisted(() => ({ calls: [] as { fn: string; args?: Record<string, unknown> }[], rpc: null as unknown as (fn: string, a?: Record<string, unknown>) => unknown }));
@@ -18,7 +19,8 @@ h.rpc = (fn) => {
   if (fn === 'leave_party_chat_v1') return { data: st.leave, error: null };
   return { data: { ok: true }, error: null };
 };
-const open = () => render(<MemoryRouter initialEntries={['/account/party-chat/c1']}><Routes><Route path="/account/party-chat/:chatId" element={<PartyChatRoute />} /><Route path="/account" element={<p>ACCOUNT</p>} /><Route path="/app/nights" element={<p>NIGHTS</p>} /></Routes></MemoryRouter>);
+const qcTest = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+const open = () => render(<QueryClientProvider client={qcTest}><MemoryRouter initialEntries={['/account/party-chat/c1']}><Routes><Route path="/account/party-chat/:chatId" element={<PartyChatRoute />} /><Route path="/account" element={<p>ACCOUNT</p>} /><Route path="/app/nights" element={<p>NIGHTS</p>} /></Routes></MemoryRouter></QueryClientProvider>);
 beforeEach(() => { h.calls = []; st.state = 'open'; st.msgs = [msg('a', 5), msg('b', 4, true)]; st.more = false; st.get = 'ok'; st.post = { ok: true }; st.leave = { ok: true }; vi.stubEnv('VITE_ENABLE_PARTY_CHAT', 'true'); });
 afterEach(() => { cleanup(); vi.unstubAllEnvs(); vi.useRealTimers(); });
 const type = (v: string) => fireEvent.change(screen.getByTestId('party-chat-input'), { target: { value: v } });
