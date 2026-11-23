@@ -170,3 +170,28 @@ export const eventDateLine = (s: { next_dates?: readonly { occurrence_date: stri
 };
 
 export type { MoveContext, TicketStatus, TypeSales };
+
+// ---- Stripe nudge v2, S2b: the Get paid hub (flag stripeNudgeV2) ------------------------------
+
+/** Flag stripeNudgeV2 (env VITE_ENABLE_STRIPE_NUDGE_V2). OFF = Get paid and every Connect button as today. */
+export const stripeNudgeV2On = (): boolean => import.meta.env.VITE_ENABLE_STRIPE_NUDGE_V2 === 'true';
+
+export const HUB_COPY = {
+  label: 'Set up in 3 steps',
+  connected: 'Stripe is connected. Dancers can buy tickets.',
+  note: 'No commission from Bachata Calendar. Stripe card fees apply.',
+  connect: 'Connect Stripe',
+  finish: 'Finish setting up',
+} as const;
+
+export interface HubStep { key: 'ready' | 'connect' | 'done'; label: string; done: boolean }
+
+/** The hub's three rows for a Stripe state: ticks follow real state, labels shorten once connected. */
+export const hubSteps = (state: 'none' | 'started' | 'waiting' | 'connected'): HubStep[] => {
+  const on = state === 'connected';
+  return [
+    { key: 'ready', label: on ? '1. Bank details and ID' : '1. Have your bank details and photo ID ready', done: on },
+    { key: 'connect', label: on ? '2. Connect Stripe' : '2. Connect Stripe (about 5 minutes)', done: on || state === 'started' || state === 'waiting' },
+    { key: 'done', label: on ? '3. Done' : '3. Come back here: you’re done', done: on },
+  ];
+};
