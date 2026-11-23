@@ -3,7 +3,6 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, MoreVertical } from 'lucide-react';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { rpcLoose } from '@/integrations/supabase/rpcLoose';
-import { addDaysToKey, londonDateKey, londonTodayKey } from '@/lib/londonDate';
 import { SheetView, initials, useKeyboardInset } from '@/modules/organiser/ui';
 import { PARTY_CHAT_ENABLED } from '../nights/partyChatFlag';
 
@@ -63,11 +62,15 @@ export const mergeMessages = (a: ChatMsg[], b: ChatMsg[]): ChatMsg[] => {
 const timeFmt = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hour12: false });
 const dayFmt = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', weekday: 'short', day: 'numeric', month: 'short' });
 export const hhmm = (iso: string) => timeFmt.format(new Date(iso));
+// Own London-day key (not lib/londonDate: importing more of it grows the shared lib-event-rules chunk, which the event route's budget counts).
+const keyFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' });
+const dayKey = (d: Date) => keyFmt.format(d);
 export const dayLabel = (iso: string, now: Date = new Date()): string => {
-  const key = londonDateKey(new Date(iso));
-  const today = londonTodayKey(now);
+  const key = dayKey(new Date(iso));
+  const today = dayKey(now);
   if (key === today) return 'Today';
-  if (key === addDaysToKey(today, -1)) return 'Yesterday';
+  const yesterday = new Date(new Date(`${today}T12:00:00Z`).getTime() - 86400000).toISOString().slice(0, 10);
+  if (key === yesterday) return 'Yesterday';
   return dayFmt.format(new Date(iso)).replace(',', '');
 };
 const partyDate = (d: string | null) => (d ? dayFmt.format(new Date(`${d.slice(0, 10)}T12:00:00Z`)).replace(',', '') : null);
