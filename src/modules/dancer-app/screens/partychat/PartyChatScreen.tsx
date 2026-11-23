@@ -212,7 +212,7 @@ const PartyChatScreen = () => {
   const rows = useMemo(() => {
     // Join lines sit among the messages by joined_at; the viewer's own and joins before the first loaded message are skipped.
     const first = msgs[0]?.created_at;
-    const joins = first ? people.members.filter((p) => p.joined_at >= first && p.profile_id !== selfId && p.first_name) : [];
+    const joins = first ? people.members.filter((p) => p.joined_at >= first && p.profile_id !== people.selfId && p.first_name) : [];
     const items: { at: string; m?: ChatMsg; j?: ChatMember }[] = [...msgs.map((m) => ({ at: m.created_at, m })), ...joins.map((j) => ({ at: j.joined_at, j }))];
     items.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : a.m ? 1 : -1));
     let last = '';
@@ -222,7 +222,7 @@ const PartyChatScreen = () => {
       last = label;
       return { ...it, divider };
     });
-  }, [msgs, people.members, selfId]);
+  }, [msgs, people.members, people.selfId]);
 
   if (phase === 'not_member') {
     return (

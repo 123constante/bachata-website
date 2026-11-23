@@ -19,7 +19,7 @@ vi.mock('@/components/auth/AuthGuard', () => ({ AuthGuard: ({ children }: { chil
 import { PartyChatRoute } from '../PartyChatScreen';
 import { parseMembers } from '../usePartyChatPeople';
 
-const mem = (id: string, name: string, joined: string, role: string | null = null) => ({ profile_id: id, first_name: name, avatar_url: null, top_role: role, joined_at: joined });
+const mem = (id: string, name: string, joined: string, role: string | null = null) => ({ profile_id: id, first_name: name, avatar_url: null, role, joined_at: joined, is_me: false });
 const open = () => render(<MemoryRouter initialEntries={['/account/party-chat/c1']}><Routes><Route path="/account/party-chat/:chatId" element={<PartyChatRoute />} /><Route path="/dancers/:id" element={<p>PROFILE</p>} /></Routes></MemoryRouter>);
 afterEach(() => { cleanup(); vi.unstubAllEnvs(); });
 
@@ -27,6 +27,13 @@ describe('party chat people', () => {
   it('parseMembers drops junk and unknown roles', () => {
     expect(parseMembers(null)).toEqual([]);
     expect(parseMembers([{ profile_id: 1 }, mem('x', 'X', '2026-11-23T09:00:00Z', 'boss')])[0].top_role).toBeNull();
+  });
+  it('parseMembers reads the real RPC shape {ok, members} with role and is_me', () => {
+    const r = parseMembers({ ok: true, members: [{ ...mem('p1', 'Ana', '2026-11-23T09:00:00Z', 'organiser'), is_me: true }] });
+    expect(r).toHaveLength(1);
+    expect(r[0].top_role).toBe('organiser');
+    expect(r[0].is_me).toBe(true);
+    expect(parseMembers({ ok: false, error: 'not_member' })).toEqual([]);
   });
   it('strip, sheet, one badge, row opens profile; keep-list intact', async () => {
     vi.stubEnv('VITE_ENABLE_PARTY_CHAT', 'true');
