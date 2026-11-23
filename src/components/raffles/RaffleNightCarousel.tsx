@@ -10,9 +10,19 @@ const initials = (title: string): string => {
   return ((w[0]?.[0] ?? '') + (w.length > 1 ? (w[w.length - 1][0] ?? '') : '')).toUpperCase() || '?';
 };
 
-type Props = { nights: RaffleNight[]; joined: boolean; onEnter: (n: RaffleNight) => void };
+const Tick = ({ size }: { size: number }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+);
 
-export const RaffleNightCarousel = ({ nights, joined, onEnter }: Props) => {
+type Props = {
+  nights: RaffleNight[];
+  joined: boolean;
+  onEnter: (n: RaffleNight) => void;
+  /** Tap on an entered card's button: a small confetti burst from (x, y) in viewport px. */
+  onBurst?: (x: number, y: number) => void;
+};
+
+export const RaffleNightCarousel = ({ nights, joined, onEnter, onBurst }: Props) => {
   const items = nights.slice(0, MAX_CARDS);
   const track = useRef<HTMLUListElement>(null);
   const [idx, setIdx] = useState(0);
@@ -40,15 +50,23 @@ export const RaffleNightCarousel = ({ nights, joined, onEnter }: Props) => {
       <h2 id="rd-pick-h" className="rd-h2">Pick a night</h2>
       <ul className="rd-car" ref={track} onScroll={onScroll}>
         {items.map((n) => (
-          <li key={n.occurrenceId} className="rd-card">
-            {n.posterUrl ? (
-              <img className="rd-flyer" src={n.posterUrl} alt="" loading="lazy" />
-            ) : (
-              <div className="rd-flyer rd-flyer-tile" aria-hidden="true">{initials(n.title)}</div>
-            )}
+          <li key={n.occurrenceId} className={`rd-card${joined ? ' is-in' : ''}`}>
+            <div className="rd-art">
+              {n.posterUrl ? (
+                <img className="rd-flyer" src={n.posterUrl} alt="" loading="lazy" />
+              ) : (
+                <div className="rd-flyer rd-flyer-tile" aria-hidden="true">{initials(n.title)}</div>
+              )}
+              {joined ? <span className="rd-seal" data-testid="raffles-card-seal" aria-hidden="true"><Tick size={44} /></span> : null}
+            </div>
             <p className="rd-card-name">{n.title}</p>
             {joined ? (
-              <span className="rd-card-in" data-testid="raffles-card-in">&#10003; You&rsquo;re in</span>
+              <button
+                type="button"
+                className="rd-card-btn rd-card-btn-in"
+                data-testid="raffles-card-in"
+                onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); onBurst?.(r.left + r.width / 2, r.top + r.height / 2); }}
+              ><Tick size={18} />You&rsquo;re in</button>
             ) : (
               <button type="button" className="rd-card-btn" onClick={() => onEnter(n)} aria-label={`Enter ${n.title}`}>Enter</button>
             )}
