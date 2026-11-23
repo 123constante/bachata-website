@@ -76,7 +76,7 @@ const SEND_ERRORS: Record<string, string> = { too_long: 'Keep it under 500 chara
 
 const Avatar = ({ m }: { m: ChatMsg }) => (
   <span aria-hidden className="grid h-[28px] w-[28px] shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--card)] text-[11px] font-bold">
-    {m.avatar_url ? <img src={m.avatar_url} alt="" className="h-full w-full object-cover" /> : initials(m.display_name ?? '')}
+    {m.avatar_url ? <img src={m.avatar_url} alt="" loading="lazy" className="h-full w-full object-cover" /> : initials(m.display_name ?? '')}
   </span>
 );
 
