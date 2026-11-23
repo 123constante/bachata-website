@@ -1,7 +1,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Bell, MessageCircle, Star, Ticket } from 'lucide-react';
+import { Bell } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { flags } from '@/lib/featureFlags';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
@@ -36,7 +36,7 @@ const RateProbe = ({ candidates, index, onResolve }: { candidates: readonly Nigh
 
 const Tile = ({ kind }: { kind: BellAlert['kind'] }) => (
   <span aria-hidden="true" className={`${kind === 'rate' ? 'da-tone-rose' : 'da-tone-violet'} grid h-[36px] w-[36px] shrink-0 place-items-center rounded-[12px]`}>
-    {kind === 'ticket' ? <Ticket className="h-[20px] w-[20px]" /> : kind === 'party' ? <MessageCircle className="h-[20px] w-[20px]" /> : <Star className="h-[20px] w-[20px]" />}
+    <span className="text-[18px] leading-none">{kind === 'ticket' ? '\u{1F39F}' : kind === 'party' ? '\u{1F4AC}' : '\u2B50'}</span>
   </span>
 );
 
@@ -99,6 +99,25 @@ const DancerBell = () => {
       }
     },
   });
+  const [open, setOpen] = useState(false);
+  // New-message alert: fetched whenever there is an open chat (the badge rises without opening the bell). Same key family as
+  // UNREAD_KEY (['party-unread'], restated: a static import of partyChatApi breaks bundle-budget), so the
+  // chat screen's invalidation clears it. null (failure) = today's "open" row.
+  const chatId = partyOn && pq.data && pq.data.state === 'open' ? pq.data.chat_id : null;
+  const uq = useQuery({
+    queryKey: ['party-unread', chatId],
+    enabled: Boolean(chatId),
+    staleTime: 60_000,
+    retry: false,
+    queryFn: async () => {
+      try {
+        const { fetchPartyUnread } = await import('../screens/nights/partyChatApi');
+        return await fetchPartyUnread(chatId as string);
+      } catch {
+        return null;
+      }
+    },
+  });
   const candidates = useMemo(() => nudgeCandidates(my.nights.past, my.todayKey), [my.nights.past, my.todayKey]);
   const candidateKey = candidates.map((c) => c.occurrenceId).join(',');
   // The probe's answer is stored WITH the candidate list it answered for, so an early answer can
@@ -117,9 +136,9 @@ const DancerBell = () => {
   const loading = my.isLoading || (ticketsOn && tq.isLoading) || (partyOn && pq.isLoading) || rateNight === 'loading';
   const failed = my.isError || (ticketsOn && tq.isError);
   const alerts = useMemo(
-    () => (loading || failed ? [] : bellAlerts(ticketsOn ? ticketAlerts(my.nights.upcoming, tq.data ?? [], my.todayKey, new Date()) : [], rateAlert(rateNight as Night | null, my.todayKey), partyOn ? partyAlert(pq.data ?? null) : null)),
+    () => (loading || failed ? [] : bellAlerts(ticketsOn ? ticketAlerts(my.nights.upcoming, tq.data ?? [], my.todayKey, new Date()) : [], rateAlert(rateNight as Night | null, my.todayKey), partyOn ? partyAlert(pq.data ?? null, uq.data ?? null) : null)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [loading, failed, ticketsOn, partyOn, pq.data, my.nights.upcoming, tq.data, my.todayKey, rateNight, now.getMinutes()],
+    [loading, failed, ticketsOn, partyOn, pq.data, uq.data, my.nights.upcoming, tq.data, my.todayKey, rateNight, now.getMinutes()],
   );
 
   const [read, setRead] = useState<ReadonlySet<string>>(() => (userId ? loadRead(userId) : new Set()));
@@ -138,7 +157,6 @@ const DancerBell = () => {
 
   const unread = loading || failed ? 0 : unreadCount(alerts, read);
   const badge = badgeText(unread);
-  const [open, setOpen] = useState(false);
   // Fixed to the viewport (not the bell): Switch sits right of the bell, so a bell-anchored card ran off the left edge.
   const [pos, setPos] = useState({ top: 56, arrowRight: 40 });
   const [qr, setQr] = useState<{ occurrenceId: string; name: string; date: string | null } | null>(null);

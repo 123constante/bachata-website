@@ -16,6 +16,8 @@ const h = vi.hoisted(() => ({
   rating: { summary: { my_level: null as string | null }, isLoading: false, canRate: true },
   card: null as unknown,
   cardCalls: 0,
+  unread: null as unknown,
+  unreadCalls: 0,
 }));
 
 vi.mock('@/hooks/useAuth', async (importOriginal) =>
@@ -35,6 +37,7 @@ vi.mock('@/modules/tickets/myTicketsApi', () => ({
 
 vi.mock('../../screens/nights/partyChatApi', () => ({
   fetchPartyCard: async () => { h.cardCalls += 1; return h.card; },
+  fetchPartyUnread: async () => { h.unreadCalls += 1; return h.unread; },
 }));
 
 import DancerBell from '../DancerBell';
@@ -119,7 +122,7 @@ describe('model', () => {
   });
   it('rate: id, title and path from the one candidate; nothing without one', () => {
     const a = rateAlert(night({ past: true, date: '2026-11-21', status: 'ended' }) as never, TODAY);
-    expect(a).toMatchObject({ id: 'rate:ser1:2026-11-21', title: 'Rate last night', line: 'Salsa Night \u00B7 how was the level?' });
+    expect(a).toMatchObject({ id: 'rate:ser1:2026-11-21', title: 'Rate last night', line: 'How was the night?' });
     expect(rateAlert(null, TODAY)).toBeNull();
   });
 });
@@ -195,6 +198,7 @@ describe('the bell', () => {
 });
 
 describe('party chat alert', () => {
+  beforeEach(() => { h.unread = null; h.unreadCalls = 0; });
   const open = { state: 'open', city_id: 'c', chat_id: 'chat1', closes_at: null };
   const on = () => vi.stubEnv('VITE_ENABLE_PARTY_CHAT', 'true');
 
@@ -234,6 +238,75 @@ describe('party chat alert', () => {
     expect(rows[0].getAttribute('href')).toBe('/app/party-chat/chat1');
     fireEvent.click(rows[0]);
     expect(loadRead(FAKE_USER_ID)).toEqual(new Set(['party:chat1']));
+  });
+
+  it('model: new-message alert swaps in place under its own id; muted / 0 / null keep today\'s row', () => {
+    const msg = partyAlert(open, { muted: false, unread: 3 });
+    expect(msg).toEqual({
+      id: 'party-unread:chat1', kind: 'party', title: 'New messages in your party chat', line: 'Tap to read.', to: '/app/party-chat/chat1',
+    });
+    for (const u of [{ muted: true, unread: 0 }, { muted: true, unread: 5 }, { muted: false, unread: 0 }, null]) {
+      expect(partyAlert(open, u)?.id).toBe('party:chat1');
+      expect(partyAlert(open, u)?.title).toBe('Party chat is open');
+    }
+    expect(partyAlert({ ...open, state: 'closed' }, { muted: false, unread: 3 })).toBeNull();
+    const t = (i: number) => ({ id: `t${i}`, kind: 'ticket' as const, title: 't', line: 'l', occurrenceId: 'o', nightName: 'n', nightDate: null });
+    expect(bellAlerts([1, 2, 3, 4, 5].map(t), null, msg)).toHaveLength(BELL_MAX_ALERTS);
+    expect(bellAlerts([t(1)], null, msg).map((a) => a.id)).toEqual(['party-unread:chat1', 't1']);
+  });
+
+  it('unread > 0: the row swaps to the new-message alert, one row, and tapping marks it read', async () => {
+    on();
+    h.card = open;
+    h.unread = { muted: false, unread: 2 };
+    mount();
+    fireEvent.click(await screen.findByTestId('dancer-bell-button'));
+    const rows = await vi.waitFor(() => {
+      const r = screen.getAllByTestId('bell-alert');
+      expect(r[0].getAttribute('data-alert-id')).toBe('party-unread:chat1');
+      return r;
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].textContent).toContain('New messages in your party chat');
+    expect(rows[0].textContent).toContain('Tap to read.');
+    expect(rows[0].getAttribute('href')).toBe('/app/party-chat/chat1');
+    expect(screen.getByTestId('bell-dot')).toBeTruthy();
+    fireEvent.click(rows[0]);
+    expect(loadRead(FAKE_USER_ID)).toEqual(new Set(['party-unread:chat1']));
+  });
+
+  it.each([
+    ['muted', { muted: true, unread: 0 }],
+    ['unread 0', { muted: false, unread: 0 }],
+    ['failure (null)', null],
+  ])('%s: today\'s open row', async (_n, u) => {
+    on();
+    h.card = open;
+    h.unread = u;
+    mount();
+    fireEvent.click(await screen.findByTestId('dancer-bell-button'));
+    await vi.waitFor(() => expect(h.unreadCalls).toBe(1));
+    const rows = screen.getAllByTestId('bell-alert');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].getAttribute('data-alert-id')).toBe('party:chat1');
+    expect(rows[0].textContent).toContain('Tap to join the chat.');
+  });
+
+  it('unread is read without opening the dropdown: the badge counts the new-message alert', async () => {
+    on();
+    h.card = open;
+    h.unread = { muted: false, unread: 2 };
+    mount();
+    await vi.waitFor(() => expect(h.unreadCalls).toBe(1));
+    expect((await screen.findByTestId('dancer-bell-badge')).textContent).toBe('1');
+  });
+
+  it('unread is not read with the chat flag off', async () => {
+    h.card = open;
+    h.unread = { muted: false, unread: 2 };
+    mount();
+    await new Promise((r) => setTimeout(r, 30));
+    expect(h.unreadCalls).toBe(0);
   });
 
   it.each(['in', 'none', 'closed'])('state %s: no alert', async (state) => {

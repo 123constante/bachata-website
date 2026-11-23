@@ -65,24 +65,32 @@ export const rateAlert = (night: Night | null, todayKey: string): BellAlert | nu
         id: rateAlertId(night.seriesId, night.date),
         kind: 'rate',
         title: bellRateTitle(night.date, todayKey),
-        line: `${night.name} \u00B7 how was the level?`,
+        line: 'How was the night?',
         to: nightsPath(night.seriesId),
       }
     : null;
 
 export const partyAlertId = (chatId: string): string => `party:${chatId}`;
 
-/** The party chat alert: only when the card says "open" (in, chat open) and carries a chat id. */
-export const partyAlert = (card: { state: string; chat_id: string | null } | null): BellAlert | null =>
-  card && card.state === 'open' && card.chat_id
-    ? {
-        id: partyAlertId(card.chat_id),
-        kind: 'party',
-        title: 'Party chat is open',
-        line: 'Tap to join the chat.',
-        to: `/app/party-chat/${card.chat_id}`,
-      }
-    : null;
+export const partyUnreadAlertId = (chatId: string): string => `party-unread:${chatId}`;
+
+/**
+ * The party chat alert: only when the card says "open" (in, chat open) and carries a chat id.
+ * With `unread` (get_party_chat_unread_v1) showing unread > 0 and the chat not muted, the SAME
+ * slot becomes the new-message alert under a different id (so the badge rises on arrival and
+ * the read mark of "open" does not hide it). null / muted / 0 = today's "open" row.
+ */
+export const partyAlert = (
+  card: { state: string; chat_id: string | null } | null,
+  unread: { muted: boolean; unread: number } | null = null,
+): BellAlert | null => {
+  if (!card || card.state !== 'open' || !card.chat_id) return null;
+  const to = `/app/party-chat/${card.chat_id}`;
+  if (unread && !unread.muted && unread.unread > 0) {
+    return { id: partyUnreadAlertId(card.chat_id), kind: 'party', title: 'New messages in your party chat', line: 'Tap to read.', to };
+  }
+  return { id: partyAlertId(card.chat_id), kind: 'party', title: 'Party chat is open', line: 'Tap to join the chat.', to };
+};
 
 /** Party alert first, then tickets, then rate; the cap applies after the merge. */
 export const bellAlerts = (tickets: readonly BellAlert[], rate: BellAlert | null, party: BellAlert | null = null): BellAlert[] =>
