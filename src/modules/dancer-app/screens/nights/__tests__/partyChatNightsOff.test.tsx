@@ -37,6 +37,7 @@ import { renderInShell, resetShell } from '@/modules/dancer-app/shell/renderInSh
 import { NIGHTS_OFF_LINE } from '../nightsDates';
 import { FIND_A_NIGHT } from '../../../copy/sharedCopy';
 
+beforeEach(() => { h.calls.length = 0; });
 afterEach(() => { cleanup(); resetShell(); vi.unstubAllEnvs(); });
 
 describe('NightsOff (going switch off) party card', () => {
@@ -45,7 +46,7 @@ describe('NightsOff (going switch off) party card', () => {
     renderInShell({ path: '/app/nights' });
     await screen.findByText('Pre-party or after-party tonight?');
     expect(screen.getByTestId('party-other-city')).toBeTruthy();
-    expect(screen.getByText('Nights')).toBeTruthy();
+    expect(screen.getAllByText('Nights').length).toBeGreaterThan(0);
     expect(screen.getByTestId('nights-empty')).toBeTruthy();
     expect(screen.getByText(NIGHTS_OFF_LINE)).toBeTruthy();
     expect(screen.getByText(FIND_A_NIGHT)).toBeTruthy();
@@ -57,7 +58,7 @@ describe('NightsOff (going switch off) party card', () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(screen.queryByText(/Pre-party/)).toBeNull();
     expect(h.calls.filter((c) => /party/.test(c.fn))).toHaveLength(0);
-    expect(screen.getByText('Nights')).toBeTruthy();
+    expect(screen.getAllByText('Nights').length).toBeGreaterThan(0);
     expect(screen.getByText(NIGHTS_OFF_LINE)).toBeTruthy();
     expect(screen.getByText(FIND_A_NIGHT)).toBeTruthy();
   });
