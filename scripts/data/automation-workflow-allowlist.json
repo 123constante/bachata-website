@@ -17,5 +17,8 @@
   "preview-shots.yml",
   "pr-auto-rebase.yml",
   "ship-it.yml",
-  "bot-automerge.yml"
+  "bot-automerge.yml",
+  "architecture-guard.yml",
+  "perf-budget.yml",
+  "typecheck.yml"
 ]
