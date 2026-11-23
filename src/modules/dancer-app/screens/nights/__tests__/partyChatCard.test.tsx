@@ -6,6 +6,7 @@ const h = vi.hoisted(() => ({
   card: { state: 'none', city_id: null, chat_id: null, closes_at: null } as Record<string, unknown>,
   join: { ok: true } as Record<string, unknown>,
   calls: [] as { fn: string; args?: Record<string, unknown> }[],
+  unread: { ok: true, muted: false, unread: 0 } as Record<string, unknown>,
   rpc: null as unknown as (fn: string, args?: Record<string, unknown>) => Promise<unknown>,
 }));
 vi.mock('@/lib/goingCheckin', () => ({ GOING_CHECKIN_ENABLED: true }));
@@ -16,6 +17,7 @@ h.rpc = async (fn, args) => {
   if (fn === 'get_my_going_v1') return { data: { upcoming: [], past: [] }, error: null };
   if (fn === 'get_party_card_v1') return { data: h.card, error: null };
   if (fn === 'register_party_interest_v1') return { data: h.join, error: null };
+  if (fn === 'get_party_chat_unread_v1') return { data: h.unread, error: null };
   return { data: null, error: { message: `unexpected ${fn}` } };
 };
 const cityRows = [{ id: 'c-lon', name: 'London' }, { id: 'c-man', name: 'Manchester' }];
@@ -88,6 +90,43 @@ describe('party chat card', () => {
     setFlag(true); h.card = { state: 'open', city_id: 'c-lon', chat_id: 'chat1', closes_at: null };
     open();
     expect((await screen.findByTestId('party-open-chat')).textContent).toBe('Open chat');
+  });
+  const openCard = async (u: Record<string, unknown>) => {
+    setFlag(true); h.unread = u; h.card = { state: 'open', city_id: 'c-lon', chat_id: 'chat1', closes_at: null };
+    open();
+    await screen.findByTestId('party-open-chat');
+    await waitFor(() => expect(h.calls.some((c) => c.fn === 'get_party_chat_unread_v1')).toBe(true));
+    await new Promise((r) => setTimeout(r, 30));
+  };
+  it.each([[5, '5'], [99, '99+']])('open card keeps title and button and shows badge %s', async (n, txt) => {
+    await openCard({ ok: true, muted: false, unread: n });
+    expect((await screen.findByTestId('party-unread-badge')).textContent).toBe(txt);
+    expect(screen.getByTestId('party-card-open').textContent).toContain('Party chat is open');
+    expect(screen.getByTestId('party-open-chat').textContent).toBe('Open chat');
+    expect(screen.queryByTestId('party-muted-line')).toBeNull();
+  });
+  it('unread 0: no badge', async () => {
+    await openCard({ ok: true, muted: false, unread: 0 });
+    expect(screen.queryByTestId('party-unread-badge')).toBeNull();
+  });
+  it('muted: Muted line, no badge, card otherwise unchanged', async () => {
+    await openCard({ ok: true, muted: true, unread: 0 });
+    expect((await screen.findByTestId('party-muted-line')).textContent).toBe('Muted');
+    expect(screen.queryByTestId('party-unread-badge')).toBeNull();
+    expect(screen.getByTestId('party-open-chat').textContent).toBe('Open chat');
+  });
+  it('not_member: no badge, no Muted line', async () => {
+    await openCard({ ok: false, error: 'not_member' });
+    expect(screen.queryByTestId('party-unread-badge')).toBeNull();
+    expect(screen.queryByTestId('party-muted-line')).toBeNull();
+    expect(screen.getByTestId('party-open-chat')).toBeTruthy();
+  });
+  it('none and in cards never fetch unread', async () => {
+    setFlag(true); h.card = { state: 'in', city_id: 'c-lon', chat_id: 'chat1', closes_at: null };
+    open();
+    await screen.findByTestId('party-card-in');
+    await new Promise((r) => setTimeout(r, 30));
+    expect(h.calls.some((c) => c.fn === 'get_party_chat_unread_v1')).toBe(false);
   });
   it('state closed: no card', async () => {
     setFlag(true); h.card = { state: 'closed', city_id: null, chat_id: null, closes_at: null };

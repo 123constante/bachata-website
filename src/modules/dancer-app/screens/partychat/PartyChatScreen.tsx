@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, MoreVertical } from 'lucide-react';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { rpcLoose } from '@/integrations/supabase/rpcLoose';
 import { SheetView, useKeyboardInset } from '@/modules/organiser/ui';
 import { PersonAvatar } from '@/components/account/profiles/PersonAvatar';
 import { PARTY_CHAT_ENABLED } from '../nights/partyChatFlag';
+import { UNREAD_KEY, fetchPartyUnread, setPartyMuted } from '../nights/partyChatApi';
 import { PartyChatPeopleSheet, PartyChatStrip } from './PartyChatPeople';
 import { usePartyChatPeople, type ChatMember } from './usePartyChatPeople';
 
@@ -110,6 +112,22 @@ const PartyChatScreen = () => {
   const [reportId, setReportId] = useState<string | null>(null);
   const [reason, setReason] = useState<string | null>(null);
   const [leaving, setLeaving] = useState(false);
+  const qc = useQueryClient();
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifErr, setNotifErr] = useState(false);
+  const [notifBusy, setNotifBusy] = useState(false);
+  const unreadQ = useQuery({ queryKey: [...UNREAD_KEY, chatId], queryFn: () => fetchPartyUnread(chatId), enabled: notifOpen, retry: false, staleTime: 0 });
+  const muted = unreadQ.data?.muted === true;
+  const pickMuted = async (next: boolean) => {
+    if (notifBusy) return;
+    setNotifBusy(true);
+    setNotifErr(false);
+    const ok = await setPartyMuted(chatId, next);
+    setNotifBusy(false);
+    if (!ok) { setNotifErr(true); return; }
+    await qc.invalidateQueries({ queryKey: UNREAD_KEY });
+    setNotifOpen(false);
+  };
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
@@ -124,7 +142,7 @@ const PartyChatScreen = () => {
   const refreshRef = useRef(refreshPeople);
   refreshRef.current = refreshPeople;
 
-  const markRead = useCallback(() => { void command('mark_party_chat_read_v1', { p_chat_id: chatId }); }, [chatId]);
+  const markRead = useCallback(() => { void command('mark_party_chat_read_v1', { p_chat_id: chatId }).then(() => qc.invalidateQueries({ queryKey: UNREAD_KEY })); }, [chatId, qc]);
 
   const apply = useCallback((r: Fetched, older = false, forceStick = false) => {
     if (r.kind === 'not_member') { setPhase('not_member'); return; }
@@ -254,6 +272,7 @@ const PartyChatScreen = () => {
         <button type="button" aria-label="Menu" aria-expanded={menu} data-testid="party-chat-menu" onClick={() => setMenu((v) => !v)} className="grid h-[44px] w-[44px] place-items-center"><MoreVertical size={22} /></button>
         {menu && (
           <div role="menu" className="absolute right-[8px] top-[52px] z-20 w-[200px] overflow-hidden rounded-[12px] border border-[var(--line)] bg-[var(--card)] shadow-lg">
+            <button type="button" role="menuitem" data-testid="party-chat-notifications" className={item} onClick={() => { setMenu(false); setNotifErr(false); setNotifOpen(true); }}>Notifications</button>
             <button type="button" role="menuitem" data-testid="party-chat-leave" className={item} onClick={() => { setMenu(false); setLeaving(true); }}>Leave chat</button>
             <button type="button" role="menuitem" data-testid="party-chat-report" className={item} onClick={() => { setMenu(false); setReportMode(true); }}>Report a message</button>
           </div>
@@ -320,6 +339,19 @@ const PartyChatScreen = () => {
       {toast && <div role="status" data-testid="party-chat-toast" className="fixed inset-x-[16px] bottom-[84px] z-30 rounded-[12px] bg-[var(--card)] px-[14px] py-[12px] text-center text-[14px] font-bold shadow-lg">{toast}</div>}
       {peopleOpen && phase === 'ready' && people.members.length > 0 && (
         <PartyChatPeopleSheet members={people.members} online={people.online} onClose={() => setPeopleOpen(false)} onPick={(id) => nav(`/dancers/${id}`)} />
+      )}
+      {notifOpen && (
+        <SheetView open onOpenChange={(o) => { if (!o && !notifBusy) setNotifOpen(false); }} title="Notifications" testId="party-chat-notifications-sheet" closeLabel="Dismiss">
+          <div role="radiogroup" aria-label="Notifications" className="grid gap-[8px]">
+            {([[false, 'On: emails and unread count'], [true, 'Muted: no emails, no unread count']] as const).map(([val, label]) => (
+              <button key={label} type="button" role="radio" aria-checked={unreadQ.isSuccess && muted === val} data-testid={val ? 'party-chat-notif-muted' : 'party-chat-notif-on'} disabled={notifBusy} onClick={() => void pickMuted(val)} className={`${BTN} flex items-center gap-[10px] border border-[var(--line)] text-left disabled:opacity-60`}>
+                <span aria-hidden className={`grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border border-[var(--line)] ${unreadQ.isSuccess && muted === val ? 'bg-[var(--da-violet,#7c5cff)]' : ''}`} />
+                {label}
+              </button>
+            ))}
+          </div>
+          {notifErr && <p role="alert" data-testid="party-chat-notif-error" className="m-0 mt-[8px] text-[14px]">Couldn&rsquo;t save. Try again.</p>}
+        </SheetView>
       )}
       {leaving && (
         <SheetView open onOpenChange={(o) => { if (!o && !busy) setLeaving(false); }} title="Leave this chat?" testId="party-chat-leave-sheet" closeLabel="Dismiss">

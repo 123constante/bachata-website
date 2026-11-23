@@ -35,6 +35,33 @@ export const joinParty = async (cityId: string): Promise<{ ok: boolean; error: s
   }
 };
 
+export const UNREAD_KEY = ['party-unread'] as const;
+export type PartyUnread = { muted: boolean; unread: number };
+
+/** get_party_chat_unread_v1; null on any failure or not_member (no badge, no Muted line). */
+export const fetchPartyUnread = async (chatId: string): Promise<PartyUnread | null> => {
+  try {
+    const { data, error } = await rpcLoose('get_party_chat_unread_v1', { p_chat_id: chatId });
+    if (error) return null;
+    const d = (data ?? {}) as Record<string, unknown>;
+    if (d.ok !== true || typeof d.muted !== 'boolean') return null;
+    const n = typeof d.unread === 'number' && Number.isFinite(d.unread) ? Math.max(0, Math.min(99, Math.floor(d.unread))) : 0;
+    return { muted: d.muted, unread: d.muted ? 0 : n };
+  } catch {
+    return null;
+  }
+};
+
+/** set_party_chat_muted_v1: true = saved. */
+export const setPartyMuted = async (chatId: string, muted: boolean): Promise<boolean> => {
+  try {
+    const { data, error } = await rpcLoose('set_party_chat_muted_v1', { p_chat_id: chatId, p_muted: muted });
+    return !error && ((data ?? {}) as { ok?: unknown }).ok === true;
+  } catch {
+    return false;
+  }
+};
+
 export type CityOption = { id: string; name: string };
 
 export const fetchActiveCities = async (): Promise<CityOption[]> => {
