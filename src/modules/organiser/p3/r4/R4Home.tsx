@@ -20,6 +20,7 @@ import { EVENT_PARAM } from './eventChoiceModel';
 import { useEventChoice } from './EventChoice';
 import { useNoPageRedirect } from './r4Notices';
 import { R4Chevron } from './R4Shell';
+import { StripeStatusCard } from './StripeStatusCard';
 import { fetchNightMoney, nightMoneyQueryKey } from './r4MoneyApi';
 import { moneyQuietOf, nightMoneyOf, R4_MONEY_COPY } from './r4MoneyModel';
 import { R4_EMPTY_HOME, r4AloneOf, r4HomeOf, r4WaitingOf, type R4Door, type R4NextNight, type R4WaitItem } from './r4Model';
@@ -57,13 +58,14 @@ function AloneRow() {
 }
 
 /** Board R4EmptyHome: the page has no events at all. */
-function EmptyHome({ pageId }: { pageId: string | null }) {
+function EmptyHome({ pageId, role }: { pageId: string | null; role: string | null }) {
   return (
     <div className="r4-stack" data-testid="r4-home" data-face="none">
       <div className="r4-title-block">
         <h1 className="r4-h1" data-testid="r4-home-title">{R4_EMPTY_HOME.title}</h1>
         <p className="r4-sub">{R4_EMPTY_HOME.sub}</p>
       </div>
+      <StripeStatusCard organiserId={pageId ?? undefined} role={role} />
       <Link to={P3_PATHS.createFor(pageId)} className="r4-btn r4-btn-42 r4-btn-link" data-testid="r4-home-primary" data-kind="new">
         <Plus />{R4_EMPTY_HOME.add}
       </Link>
@@ -171,7 +173,7 @@ export function R4Home() {
 
   if (r.to) return <Navigate to={r.to} replace />;
   if (r.loading || c.loading) return <div className="r4-stack" data-testid="r4-home-loading" aria-busy="true"><div className="r4-skel" /><div className="r4-skel" /></div>;
-  if (!c.error && c.page && rows.length === 0) return <EmptyHome pageId={c.page.id} />;
+  if (!c.error && c.page && rows.length === 0) return <EmptyHome pageId={c.page.id} role={c.page.role ?? null} />;
 
   const onPrimary = async () => {
     if (m.primary.disabled) return;
@@ -215,6 +217,8 @@ export function R4Home() {
         <p className="r4-err" role="alert" data-testid="r4-home-money-error">{R4_MONEY_COPY.error} <button type="button" className="r4-linkbtn" onClick={() => void moneyRead.refetch()}>{R4_MONEY_COPY.retry}</button></p>
       )}
       {m.lines.map((l) => <p key={l} className="r4-sub" data-testid="r4-home-line">{l}</p>)}
+
+      <StripeStatusCard organiserId={c.page?.id} role={c.page?.role ?? null} />
 
       {m.face !== 'after' && next && !next.draft && (
         <P3NightGoing seriesId={next.seriesId} seriesName={next.name} nightKey={{ date: nextRow!.next!.date }} testId="r4-home-going" />
