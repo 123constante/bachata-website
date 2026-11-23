@@ -6,6 +6,8 @@ import { rpcLoose } from '@/integrations/supabase/rpcLoose';
 import { SheetView, useKeyboardInset } from '@/modules/organiser/ui';
 import { PersonAvatar } from '@/components/account/profiles/PersonAvatar';
 import { PARTY_CHAT_ENABLED } from '../nights/partyChatFlag';
+import { PartyChatPeopleSheet, PartyChatStrip } from './PartyChatPeople';
+import { usePartyChatPeople, type ChatMember } from './usePartyChatPeople';
 
 const NIGHTS = '/app/nights';
 const MAX = 500;
@@ -115,6 +117,12 @@ const PartyChatScreen = () => {
   const stick = useRef(true);
   const seen = useRef(new Set<string>());
   const kb = useKeyboardInset();
+  const [peopleOpen, setPeopleOpen] = useState(false);
+  const selfId = msgs.find((m) => m.mine)?.profile_id ?? null;
+  const people = usePartyChatPeople(chatId, phase === 'ready', selfId);
+  const refreshPeople = people.refresh;
+  const refreshRef = useRef(refreshPeople);
+  refreshRef.current = refreshPeople;
 
   const markRead = useCallback(() => { void command('mark_party_chat_read_v1', { p_chat_id: chatId }); }, [chatId]);
 
@@ -139,7 +147,7 @@ const PartyChatScreen = () => {
     const tick = async () => {
       if (document.hidden || inflight) return;
       inflight = true;
-      try { const r = await fetchChat(chatId); if (live) apply(r); } finally { inflight = false; }
+      try { const r = await fetchChat(chatId); if (live) apply(r); void refreshRef.current(); } finally { inflight = false; }
     };
     void tick();
     const id = window.setInterval(() => void tick(), POLL_MS);
@@ -202,14 +210,19 @@ const PartyChatScreen = () => {
   };
 
   const rows = useMemo(() => {
+    // Join lines sit among the messages by joined_at; the viewer's own and joins before the first loaded message are skipped.
+    const first = msgs[0]?.created_at;
+    const joins = first ? people.members.filter((p) => p.joined_at >= first && p.profile_id !== selfId && p.first_name) : [];
+    const items: { at: string; m?: ChatMsg; j?: ChatMember }[] = [...msgs.map((m) => ({ at: m.created_at, m })), ...joins.map((j) => ({ at: j.joined_at, j }))];
+    items.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : a.m ? 1 : -1));
     let last = '';
-    return msgs.map((m) => {
-      const label = dayLabel(m.created_at);
+    return items.map((it) => {
+      const label = dayLabel(it.at);
       const divider = label !== last ? label : null;
       last = label;
-      return { m, divider };
+      return { ...it, divider };
     });
-  }, [msgs]);
+  }, [msgs, people.members, selfId]);
 
   if (phase === 'not_member') {
     return (
@@ -247,6 +260,7 @@ const PartyChatScreen = () => {
         )}
       </header>
       <p data-testid="party-chat-notice" className="m-0 bg-[var(--card)] px-[12px] py-[6px] text-center text-[13px] text-[var(--mut)]">Admin can read this chat to keep it safe.</p>
+      {phase === 'ready' && people.members.length > 0 && <PartyChatStrip members={people.members} online={people.online} onOpen={() => setPeopleOpen(true)} />}
       {reportMode && (
         <div data-testid="party-chat-report-banner" className="flex items-center justify-between gap-[8px] bg-[var(--da-violet,#7c5cff)] px-[12px] text-[14px] font-bold text-[#14101f]">
           <span>Tap a message to report it</span>
@@ -255,8 +269,16 @@ const PartyChatScreen = () => {
       )}
       <div ref={scroller} data-testid="party-chat-list" onScroll={(e) => { const el = e.currentTarget; atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40; }} className="flex flex-1 flex-col gap-[6px] overflow-y-auto overflow-x-hidden px-[10px] py-[10px]">
         {hasMore && <button type="button" data-testid="party-chat-older" onClick={() => void older()} className="min-h-[44px] self-center px-[12px] text-[14px] font-bold underline">Show earlier messages</button>}
-        {phase === 'ready' && rows.length === 0 && <p className="m-auto text-[14px] text-[var(--mut)]">No messages yet. Say hi.</p>}
-        {rows.map(({ m, divider }) => {
+        {phase === 'ready' && msgs.length === 0 && <p className="m-auto text-[14px] text-[var(--mut)]">No messages yet. Say hi.</p>}
+        {rows.map(({ m, j, divider }) => {
+          if (!m) {
+            return (
+              <div key={`join-${j!.profile_id}`} className="grid gap-[6px]">
+                {divider && <div data-testid="party-chat-day" className="self-center justify-self-center rounded-full bg-[var(--card)] px-[10px] py-[2px] text-[12px] text-[var(--mut)]">{divider}</div>}
+                <p data-testid="party-chat-join" className="m-0 text-center text-[12px] text-[var(--mut)]"><span className="font-bold text-[var(--hot,#ff3d8b)]">{j!.first_name}</span> joined the chat</p>
+              </div>
+            );
+          }
           const reportable = reportMode && !m.mine;
           return (
             <div key={m.id} className="grid gap-[6px]">
@@ -296,6 +318,9 @@ const PartyChatScreen = () => {
         )}
       </footer>
       {toast && <div role="status" data-testid="party-chat-toast" className="fixed inset-x-[16px] bottom-[84px] z-30 rounded-[12px] bg-[var(--card)] px-[14px] py-[12px] text-center text-[14px] font-bold shadow-lg">{toast}</div>}
+      {peopleOpen && phase === 'ready' && people.members.length > 0 && (
+        <PartyChatPeopleSheet members={people.members} online={people.online} onClose={() => setPeopleOpen(false)} onPick={(id) => nav(`/dancers/${id}`)} />
+      )}
       {leaving && (
         <SheetView open onOpenChange={(o) => { if (!o && !busy) setLeaving(false); }} title="Leave this chat?" testId="party-chat-leave-sheet" closeLabel="Dismiss">
           <p className="m-0 mb-[12px] text-[15px]">You can&rsquo;t rejoin once you leave.</p>
