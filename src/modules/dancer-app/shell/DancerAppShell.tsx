@@ -20,6 +20,7 @@ import { profileIncomplete } from '../screens/tickets/profileIncomplete';
 import '../screens/tickets/tickets.css';
 import { TeaserContext, teaserState } from '../screens/teaser/teaserGate';
 import '../screens/teaser/teaser.css';
+import { DANCER_BELL_ENABLED } from './bellFlag';
 import { mayBeFocus, requiredDone, shellChrome } from './focusChrome';
 import { ProfileSheetProvider, useProfileSheet } from './profileSheet';
 import { activeTabFor, shellTabs, type DancerTab } from './routes';
@@ -58,6 +59,9 @@ const TAB_ICON: Record<DancerTab['id'], typeof House> = {
 // one more first-load chunk on each (perf-budgets.json chunk ratchet).
 // D129: SwitcherGate renders it only for a person with 2+ profiles.
 const SwitcherGate = lazyWithRetry(() => import('./SwitcherGate'));
+// Dancer bell (brief #1938): its own lazy chunk, only requested with the flag on, so flag OFF
+// loads and reads nothing extra.
+const DancerBell = lazyWithRetry(() => import('./DancerBell'));
 
 export const DancerAppShell = () => {
   const { pathname, search } = useLocation();
@@ -122,6 +126,13 @@ export const DancerAppShell = () => {
             }}
           >
             {/* A fragment fallback: ErrorBoundary treats a falsy one as "show the default error card". */}
+            {DANCER_BELL_ENABLED && (
+              <ErrorBoundary fallback={<></>}>
+                <Suspense fallback={null}>
+                  <DancerBell />
+                </Suspense>
+              </ErrorBoundary>
+            )}
             <ErrorBoundary fallback={<></>}>
               <Suspense fallback={null}>
                 <SwitcherGate />
