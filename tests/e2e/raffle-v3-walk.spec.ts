@@ -4,8 +4,8 @@ import { projectRef } from './helpers/organiserFake';
 // Raffle v3 mocked walk at 390x844 of every winner (/raffle/win/:token) and door (/raffle/door/:token)
 // screen. No prod data: every Supabase call is answered in the browser by page.route. Per state it
 // asserts the verbatim h1/sub copy, no tap target under 44px, no sideways scroll, and saves a PNG to
-// docs/design/raffle-v3/walk/<state>.png. Run with the flag on (no test.skip: flag off = FAIL):
-//   VITE_ENABLE_RAFFLE_V2=true npx playwright test tests/e2e/raffle-v3-walk.spec.ts --project=chromium
+// docs/design/raffle-v3/walk/<state>.png. Run with the flag on (no test.skip: flag off = FAIL); add VITE_ENABLE_RAFFLE_SHARE_POSTER=true to also walk the Share step:
+//   VITE_ENABLE_RAFFLE_V2=true VITE_ENABLE_RAFFLE_SHARE_POSTER=true npx playwright test tests/e2e/raffle-v3-walk.spec.ts --project=chromium
 // Tokens below are fake placeholders.
 
 const WALK = 'docs/design/raffle-v3/walk';
@@ -14,7 +14,7 @@ const DOOR = '/raffle/door/walk-qr-token';
 const ME = '11111111-1111-4111-8111-111111111111';
 const NIGHT_A = { occurrence_id: 'occ-a', title: 'Ritmo Friday', start_local: '2026-11-27T20:00:00' };
 const NIGHT_B = { occurrence_id: 'occ-b', title: 'Sensual Sunday', start_local: '2026-11-29T19:30:00' };
-const WIN_OK = { ok: true, win: { id: 'win-1', state: 'claimed' }, open_nights: [NIGHT_A, NIGHT_B] };
+const WIN_OK = { ok: true, first_name: 'Maya', win: { id: 'win-1', state: 'claimed' }, open_nights: [NIGHT_A, NIGHT_B] };
 
 const json = (route: Route, body: unknown, status = 200) =>
   route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
@@ -111,6 +111,15 @@ test.describe('winner screens', () => {
     await page.getByRole('checkbox', { name: 'I have never been to this event.' }).check();
     await expect(confirm).toBeEnabled();
     await confirm.click();
+
+    // Flag raffleSharePoster on: the Share step sits between the lock and the QR. Off: straight to the QR.
+    if (await page.getByRole('heading', { level: 1, name: 'Share your win' }).isVisible({ timeout: 3000 }).catch(() => false)) {
+      await check(page, 'share', 'Share your win', 'Tell your friends you are going. Your QR code is on the next screen.');
+      await expect(page.getByRole('img', { name: 'Share poster: won a free night at Ritmo Friday' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Share', exact: true })).toBeEnabled();
+      await expect(page.getByRole('button', { name: 'Save image' })).toBeEnabled();
+      await page.getByRole('button', { name: 'Skip, show my QR' }).click();
+    }
 
     await check(page, 'qr', 'You are in', 'Show this at the door. Ritmo Friday, Fri 27 Nov, 20:00');
     await expect(page.getByText('This code does not expire. Your organiser can cancel it.')).toBeVisible();
