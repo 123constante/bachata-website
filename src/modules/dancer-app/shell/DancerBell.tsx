@@ -8,8 +8,6 @@ import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { useSeriesLevelRating } from '@/hooks/useSeriesLevelRating';
 import { fetchMyTickets } from '@/modules/tickets/myTicketsApi';
 import type { MyTicket } from '@/modules/tickets/myTicketsModel';
-import { fetchPartyCard } from '../screens/nights/partyChatApi';
-import { PARTY_CHAT_ENABLED } from '../screens/nights/partyChatFlag';
 import { useMyNights } from '../screens/nights/useMyNights';
 import { nudgeCandidates, type Night } from '../screens/nights/nightsModel';
 import { ticketsForNight } from '../screens/nights/nightsTicket';
@@ -86,12 +84,15 @@ const DancerBell = () => {
     },
   });
   // Party chat card: fetched only with BOTH flags on (the bell itself is mounted only with its own flag).
-  const partyOn = PARTY_CHAT_ENABLED();
+  // Same env var as screens/nights/partyChatFlag.ts, read inline: importing that module (or the card API
+  // statically) pulls the nights code into this lazy chunk and breaks the dancer-app.tsx entry key (bundle-budget).
+  const partyOn = import.meta.env.VITE_ENABLE_PARTY_CHAT === 'true';
   const pq = useQuery({
     queryKey: ['dancer-bell', 'party-card', userId],
     enabled: Boolean(userId) && partyOn,
     queryFn: async () => {
       try {
+        const { fetchPartyCard } = await import('../screens/nights/partyChatApi');
         return await fetchPartyCard();
       } catch {
         return null;
