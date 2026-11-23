@@ -7,7 +7,7 @@
 // RaffleEntryDialog.
 // =============================================================================
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useRaffleBoard } from '@/hooks/useRaffleBoard';
 import { nightsWithWinner } from '@/lib/raffleBoard';
@@ -20,9 +20,51 @@ import { buildSeoForRoute, useSeo } from '@/lib/seo';
 import { RaffleNightCarousel } from './RaffleNightCarousel';
 import './RaffleRedesignA.css';
 
-const MEDALS = ['gold', 'silver', 'bronze'] as const;
 const STEPS = ['Pick a night', 'Add your phone', 'Win a free entry'];
 const fmtCount = (n: number): string => n.toLocaleString('en-GB');
+const reducedMotion = (): boolean =>
+  typeof window === 'undefined' || typeof window.matchMedia !== 'function' || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/** Counts up from 0 on first load (1100ms + 350ms per orb, ease-out cubic); reduced motion = final number at once. */
+const CountUp = ({ value, index, testId }: { value: number | null; index: number; testId: string }) => {
+  const [shown, setShown] = useState<number | null>(null);
+  const done = useRef(false);
+  useEffect(() => {
+    if (value === null) return;
+    if (done.current || reducedMotion() || typeof requestAnimationFrame !== 'function') { done.current = true; setShown(value); return; }
+    done.current = true;
+    const dur = 1100 + index * 350;
+    const t0 = performance.now();
+    let raf = 0;
+    const step = (t: number) => {
+      const k = Math.min(1, Math.max(0, (t - t0) / dur));
+      setShown(Math.round(value * (1 - Math.pow(1 - k, 3))));
+      if (k < 1) raf = requestAnimationFrame(step); else setShown(value);
+    };
+    setShown(0);
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [value, index]);
+  return <b data-testid={testId}>{value === null ? '–' : fmtCount(shown ?? value)}</b>;
+};
+
+const TrophyIcon = () => (
+  <svg viewBox="0 0 24 24" width="40" height="40" aria-hidden="true"><path fill="currentColor" d="M7 3h10v2h3v3a4 4 0 0 1-4 4h-.3a5 5 0 0 1-2.7 2.6V18h3v3H8v-3h3v-3.4A5 5 0 0 1 8.3 12H8a4 4 0 0 1-4-4V5h3V3zm0 4H6v1a2 2 0 0 0 1 1.7V7zm10 0v2.7A2 2 0 0 0 18 8V7h-1z" /></svg>
+);
+
+/** Drop-in reveal: adds `seen` once the item scrolls into view (no observer / reduced motion = shown, no animation). */
+const WinnerItem = ({ n, children }: { n: number; children: React.ReactNode }) => {
+  const ref = useRef<HTMLLIElement>(null);
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || reducedMotion() || typeof IntersectionObserver === 'undefined') { setSeen(true); return; }
+    const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { setSeen(true); io.disconnect(); } }), { rootMargin: '0px 0px -6% 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return <li ref={ref} className={`rd-medal-li${seen ? ' seen' : ''}`} style={{ ['--n' as string]: n }}>{children}</li>;
+};
 
 // Deterministic embers (no Math.random: stable renders, no hydration drift).
 const EMBERS = Array.from({ length: 24 }, (_, i) => ({
@@ -79,9 +121,9 @@ export const RaffleRedesignA = () => {
 
         <div className="rd-wrap rd-under">
           <div className="rd-orbs" data-testid="raffles-board-counters">
-            <div className="rd-orb" style={{ ['--n' as string]: 0 }}><b data-testid="raffles-count-pool">{board ? fmtCount(board.poolCount) : '–'}</b><span>Entries</span></div>
-            <div className="rd-orb" style={{ ['--n' as string]: 1 }}><b data-testid="raffles-count-open">{board ? fmtCount(openNights.length) : '–'}</b><span>Events open</span></div>
-            <div className="rd-orb" style={{ ['--n' as string]: 2 }}><b data-testid="raffles-count-winners">{board ? fmtCount(winnersListed) : '–'}</b><span>Prizes won</span></div>
+            <div className="rd-orb" style={{ ['--n' as string]: 0 }}><CountUp index={0} testId="raffles-count-pool" value={board ? board.poolCount : null} /><span>Entries</span></div>
+            <div className="rd-orb" style={{ ['--n' as string]: 1 }}><CountUp index={1} testId="raffles-count-open" value={board ? openNights.length : null} /><span>Events open</span></div>
+            <div className="rd-orb" style={{ ['--n' as string]: 2 }}><CountUp index={2} testId="raffles-count-winners" value={board ? winnersListed : null} /><span>Prizes won</span></div>
           </div>
           <ol className="rd-how">
             {STEPS.map((t, i) => (<li key={t}><b>{i + 1}</b>{t}</li>))}
@@ -108,16 +150,17 @@ export const RaffleRedesignA = () => {
           <div className="rd-slot" data-slot="raffle-part-b" />
           {board?.winners && board.winners.length > 0 ? (
             <section aria-labelledby="rd-recent-h" data-testid="raffles-recent-winners">
-              <h2 id="rd-recent-h" className="rd-h2">Recent winners</h2>
+              <h2 id="rd-recent-h" className="rd-h2 rd-h2-c">This week&rsquo;s winners</h2>
               <ul className="rd-medals">
                 {board.winners.map((w, i) => (
-                  <li key={`${w.profileSlug}-${w.wonAt ?? i}`}>
-                    <Link to={`/dancers/${encodeURIComponent(w.profileSlug)}`} className={`rd-medal rd-medal-${MEDALS[i] ?? 'plain'}`}>
-                      <b>{w.firstName}</b>
+                  <WinnerItem key={`${w.firstName}-${w.lastInitial ?? ''}-${w.wonAt ?? i}`} n={i}>
+                    <div className="rd-medal">
+                      <span className="rd-medal__disc"><i /><TrophyIcon /></span>
+                      <b>{w.lastInitial ? `${w.firstName} ${w.lastInitial}.` : w.firstName}</b>
                       {w.nightTitle ? <span>{w.nightTitle}</span> : null}
-                      <em>View profile &rsaquo;</em>
-                    </Link>
-                  </li>
+                      <em>won a free entry</em>
+                    </div>
+                  </WinnerItem>
                 ))}
               </ul>
             </section>
@@ -127,14 +170,15 @@ export const RaffleRedesignA = () => {
         <footer className="rd-wrap rd-foot">
           <nav aria-label="Footer">
             <Link to="/terms">Rules</Link>
-            <Link to="/privacy">Privacy</Link>
             <a href={`mailto:${ACCOUNT_CONTACT_EMAIL}`}>Contact</a>
           </nav>
+          <p className="rd-foot__info">Free to enter &middot; one phone number per night. We only use it to message winners.</p>
         </footer>
 
         <div className="rd-bar" data-testid="raffles-sticky-bar">
           {joined ? (
             <div className="rd-bar-in rd-bar-in-done" role="status" data-testid="raffles-youre-in">
+              <span className="rd-bar-tick" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
               <p className="rd-bar-txt"><b>You&rsquo;re in for every night</b></p>
             </div>
           ) : (

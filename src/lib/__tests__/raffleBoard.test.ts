@@ -131,4 +131,16 @@ describe('fixture keys = real RPC keys (one shared mapping)', () => {
     const n = { ...night(), venue_name: undefined, venue: 'V' };
     expect(parseRaffleBoard(board([n])).nights[0].venue).toBeNull();
   });
+  it('winners: no profile_slug parses; last_initial parses; blank first_name dropped', () => {
+    const b = parseRaffleBoard(board([], { winners: [
+      { first_name: 'Maya', last_initial: 'r', night_title: 'T', won_at: null },
+      { first_name: 'Tom', profile_slug: 'tom-k' },
+      { first_name: '  ', last_initial: 'X' },
+      { last_initial: 'Y' },
+    ] }));
+    expect(b.winners).toEqual([
+      { firstName: 'Maya', nightTitle: 'T', wonAt: null, lastInitial: 'R' },
+      { firstName: 'Tom', nightTitle: '', wonAt: null, profileSlug: 'tom-k' },
+    ]);
+  });
 });
