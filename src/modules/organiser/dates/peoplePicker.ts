@@ -17,6 +17,7 @@ export interface ProfileNames {
   display_name: string | null;
   first_name: string | null;
   surname: string | null;
+  avatar_url?: string | null;
 }
 
 export interface PickerRow {
@@ -25,6 +26,8 @@ export interface PickerRow {
   name: string;
   /** Role word first, then the full name when the line-up name differs, then the place when known. */
   sublabel: string;
+  /** Profile photo, or null (the picker then shows coloured initials). */
+  avatarUrl: string | null;
 }
 
 const clean = (v: string | null | undefined) => (v ?? '').trim();
@@ -35,7 +38,7 @@ export function pickerRow(result: PersonResult, role: PeopleRole, profile?: Prof
   const known = fullName || (role === 'teaching' ? result.name : '');
   const differs = !!known && known.toLowerCase() !== name.toLowerCase();
   const sublabel = [PEOPLE_ROLE_LABEL[role], differs ? known : null, result.place].filter(Boolean).join(' \u00b7 ');
-  return { id: result.id, name, sublabel };
+  return { id: result.id, name, sublabel, avatarUrl: clean(profile?.avatar_url) || null };
 }
 
 /** The search, then ONE read of the line-up names for its results. A failed read keeps the search names. */
@@ -46,7 +49,7 @@ export async function searchPickerRows(term: string, role: PeopleRole): Promise<
   try {
     const { data, error } = await supabase
       .from('dancer_profiles')
-      .select('id, first_name')
+      .select('id, first_name, avatar_url')
       .in('id', results.map((r) => r.id));
     if (!error && Array.isArray(data)) byId = new Map((await withPublicNames(data)).map((p) => [p.id, p as ProfileNames]));
   } catch {
