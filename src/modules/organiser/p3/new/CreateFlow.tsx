@@ -9,6 +9,8 @@ import { needsPagePick, PAGE_SET_PARAM } from './pageModel';
 import { P3PushedShell } from '../you/surface';
 import { P3Link, RetryButton, StateCard } from '../screens/parts';
 import { P3_PATHS, p3StartReview } from '../shell/paths';
+import { P3_TICKET_PATHS } from '../tickets/paths';
+import { useStripe } from '../tickets/data';
 import {
   COPY, KINDS, RESULT_COPY, addChosenDate, afterKind, backOf, blankCreate, buildableKind, chosenDates, descriptionLine, draftBlock, isUntouched,
   leaveSheetNeeded, liveBlock, notSavedLine, parseAt, parseStoredDraft, priceLine, removeChosenDate, repeatLine, rowProblems, sessionsLine, whenLine, withFirstDate,
@@ -206,6 +208,7 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
   const draftWhy = draftBlock(d, today);
   const liveWhy = liveBlock(d, today, hasCover);
   const busy = save.state.s === 'busy';
+  const stripeState = useStripe(flags.stripeNudgeV2 && CREATE_LOOK ? organiser.id : undefined).state;
   const back = backOf('form', kind.kind, organiser.id, pageCount);
   const cancel = () => {
     if (!untouched) { setLeaveTo(P3_PATHS.events); setSheet('leave'); return; }
@@ -509,7 +512,8 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
       {sheet === 'sessions' && CREATE_LOOK && <SessionsSheetLook forms={d.sessions} venueId={d.venue?.id ?? null} teachers={flags.organiserPeoplePicker && flags.organiserP3} onDone={(s) => { set({ sessions: s }); setSheet(null); }} onClose={() => setSheet(null)} />}
       {sheet === 'sessions' && !CREATE_LOOK && <SessionsSheet d={d} today={today} teachers={CREATE_LOOK && flags.organiserPeoplePicker && flags.organiserP3} onChange={(s) => set({ sessions: s })} onClose={() => setSheet(null)} />}
       {sheet === 'description' && CREATE_LOOK && <DescriptionSheet value={d.description} onSave={(v) => { set({ description: v }); setSheet(null); }} onClose={() => setSheet(null)} />}
-      {sheet === 'price' && <PriceSheet d={d} today={today} onChange={set} onClose={() => setSheet(null)} />}
+      {sheet === 'price' && <PriceSheet d={d} today={today} onChange={set} onClose={() => setSheet(null)}
+        stripe={CREATE_LOOK && flags.stripeNudgeV2 ? { connected: stripeState === 'connected', busy, why: draftWhy, onConnect: () => { setSheet(null); void save.run(false, P3_TICKET_PATHS.getPaid(organiser.id)); } } : undefined} />}
       {sheet === 'leave' && CREATE_LOOK && (
         <Sheet title={COPY.leaveLookTitle} onClose={keepEditing}>
           <p className="p3-note">{COPY.leaveLookBody}</p>

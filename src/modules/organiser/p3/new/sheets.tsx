@@ -160,16 +160,43 @@ export function DescriptionSheet({ value, onSave, onClose }: { value: string; on
 }
 
 /** Price basics: how dancers pay (going live needs it), a price or two, a ticket link. Paid tickets with Stripe are added from the event's Tickets sheet. */
-export function PriceSheet({ d, today, onChange, onClose }: { d: CreateDraft; today: string; onChange: (p: Partial<CreateDraft>) => void; onClose: () => void }) {
+export interface CreateStripeFirst { connected: boolean; busy: boolean; why: string | null; onConnect: () => void }
+
+export const STRIPE_FIRST = {
+  title: 'Sell tickets in the app',
+  body: 'Dancers pay by card. Money goes to your bank. We take no commission. About 5 minutes to set up.',
+  button: 'Connect Stripe and set a price',
+  connectedBody: 'Dancers pay by card in the app. Add your tickets and prices from the event’s Tickets sheet once it is saved.',
+  other: 'Other ways',
+  ownSite: 'Use my own ticket site',
+} as const;
+
+export function PriceSheet({ d, today, onChange, onClose, stripe }: { d: CreateDraft; today: string; onChange: (p: Partial<CreateDraft>) => void; onClose: () => void; stripe?: CreateStripeFirst }) {
   const free = d.pay.includes('free');
+  const first = !!stripe;
+  const [ownSite, setOwnSite] = useState(() => d.pay.includes('ticket_link') || !!d.ticketUrl);
+  const methods = first ? PAYMENT_METHODS.filter((m) => m !== 'ticket_link') : PAYMENT_METHODS;
+  const showTicket = first ? ownSite && !free : d.pay.includes('ticket_link');
   const problem = rowProblems(d, today).price;
   const setRow = (i: number, r: PriceRow) => onChange({ prices: d.prices.map((x, j) => (j === i ? r : x)) });
   const full = d.prices.length >= MAX_PASSES;
   return (
     <Sheet title="Price" onClose={onClose}>
-      <p className="p3-field" id="p3-new-pay">How do dancers pay?</p>
+      {stripe && (
+        <div className="p3-card p3-stack-s" style={{ border: '2px solid #F26B1D', background: '#FFF1E8' }} data-testid="p3-new-stripe-card" aria-label={STRIPE_FIRST.title}>
+          <strong>{STRIPE_FIRST.title}</strong>
+          <p className="p3-note">{stripe.connected ? STRIPE_FIRST.connectedBody : STRIPE_FIRST.body}</p>
+          {!stripe.connected && (
+            <>
+              <button type="button" className="p3-btn" style={{ minHeight: 42 }} disabled={stripe.busy || !!stripe.why} aria-busy={stripe.busy || undefined} onClick={stripe.onConnect} data-testid="p3-new-stripe-connect">{STRIPE_FIRST.button}</button>
+              {stripe.why && <p className="p3-note" data-testid="p3-new-stripe-why">{stripe.why}</p>}
+            </>
+          )}
+        </div>
+      )}
+      <p className="p3-field" id="p3-new-pay">{first ? STRIPE_FIRST.other : 'How do dancers pay?'}</p>
       <div className="p3-chips" role="group" aria-labelledby="p3-new-pay" data-testid="p3-new-pay">
-        {PAYMENT_METHODS.map((m) => (
+        {methods.map((m) => (
           <button key={m} type="button" aria-pressed={d.pay.includes(m)} onClick={() => onChange({ pay: togglePay(d.pay, m) })} data-testid={`p3-new-pay-${m}`}>{PAYMENT_LABEL[m]}</button>
         ))}
       </div>
@@ -184,7 +211,11 @@ export function PriceSheet({ d, today, onChange, onClose }: { d: CreateDraft; to
           {full && <p className="p3-note" id="p3-new-price-full">Up to {MAX_PASSES} prices. Remove one to add another.</p>}
         </div>
       )}
-      {d.pay.includes('ticket_link') && (
+      {first && !showTicket && !free && (
+        <button type="button" className="p3-link" style={{ minHeight: 44, textDecoration: 'underline', textAlign: 'left' }} data-testid="p3-new-own-site"
+          onClick={() => { setOwnSite(true); if (!d.pay.includes('ticket_link')) onChange({ pay: togglePay(d.pay, 'ticket_link') }); }}>{STRIPE_FIRST.ownSite}</button>
+      )}
+      {showTicket && (
         <>
           <label className="p3-field" htmlFor="p3-new-ticket">Ticket link</label>
           <input id="p3-new-ticket" className="p3-in" type="url" inputMode="url" placeholder="https://" value={d.ticketUrl} onChange={(e) => onChange({ ticketUrl: e.target.value })} data-testid="p3-new-ticket" />
