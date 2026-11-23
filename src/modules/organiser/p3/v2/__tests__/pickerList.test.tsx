@@ -34,8 +34,9 @@ describe('PeoplePickerScreen, list flag ON', () => {
     const onPick = mount(new Set(['b']));
     expect(await screen.findByText('On your team')).toBeTruthy();
     expect(screen.getByText('All teachers')).toBeTruthy();
-    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Ben', 'Ana', 'Cleo', 'Dan']);
-    fireEvent.click(screen.getByRole('option', { name: 'Ben' }));
+    // each row starts with the avatar initial, then the name
+    expect(screen.getAllByRole('option').map((o) => (o.textContent ?? '').slice(1))).toEqual(['Ben', 'Ana', 'Cleo', 'Dan']);
+    fireEvent.click(screen.getByRole('option', { name: /Ben$/ }));
     expect(onPick).toHaveBeenCalledWith(ROWS[2]);
   });
   it('hides team header with no team; typing drops headers', async () => {
