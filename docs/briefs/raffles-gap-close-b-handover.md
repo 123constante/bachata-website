@@ -28,4 +28,5 @@ Branch `claude/raffles-gap-close-b`. Built behind `flags.raffleV2 && flags.raffl
 | Done (sheet) | closes sheet, focus returns to trigger | prototype |
 | Cancel (sheet) | closes sheet | OLD (kept, not in brief) |
 
-tsc: `tsc -p tsconfig.app.json` run; 0 errors in branch files.
+tsc: `tsc -p tsconfig.app.json` run on HEAD of this branch: 0 errors in branch files.
+Phone walk 390x844 done (mock board); see PR body.
