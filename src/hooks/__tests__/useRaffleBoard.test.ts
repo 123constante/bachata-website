@@ -27,6 +27,8 @@ describe('flag-off guard', () => {
   const CONSUMERS = [
     'src/modules/event-page/bento/blocks/RaffleBlock.tsx',
     'src/pages/Raffles.tsx',
+    // Winner page share poster: reads pool_count once, only under flags.raffleV2 && flags.raffleSharePoster.
+    'src/pages/RaffleWin.tsx',
     // Redesign part A: mounted by Raffles.tsx only under flags.raffleV2 && flags.raffleRedesign.
     'src/components/raffles/RaffleRedesignA.tsx',
   ];

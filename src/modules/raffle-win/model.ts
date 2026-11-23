@@ -2,12 +2,15 @@
 // RPC shapes read from admin migrations 20261121133453 (claim) and 20261121133455 (lock v2).
 
 export type WinScreen =
-  | 'loading' | 'error' | 'won' | 'claim' | 'pick' | 'honest' | 'qr' | 'none' | 'cancel' | 'other';
+  | 'loading' | 'error' | 'won' | 'claim' | 'pick' | 'honest' | 'share' | 'qr' | 'none' | 'cancel' | 'other';
 
-export type OpenNight = { occurrenceId: string; title: string; startLocal: string };
+export type OpenNight = {
+  occurrenceId: string; title: string; startLocal: string;
+  venueName: string | null; posterUrl: string | null; publicEventId: string | null;
+};
 
 export type ClaimResult =
-  | { kind: 'ok'; winId: string; state: string; qrToken: string | null; night: OpenNight | null; nights: OpenNight[] }
+  | { kind: 'ok'; winId: string; state: string; qrToken: string | null; night: OpenNight | null; nights: OpenNight[]; firstName: string | null }
   | { kind: 'refused'; reason: string }
   | { kind: 'error' };
 
@@ -19,7 +22,9 @@ export function parseNight(raw: unknown): OpenNight | null {
   const occurrenceId = str(raw.occurrence_id);
   const startLocal = str(raw.start_local);
   if (!occurrenceId || !startLocal) return null;
-  return { occurrenceId, title: str(raw.title) ?? 'Bachata night', startLocal };
+  return { occurrenceId, title: str(raw.title) ?? 'Bachata night', startLocal,
+    venueName: str(raw.venue_name), posterUrl: str(raw.poster_url), publicEventId: str(raw.public_event_id),
+  };
 }
 
 export function parseClaim(data: unknown): ClaimResult {
@@ -31,7 +36,7 @@ export function parseClaim(data: unknown): ClaimResult {
   const nights = Array.isArray(data.open_nights)
     ? data.open_nights.map(parseNight).filter((n): n is OpenNight => n !== null)
     : [];
-  return { kind: 'ok', winId, state: str(win.state) ?? '', qrToken: str(win.qr_token), night: parseNight(win.night), nights };
+  return { kind: 'ok', winId, state: str(win.state) ?? '', qrToken: str(win.qr_token), night: parseNight(win.night), nights, firstName: str(data.first_name) };
 }
 
 /** claim result -> first screen. `fromAuth`: the person just came back from sign-in. */
@@ -44,7 +49,7 @@ export function screenForClaim(r: ClaimResult, opts: { fromAuth: boolean }): Win
 }
 
 export type LockOutcome =
-  | { kind: 'qr'; qrToken: string; night: OpenNight | null }
+  | { kind: 'qr'; qrToken: string; night: OpenNight | null; firstName: string | null }
   | { kind: 'back-to-pick'; line: string; dropNight: boolean }
   | { kind: 'screen'; screen: WinScreen }
   | { kind: 'error' };
@@ -61,7 +66,7 @@ export function parseLock(data: unknown): LockOutcome {
   if (data.ok === true) {
     const win = isObj(data.win) ? data.win : null;
     const qrToken = (win && str(win.qr_token)) || str(data.qr_token);
-    return qrToken ? { kind: 'qr', qrToken, night: win ? parseNight(win.night) : null } : { kind: 'error' };
+    return qrToken ? { kind: 'qr', qrToken, night: win ? parseNight(win.night) : null, firstName: str(data.first_name) } : { kind: 'error' };
   }
   const reason = str(data.reason) ?? 'unknown';
   if (reason === 'not_found') return { kind: 'screen', screen: 'cancel' };
@@ -71,11 +76,15 @@ export function parseLock(data: unknown): LockOutcome {
   return { kind: 'error' };
 }
 
+/** Lock confirmed in this visit -> next screen. Share step only with the flag on. */
+export const screenAfterLock = (sharePoster: boolean): WinScreen => (sharePoster ? 'share' : 'qr');
+
 /** The in-page tap table: current screen + tap -> next screen. */
 export const NEXT: Record<string, Partial<Record<string, WinScreen>>> = {
   won: { chooseNight: 'pick' },
   pick: { lock: 'honest' },
   honest: { back: 'pick' },
+  share: { skip: 'qr' },
   none: { refetch: 'loading' },
 };
 

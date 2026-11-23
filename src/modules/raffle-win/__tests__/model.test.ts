@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { sanitizeReturnTo } from '@/lib/authRouting';
 import {
-  formatLocalNight, parseClaim, parseLock, screenForClaim, winAuthHref, winReturnTo, doorUrl, NEXT,
+  formatLocalNight, parseClaim, parseLock, screenForClaim, winAuthHref, winReturnTo, doorUrl, NEXT, parseNight, screenAfterLock,
 } from '../model';
 
 const night = { occurrence_id: 'o1', title: 'Friday Bachata', start_local: '2026-12-04T20:00:00' };
@@ -56,4 +56,28 @@ describe('taps and helpers', () => {
     expect(formatLocalNight('junk')).toBe('');
   });
   it('door url', () => expect(doorUrl('https://x.test', 'q')).toBe('https://x.test/raffle/door/q'));
+});
+
+describe('share poster data + screen table', () => {
+  it('parseNight keeps old fields, adds venue/poster/public id, missing = null', () => {
+    expect(parseNight({ ...night, venue_name: 'The Wardrobe', poster_url: 'https://x/p.jpg', public_event_id: 'e1' })).toEqual({
+      occurrenceId: 'o1', title: 'Friday Bachata', startLocal: '2026-12-04T20:00:00',
+      venueName: 'The Wardrobe', posterUrl: 'https://x/p.jpg', publicEventId: 'e1',
+    });
+    expect(parseNight(night)).toMatchObject({ venueName: null, posterUrl: null, publicEventId: null });
+  });
+  it('parseClaim / parseLock return firstName, null when missing', () => {
+    const c = parseClaim({ ...ok({ state: 'contacted' }), first_name: 'Maya' });
+    expect(c.kind === 'ok' && c.firstName).toBe('Maya');
+    const c2 = parseClaim(ok({ state: 'contacted' }));
+    expect(c2.kind === 'ok' && c2.firstName).toBeNull();
+    expect(parseLock({ ok: true, first_name: 'Maya', win: { id: 'w1', qr_token: 't', night } })).toMatchObject({ firstName: 'Maya' });
+    expect(parseLock({ ok: true, win: { id: 'w1', qr_token: 't' } })).toMatchObject({ firstName: null });
+  });
+  it('screen table', () => {
+    expect(screenAfterLock(true)).toBe('share');
+    expect(screenAfterLock(false)).toBe('qr');
+    expect(NEXT.share.skip).toBe('qr');
+    expect(screenForClaim(parseClaim(ok({ state: 'locked', qr_token: 'abc' }, [])), { fromAuth: false })).toBe('qr');
+  });
 });
