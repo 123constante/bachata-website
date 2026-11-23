@@ -79,11 +79,15 @@ export interface CreateDraft {
   pay: PaymentMethod[];
   prices: PriceRow[];
   ticketUrl: string;
+  /** The event's description (default_description), up to DESCRIPTION_MAX letters. */
+  description: string;
   /** Kept only in storage: the create landed (review 1 F1), so this draft is opened, never created again. */
   created?: true;
 }
 
 export const NAME_MAX = 120;
+export const DESCRIPTION_MAX = 500;
+export const PEOPLE_PER_SESSION_MAX = 12;
 /** The server lists at most 30 upcoming dates at a time (series.add_date refuses past it). */
 export const DATES_MAX = 30;
 
@@ -99,7 +103,7 @@ export function blankCreate(kind: CreateKind, seriesId: string = newSeriesId()):
   return {
     v: 1, seriesId, kind, name: '', venue: null, firstDate: '', repeat: repeatFor(k?.freq), extraDates: [],
     sessions: (k?.sessions ?? []).map((t) => ({ ...emptyForm(t), title: titleOf(t) })),
-    pay: [], prices: [], ticketUrl: '',
+    pay: [], prices: [], ticketUrl: '', description: '',
   };
 }
 
@@ -107,7 +111,7 @@ export function blankCreate(kind: CreateKind, seriesId: string = newSeriesId()):
 export function createSig(d: CreateDraft): string {
   return JSON.stringify({
     k: d.kind, n: d.name.trim(), v: d.venue?.id ?? null, f: d.firstDate, r: draftSig(d.repeat), x: d.extraDates,
-    s: d.sessions, p: d.pay, pr: d.prices.map(toPass), t: d.ticketUrl.trim(),
+    s: d.sessions, p: d.pay, pr: d.prices.map(toPass), t: d.ticketUrl.trim(), de: d.description.trim(),
   });
 }
 
@@ -302,6 +306,13 @@ export function sessionsLine(d: CreateDraft): string {
   return d.sessions.map((s) => `${s.title.trim() || (TYPE_LABEL[s.type ?? ''] ?? 'Session')}${s.start && s.end ? ` ${s.start}\u2013${s.end}` : ', no times yet'}`).join('; ');
 }
 
+/** The DESCRIPTION card's value: the first line, cut short, or "No description". */
+export function descriptionLine(d: CreateDraft): string {
+  const first = d.description.trim().split('\n')[0].trim();
+  if (!first) return 'No description';
+  return first.length > 60 ? `${first.slice(0, 57)}\u2026` : first;
+}
+
 export function priceLine(d: CreateDraft): string {
   if (!d.pay.length) return 'Free, at the door or tickets';
   const how = PAYMENT_METHODS.filter((m) => d.pay.includes(m)).map((m) => PAYMENT_LABEL[m]).join(', ');
@@ -352,6 +363,7 @@ export function createPayload(d: CreateDraft, input: Pick<PlanInput, 'cityId'>):
   if (d.pay.length) payload.payment_methods = PAYMENT_METHODS.filter((m) => d.pay.includes(m)).join(',');
   if (!d.pay.includes('free') && d.prices.length) payload.default_passes = d.prices.map(toPass);
   if (d.ticketUrl.trim()) payload.default_ticket_url = d.ticketUrl.trim();
+  if (d.description.trim()) payload.default_description = d.description.trim();
   return payload;
 }
 
@@ -455,6 +467,7 @@ export function parseStoredDraft(raw: string | null): CreateDraft | null {
       pay: Array.isArray(d.pay) ? d.pay.filter((m): m is PaymentMethod => (PAYMENT_METHODS as readonly string[]).includes(m)) : [],
       prices: Array.isArray(d.prices) ? d.prices : [],
       ticketUrl: typeof d.ticketUrl === 'string' ? d.ticketUrl : '',
+      description: typeof d.description === 'string' ? d.description.slice(0, DESCRIPTION_MAX) : '',
       ...(d.created === true ? { created: true as const } : {}),
     };
   } catch {
