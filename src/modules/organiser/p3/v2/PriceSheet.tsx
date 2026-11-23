@@ -14,6 +14,7 @@ import type { WriteStep } from './editorModel';
 import { payModeOf, doorPriceOf } from './payMode';
 import { V2 } from './copy';
 import { V2Sheet } from './V2Sheet';
+import { flags } from '@/lib/featureFlags';
 
 const P = V2.priceSheet;
 
@@ -168,6 +169,16 @@ export function PriceSheet(p: PriceSheetProps) {
             <button type="button" className="lnk" data-testid="price-usual-link" onClick={p.onGoTickets}>{P.allSettings}</button>
           </>
         )}
+      </>
+    );
+  } else if (p.state === 'noStripe' && flags.stripeNudgeV2) {
+    body = (
+      <>
+        <p className="txt" data-testid="price-nostripe">{P.stripeFirst}</p>
+        <button type="button" className="btn pri" style={{ minHeight: 48 }} data-testid="price-setup" onClick={p.onGoTickets}>{P.connectPrice}</button>
+        <p className="txt" data-testid="price-nostripe-note">{P.stripeNote}</p>
+        <button type="button" className="lnk" style={{ textDecoration: 'underline' }} data-testid="price-own-site" onClick={p.onLink}>{P.ownSite}</button>
+        <button type="button" className="lnk" style={{ textDecoration: 'underline' }} data-testid="price-other-ways" onClick={p.onGoTickets}>{P.otherWays}</button>
       </>
     );
   } else if (p.state === 'noStripe') {

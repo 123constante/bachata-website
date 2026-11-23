@@ -114,7 +114,8 @@ export function useCreateSave({ draft, cover, organiser, today, onCreated }: {
     go(`${location.pathname}?${q.toString()}`, { replace: true });
   };
 
-  const run = async (goLive: boolean): Promise<void> => {
+  /** `to`: where a clean save lands instead of the event page (the Stripe-first price sheet sends the person to the Get paid hub). */
+  const run = async (goLive: boolean, to?: string): Promise<void> => {
     if (!organiser || inFlight.current) return;
     const hasCover = !!cover || !!coverUrl.current;
     const base = { organiserId: organiser.id, today, hasCover, goLive };
@@ -185,7 +186,7 @@ export function useCreateSave({ draft, cover, organiser, today, onCreated }: {
       }
       forgetStoredDraft();
       refresh();
-      go(P3_PATHS.event(seriesId), { replace: true, state: { p3Toast: goLive ? RESULT_COPY.live : RESULT_COPY.savedDraft } });
+      go(to ?? P3_PATHS.event(seriesId), { replace: true, state: { p3Toast: goLive ? RESULT_COPY.live : RESULT_COPY.savedDraft } });
     } catch (e) {
       const refused = isOnboardingRefusal(e);
       const words = at === 'cover' && !refused ? (e instanceof Error ? e.message : commandErrorMessage(e)) : at === 'repeat' ? repeatFailure(e) : commandErrorMessage(e);
