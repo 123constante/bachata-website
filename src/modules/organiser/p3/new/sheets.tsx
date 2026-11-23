@@ -5,13 +5,15 @@ import { MAX_PASSES, newPriceRow, type PriceRow } from '../../events/seriesExtra
 import { PAYMENT_LABEL, PAYMENT_METHODS } from '../../events/paymentModel';
 import { emptyForm, type SessForm } from '../data/sessions';
 import { repeatProblem, repeatSentence, type RepeatDraft } from '../model/repeat';
+import { addRoleFor } from '../../dates/dateModel';
+import { PeopleGroup } from '../v2/PeopleGroup';
 import { Editor as RepeatEditor } from '../screens/RepeatSheet';
 import { Sheet } from '../screens/Sheet';
 import { PriceCard } from '../screens/PriceCard';
 import { P3Link, RetryButton, StateCard } from '../screens/parts';
 import { P3_PATHS } from '../shell/paths';
 import {
-  COPY, firstDateFits, monthDayWarning, rowProblems, togglePay, venueMatches, venueOf,
+  COPY, DESCRIPTION_MAX, PEOPLE_PER_SESSION_MAX, firstDateFits, monthDayWarning, rowProblems, togglePay, venueMatches, venueOf,
   type CreateDraft, type CreateVenue,
 } from './model';
 
@@ -82,7 +84,7 @@ export function RepeatSheetNew({ d, today, onChange, onClose }: { d: CreateDraft
 }
 
 /** Sessions: what happens, each with its own start and end (times live on sessions, never the event). */
-export function SessionsSheet({ d, today, onChange, onClose }: { d: CreateDraft; today: string; onChange: (s: SessForm[]) => void; onClose: () => void }) {
+export function SessionsSheet({ d, today, onChange, onClose, teachers = false }: { d: CreateDraft; today: string; onChange: (s: SessForm[]) => void; onClose: () => void; teachers?: boolean }) {
   const set = (i: number, patch: Partial<SessForm>) => onChange(d.sessions.map((s, j) => (j === i ? { ...s, ...patch } : s)));
   const toggle = (xs: string[], x: string) => (xs.includes(x) ? xs.filter((y) => y !== x) : [...xs, x]);
   const problem = rowProblems(d, today).sessions;
@@ -119,12 +121,40 @@ export function SessionsSheet({ d, today, onChange, onClose }: { d: CreateDraft;
               ))}
             </div>
           )}
+          {teachers && addRoleFor(s.type) === 'teaching' && (() => {
+            const people = s.people ?? [];
+            return (
+              <PeopleGroup
+                label="Teachers"
+                people={people.map((p) => ({ id: p.profileId, name: p.name, canRemove: true }))}
+                role={people.length >= PEOPLE_PER_SESSION_MAX ? null : 'teaching'}
+                hint={people.length >= PEOPLE_PER_SESSION_MAX ? `Up to ${PEOPLE_PER_SESSION_MAX} people on a session.` : undefined}
+                onIds={new Set(people.map((p) => p.profileId))}
+                onAdd={(p) => set(i, { people: [...people, { profileId: p.id, name: p.name, role: 'teaching' }] })}
+                onRemove={(id) => set(i, { people: people.filter((p) => p.profileId !== id) })}
+              />
+            );
+          })()}
           <button type="button" className="p3-link p3-danger-t" onClick={() => onChange(d.sessions.filter((_, j) => j !== i))} data-testid="p3-new-sess-remove">Remove this session</button>
         </div>
       ))}
       {problem && <p className="p3-error" data-testid="p3-new-sess-problem">{problem}</p>}
       <button type="button" className="p3-btn p3-btn-line" onClick={() => onChange([...d.sessions, { ...emptyForm('party'), title: TYPE_LABEL.party }])} data-testid="p3-new-sess-add">Add a session</button>
       <button type="button" className="p3-btn" onClick={onClose} data-testid="p3-new-sess-done">Done</button>
+    </Sheet>
+  );
+}
+
+/** Description: free text for the event page, up to DESCRIPTION_MAX letters. Save keeps it, Cancel drops the edit. */
+export function DescriptionSheet({ value, onSave, onClose }: { value: string; onSave: (v: string) => void; onClose: () => void }) {
+  const [text, setText] = useState(value);
+  return (
+    <Sheet title="Description" onClose={onClose}>
+      <label className="p3-field" htmlFor="p3-new-desc">What should dancers know?</label>
+      <textarea id="p3-new-desc" className="p3-in" rows={6} maxLength={DESCRIPTION_MAX} value={text} onChange={(e) => setText(e.target.value)} data-testid="p3-new-desc" />
+      <p className="p3-note" data-testid="p3-new-desc-count">{text.length}/{DESCRIPTION_MAX}</p>
+      <button type="button" className="p3-btn" onClick={() => onSave(text)} data-testid="p3-new-desc-save">Save</button>
+      <button type="button" className="p3-btn p3-btn-line" onClick={onClose} data-testid="p3-new-desc-cancel">Cancel</button>
     </Sheet>
   );
 }

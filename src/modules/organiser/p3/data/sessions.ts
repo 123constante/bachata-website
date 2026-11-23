@@ -42,6 +42,8 @@ export interface SessForm {
   levels: string[];
   /** venue_rooms id; null = no room. Every date only. */
   roomId: string | null;
+  /** Create only: the teachers picked before the event exists (sent inside the sessions step). */
+  people?: Array<{ profileId: string; name: string; role: string }>;
 }
 
 export interface Room { id: string; name: string }
@@ -117,6 +119,10 @@ function built(draft: PTree, tree: PTree): Built {
 function withForm(it: PItem, f: SessForm, rooms: Room[]): Partial<PItem> {
   const c = clean(f);
   const patch: Partial<PItem> = { type: c.type, title: c.title, start: c.start, end: c.end, levels: c.levels };
+  if (c.people) {
+    patch.people = c.people.filter((p) => isEditableRole(p.role))
+      .map((p) => ({ profileId: p.profileId, name: p.name, profileType: profileTypeOf(p.role as PeopleRole), role: p.role, level: null }));
+  }
   const was = str(it.raw.venue_room_id);
   if (c.roomId !== was) {
     const room = rooms.find((r) => r.id === c.roomId) ?? null;

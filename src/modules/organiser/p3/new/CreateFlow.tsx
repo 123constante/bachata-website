@@ -10,13 +10,14 @@ import { P3PushedShell } from '../you/surface';
 import { P3Link, RetryButton, StateCard } from '../screens/parts';
 import { P3_PATHS, p3StartReview } from '../shell/paths';
 import {
-  COPY, KINDS, RESULT_COPY, addChosenDate, afterKind, backOf, blankCreate, buildableKind, chosenDates, draftBlock, isUntouched,
+  COPY, KINDS, RESULT_COPY, addChosenDate, afterKind, backOf, blankCreate, buildableKind, chosenDates, descriptionLine, draftBlock, isUntouched,
   leaveSheetNeeded, liveBlock, notSavedLine, parseAt, parseStoredDraft, priceLine, removeChosenDate, repeatLine, rowProblems, sessionsLine, whenLine, withFirstDate,
   DRAFT_STORE_KEY, type CreateDraft, type CreateKind, type KindInfo,
 } from './model';
 import { LANDED_PARAM, forgetStoredDraft, useCreateSave } from './useCreateSave';
-import { PriceSheet, RepeatSheetNew, SessionsSheet, VenueSheet } from './sheets';
+import { DescriptionSheet, PriceSheet, RepeatSheetNew, SessionsSheet, VenueSheet } from './sheets';
 import { Sheet } from '../screens/Sheet';
+import { flags } from '@/lib/featureFlags';
 import { fullDate } from '../../shared/dateWords';
 import { FlyerStart } from './FlyerStart';
 import { applySessionChoices, type DraftFieldKey, type SessionChoice } from './flyerToDraft';
@@ -146,7 +147,7 @@ function Row({ title, value, action, onClick, testId, disabled }: { title: strin
   );
 }
 
-type SheetName = 'venue' | 'repeat' | 'sessions' | 'price' | 'leave' | null;
+type SheetName = 'venue' | 'repeat' | 'sessions' | 'price' | 'description' | 'leave' | null;
 
 function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: HomeOrganiser; pageCount: number }) {
   const navigate = useNavigate();
@@ -413,6 +414,9 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
         {mark('prices', 'ticketUrl')}
         {problems.price && <p className="p3-error" data-testid="p3-new-price-row-problem">{problems.price}</p>}
       </LookCard>
+      <LookCard label="DESCRIPTION" testId="p3-look-description">
+        <Row title="Description" value={descriptionLine(d)} action="Change >" onClick={() => setSheet('description')} disabled={busy} testId="p3-new-row-description" />
+      </LookCard>
       </>) : (<>
       <div className="p3-card p3-stack-s">
         <label className="p3-field" htmlFor="p3-new-name">Name</label>
@@ -501,7 +505,8 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
 
       {sheet === 'venue' && <VenueSheet onPick={(v) => { set({ venue: v }); setSheet(null); }} onClose={() => setSheet(null)} />}
       {sheet === 'repeat' && <RepeatSheetNew d={d} today={today} onChange={(r) => set({ repeat: r })} onClose={() => setSheet(null)} />}
-      {sheet === 'sessions' && <SessionsSheet d={d} today={today} onChange={(s) => set({ sessions: s })} onClose={() => setSheet(null)} />}
+      {sheet === 'sessions' && <SessionsSheet d={d} today={today} teachers={CREATE_LOOK && flags.organiserPeoplePicker && flags.organiserP3} onChange={(s) => set({ sessions: s })} onClose={() => setSheet(null)} />}
+      {sheet === 'description' && CREATE_LOOK && <DescriptionSheet value={d.description} onSave={(v) => { set({ description: v }); setSheet(null); }} onClose={() => setSheet(null)} />}
       {sheet === 'price' && <PriceSheet d={d} today={today} onChange={set} onClose={() => setSheet(null)} />}
       {sheet === 'leave' && CREATE_LOOK && (
         <Sheet title={COPY.leaveLookTitle} onClose={keepEditing}>
