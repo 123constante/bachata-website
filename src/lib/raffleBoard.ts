@@ -29,7 +29,7 @@ export type RaffleNight = {
 };
 
 /** Top-level `winners[]` of the board JSON (claimed + visible only, max 12, last 7 days). */
-export type RaffleWinner = { firstName: string; nightTitle: string; wonAt: string | null; profileSlug: string };
+export type RaffleWinner = { firstName: string; nightTitle: string; wonAt: string | null; profileSlug?: string; lastInitial?: string };
 
 export type RaffleBoard = {
   poolCount: number;
@@ -90,9 +90,16 @@ export function parseRaffleBoard(json: unknown): RaffleBoard {
     .map((w): RaffleWinner | null => {
       if (!isObj(w)) return null;
       const firstName = str(w.first_name);
+      if (!firstName) return null;
       const profileSlug = str(w.profile_slug);
-      if (!firstName || !profileSlug) return null;
-      return { firstName, nightTitle: str(w.night_title) ?? '', wonAt: str(w.won_at), profileSlug };
+      const lastInitial = str(w.last_initial)?.charAt(0).toUpperCase();
+      return {
+        firstName,
+        nightTitle: str(w.night_title) ?? '',
+        wonAt: str(w.won_at),
+        ...(profileSlug ? { profileSlug } : {}),
+        ...(lastInitial ? { lastInitial } : {}),
+      };
     })
     .filter((w): w is RaffleWinner => w !== null)
     .slice(0, 12);
