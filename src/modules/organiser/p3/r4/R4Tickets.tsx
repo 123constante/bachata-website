@@ -11,6 +11,7 @@ import { TicketsEntry } from '../tickets/TicketsEntry';
 import { P3_PATHS } from '../shell/paths';
 import { useEventChoice, type EventChoice } from './EventChoice';
 import { R4Chevron } from './R4Shell';
+import { StripeStatusCard } from './StripeStatusCard';
 import { R4LookContext } from './r4Look';
 import { r4TicketsOf, type R4TicketsModel } from './r4TicketsModel';
 
@@ -39,6 +40,7 @@ function Empty({ c, m }: { c: EventChoice; m: R4TicketsModel }) {
   const [open, setOpen] = useState(false);
   return (
     <section className="r4-stack" data-testid="r4-tix-empty">
+      <StripeStatusCard organiserId={c.page?.id} role={c.page?.role ?? null} />
       <NightPick c={c} />
       <div className="r4-title-block">
         <h1 className="r4-h1">No tickets yet</h1>
@@ -113,6 +115,7 @@ function Body({ c }: { c: EventChoice }) {
   const totals = sales ? totalsOf(sales) : null;
   return (
     <div className="r4-stack r4-stack-32" data-testid="r4-tix" data-id={row.id}>
+      <StripeStatusCard organiserId={org.id} role={role} />
       <div className="r4-title-block">
         <div className="r4-title-row">
           <h1 className="r4-h1">{m.title}</h1>

@@ -156,6 +156,9 @@ export const flags = {
   // "Drop in welcome" above the Week rows on a course page, from event.signup_rule (admin #2037).
   // OFF = the course page is exactly as before. Turn on with VITE_ENABLE_COURSE_SIGNUP_RULE=true (Vercel env).
   courseSignupRule:    import.meta.env.VITE_ENABLE_COURSE_SIGNUP_RULE === 'true',
+  // Stripe for organisers v2 S2a: one Stripe status card on organiser Home and Tickets. OFF = both screens as before.
+  // Turn on with VITE_ENABLE_STRIPE_NUDGE_V2=true (Vercel env) -- no code change.
+  stripeNudgeV2:       import.meta.env.VITE_ENABLE_STRIPE_NUDGE_V2 === 'true',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the
