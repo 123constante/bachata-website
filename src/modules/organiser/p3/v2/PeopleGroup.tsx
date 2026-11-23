@@ -5,7 +5,8 @@ import type { PeopleRole } from '../../shared/programmeModel';
 import { pickerQueryKey, searchPickerRows, type PickerRow } from '../../dates/peoplePicker';
 import { flags } from '@/lib/featureFlags';
 import { V2 } from './copy';
-import { Avatar, PeoplePickerScreen, PICKER_COPY, roleWord } from './PeoplePickerScreen';
+import { Avatar, PeoplePickerScreen, PICKER_COPY, roleWord, type PeoplePickerScreenProps } from './PeoplePickerScreen';
+import { TeamPickerScreen } from './TeamPickerScreen';
 
 export interface GroupPerson {
   id: string;
@@ -27,6 +28,9 @@ export interface PeopleGroupProps {
   /** Teachers on this page's team, listed first in the picker (flag organiserPickerList). */
   teamIds?: ReadonlySet<string>;
 }
+
+/** With flag organiserPickerList the picker reads the page's team itself unless a caller passes teamIds. */
+const Picker = (p: PeoplePickerScreenProps) => (flags.organiserPickerList ? <TeamPickerScreen {...p} /> : <PeoplePickerScreen {...p} />);
 
 /** One people group of the session sheet: label, chips with x, "None yet", picker + Add, or read-only. */
 export function PeopleGroup({ label, people, role, onIds, hint, onAdd, onRemove, teamIds }: PeopleGroupProps) {
@@ -75,7 +79,7 @@ export function PeopleGroup({ label, people, role, onIds, hint, onAdd, onRemove,
             {PICKER_COPY.addRow(roleWord(role))}
           </button>
           {open && (
-            <PeoplePickerScreen
+            <Picker
               role={role}
               onIds={onIds}
               teamIds={teamIds}
