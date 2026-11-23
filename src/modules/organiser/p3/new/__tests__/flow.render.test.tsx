@@ -191,7 +191,7 @@ describe('the form: untouched sends nothing, Cancel, disabled says why', () => {
     const live = screen.getByTestId('p3-new-go-live') as HTMLButtonElement;
     expect(draft.disabled && live.disabled).toBe(true);
     expect(screen.getByTestId('p3-new-draft-why').textContent).toBe(COPY.nameFirst);
-    expect(screen.getByTestId('p3-new-live-why').textContent).toMatch(/^Go live needs a name, where it is, the first date, a start and end on every session, a photo and how dancers pay\.$/);
+    expect(screen.getByTestId('p3-new-live-why').textContent).toMatch(/^Go live needs a name, where it is, the first date, a start and end on every session, a flyer and how dancers pay\.$/);
     fireEvent.click(draft);
     fireEvent.click(live);
     fireEvent.click(screen.getByTestId('p3-new-cancel'));

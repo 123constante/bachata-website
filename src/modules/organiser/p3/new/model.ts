@@ -263,7 +263,7 @@ export function missingForLive(d: CreateDraft, hasCover: boolean): string[] {
   if (!d.firstDate) out.push(k?.when === 'dates' ? 'a date' : 'the first date');
   if (!d.sessions.length) out.push('a session with its times');
   else if (d.sessions.some((s) => !s.start || !s.end)) out.push('a start and end on every session');
-  if (!hasCover) out.push('a photo');
+  if (!hasCover) out.push('a flyer');
   if (!d.pay.length) out.push('how dancers pay');
   return out;
 }
@@ -272,7 +272,9 @@ export function missingForLive(d: CreateDraft, hasCover: boolean): string[] {
 export function liveBlock(d: CreateDraft, today: string, hasCover: boolean, a1 = A1_APPLIED): string | null {
   if (!a1) return COPY.draftOnly;
   const missing = missingForLive(d, hasCover);
-  if (missing.length) return `Go live needs ${list(missing)}.${draftBlock(d, today) ? '' : ' Save draft works now.'}`;
+  const tail = draftBlock(d, today) ? '' : ' Save draft works now.';
+  if (missing.length === 1 && missing[0] === 'a flyer') return `A flyer is required to continue.${tail}`;
+  if (missing.length) return `Go live needs ${list(missing)}.${tail}`;
   return draftBlock(d, today);
 }
 
