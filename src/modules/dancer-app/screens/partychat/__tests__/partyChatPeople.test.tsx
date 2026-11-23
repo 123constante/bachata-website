@@ -48,6 +48,13 @@ describe('party chat people', () => {
     fireEvent.click(screen.getAllByTestId('party-chat-person')[0]);
     await screen.findByText('PROFILE');
   });
+  it('real RPC shape {ok, members}: own join line skipped via is_me, others shown', async () => {
+    vi.stubEnv('VITE_ENABLE_PARTY_CHAT', 'true');
+    h.members = { data: { ok: true, members: [mem('p1', 'Ana', '2026-11-23T09:00:00Z', 'dj'), { ...mem('me', 'Me', '2026-11-23T11:30:00Z'), is_me: true }, mem('p3', 'Zed', '2026-11-23T11:00:00Z')] }, error: null };
+    open();
+    expect((await screen.findByTestId('party-chat-strip-count')).textContent).toBe('3 here tonight');
+    expect(screen.getAllByTestId('party-chat-join').map((e) => e.textContent)).toEqual(['Zed joined the chat']);
+  });
   it('RPC error: no strip, chat still works', async () => {
     vi.stubEnv('VITE_ENABLE_PARTY_CHAT', 'true');
     h.members = { data: null, error: { message: 'x' } };
