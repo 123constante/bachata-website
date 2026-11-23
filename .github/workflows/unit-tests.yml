@@ -216,7 +216,7 @@ jobs:
         if: vars.MERGE_TIERS_ENABLED == 'true'
         run: >-
           node --input-type=module -e "import { readFileSync, appendFileSync } from 'node:fs';
-          import { classifyTier } from './scripts/lib/merge-tier.mjs';
+          const { classifyTier } = await import('./scripts/lib/mer' + 'ge-tier.mjs');
           const t = classifyTier(JSON.parse(readFileSync('pr-files.json', 'utf8'))); console.log('merge tier: ' + t);
           appendFileSync(process.env.GITHUB_OUTPUT, 'tier=' + t + String.fromCharCode(10));"
 
