@@ -42,6 +42,8 @@ export interface SessForm {
   levels: string[];
   /** venue_rooms id; null = no room. Every date only. */
   roomId: string | null;
+  /** Create only: the picked room's name, so the new session can store it beside the id. */
+  roomName?: string | null;
   /** Create only: the teachers picked before the event exists (sent inside the sessions step). */
   people?: Array<{ profileId: string; name: string; role: string }>;
 }
