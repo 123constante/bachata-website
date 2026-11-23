@@ -26,7 +26,7 @@ describe('5: pickerRow', () => {
     ['DJ, no profile, no city', res('DJ Ben', null), 'djing', undefined, 'DJ Ben', 'DJ'],
     ['DJ without a DJ name (name is the full name)', res('Ben Hall', null), 'djing', prof(null, 'Ben', 'Hall'), 'Ben Hall', 'DJ'],
   ] as const)('%s', (_n, result, role, profile, name, sublabel) => {
-    expect(pickerRow(result, role, profile)).toEqual({ id: 'p1', name, sublabel });
+    expect(pickerRow(result, role, profile)).toEqual({ id: 'p1', name, sublabel, avatarUrl: null });
   });
 });
 

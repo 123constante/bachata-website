@@ -90,6 +90,10 @@ export const flags = {
   // only after #1577 is applied.
   organiserGuestListLive: import.meta.env.VITE_ENABLE_ORGANISER_GUEST_LIST_LIVE === 'true',
   organiserTicketing:  import.meta.env.VITE_ENABLE_ORGANISER_TICKETING === 'true',
+  // Organiser people picker: full-screen search with profile photos on the session sheet. Needs organiserP3.
+  // OFF = the inline search box and Add button, exactly as before. Turn on with
+  // VITE_ENABLE_ORGANISER_PEOPLE_PICKER=true (Vercel env) -- no code change.
+  organiserPeoplePicker: import.meta.env.VITE_ENABLE_ORGANISER_PEOPLE_PICKER === 'true',
   // Organiser Event Editor v2, slice S1 (docs/briefs/editor-v2-s1.md on brief/editor-v2-s1c): weekly and one-off
   // events get the v2 event page, night screen and save bar in place of Edit night. OFF = today's screens, no new route.
   // Turn on with VITE_ENABLE_ORGANISER_EDITOR_V2=true (Vercel env) -- no code change

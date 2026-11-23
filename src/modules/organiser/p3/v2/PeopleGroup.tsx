@@ -3,7 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { PEOPLE_SEARCH_MIN } from '@/modules/organiser/shared/selfServeApi';
 import type { PeopleRole } from '../../shared/programmeModel';
 import { pickerQueryKey, searchPickerRows, type PickerRow } from '../../dates/peoplePicker';
+import { flags } from '@/lib/featureFlags';
 import { V2 } from './copy';
+import { Avatar, PeoplePickerScreen, PICKER_COPY, roleWord } from './PeoplePickerScreen';
 
 export interface GroupPerson {
   id: string;
@@ -28,8 +30,11 @@ export interface PeopleGroupProps {
 export function PeopleGroup({ label, people, role, onIds, hint, onAdd, onRemove }: PeopleGroupProps) {
   const [term, setTerm] = useState('');
   const [picked, setPicked] = useState<PickerRow | null>(null);
+  const [open, setOpen] = useState(false);
+  const [photos, setPhotos] = useState<Record<string, string | null>>({});
+  const newPicker = flags.organiserPeoplePicker && flags.organiserP3;
   const t = term.trim();
-  const ready = !!role && t.length >= PEOPLE_SEARCH_MIN;
+  const ready = !newPicker && !!role && t.length >= PEOPLE_SEARCH_MIN;
   const q = useQuery({
     queryKey: role ? pickerQueryKey(role, t) : ['organiser-people-picker', 'none'],
     queryFn: () => searchPickerRows(t, role!),
@@ -51,7 +56,9 @@ export function PeopleGroup({ label, people, role, onIds, hint, onAdd, onRemove 
           <span className="hint">{V2.session.noneYet}</span>
         ) : (
           people.map((p) => (
-            <span className="pchip" key={p.id}>
+            <span className="pchip" key={p.id} style={newPicker ? { paddingLeft: 4 } : undefined}>
+              {newPicker && <Avatar id={p.id} name={p.name} url={photos[p.id] ?? null} size={24} />}
+              {newPicker && ' '}
               {p.name}
               {p.canRemove && <button type="button" aria-label={V2.session.removeName(p.name)} onClick={() => onRemove(p.id)}>&times;</button>}
             </span>
@@ -59,7 +66,27 @@ export function PeopleGroup({ label, people, role, onIds, hint, onAdd, onRemove 
         )}
       </div>
       {hint && <p className="hint">{hint}</p>}
-      {role && (
+      {role && newPicker && (
+        <>
+          <button type="button" aria-label={`${label} add`} onClick={() => setOpen(true)}
+            style={{ width: '100%', minHeight: 44, border: '1px solid #C2410C', borderRadius: 8, background: '#FFFFFF', color: '#C2410C', fontSize: 15, textAlign: 'left', padding: '0 12px' }}>
+            {PICKER_COPY.addRow(roleWord(role))}
+          </button>
+          {open && (
+            <PeoplePickerScreen
+              role={role}
+              onIds={onIds}
+              onBack={() => setOpen(false)}
+              onPick={(r) => {
+                setPhotos((m) => ({ ...m, [r.id]: r.avatarUrl }));
+                onAdd({ id: r.id, name: r.name });
+                setOpen(false);
+              }}
+            />
+          )}
+        </>
+      )}
+      {role && !newPicker && (
         <>
           <div className="pickrow">
             <input
