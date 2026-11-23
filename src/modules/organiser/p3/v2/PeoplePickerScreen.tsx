@@ -77,7 +77,7 @@ export function PeoplePickerScreen({ role, onIds, onPick, onBack }: PeoplePicker
       </div>
       <div style={{ padding: 12 }}>
         <input ref={input} type="text" className="fld" value={term} aria-label="Search by name" placeholder={PICKER_COPY.searchPh}
-          onChange={(e) => setTerm(e.target.value)} style={{ width: '100%', minHeight: 46, fontSize: 16, color: '#1A1A1A', background: '#FFFFFF' }} />
+          onChange={(e) => setTerm(e.target.value)} style={{ width: '100%', minHeight: 46, fontSize: 16, padding: '0 12px', color: '#1A1A1A', background: '#FFFFFF' }} />
       </div>
       <div role="listbox" aria-label="Results" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
         {ready && !q.isLoading && rows.length === 0 && <p style={{ padding: '0 12px', color: '#6B6B6B', fontSize: 15 }}>{PICKER_COPY.noResults}</p>}
@@ -86,7 +86,7 @@ export function PeoplePickerScreen({ role, onIds, onPick, onBack }: PeoplePicker
             style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', minHeight: 52, padding: '8px 12px', border: 0, borderTop: '1px solid #E9E9E9', background: '#FFFFFF', textAlign: 'left' }}>
             <Avatar id={r.id} name={r.name} url={r.avatarUrl} size={36} />
             <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-              <b style={{ fontSize: 15 }}>{r.name}</b>
+              <b style={{ fontSize: 15, fontWeight: 600 }}>{r.name}</b>
               <span style={{ fontSize: 13, color: '#6B6B6B' }}>{r.sublabel}</span>
             </span>
           </button>
