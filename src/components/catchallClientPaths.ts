@@ -47,6 +47,7 @@ export const CATCHALL_CLIENT_PATHS: readonly string[] = [
   '/account/restore',
   '/account/new',
   '/account/series/:seriesId',
+  '/account/party-chat/:chatId', // flag VITE_ENABLE_PARTY_CHAT; flag off the client redirects to /account
   '/account/team/:organiserId?',
   '/account/o/*',
   '/account/p3/*', // flags.organiserP3; while off the client renders its NotFound

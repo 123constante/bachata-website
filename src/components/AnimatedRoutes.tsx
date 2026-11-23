@@ -87,6 +87,7 @@ const Terms = lazyWithRetry(() => import("../pages/Terms"));
 const AccountRestore = lazyWithRetry(() => import("../pages/AccountRestore"));
 const NotFound = lazyWithRetry(() => import("../pages/NotFound"));
 const DancerApp = lazyWithRetry(() => import("@/modules/dancer-app/dancer-app"));
+const PartyChatRoute = lazyWithRetry(() => import("@/modules/dancer-app/screens/partychat/PartyChatScreen").then((m) => ({ default: m.PartyChatRoute })));
 const EraseGuestEntry = lazyWithRetry(() => import("../pages/EraseGuestEntry"));
 const ExportGuestEntry = lazyWithRetry(() => import("../pages/ExportGuestEntry"));
 
@@ -320,6 +321,8 @@ export const AnimatedRoutes = () => {
                 Its AuthGuard and gate live inside the lazy chunk; no
                 PageTransition, so the shell's fixed tab bar is never animated. */}
             <Route path="/app/*" element={<DancerApp />} />
+            {/* Party chat S2 (flag VITE_ENABLE_PARTY_CHAT): the flag and AuthGuard live inside the lazy route; flag off = /account. */}
+            <Route path="/account/party-chat/:chatId" element={<PartyChatRoute />} />
 
             <Route path="/erase/:token" element={<PageTransition><EraseGuestEntry /></PageTransition>} />
             <Route path="/export/:token" element={<PageTransition><ExportGuestEntry /></PageTransition>} />
