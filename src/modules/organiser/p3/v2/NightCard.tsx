@@ -3,7 +3,7 @@ import { useState } from 'react';
 import type { EventWorkspace } from '../../events/eventModel';
 import { dateDetailQueryKey, fetchDateDetail } from '../../shared/selfServeApi';
 import { fullDate } from '../../shared/dateWords';
-import { ownerPassesFromStored } from '../../shared/seriesCommands';
+import { ownerPassesFromStored, upsertCommand } from '../../shared/seriesCommands';
 import type { DateDetail, WorkspaceDate } from '../../shared/seriesModel';
 import { useVenueOptions } from '../../shared/publicVenues';
 import { londonTodayKey } from '@/lib/londonDate';
@@ -123,6 +123,12 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
     if (!onSave) return; // url null = REMOVE for this night: the server owns '' (no flyer), null would inherit
     const d = dt ?? await qc.fetchQuery({ queryKey: dateDetailQueryKey(date.id), queryFn: () => fetchDateDetail(date.id) });
     const step: WriteStep = { part: V2.flyer, target: 'occurrence', id: date.id, version: date.version, command: { kind: 'occurrence.set_override', payload: { cover_image_url: url ?? '' } }, order: 1 };
+    // A one-off has no separate series flyer and the go-live check reads the series cover, so set both (else "A flyer is required" never clears).
+    if (s.format === 'one_off') {
+      const seriesStep: WriteStep = { part: V2.flyer, target: 'series', id: s.id, version: s.version, command: upsertCommand({ name: s.name ?? '', default_cover_image_url: url }), order: 2 };
+      await onSave([step, seriesStep], [{ cover_image_url: d.coverImageOverride }, { name: s.name ?? '', default_cover_image_url: s.default_cover_image_url ?? null }], label);
+      return;
+    }
     await onSave([step], [{ cover_image_url: d.coverImageOverride }], label);
   };
   const saveGallery = async (next: string[], label: string) => {
