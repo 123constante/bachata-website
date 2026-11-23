@@ -213,7 +213,7 @@ const PartyChatScreen = () => {
 
   if (phase === 'not_member') {
     return (
-      <main data-testid="party-chat-not-member" className="grid min-h-[100dvh] place-content-center gap-[14px] bg-background p-[16px] text-center text-foreground">
+      <main data-testid="party-chat-not-member" className="grid min-h-[100dvh] place-content-center gap-[14px] bg-[var(--da-bg)] p-[16px] text-center text-[var(--fg)]">
         <p className="m-0 text-[17px] font-bold">You&rsquo;re not in this chat.</p>
         <button type="button" onClick={() => nav(NIGHTS)} className={`${BTN} ${ACCENT}`}>Back to Nights</button>
       </main>
@@ -221,7 +221,7 @@ const PartyChatScreen = () => {
   }
   if (phase === 'error') {
     return (
-      <main data-testid="party-chat-error" className="grid min-h-[100dvh] place-content-center gap-[14px] bg-background p-[16px] text-center text-foreground">
+      <main data-testid="party-chat-error" className="grid min-h-[100dvh] place-content-center gap-[14px] bg-[var(--da-bg)] p-[16px] text-center text-[var(--fg)]">
         <p className="m-0 text-[15px]">Couldn&rsquo;t load the chat.</p>
         <button type="button" onClick={() => nav(NIGHTS)} className={`${BTN} ${ACCENT}`}>Back to Nights</button>
       </main>
@@ -231,7 +231,7 @@ const PartyChatScreen = () => {
   const date = partyDate(chat?.party_date ?? null);
   const item = 'flex min-h-[44px] w-full items-center px-[14px] text-left text-[15px]';
   return (
-    <main data-testid="party-chat" className="fixed inset-x-0 top-0 z-10 flex flex-col overflow-x-hidden bg-background text-foreground" style={{ height: kb.height ? `${kb.height}px` : '100dvh' }}>
+    <main data-testid="party-chat" className="fixed inset-x-0 top-0 z-10 flex flex-col overflow-x-hidden bg-[var(--da-bg)] text-[var(--fg)]" style={{ height: kb.height ? `${kb.height}px` : '100dvh' }}>
       <header className="relative flex items-center gap-[4px] border-b border-[var(--line)] px-[4px] py-[6px]">
         <button type="button" aria-label="Back to Nights" data-testid="party-chat-back" onClick={() => nav(NIGHTS)} className="grid h-[44px] w-[44px] place-items-center"><ArrowLeft size={22} /></button>
         <div className="min-w-0 flex-1">

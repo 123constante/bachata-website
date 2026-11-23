@@ -86,4 +86,5 @@ export const CATCHALL_CLIENT_PATHS: readonly string[] = [
   '/app/page',
   '/app/me/photo',
   '/app/options',
+  '/app/party-chat/:chatId',
 ];

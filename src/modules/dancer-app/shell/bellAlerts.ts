@@ -80,7 +80,7 @@ export const partyAlert = (card: { state: string; chat_id: string | null } | nul
         kind: 'party',
         title: 'Party chat is open',
         line: 'Tap to join the chat.',
-        to: `/account/party-chat/${card.chat_id}`,
+        to: `/app/party-chat/${card.chat_id}`,
       }
     : null;
 

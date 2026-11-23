@@ -40,7 +40,12 @@ export const DANCER_WELCOME = '/app/welcome';
 export const DANCER_TICKETS = '/app/tickets';
 
 /** Every URL the dancer app answers: the bare base (a redirect to Home) plus each route. */
-export const DANCER_APP_PATHS: readonly string[] = [DANCER_APP_BASE, ...DANCER_ROUTES.map((r) => r.path)];
+export const DANCER_APP_PATHS: readonly string[] = [DANCER_APP_BASE, ...DANCER_ROUTES.map((r) => r.path), '/app/party-chat/:chatId'];
+
+/** Party chat (flag VITE_ENABLE_PARTY_CHAT): a full-screen chat inside the dancer shell, with no tabs. */
+export const PARTY_CHAT_BASE = '/app/party-chat';
+export const partyChatPath = (chatId: string): string => `${PARTY_CHAT_BASE}/${chatId}`;
+export const isPartyChatPath = (pathname: string): boolean => pathname.toLowerCase().startsWith(`${PARTY_CHAT_BASE}/`);
 
 export type DancerTab = { id: 'tickets' | 'home' | 'nights' | 'me' | 'options'; label: string; path: string };
 
