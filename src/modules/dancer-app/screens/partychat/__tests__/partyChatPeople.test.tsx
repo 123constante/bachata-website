@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 const h = vi.hoisted(() => ({ members: { data: [] as unknown, error: null as unknown } }));
@@ -20,7 +21,8 @@ import { PartyChatRoute } from '../PartyChatScreen';
 import { parseMembers } from '../usePartyChatPeople';
 
 const mem = (id: string, name: string, joined: string, role: string | null = null) => ({ profile_id: id, first_name: name, avatar_url: null, role, joined_at: joined, is_me: false });
-const open = () => render(<MemoryRouter initialEntries={['/account/party-chat/c1']}><Routes><Route path="/account/party-chat/:chatId" element={<PartyChatRoute />} /><Route path="/dancers/:id" element={<p>PROFILE</p>} /></Routes></MemoryRouter>);
+const qcTest = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+const open = () => render(<QueryClientProvider client={qcTest}><MemoryRouter initialEntries={['/account/party-chat/c1']}><Routes><Route path="/account/party-chat/:chatId" element={<PartyChatRoute />} /><Route path="/dancers/:id" element={<p>PROFILE</p>} /></Routes></MemoryRouter></QueryClientProvider>);
 afterEach(() => { cleanup(); vi.unstubAllEnvs(); });
 
 describe('party chat people', () => {
