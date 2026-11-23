@@ -2,12 +2,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { PriceSheet, STRIPE_FIRST } from '../sheets';
-import type { CreateDraft } from '../model';
+import { blankCreate, type CreateDraft } from '../model';
 
 vi.mock('../../screens/Sheet', () => ({ Sheet: ({ title, children }: { title: string; children: React.ReactNode }) => <div aria-label={title}>{children}</div> }));
 vi.mock('../../screens/PriceCard', () => ({ PriceCard: () => null }));
 
-const draft = (over: Partial<CreateDraft> = {}) => ({ pay: [], prices: [], ticketUrl: '', ...over }) as unknown as CreateDraft;
+const draft = (over: Partial<CreateDraft> = {}): CreateDraft => ({ ...blankCreate('one_date', 's1'), ...over });
 const mount = (d: CreateDraft, stripe?: Parameters<typeof PriceSheet>[0]['stripe'], onChange = vi.fn()) =>
   render(<PriceSheet d={d} today="2026-11-23" onChange={onChange} onClose={vi.fn()} stripe={stripe} />);
 
