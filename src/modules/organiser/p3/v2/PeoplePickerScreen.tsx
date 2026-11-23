@@ -70,14 +70,14 @@ export function PeoplePickerScreen({ role, onIds, onPick, onBack }: PeoplePicker
 
   return createPortal(
     <div role="dialog" aria-modal="true" aria-label={PICKER_COPY.title(word)} data-testid="people-picker"
-      style={{ position: 'fixed', top: 0, left: 0, right: 0, height: h ? `${h}px` : '100dvh', zIndex: 1000, background: '#FFFFFF', display: 'flex', flexDirection: 'column' }}>
+      style={{ position: 'fixed', top: 0, left: 0, right: 0, height: h ? `${h}px` : '100dvh', zIndex: 1000, background: '#FFFFFF', color: '#1A1A1A', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', alignItems: 'center', minHeight: 56, padding: '0 12px', borderBottom: '1px solid #E9E9E9' }}>
         <button type="button" onClick={onBack} style={{ minWidth: 64, minHeight: 44, border: 0, background: 'none', color: '#C2410C', fontSize: 16, textAlign: 'left' }}>{PICKER_COPY.back}</button>
         <b style={{ flex: 1, textAlign: 'center', fontSize: 16, marginRight: 64 }}>{PICKER_COPY.title(word)}</b>
       </div>
       <div style={{ padding: 12 }}>
         <input ref={input} type="text" className="fld" value={term} aria-label="Search by name" placeholder={PICKER_COPY.searchPh}
-          onChange={(e) => setTerm(e.target.value)} style={{ width: '100%', minHeight: 46, fontSize: 16 }} />
+          onChange={(e) => setTerm(e.target.value)} style={{ width: '100%', minHeight: 46, fontSize: 16, color: '#1A1A1A', background: '#FFFFFF' }} />
       </div>
       <div role="listbox" aria-label="Results" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
         {ready && !q.isLoading && rows.length === 0 && <p style={{ padding: '0 12px', color: '#6B6B6B', fontSize: 15 }}>{PICKER_COPY.noResults}</p>}
