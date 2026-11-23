@@ -292,12 +292,20 @@ describe('party chat alert', () => {
     expect(rows[0].textContent).toContain('Tap to join the chat.');
   });
 
-  it('unread is not read before the dropdown opens, nor with the chat flag off', async () => {
+  it('unread is read without opening the dropdown: the badge counts the new-message alert', async () => {
     on();
     h.card = open;
     h.unread = { muted: false, unread: 2 };
     mount();
-    await screen.findByTestId('dancer-bell-badge');
+    await vi.waitFor(() => expect(h.unreadCalls).toBe(1));
+    expect((await screen.findByTestId('dancer-bell-badge')).textContent).toBe('1');
+  });
+
+  it('unread is not read with the chat flag off', async () => {
+    h.card = open;
+    h.unread = { muted: false, unread: 2 };
+    mount();
+    await new Promise((r) => setTimeout(r, 30));
     expect(h.unreadCalls).toBe(0);
   });
 
