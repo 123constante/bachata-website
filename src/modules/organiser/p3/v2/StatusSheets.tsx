@@ -42,8 +42,9 @@ export function StatusSheet({ to, from, lastNight, tonight, error, onDo, onClose
 }
 
 /** SH-CANCELE: "Cancel the event" (weekly). Built, NOT mounted: no server command cancels a whole weekly event (see handover). */
-export function CancelEventSheetV2({ soldCount, error, onCancel, onClose }: {
-  soldCount: number; error?: string | null; onCancel: (reason: string) => void | Promise<unknown>; onClose: () => void;
+export function CancelEventSheetV2({ soldCount, soldState = 'ready', onRetrySold, error, onCancel, onClose }: {
+  soldCount: number; soldState?: 'loading' | 'error' | 'ready'; onRetrySold?: () => void;
+  error?: string | null; onCancel: (reason: string) => void | Promise<unknown>; onClose: () => void;
 }) {
   const reasons = useCancelReasons();
   const [pick, setPick] = useState<'venue' | 'none'>('venue');
@@ -53,14 +54,20 @@ export function CancelEventSheetV2({ soldCount, error, onCancel, onClose }: {
     <V2Sheet open title={E.cancelEventTitle} onClose={onClose}>
       <div className="grp">
         <p className="txt">{E.cancelEventText}</p>
-        <SoldWarning soldCount={soldCount} />
+        {soldState === 'ready' && <SoldWarning soldCount={soldCount} />}
+        {soldState === 'error' && (
+          <div role="alert" data-testid="cancele-sold-error">
+            <p className="hint" style={{ color: '#B42318' }}>{V2.soldCheckError}</p>
+            <button type="button" className="btn sec" data-testid="cancele-sold-retry" onClick={() => onRetrySold?.()}>{V2.soldCheckRetry}</button>
+          </div>
+        )}
         <div role="radiogroup" aria-label="Reason">
           <label className="radio"><input type="radio" name="ereason" checked={pick === 'venue'} onChange={() => setPick('venue')} /> {V2.reasonVenue}</label>
           <label className="radio"><input type="radio" name="ereason" checked={pick === 'none'} onChange={() => setPick('none')} /> {V2.reasonNone}</label>
         </div>
         <p className="hint">{V2.cancelNow}</p>
         {error && <p className="hint" role="alert" style={{ color: '#B42318' }}>{error}</p>}
-        <button type="button" className="btn dan solid" data-testid="cancele-go" disabled={reason === null} onClick={() => reason !== null && void onCancel(reason)}>{E.cancelEventTitle}</button>
+        <button type="button" className="btn dan solid" data-testid="cancele-go" disabled={reason === null || soldState !== 'ready'} onClick={() => reason !== null && soldState === 'ready' && void onCancel(reason)}>{E.cancelEventTitle}</button>
         <button type="button" className="btn sec" data-testid="cancele-keep" onClick={onClose}>{E.keepEvent}</button>
       </div>
     </V2Sheet>

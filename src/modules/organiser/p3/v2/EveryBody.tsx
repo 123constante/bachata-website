@@ -8,6 +8,7 @@ import { venueOverridePatch } from '../../dates/venueOverride';
 import { durationMinutes } from '../../shared/seriesModel';
 import { upsertCommand } from '../../shared/seriesCommands';
 import { V2 } from './copy';
+import { useSeriesTypes, useSummary } from '../tickets/data';
 import type { WriteStep } from './editorModel';
 import { Fact, aboutShort, priceLabel } from './Facts';
 import { ProgSheet, type OnSave } from './WhenSheet';
@@ -66,6 +67,15 @@ export function EveryBody({ ws, day, saveNow, busy, onOpenTickets }: { ws: Event
   const [statusError, setStatusError] = useState<string | null>(null);
   const venues = useVenueOptions();
   const orgIds = ws.organiserIds ?? [];
+  // Cancelling the event cancels every coming night, so the buyer warning counts every type of the event (same reads as EditorV2).
+  const soldTypes = useSeriesTypes(orgIds[0], s.id, true);
+  const soldSummary = useSummary(orgIds[0], true);
+  const soldRefused = soldSummary.isSuccess && !soldSummary.data.ok;
+  const soldState: 'loading' | 'error' | 'ready' = !orgIds[0] || soldTypes.isError || soldSummary.isError || soldRefused ? 'error'
+    : soldTypes.isSuccess && soldSummary.isSuccess ? 'ready' : 'loading';
+  const soldCount = soldState === 'ready' && soldSummary.data?.ok
+    ? (soldTypes.data ?? []).reduce((n, t) => n + (soldSummary.data.types.find((x) => x.id === t.id)?.ticketsSold ?? 0), 0) : 0;
+  const retrySold = () => { void soldTypes.refetch(); void soldSummary.refetch(); };
   const pages = useQuery({ queryKey: ['org-organiser-pages', ...orgIds], queryFn: () => fetchOrganiserPages(orgIds), enabled: orgIds.length > 0 });
   const venue = venues.data?.find((v) => v.id === s.default_venue_id);
   const label = savedLabel('usual', day);
@@ -254,7 +264,7 @@ export function EveryBody({ ws, day, saveNow, busy, onOpenTickets }: { ws: Event
         <SessionSheetV2 row={editing.row} count={progRows.length} ctx="usual" dayLabel={day} onDone={progDone} onRemove={progRemove} onClose={() => setEditing(null)} />
       )}
       {sheet === 'pause' && <StatusSheet to="Paused" from={life} lastNight="" tonight={false} error={statusError} onDo={() => setLife('paused', E.toastPaused)} onClose={() => setSheet(null)} />}
-      {sheet === 'cancel' && <CancelEventSheetV2 soldCount={0} error={statusError} onCancel={cancelEventDo} onClose={() => setSheet(null)} />}
+      {sheet === 'cancel' && <CancelEventSheetV2 soldCount={soldCount} soldState={soldState} onRetrySold={retrySold} error={statusError} onCancel={cancelEventDo} onClose={() => setSheet(null)} />}
       {sheet === 'end' && <StatusSheet to="Ended" from={life} lastNight={ws.endedOn ?? ''} tonight={!!tonightDate(ws, londonTodayKey())} error={statusError} onDo={endDo} onClose={() => setSheet(null)} />}
       {sheet === 'where' && <WhereSheet mode="usual" dateWords={day} current={s.default_venue_id ?? null} onSave={saveVenue} onClose={() => setSheet(null)} />}
       {sheet === 'about' && <AboutSheet mode="usual" dateWords={day} current={s.default_description ?? ''} usual={s.default_description} onSave={saveAbout} onClose={() => setSheet(null)} />}
