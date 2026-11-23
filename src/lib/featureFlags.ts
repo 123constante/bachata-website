@@ -74,6 +74,9 @@ export const flags = {
   // exactly as before. Separate from parityGate's AW1_APPLIED (a code constant).
   // Turn on with VITE_ENABLE_ORGANISER_P3=true (Vercel env) -- no code change.
   organiserP3:         import.meta.env.VITE_ENABLE_ORGANISER_P3 === 'true',
+  // Teacher picker lists all teachers with an empty search (layout B). OFF = today's picker.
+  // Turn on with VITE_ENABLE_ORGANISER_PICKER_LIST=true (Vercel env) -- no code change.
+  organiserPickerList: import.meta.env.VITE_ENABLE_ORGANISER_PICKER_LIST === 'true',
   // Start a P3 New event from a flyer photo (docs/design/flyer-read-screen.md). Needs organiserP3
   // and organiserSelfServe too. OFF = the New event kind step is exactly as before.
   // Turn on with VITE_ENABLE_ORGANISER_FLYER_READER=true (Vercel env) -- no code change.

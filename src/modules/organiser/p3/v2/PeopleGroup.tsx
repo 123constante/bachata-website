@@ -24,10 +24,12 @@ export interface PeopleGroupProps {
   hint?: string;
   onAdd: (p: { id: string; name: string }) => void;
   onRemove: (id: string) => void;
+  /** Teachers on this page's team, listed first in the picker (flag organiserPickerList). */
+  teamIds?: ReadonlySet<string>;
 }
 
 /** One people group of the session sheet: label, chips with x, "None yet", picker + Add, or read-only. */
-export function PeopleGroup({ label, people, role, onIds, hint, onAdd, onRemove }: PeopleGroupProps) {
+export function PeopleGroup({ label, people, role, onIds, hint, onAdd, onRemove, teamIds }: PeopleGroupProps) {
   const [term, setTerm] = useState('');
   const [picked, setPicked] = useState<PickerRow | null>(null);
   const [open, setOpen] = useState(false);
@@ -76,6 +78,7 @@ export function PeopleGroup({ label, people, role, onIds, hint, onAdd, onRemove 
             <PeoplePickerScreen
               role={role}
               onIds={onIds}
+              teamIds={teamIds}
               onBack={() => setOpen(false)}
               onPick={(r) => {
                 setPhotos((m) => ({ ...m, [r.id]: r.avatarUrl }));
