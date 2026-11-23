@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RaffleNight } from '@/lib/raffleBoard';
 
-const MAX_CARDS = 13;
-
 const initials = (title: string): string => {
   const w = title.split(/\s+/).filter(Boolean);
   return ((w[0]?.[0] ?? '') + (w.length > 1 ? (w[w.length - 1][0] ?? '') : '')).toUpperCase() || '?';
@@ -23,7 +21,7 @@ type Props = {
 };
 
 export const RaffleNightCarousel = ({ nights, joined, onEnter, onBurst }: Props) => {
-  const items = nights.slice(0, MAX_CARDS);
+  const items = nights;
   const track = useRef<HTMLUListElement>(null);
   const [idx, setIdx] = useState(0);
 

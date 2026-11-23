@@ -69,6 +69,20 @@ describe('RaffleRedesignA keep-list', () => {
     expect(screen.getByTestId('entry-dialog')).toBeTruthy();
   });
 
+  it('one card per event (its next night), no 13 cap', () => {
+    const nights: unknown[] = [];
+    for (let e = 0; e < 20; e++) {
+      const d = String(10 + (e % 18)).padStart(2, '0');
+      nights.push(night({ occurrence_id: `late${e}`, public_event_id: `ev${e}`, title: `Event ${e}`, start_local: `2026-12-${d}T20:00:00` }));
+      nights.push(night({ occurrence_id: `soon${e}`, public_event_id: `ev${e}`, title: `Event ${e}`, start_local: `2026-11-${d}T20:00:00` }));
+    }
+    h.board = { ...h.board, data: parseRaffleBoard({ pool_count: 5, winners_this_month: 0, total_winners: 0, nights, winners: [] }) };
+    mount();
+    expect(document.querySelectorAll('.rd-car > li')).toHaveLength(20);
+    expect(screen.getByTestId('raffles-carousel-count').textContent).toBe('1 of 20');
+    expect(screen.getByTestId('raffles-count-open').textContent).toBe('20');
+  });
+
   it('winner without last_initial or profile_slug shows the first name only; section hidden with none', () => {
     h.board = { ...h.board, data: board([{ first_name: 'Tom', night_title: 'Luna' }]) };
     mount();

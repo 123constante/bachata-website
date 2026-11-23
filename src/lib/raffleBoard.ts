@@ -137,6 +137,16 @@ export function boardForEvent(board: RaffleBoard, publicEventId: string, now: Da
 export const nightsWithWinner = (board: RaffleBoard): RaffleNight[] =>
   board.nights.filter((n) => n.winnerFirstName !== null);
 
+/** One night per event: the earliest start for each publicEventId, ordered by that start. */
+export const nextNightPerEvent = (nights: RaffleNight[]): RaffleNight[] => {
+  const best = new Map<string, RaffleNight>();
+  for (const n of nights) {
+    const cur = best.get(n.publicEventId);
+    if (!cur || n.start < cur.start) best.set(n.publicEventId, n);
+  }
+  return [...best.values()].sort((x, y) => (x.start < y.start ? -1 : x.start > y.start ? 1 : 0));
+};
+
 // `start` is normally an ISO instant (parseNight adds Z); a zone-less value reads as a London date.
 const ZONED = ZONE_TAIL;
 function londonKeyOf(start: string): string | null {
