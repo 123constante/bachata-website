@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyDancerEdit } from '../../api/useMyDancerEdit';
-import { fetchActiveCities, fetchPartyCard, joinParty } from './partyChatApi';
+import { UNREAD_KEY, fetchActiveCities, fetchPartyCard, fetchPartyUnread, joinParty } from './partyChatApi';
 
 const KEY = ['party-card'] as const;
 const BTN = 'min-h-[44px] w-full rounded-[12px] px-[12px] text-[15px] font-bold';
@@ -25,6 +25,13 @@ export const PartyChatCard = () => {
   const cities = useQuery({ queryKey: ['party-cities'], queryFn: fetchActiveCities, enabled: !!user && needCities, staleTime: 300_000 });
 
   const c = card.data;
+  const unreadQ = useQuery({
+    queryKey: [...UNREAD_KEY, c?.chat_id ?? null],
+    queryFn: () => fetchPartyUnread(c?.chat_id as string),
+    enabled: !!user && c?.state === 'open' && !!c?.chat_id,
+    retry: false,
+    staleTime: 0,
+  });
   if (!user || !c || c.state === 'closed') return null;
   const cityName = (id: string | null) =>
     (id && (cities.data?.find((x) => x.id === id)?.name ?? (profile.data?.based_city_id === id ? profile.data.city_name : null))) || null;
@@ -40,9 +47,16 @@ export const PartyChatCard = () => {
   }
   if (c.state === 'open') {
     const n = cityName(c.city_id);
+    const u = unreadQ.data ?? null;
     return (
-      <section data-testid="party-card-open" className="grid gap-[10px] rounded-[16px] border border-[var(--line)] bg-[var(--card)] p-[14px]">
+      <section data-testid="party-card-open" className="relative grid gap-[10px] rounded-[16px] border border-[var(--line)] bg-[var(--card)] p-[14px]">
+        {u && !u.muted && u.unread > 0 && (
+          <span data-testid="party-unread-badge" aria-label={`${u.unread} unread`} className="absolute right-[10px] top-[10px] grid h-[24px] min-w-[24px] place-items-center rounded-full bg-[var(--da-violet,#7c5cff)] px-[6px] text-[13px] font-extrabold text-[#14101f]">
+            {u.unread >= 99 ? '99+' : u.unread}
+          </span>
+        )}
         <h3 className="m-0 text-[17px] font-extrabold">Party chat is open{n ? ` \u00b7 ${n}` : ''}</h3>
+        {u?.muted && <p data-testid="party-muted-line" className="m-0 -mt-[6px] text-[13px] text-[var(--mut)]">Muted</p>}
         <button type="button" data-testid="party-open-chat" disabled={!c.chat_id} onClick={() => nav(`/app/party-chat/${c.chat_id}`)} className={`${BTN} bg-[var(--da-violet,#7c5cff)] text-[#14101f]`}>
           Open chat
         </button>

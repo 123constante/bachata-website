@@ -41,6 +41,10 @@
   },
   "not_event_writes": [
     {
+      "name": "set_party_chat_muted_v1",
+      "reason": "Party chat S7b (admin#2173): a member turns email and unread-count notifications on or off for ONE party chat they belong to; a personal notification preference, not an event edit. Member-only, refused with not_member for anyone else, inside the RPC."
+    },
+    {
       "name": "ticket_night_price_set_v1",
       "reason": "Editor v2 slice 17e (admin #2114, 20261121220001): one paid ticket's price on ONE night (an override, or null to go back to the usual price); a ticket price, not an event edit. Owner money seat only, refused for a manager or a past or cancelled night, inside the RPC."
     },
