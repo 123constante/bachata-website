@@ -15,6 +15,9 @@ import { Sheet } from '../options/optionsUi';
 import { FIND_A_NIGHT } from '../../copy/sharedCopy';
 import type { MyTicket } from '@/modules/tickets/myTicketsModel';
 import { NIGHTS_TICKET_QR_ENABLED } from './nightsTicketFlag';
+import { PARTY_CHAT_ENABLED } from './partyChatFlag';
+
+const PartyChatCard = lazyWithRetry(() => import('./PartyChatCard').then((m) => ({ default: m.PartyChatCard })));
 
 /**
  * Going P2: the nights the person said I'm going to (get_my_going_v1), in the
@@ -135,6 +138,11 @@ const NightsView = ({ going }: { going: NightsGoing }) => {
   return (
     <div data-testid="dancer-screen-nights" className="grid gap-[12px]">
       <ScreenTitle>Nights</ScreenTitle>
+      {PARTY_CHAT_ENABLED() && (
+        <Suspense fallback={null}>
+          <PartyChatCard />
+        </Suspense>
+      )}
       {isLoading && <p className="text-[var(--mut)]" role="status">Loading your nights&hellip;</p>}
       {isError && (
         <Card variant="padded" role="alert" className="grid gap-[8px]">
