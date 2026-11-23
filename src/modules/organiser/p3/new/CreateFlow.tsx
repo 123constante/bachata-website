@@ -11,7 +11,7 @@ import { P3Link, RetryButton, StateCard } from '../screens/parts';
 import { P3_PATHS, p3StartReview } from '../shell/paths';
 import {
   COPY, KINDS, RESULT_COPY, addChosenDate, afterKind, backOf, blankCreate, buildableKind, chosenDates, draftBlock, isUntouched,
-  liveBlock, notSavedLine, parseAt, parseStoredDraft, priceLine, removeChosenDate, repeatLine, rowProblems, sessionsLine, whenLine, withFirstDate,
+  leaveSheetNeeded, liveBlock, notSavedLine, parseAt, parseStoredDraft, priceLine, removeChosenDate, repeatLine, rowProblems, sessionsLine, whenLine, withFirstDate,
   DRAFT_STORE_KEY, type CreateDraft, type CreateKind, type KindInfo,
 } from './model';
 import { LANDED_PARAM, forgetStoredDraft, useCreateSave } from './useCreateSave';
@@ -25,6 +25,17 @@ import './create.css';
 
 const TITLE = 'New event';
 const EVENTS = { to: P3_PATHS.events, label: 'Events' };
+/** Option C look for the form step (VITE_ENABLE_ORGANISER_CREATE_LOOK). OFF = today's screen. */
+const CREATE_LOOK = import.meta.env.VITE_ENABLE_ORGANISER_CREATE_LOOK === 'true';
+
+function LookCard({ label, testId, children }: { label: string; testId: string; children: ReactNode }) {
+  return (
+    <section className="p3-card p3-tight p3-look-card" data-testid={testId}>
+      <h2 className="p3-look-label">{label}</h2>
+      {children}
+    </section>
+  );
+}
 
 function Frame({ title, back, end, children, testId }: { title: string; back: { to: string; label: string }; end?: ReactNode; children: ReactNode; testId: string }) {
   return (
@@ -152,6 +163,9 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
   const [cover, setCover] = useState<File | null>(() => flyer?.file ?? null);
   const [coverError, setCoverError] = useState<string | null>(null);
   const [sheet, setSheet] = useState<SheetName>(null);
+  const [leaveTo, setLeaveTo] = useState<string>(P3_PATHS.events);
+  const [guard, setGuard] = useState(0);
+  const guardOn = useRef(false);
   const [addDate, setAddDate] = useState('');
   const save = useCreateSave({ draft: d, cover, organiser, today, onCreated: () => {
     if (flyer) { recordFlyerSave(flyer, dNow.current); forgetFlyerHandoff(); }
@@ -192,11 +206,42 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
   const busy = save.state.s === 'busy';
   const back = backOf('form', kind.kind, organiser.id, pageCount);
   const cancel = () => {
-    if (!untouched) { setSheet('leave'); return; }
+    if (!untouched) { setLeaveTo(P3_PATHS.events); setSheet('leave'); return; }
     forgetFlyerHandoff();
     forgetStoredDraft();
     navigate(P3_PATHS.events);
   };
+  // Option C leave guard: Back, Cancel and the phone back open the sheet; a tab close or reload asks the browser.
+  const guardNow = CREATE_LOOK && leaveSheetNeeded(d, hasCover) && (stateNow === 'idle' || stateNow === 'busy' || stateNow === 'failed');
+  useEffect(() => {
+    if (!guardNow) return;
+    const onClick = (e: MouseEvent) => {
+      const a = (e.target as HTMLElement | null)?.closest?.('[data-testid="org-back"]');
+      if (!a) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setLeaveTo(back.to);
+      setSheet('leave');
+    };
+    const onPop = () => {
+      if (!guardOn.current) return;
+      guardOn.current = false;
+      setLeaveTo(back.to);
+      setSheet('leave');
+    };
+    const onUnload = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    if (!guardOn.current) { try { window.history.pushState({ p3LeaveGuard: 1 }, ''); guardOn.current = true; } catch { /* history off */ } }
+    document.addEventListener('click', onClick, true);
+    window.addEventListener('popstate', onPop);
+    window.addEventListener('beforeunload', onUnload);
+    return () => {
+      document.removeEventListener('click', onClick, true);
+      window.removeEventListener('popstate', onPop);
+      window.removeEventListener('beforeunload', onUnload);
+    };
+  }, [guardNow, guard, back.to]);
+  const keepEditing = () => { setSheet(null); setGuard((g) => g + 1); };
+  const leaveNow = () => { guardOn.current = false; forgetFlyerHandoff(); forgetStoredDraft(); navigate(leaveTo); };
   const end = (
     <button type="button" className="p3-link p3-new-top-end" onClick={cancel} disabled={busy} data-testid="p3-new-cancel">Cancel</button>
   );
@@ -266,6 +311,7 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
     setChoices(next);
     set({ sessions: ticksFor(next).sessions });
   };
+  const noTimes = !d.sessions.some((x) => x.start && x.end);
   const whenTitle = kind.when === 'repeat' ? 'Starts' : 'Date';
   return (
     <Frame title={title} back={back} end={end} testId="p3-new-form">
@@ -286,6 +332,88 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
         </div>
       )}
 
+      {CREATE_LOOK ? (<>
+      <div className="p3-card p3-stack-s" data-testid="p3-new-photo">
+        <strong>FLYER</strong>
+        {preview && <img className="p3-new-cover" src={preview} alt="Your cover photo" loading="lazy" decoding="async" data-testid="p3-new-cover-preview" />}
+        {!preview && cover && <p className="p3-ok" data-testid="p3-new-cover-picked">Photo picked: {cover.name}</p>}
+        <label className="p3-btn p3-btn-line p3-file p3-new-file" data-testid="p3-new-cover-label">
+          {cover ? 'Choose a different photo' : 'Add a photo'}
+          <input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={(e) => pickCover(e.target.files?.[0])} data-testid="p3-new-cover-input" />
+        </label>
+        {cover && !d.created && <button type="button" className="p3-btn p3-btn-line p3-new-file" disabled={busy} onClick={removeCover} data-testid="p3-new-cover-remove">Remove photo</button>}
+        {coverError ? <p className="p3-error" data-testid="p3-new-cover-error">{coverError}</p> : <p className="p3-note">{cover ? `${COPY.photoNote} Needed to go live.` : `A flyer is required to continue. ${COPY.photoNote}`}</p>}
+      </div>
+
+      <div className="p3-card p3-stack-s">
+        <label className="p3-field" htmlFor="p3-new-name">Name</label>
+        {mark('name')}
+        <input id="p3-new-name" className="p3-in" value={d.name} maxLength={140} disabled={busy} placeholder="For example Friday Bachata at The Loft"
+          onChange={(e) => set({ name: e.target.value })} data-testid="p3-new-name" />
+        {problems.name ? <p className="p3-error" data-testid="p3-new-name-problem">{problems.name}</p> : <p className="p3-note">Up to 120 letters. Needed to save.</p>}
+      </div>
+
+      <LookCard label="WHEN" testId="p3-look-when">
+        {kind.when === 'dates' ? (
+          <div className="p3-new-inline" data-testid="p3-new-dates">
+            <span className="p3-row-t">Dates</span>
+            <span className="p3-row-s">Each date gets the same sessions. Change one date later on the event page.</span>
+            {chosenDates(d).length === 0 && <p className="p3-note" data-testid="p3-new-dates-empty">{COPY.noDates} Up to 30 upcoming dates can be listed at once.</p>}
+            {chosenDates(d).map((x) => (
+              <div key={x} className="p3-new-date" data-testid="p3-new-date">
+                <span className="p3-row-t">{fullDate(x, today)}</span>
+                <button type="button" className="p3-link" disabled={busy} onClick={() => setD((v) => removeChosenDate(v, x))}>Remove</button>
+              </div>
+            ))}
+            <label className="p3-field" htmlFor="p3-new-add-date">Add a date</label>
+            <div className="p3-new-time">
+              <input id="p3-new-add-date" className="p3-in" type="date" min={today} value={addDate} disabled={busy} onChange={(e) => setAddDate(e.target.value)} data-testid="p3-new-add-date" />
+              <button type="button" className="p3-btn p3-btn-line" disabled={!addDate || busy} aria-describedby={!addDate ? 'p3-new-add-why' : undefined}
+                onClick={() => { setD((v) => addChosenDate(v, addDate)); setAddDate(''); }} data-testid="p3-new-add-date-go">Add</button>
+            </div>
+            {!addDate && <p className="p3-note" id="p3-new-add-why">Pick a date above, then tap Add.</p>}
+          </div>
+        ) : (
+          <div className="p3-new-inline">
+            <label className="p3-row-t" htmlFor="p3-new-first">{whenTitle}</label>
+            <input id="p3-new-first" className="p3-in" type="date" min={today} value={d.firstDate} disabled={busy}
+              onChange={(e) => setD((v) => withFirstDate(v, e.target.value))} data-testid="p3-new-first" />
+            {d.firstDate && <span className="p3-row-s">{whenLine(d, today)}</span>}
+          </div>
+        )}
+        {mark('firstDate', 'extraDates')}
+        {kind.when === 'repeat' && (
+          <Row title="Repeats" value={repeatLine(d, today)} action="Change" onClick={() => setSheet('repeat')} disabled={busy} testId="p3-new-row-repeat" />
+        )}
+        {problems.when && <p className="p3-error" data-testid="p3-new-when-problem">{problems.when}</p>}
+      </LookCard>
+      <LookCard label="CLASSES AND PARTIES" testId="p3-look-sessions">
+        <Row title="Sessions" value={noTimes ? 'Party, no times yet' : sessionsLine(d)} action={noTimes ? 'Add >' : 'Change >'} onClick={() => setSheet('sessions')} disabled={busy} testId="p3-new-row-sessions" />
+        {mark('sessions')}
+        {showTicks && (
+          <div className="p3-new-ticks" data-testid="p3-new-ticks">
+            <span className="p3-row-s">Sessions on the flyer: only the ticked ones are added.</span>
+            {choices.map((c) => (
+              <label key={c.id} className="p3-new-tick">
+                <input type="checkbox" checked={c.ticked} disabled={busy} onChange={() => toggle(c.id)} data-testid={`p3-new-tick-${c.id}`} />
+                <span>{c.label}{c.start ? ` ${c.start}${c.end ? `\u2013${c.end}` : ''}` : ''}</span>
+              </label>
+            ))}
+          </div>
+        )}
+        {problems.sessions && <p className="p3-error" data-testid="p3-new-sessions-problem">{problems.sessions}</p>}
+      </LookCard>
+      <LookCard label="WHERE" testId="p3-look-where">
+        <Row title="Where" value={d.venue ? [d.venue.name, d.venue.place].filter(Boolean).join(', ') : 'Not set'} action={d.venue ? 'Change' : 'Pick'} onClick={() => setSheet('venue')} disabled={busy} testId="p3-new-row-venue" />
+        {mark('venue')}
+        {flyer?.venueSaid && !d.venue && <p className="p3-note" data-testid="p3-new-venue-said">Flyer says: {flyer.venueSaid}</p>}
+      </LookCard>
+      <LookCard label="PRICE" testId="p3-look-price">
+        <Row title="Price" value={priceLine(d)} action={d.pay.length ? 'Change' : 'Pick'} onClick={() => setSheet('price')} disabled={busy} testId="p3-new-row-price" />
+        {mark('prices', 'ticketUrl')}
+        {problems.price && <p className="p3-error" data-testid="p3-new-price-row-problem">{problems.price}</p>}
+      </LookCard>
+      </>) : (<>
       <div className="p3-card p3-stack-s">
         <label className="p3-field" htmlFor="p3-new-name">Name</label>
         {mark('name')}
@@ -361,6 +489,8 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
         {coverError ? <p className="p3-error" data-testid="p3-new-cover-error">{coverError}</p> : <p className="p3-note">{cover ? `${COPY.photoNote} Needed to go live.` : `A flyer is required to continue. ${COPY.photoNote}`}</p>}
       </div>
 
+      </>)}
+
       {busy && <p className="p3-ok" role="status" data-testid="p3-new-saving">Saving&hellip;</p>}
       <div className="p3-new-foot">
         <button type="button" className="p3-btn p3-btn-line" disabled={busy || !!draftWhy} aria-describedby="p3-new-draft-why" onClick={() => void save.run(false)} data-testid="p3-new-save-draft">Save draft</button>
@@ -373,7 +503,14 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
       {sheet === 'repeat' && <RepeatSheetNew d={d} today={today} onChange={(r) => set({ repeat: r })} onClose={() => setSheet(null)} />}
       {sheet === 'sessions' && <SessionsSheet d={d} today={today} onChange={(s) => set({ sessions: s })} onClose={() => setSheet(null)} />}
       {sheet === 'price' && <PriceSheet d={d} today={today} onChange={set} onClose={() => setSheet(null)} />}
-      {sheet === 'leave' && (
+      {sheet === 'leave' && CREATE_LOOK && (
+        <Sheet title={COPY.leaveLookTitle} onClose={keepEditing}>
+          <p className="p3-note">{COPY.leaveLookBody}</p>
+          <button type="button" className="p3-btn" onClick={keepEditing} data-testid="p3-new-keep-editing">Keep editing</button>
+          <button type="button" className="p3-btn p3-btn-line p3-danger-t" onClick={leaveNow} data-testid="p3-new-leave-discard">Leave without saving</button>
+        </Sheet>
+      )}
+      {sheet === 'leave' && !CREATE_LOOK && (
         <Sheet title={COPY.leaveTitle} onClose={() => setSheet(null)}>
           <p className="p3-note">{draftWhy ? COPY.leaveNoName : COPY.leaveBody}</p>
           <button type="button" className="p3-btn" onClick={() => setSheet(null)} data-testid="p3-new-keep-going">Keep going</button>
