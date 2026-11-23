@@ -1,6 +1,6 @@
 import { Suspense, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { londonTodayKey } from '@/lib/londonDate';
 import { setTicketStatus, ticketKeys } from '../../tickets/ticketsApi';
 import {
@@ -60,6 +60,7 @@ import {
   noOrdersText,
   seeAllLabel,
   shownOrders,
+  stripeNudgeV2On,
   ticketsRowOf,
   type TypeDraft,
 } from './model';
@@ -181,7 +182,10 @@ function Entry({ org, series, startOn, onOrdersClose }: { org: HomeOrganiser; se
   // The one Connect payments press: Stripe sends the person back to THIS event's Tickets sheet.
   const onboardRaw = useStartOnboarding(org.id, undefined, P3_TICKET_PATHS.eventTickets(series.id));
   // Payout set-up is the owner's: for anyone else `go` does nothing (no control is drawn for them either).
-  const onboard = canSetUpPayouts(org.role) ? onboardRaw : { ...onboardRaw, go: async () => {} };
+  const navigate = useNavigate();
+  // Flag stripeNudgeV2: every Connect press lands on the Get paid hub first; the hub's one button goes to Stripe.
+  const toHub = async () => { navigate(P3_TICKET_PATHS.getPaid(org.id)); };
+  const onboard = canSetUpPayouts(org.role) ? (stripeNudgeV2On() ? { ...onboardRaw, go: toHub } : onboardRaw) : { ...onboardRaw, go: async () => {} };
   // On arrival (`tickets=1`, and `stripe=return|refresh` from Stripe): open the sheet, refetch the Stripe
   // state after a return, and drop the params so a reload or a Back does not do it again.
   const [params, setParams] = useSearchParams();

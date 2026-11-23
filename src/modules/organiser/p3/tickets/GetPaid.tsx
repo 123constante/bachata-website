@@ -24,7 +24,7 @@ import { P3_PATHS } from '../shell/paths';
 import { P3PushedShell } from '../you/surface';
 import { P3Link, RetryButton, StateCard } from '../screens/parts';
 import { hasLiveEvent, payingOrganiser, useP3Home, useStartOnboarding, useStripe, useSummary } from './data';
-import { TONE_CLASS, getPaidRowTag } from './model';
+import { HUB_COPY, TONE_CLASS, getPaidRowTag, hubSteps, stripeNudgeV2On } from './model';
 import { P3_TICKET_PATHS } from './paths';
 import { CONNECT_RETURN_EVERY_MS, CONNECT_RETURN_FOR_MS, nextTicketTarget, returnKindOf, useConnectReturn } from './connectReturn';
 
@@ -145,10 +145,33 @@ function GetPaidBody({ org, back }: { org: HomeOrganiser; back: 'return' | 'refr
   // Slice 2 (PQ1): payouts are the owner's. Anyone else is told to ask the owner, with no button and no amounts.
   const owner = isOwner(org.role);
   const canGo = owner && state !== 'connected' && !switchedOff;
+  const hub = stripeNudgeV2On() && (state === 'connected' || (owner && !switchedOff && (state === 'none' || state === 'started')));
   return (
     <>
       {back && state !== 'connected' && <p className="p3-warn" data-testid="tix-getpaid-back">{state === 'waiting' ? BACK_NOTE_WAITING : BACK_NOTE[back]}</p>}
-      <section className="p3-card p3-stack-s" data-testid="tix-getpaid-card" data-state={state}>
+      {hub && (
+        <section className="p3-card p3-stack-s" data-testid="tix-hub" data-state={state}>
+          {state === 'connected' && <p className="p3-ok" role="status" data-testid="tix-hub-connected">{HUB_COPY.connected}</p>}
+          <strong>{HUB_COPY.label}</strong>
+          <ul className="p3-list p3-flush">
+            {hubSteps(state).map((s) => (
+              <li key={s.key} className="p3-row p3-setup" data-done={s.done} data-testid={`tix-hub-step-${s.key}`}>
+                <span className="p3-tick" aria-hidden="true" data-done={s.done} />
+                <span className="p3-grow">{s.label}<span className="p3-sr">{s.done ? ': done' : ': not yet'}</span></span>
+              </li>
+            ))}
+          </ul>
+          {state !== 'connected' && (
+            <button type="button" className="p3-btn" style={{ minHeight: 48 }} disabled={busy} aria-busy={busy || undefined} onClick={() => void go()} data-testid="tix-hub-go">
+              {busy ? 'Opening Stripe\u2026' : state === 'started' ? HUB_COPY.finish : HUB_COPY.connect}
+            </button>
+          )}
+          {note && <p role="alert" className="p3-error" data-testid="tix-getpaid-note">{note}</p>}
+          <p className="p3-note" data-testid="tix-hub-note">{HUB_COPY.note}</p>
+          {state === 'connected' && manager && <AddTicketNext org={org} idPrefix="tix-getpaid-add" />}
+        </section>
+      )}
+      {!hub && <section className="p3-card p3-stack-s" data-testid="tix-getpaid-card" data-state={state}>
         <div className="p3-row-tags"><span className={TONE_CLASS[tag.tone]} data-testid="tix-getpaid-tag">{tag.tag}</span></div>
         <strong data-testid="tix-getpaid-title">{copy.title}</strong>
         <p className="p3-note">{copy.body}</p>
@@ -173,7 +196,7 @@ function GetPaidBody({ org, back }: { org: HomeOrganiser; back: 'return' | 'refr
         {note && <p role="alert" className="p3-error" data-testid="tix-getpaid-note">{note}</p>}
         {state === 'connected' && manager && <AddTicketNext org={org} idPrefix="tix-getpaid-add" />}
         {canGo && <p className="p3-note">You leave Bachata Calendar for Stripe and come back here when you finish.</p>}
-      </section>
+      </section>}
       {owner && hasLiveEvent(org) && steps && steps.some((s) => !s.done) && (
         <section className="p3-card" aria-label={setupLine(steps)} data-testid="tix-setup">
           <strong data-testid="tix-setup-line">{setupLine(steps)}</strong>
