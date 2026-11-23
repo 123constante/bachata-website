@@ -17,7 +17,7 @@ import type { MyTicket } from '@/modules/tickets/myTicketsModel';
 import { NIGHTS_TICKET_QR_ENABLED } from './nightsTicketFlag';
 import { PARTY_CHAT_ENABLED } from './partyChatFlag';
 
-const PartyChatCard = lazyWithRetry(() => import('./PartyChatCard').then((m) => ({ default: m.PartyChatCard })));
+import { PartyChatCard } from './partyChatCardLazy';
 
 /**
  * Going P2: the nights the person said I'm going to (get_my_going_v1), in the
