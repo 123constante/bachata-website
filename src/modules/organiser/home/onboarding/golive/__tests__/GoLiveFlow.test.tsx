@@ -252,7 +252,7 @@ describe('Go live is never silently off, and the server list is never dropped', 
     mount();
     const gaps = await screen.findAllByTestId('golive-gap');
     expect(gaps.map((g) => g.textContent)).toEqual([
-      'Upload a flyer', 'Add your page contact email', 'About your page: Add your organisation logo',
+      'A flyer is required to continue', 'Add your page contact email', 'About your page: Add your organisation logo',
     ]);
     expect(screen.queryByTestId('golive-live-error')).toBeNull();
   });

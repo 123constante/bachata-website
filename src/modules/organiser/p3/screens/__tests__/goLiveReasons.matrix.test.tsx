@@ -105,7 +105,7 @@ describe('goLiveReasonText: the one mapping, every item x every item x both x ne
   });
 
   it('cover and its twin no_flyer show once', () => {
-    expect(goLiveReasons(check([ev('cover'), ev('no_flyer')], []))).toEqual(['Upload a flyer']);
+    expect(goLiveReasons(check([ev('cover'), ev('no_flyer')], []))).toEqual(['A flyer is required to continue']);
   });
 
   it('a long list shows the first ones and says how many more', () => {
