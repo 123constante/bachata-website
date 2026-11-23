@@ -23,7 +23,7 @@ import '../screens/teaser/teaser.css';
 import { DANCER_BELL_ENABLED } from './bellFlag';
 import { mayBeFocus, requiredDone, shellChrome } from './focusChrome';
 import { ProfileSheetProvider, useProfileSheet } from './profileSheet';
-import { activeTabFor, shellTabs, type DancerTab } from './routes';
+import { activeTabFor, isPartyChatPath, shellTabs, type DancerTab } from './routes';
 import { SiteHomeLink } from './SiteHomeLink';
 import { ShellToast } from './shellToast';
 import { LeaveGuardProvider, type LeaveGuard } from './leaveGuard';
@@ -96,11 +96,14 @@ export const DancerAppShell = () => {
   const tabsLocked = ticketsOn && !teaser && (viewOnly || noProfile);
   const { focus, notNowTo } = shellChrome(pathname, search, candidate ? profile.data : null);
   const active = activeTabFor(pathname);
+  // Party chat is full-screen: no site header, no tabs (the screen draws its own Back to Nights).
+  const chatFocus = isPartyChatPath(pathname);
   const guardRef = useRef<LeaveGuard | null>(null);
   return (
-    <EmberWorld data-profile="dancer" className="dancer-app" data-testid="dancer-app-shell" data-chrome={focus ? 'focus' : 'full'}>
+    <EmberWorld data-profile="dancer" className="dancer-app" data-testid="dancer-app-shell" data-chrome={focus ? 'focus' : chatFocus ? 'chat' : 'full'}>
       <LeaveGuardProvider guardRef={guardRef}>
       <ProfileSheetProvider incomplete={incomplete} viewOnly={viewOnly} person={profile.data ?? null}>
+      {!chatFocus && (
       <header className="da-header" data-testid="dancer-app-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
           <SiteHomeLink onBeforeLeave={() => (guardRef.current ? guardRef.current('/') : true)} />
@@ -141,6 +144,7 @@ export const DancerAppShell = () => {
           </div>
         )}
       </header>
+      )}
       <div
         className="da-content"
         data-testid="dancer-app-content"
@@ -150,7 +154,7 @@ export const DancerAppShell = () => {
           <Outlet />
         </TeaserContext.Provider>
       </div>
-      {!focus && (
+      {!focus && !chatFocus && (
         <nav
           className={ticketsOn && !teaser && !DANCER_LAYOUT_C_ENABLED ? 'da-tabs dt-tabs-5' : 'da-tabs'}
           // Layout C: three tabs, so three columns (the sheet's default grid is four).

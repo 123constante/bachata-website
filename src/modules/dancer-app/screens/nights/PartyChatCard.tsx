@@ -43,7 +43,7 @@ export const PartyChatCard = () => {
     return (
       <section data-testid="party-card-open" className="grid gap-[10px] rounded-[16px] border border-[var(--line)] bg-[var(--card)] p-[14px]">
         <h3 className="m-0 text-[17px] font-extrabold">Party chat is open{n ? ` \u00b7 ${n}` : ''}</h3>
-        <button type="button" data-testid="party-open-chat" disabled={!c.chat_id} onClick={() => nav(`/account/party-chat/${c.chat_id}`)} className={`${BTN} bg-[var(--da-violet,#7c5cff)] text-[#14101f]`}>
+        <button type="button" data-testid="party-open-chat" disabled={!c.chat_id} onClick={() => nav(`/app/party-chat/${c.chat_id}`)} className={`${BTN} bg-[var(--da-violet,#7c5cff)] text-[#14101f]`}>
           Open chat
         </button>
       </section>
@@ -80,6 +80,9 @@ export const PartyChatCard = () => {
           </button>
         </div>
       )}
+      {picking && cities.isSuccess && (cities.data ?? []).length === 0 && (
+        <p data-testid="party-city-empty" className="m-0 text-[14px] text-[var(--mut)]">No cities available right now.</p>
+      )}
       {picking && (
         <ul className="m-0 grid list-none gap-[6px] p-0" data-testid="party-city-list">
           {(cities.data ?? []).map((x) => (
@@ -90,6 +93,11 @@ export const PartyChatCard = () => {
             </li>
           ))}
         </ul>
+      )}
+      {picking && (
+        <button type="button" data-testid="party-city-back" disabled={busy} onClick={() => setPicking(false)} className={`${BTN} border border-[var(--line)] bg-transparent text-[var(--fg)] disabled:opacity-60`}>
+          Back
+        </button>
       )}
       {err && <p role="alert" data-testid="party-error" className="m-0 text-[14px]">{err}</p>}
     </section>

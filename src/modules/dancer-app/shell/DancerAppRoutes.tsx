@@ -22,6 +22,7 @@ import PageScreen from '../screens/page/PageScreen';
 import SignOutControl from '../screens/options/SignOutControl';
 import OptionsScreen from '../screens/options/OptionsScreen';
 // Lazy (with the teaser twins below): the tickets modules they share then sit in their own chunk, off the /app first load.
+const PartyChatRoute = lazyWithRetry(() => import('../screens/partychat/PartyChatScreen').then((m) => ({ default: m.PartyChatRoute })));
 const TicketsScreen = lazyWithRetry(() => import('../screens/tickets/TicketsScreen'));
 
 const TeaserHome = lazyWithRetry(() => import('../screens/teaser/TeaserScreens').then((m) => ({ default: m.TeaserHome })));
@@ -114,6 +115,7 @@ export const DancerAppRoutes = () => {
               const Screen = DANCER_SCREENS[r.id];
               return <Route key={r.id} path={r.path.slice('/app/'.length)} element={<ScreenOrTeaser id={r.id} Screen={Screen} />} />;
             })}
+            <Route path="party-chat/:chatId" element={<Suspense fallback={null}><PartyChatRoute /></Suspense>} />
             <Route path="*" element={<Navigate to={DANCER_HOME} replace />} />
           </Route>
         </Routes>

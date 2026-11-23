@@ -200,7 +200,7 @@ describe('party chat alert', () => {
 
   it('model: built from the open state only, with a chat id', () => {
     expect(partyAlert(open)).toEqual({
-      id: 'party:chat1', kind: 'party', title: 'Party chat is open', line: 'Tap to join the chat.', to: '/account/party-chat/chat1',
+      id: 'party:chat1', kind: 'party', title: 'Party chat is open', line: 'Tap to join the chat.', to: '/app/party-chat/chat1',
     });
     for (const state of ['in', 'none', 'closed']) expect(partyAlert({ ...open, state })).toBeNull();
     expect(partyAlert({ ...open, chat_id: null })).toBeNull();
@@ -231,7 +231,7 @@ describe('party chat alert', () => {
     fireEvent.click(screen.getByTestId('dancer-bell-button'));
     const rows = screen.getAllByTestId('bell-alert');
     expect(rows[0].getAttribute('data-alert-id')).toBe('party:chat1');
-    expect(rows[0].getAttribute('href')).toBe('/account/party-chat/chat1');
+    expect(rows[0].getAttribute('href')).toBe('/app/party-chat/chat1');
     fireEvent.click(rows[0]);
     expect(loadRead(FAKE_USER_ID)).toEqual(new Set(['party:chat1']));
   });
