@@ -188,8 +188,8 @@ export function PriceSheet({ d, today, onChange, onClose, stripe }: { d: CreateD
           <p className="p3-note">{stripe.connected ? STRIPE_FIRST.connectedBody : STRIPE_FIRST.body}</p>
           {!stripe.connected && (
             <>
-              <button type="button" className="p3-btn" style={{ minHeight: 42 }} disabled={stripe.busy || !!stripe.why} aria-busy={stripe.busy || undefined} onClick={stripe.onConnect} data-testid="p3-new-stripe-connect">{STRIPE_FIRST.button}</button>
-              {stripe.why && <p className="p3-note" data-testid="p3-new-stripe-why">{stripe.why}</p>}
+              {stripe.why && <p className="p3-note" style={{ fontWeight: 700 }} id="p3-new-stripe-why" data-testid="p3-new-stripe-why">{stripe.why}</p>}
+              <button type="button" className="p3-btn" style={{ minHeight: 42 }} disabled={stripe.busy || !!stripe.why} aria-describedby={stripe.why ? 'p3-new-stripe-why' : undefined} aria-busy={stripe.busy || undefined} onClick={stripe.onConnect} data-testid="p3-new-stripe-connect">{STRIPE_FIRST.button}</button>
             </>
           )}
         </div>
