@@ -228,7 +228,7 @@ export function nameProblem(name: string): string | null {
   return null;
 }
 
-const sessionsBuilt = (d: CreateDraft) => everyAddAll(parseTree(null), d.sessions);
+const sessionsBuilt = (d: CreateDraft) => everyAddAll(parseTree(null), d.sessions, d.sessions.flatMap((s) => (s.roomId ? [{ id: s.roomId, name: s.roomName ?? '' }] : [])));
 
 /** Problems that stop ANY save (a draft too), by row; the first one is named beside Save. */
 export interface RowProblems { name: string | null; when: string | null; sessions: string | null; price: string | null }

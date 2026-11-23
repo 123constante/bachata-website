@@ -15,6 +15,7 @@ import {
   DRAFT_STORE_KEY, type CreateDraft, type CreateKind, type KindInfo,
 } from './model';
 import { LANDED_PARAM, forgetStoredDraft, useCreateSave } from './useCreateSave';
+import { SessionsSheetLook } from './SessionsSheetLook';
 import { DescriptionSheet, PriceSheet, RepeatSheetNew, SessionsSheet, VenueSheet } from './sheets';
 import { Sheet } from '../screens/Sheet';
 import { flags } from '@/lib/featureFlags';
@@ -505,7 +506,8 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
 
       {sheet === 'venue' && <VenueSheet onPick={(v) => { set({ venue: v }); setSheet(null); }} onClose={() => setSheet(null)} />}
       {sheet === 'repeat' && <RepeatSheetNew d={d} today={today} onChange={(r) => set({ repeat: r })} onClose={() => setSheet(null)} />}
-      {sheet === 'sessions' && <SessionsSheet d={d} today={today} teachers={CREATE_LOOK && flags.organiserPeoplePicker && flags.organiserP3} onChange={(s) => set({ sessions: s })} onClose={() => setSheet(null)} />}
+      {sheet === 'sessions' && CREATE_LOOK && <SessionsSheetLook forms={d.sessions} venueId={d.venue?.id ?? null} teachers={flags.organiserPeoplePicker && flags.organiserP3} onDone={(s) => { set({ sessions: s }); setSheet(null); }} onClose={() => setSheet(null)} />}
+      {sheet === 'sessions' && !CREATE_LOOK && <SessionsSheet d={d} today={today} teachers={CREATE_LOOK && flags.organiserPeoplePicker && flags.organiserP3} onChange={(s) => set({ sessions: s })} onClose={() => setSheet(null)} />}
       {sheet === 'description' && CREATE_LOOK && <DescriptionSheet value={d.description} onSave={(v) => { set({ description: v }); setSheet(null); }} onClose={() => setSheet(null)} />}
       {sheet === 'price' && <PriceSheet d={d} today={today} onChange={set} onClose={() => setSheet(null)} />}
       {sheet === 'leave' && CREATE_LOOK && (
