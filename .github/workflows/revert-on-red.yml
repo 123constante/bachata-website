@@ -91,13 +91,12 @@ jobs:
             const pr = prs.find((p) => p.merged_at && p.base.ref === 'main');
             if (!pr) return say(false, 'no merged PR (direct push): owner decides');
             if (/^claude\/revert-/.test(pr.head.ref)) return say(false, 'came from a revert PR (no loop)');
-            // Merged by auto-merge = the bot merged it (auto-merge-on-open arms with BOT_PR_TOKEN, so
-            // GitHub records the bot as merged_by) AND the LAST auto-merge timeline event is an enable.
+            // Merged by the bot (auto-merge-on-open arms with BOT_PR_TOKEN, so GitHub records the bot as
+            // merged_by; a manual bot merge is recorded the same way). The old "last auto-merge timeline
+            // event is an enable" test is gone (2026-11-23): tier B/C unit tests now run AFTER merge, so
+            // every bot merge, armed or manual, needs this safety net.
             const { data: full } = await github.rest.pulls.get({ ...context.repo, pull_number: pr.number });
             if (!full.merged_by || full.merged_by.login !== 'kiki-claude-bot') return say(false, `PR #${pr.number} merged by ${full.merged_by && full.merged_by.login}, not the bot's auto-merge`);
-            const events = await github.paginate(github.rest.issues.listEvents, { ...context.repo, issue_number: pr.number, per_page: 100 });
-            const am = events.filter((e) => /^auto_(merge|squash|rebase)_enabled$|^auto_merge_disabled$/.test(e.event));
-            if (!am.length || am[am.length - 1].event === 'auto_merge_disabled') return say(false, `PR #${pr.number} was not merged by auto-merge`);
             const files = await github.paginate(github.rest.pulls.listFiles, { ...context.repo, pull_number: pr.number, per_page: 100 });
             require('fs').writeFileSync('pr-files.json', JSON.stringify(files.length >= 3000 ? [] : files.map((f) => ({ filename: f.filename, previous_filename: f.previous_filename, patch: f.patch, changes: f.changes }))));
             core.setOutput('pr', String(pr.number));
@@ -110,7 +109,7 @@ jobs:
             if (any.length) return say(false, `revert PR #${any[0].number} (${any[0].state}${any[0].merged_at ? ', merged' : ''}) already exists`);
             const found = await github.request('GET /search/issues', { q: `repo:${context.repo.owner}/${context.repo.repo} "${branch}"`, per_page: 5 });
             if (found.data.total_count > 0) return say(false, `#${found.data.items[0].number} already names ${branch}`);
-            say(true, `PR #${pr.number} auto-merged; tier check next`);
+            say(true, `PR #${pr.number} merged by the bot; tier check next`);
       # PAUSE SWITCH (docs/automation-pause.md): exit 3 = paused. continue-on-error so a pause is
       # not a red run; fail closed: only paused == 'false' (positively read) lets a write step run.
       - name: Read the automation pause switch
@@ -157,5 +156,9 @@ jobs:
           if ! git push origin "$BRANCH"; then owner_turn "git push of $BRANCH failed"; fi
           printf 'Automatic revert of %s (PR #%s, merge tier %s): a push-to-main check went red.\n\nRed workflow: %s\nFailed run: %s\nRevert branch: %s\n\nMerge only after checking the red is caused by this commit. Raised by .github/workflows/revert-on-red.yml.\n' "$SHA" "$PR" "$TIER" "$FAILED_WORKFLOW" "$FAILED_RUN" "$BRANCH" > body.md
           if ! URL=$(gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$BRANCH" --title "Revert ${SHA:0:8} (red main after auto-merge of #$PR)" --body-file body.md); then owner_turn "gh pr create for $BRANCH failed"; fi
-          gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "Main went red after this auto-merged PR landed ($FAILED_WORKFLOW: $FAILED_RUN). Revert opened: $URL"
-          gh issue create --repo "$GITHUB_REPOSITORY" --label owner-turn --title "Red main: revert of ${SHA:0:8} (#$PR) needs your look" --body "Revert PR: $URL ($BRANCH). Red workflow: $FAILED_WORKFLOW ($FAILED_RUN)."
+          # Arm auto-merge on the revert PR (owner click 2026-11-23: unit tests run after merge for tier B/C,
+          # so the revert must land without waiting for a person). It merges when the required checks pass.
+          ARMED="armed"
+          if ! gh pr merge "$URL" --repo "$GITHUB_REPOSITORY" --auto --squash; then ARMED="NOT armed (merge it by hand)"; fi
+          gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "Main went red after this PR landed ($FAILED_WORKFLOW: $FAILED_RUN). Revert opened: $URL (auto-merge $ARMED)."
+          gh issue create --repo "$GITHUB_REPOSITORY" --label owner-turn --title "Red main: revert of ${SHA:0:8} (#$PR) opened, auto-merge $ARMED" --body "Revert PR: $URL ($BRANCH), auto-merge $ARMED. Red workflow: $FAILED_WORKFLOW ($FAILED_RUN). Nothing to do unless it says NOT armed."
