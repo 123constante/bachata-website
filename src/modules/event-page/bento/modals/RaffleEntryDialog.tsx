@@ -34,6 +34,8 @@ import { lazyWithRetry } from '@/lib/lazyWithRetry';
 // opens, not with /event: shared with the dancer app and organiser screens since
 // invite W2, it was one more first-load chunk on the event page (bundle budget).
 const RafflePhoneInput = lazyWithRetry(() => import('./RafflePhoneInput').then((m) => ({ default: m.RafflePhoneInput })));
+// Redesign (/raffles) only: the same shared field, with a placeholder and an error line the dialog owns.
+const RedesignPhoneInput = lazyWithRetry(() => import('@/components/forms/PhoneInput').then((m) => ({ default: m.PhoneInput })));
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 import { Sparkles } from 'lucide-react';
 
@@ -46,6 +48,8 @@ interface RaffleEntryDialogProps {
   onSubmitted: () => void;
   /** /raffles redesign look (black + orange sheet). Look only: same logic. */
   redesign?: boolean;
+  /** Redesign only: the night the person picked, for the "You picked ..." line. */
+  nightName?: string;
 }
 
 type SubmitResponse =
@@ -109,6 +113,7 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
   consentVersion,
   onSubmitted,
   redesign = false,
+  nightName,
 }) => {
 
   const [phoneE164, setPhoneE164] = useState('');
@@ -122,6 +127,8 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
   const [phase, setPhase] = useState<Phase>('form');
   const [waFailed, setWaFailed] = useState(false);
   const [neutralVariant, setNeutralVariant] = useState<'sent_unconfirmed' | 'no_claim'>('no_claim');
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [shaking, setShaking] = useState(false);
   const [ackState, setAckState] = useState<{ title: string; body: string; emoji: string; testId?: string } | null>(null);
 
   // Invalidates in-flight confirmation work when the dialog closes/reopens —
@@ -145,17 +152,26 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
         setWaFailed(false);
         setNeutralVariant('no_claim');
         setAckState(null);
+        setPhoneError(null);
       }, 200);
       return () => window.clearTimeout(t);
     }
   }, [open]);
 
   const canSubmit = useMemo(
-    () => phase === 'form' && phoneValid && (flags.raffleV2 || consent),
-    [phase, phoneValid, consent],
+    () => phase === 'form' && (redesign || phoneValid) && (flags.raffleV2 || consent),
+    [phase, phoneValid, consent, redesign],
   );
 
+  const redesignDone = redesign && (phase === 'success_verified' || phase === 'success_neutral');
+
   const celebrate = (kind: 'verified' | 'neutral') => {
+    if (redesign) {
+      // The redesign sheet shows its own "You're in!" card with a Done button; the page does the confetti.
+      tryVibrate([100, 50, 100]);
+      onSubmitted();
+      return;
+    }
     tryVibrate([100, 50, 100]);
     triggerMicroConfetti(window.innerWidth / 2, window.innerHeight / 2, {
       particleCount: 80,
@@ -170,6 +186,14 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!canSubmit) return;
+    if (redesign && !phoneValid) {
+      setPhoneError(phoneE164
+        ? 'That does not look like a UK phone number. Try it like 07123 456789.'
+        : 'Add your mobile number to enter.');
+      setShaking(true);
+      document.getElementById('raffle-phone')?.focus();
+      return;
+    }
 
     setPhase('submitting');
     setWaFailed(false);
@@ -350,17 +374,33 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className={redesign ? 'rd-sheet mx-auto max-w-[430px] p-0' : 'mx-auto max-w-[430px] p-0 border-[rgba(197,148,10,0.3)] bg-[#1A2E2A] text-[#D8CCB0]'}>
+        {redesignDone ? null : (
         <DialogHeader className="px-4 pt-4">
-          <DialogTitle className="flex items-center gap-2 text-[#F5D563]">
-            <Sparkles className="w-4 h-4" aria-hidden />
-            Enter the raffle
-          </DialogTitle>
-          <DialogDescription className="text-[#A59474]">
-            {flags.raffleV2
-              ? 'Enter your phone number. If you win, we contact you on WhatsApp.'
-              : 'One entry per person. The winner is messaged on WhatsApp after the draw.'}
-          </DialogDescription>
+          {redesign ? (
+            <>
+              <p className="rd-sheet__eyebrow" data-testid="raffle-eyebrow">Free raffle</p>
+              <DialogTitle className="text-[#F5D563]">Enter the raffle</DialogTitle>
+              <DialogDescription className="text-[#A59474]" data-testid="raffle-for-line">
+                {nightName
+                  ? `You picked ${nightName}. Your entry covers every other night too.`
+                  : 'One entry puts you in the draw for every night.'}
+              </DialogDescription>
+            </>
+          ) : (
+            <>
+              <DialogTitle className="flex items-center gap-2 text-[#F5D563]">
+                <Sparkles className="w-4 h-4" aria-hidden />
+                Enter the raffle
+              </DialogTitle>
+              <DialogDescription className="text-[#A59474]">
+                {flags.raffleV2
+                  ? 'Enter your phone number. If you win, we contact you on WhatsApp.'
+                  : 'One entry per person. The winner is messaged on WhatsApp after the draw.'}
+              </DialogDescription>
+            </>
+          )}
         </DialogHeader>
+        )}
 
         {phase === 'ack' && ackState ? (
           <div data-testid={ackState.testId} className="px-5 pb-5 pt-4 text-center space-y-3">
@@ -382,6 +422,15 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
             <WhatsAppIcon className="w-8 h-8 mx-auto text-[#25D366] motion-safe:animate-pulse" />
             <div className="text-base font-semibold text-[#F5D563]">Sending your WhatsApp confirmation…</div>
             <div className="text-xs text-[#A59474]">Usually takes a few seconds.</div>
+          </div>
+        ) : redesignDone ? (
+          <div className="rd-sheet__done px-4 pb-5 pt-2 text-center" data-testid="raffle-done">
+            <div className="rd-sheet__tick" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="46" height="46"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </div>
+            <DialogTitle className="rd-sheet__done-h" data-testid="raffle-done-heading">You&rsquo;re in!</DialogTitle>
+            <DialogDescription className="rd-sheet__done-p" data-testid="raffle-done-text">Your number is in the draw for every night. Winners are announced weekly.</DialogDescription>
+            <Button type="button" onClick={() => onOpenChange(false)} className="rd-sheet-go w-full">Done</Button>
           </div>
         ) : phase === 'success_verified' ? (
           <div className="px-4 pb-5 pt-2 text-center">
@@ -442,18 +491,44 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
             )}
 
             <div>
-              <label htmlFor="raffle-phone" className="block text-xs mb-1 text-[#D8CCB0]">
-                {flags.raffleV2 ? 'Phone number' : 'Phone'} <span className="text-rose-400">*</span>
-                <span className="text-[#A59474] ml-1">{flags.raffleV2 ? '(needs WhatsApp)' : '(must have WhatsApp)'}</span>
-              </label>
-              <Suspense fallback={<div className="h-[44px]" aria-hidden="true" />}>
-                <RafflePhoneInput
-                  inputId="raffle-phone"
-                  value={phoneE164}
-                  onChange={(e164, valid) => { setPhoneE164(e164); setPhoneValid(valid); }}
-                  disabled={phase !== 'form'}
-                />
-              </Suspense>
+              {redesign ? (
+                <>
+                  <label htmlFor="raffle-phone" className="rd-sheet__label">Your mobile number</label>
+                  <div className={shaking ? 'rd-shake' : undefined} onAnimationEnd={() => setShaking(false)}>
+                    <Suspense fallback={<div className="h-[44px]" aria-hidden="true" />}>
+                      <RedesignPhoneInput
+                        inputId="raffle-phone"
+                        tone="raffle"
+                        feedbackTestId="raffle-phone-feedback"
+                        allowLegacy={false}
+                        showConfirm={false}
+                        placeholder="07123 456789"
+                        error={phoneError}
+                        renderError={false}
+                        value={phoneE164}
+                        onChange={(e164, valid) => { setPhoneE164(e164); setPhoneValid(valid); setPhoneError(null); }}
+                        disabled={phase !== 'form'}
+                      />
+                    </Suspense>
+                  </div>
+                  {phoneError ? <p id="raffle-phone-error" role="alert" className="rd-sheet__err" data-testid="raffle-phone-error">{phoneError}</p> : null}
+                </>
+              ) : (
+                <>
+                  <label htmlFor="raffle-phone" className="block text-xs mb-1 text-[#D8CCB0]">
+                    {flags.raffleV2 ? 'Phone number' : 'Phone'} <span className="text-rose-400">*</span>
+                    <span className="text-[#A59474] ml-1">{flags.raffleV2 ? '(needs WhatsApp)' : '(must have WhatsApp)'}</span>
+                  </label>
+                  <Suspense fallback={<div className="h-[44px]" aria-hidden="true" />}>
+                    <RafflePhoneInput
+                      inputId="raffle-phone"
+                      value={phoneE164}
+                      onChange={(e164, valid) => { setPhoneE164(e164); setPhoneValid(valid); }}
+                      disabled={phase !== 'form'}
+                    />
+                  </Suspense>
+                </>
+              )}
             </div>
 
             {flags.raffleV2 ? (
@@ -463,8 +538,9 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
                   disabled={!canSubmit}
                   className={redesign ? 'rd-sheet-go w-full disabled:opacity-50 disabled:cursor-not-allowed' : 'w-full bg-[#B38A4E] hover:bg-[#c99a54] text-[#1A2E2A] font-semibold disabled:opacity-50 disabled:cursor-not-allowed'}
                 >
-                  {phase === 'submitting' ? 'Entering…' : waFailed ? 'Try again' : 'Enter raffle'}
+                  {phase === 'submitting' ? 'Entering…' : waFailed ? 'Try again' : redesign ? 'Enter the raffle' : 'Enter raffle'}
                 </Button>
+                {redesign ? <p className="rd-sheet__note" data-testid="raffle-note">Free &middot; one phone number covers every night</p> : null}
                 <p className="text-center text-[11px] leading-snug text-[#A59474]">
                   By entering you agree we store your number for the raffle.{' '}
                   <a href="/privacy" target="_blank" rel="noreferrer" className="underline text-[#F5D563] hover:text-[#ffd700]">Privacy policy</a>

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, cleanup, fireEvent, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { parseRaffleBoard } from '@/lib/raffleBoard';
 import { rafflePoolJoinedKey } from '@/lib/raffleSession';
@@ -14,7 +14,9 @@ vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { c
 vi.mock('@/lib/breadcrumbs', () => ({ buildBreadcrumbs: () => [] }));
 vi.mock('@/lib/seo', () => ({ buildSeoForRoute: () => ({}), useSeo: () => {} }));
 vi.mock('@/modules/event-page/bento/modals/RaffleEntryDialog', () => ({
-  RaffleEntryDialog: ({ open }: { open: boolean }) => (open ? <div data-testid="entry-dialog" /> : null),
+  RaffleEntryDialog: ({ open, onSubmitted }: { open: boolean; onSubmitted: () => void }) => (
+    open ? <div data-testid="entry-dialog"><button type="button" data-testid="fake-submit" onClick={onSubmitted} /></div> : null
+  ),
 }));
 
 import { RaffleRedesignA } from '../RaffleRedesignA';
@@ -88,5 +90,52 @@ describe('RaffleRedesignA keep-list', () => {
     expect(bar.querySelector('svg')).toBeTruthy();
     expect(screen.queryByTestId('raffles-enter')).toBeNull();
     expect(bar.textContent).not.toMatch(/Reset/);
+  });
+});
+
+describe('RaffleRedesignA gap-close B: entered cards, orb, party', () => {
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('not-entered card: Enter, no seal; tapping opens the dialog', () => {
+    h.board = { ...h.board, data: board([]) };
+    mount();
+    const btn = screen.getByRole('button', { name: 'Enter Friday Social' });
+    expect(btn.textContent).toBe('Enter');
+    expect(screen.queryByTestId('raffles-card-seal')).toBeNull();
+    expect(screen.queryByText(/You.re in$/)).toBeNull();
+    fireEvent.click(btn);
+    expect(screen.getByTestId('entry-dialog')).toBeTruthy();
+  });
+
+  it('entered card: You\u2019re in + seal; tapping does not open the dialog', () => {
+    window.sessionStorage.setItem(rafflePoolJoinedKey, '1');
+    window.localStorage.setItem(rafflePoolJoinedKey, '1');
+    h.board = { ...h.board, data: board([]) };
+    mount();
+    const btn = screen.getByTestId('raffles-card-in');
+    expect(btn.textContent).toBe('You\u2019re in');
+    expect(btn.querySelector('svg')).toBeTruthy();
+    expect(screen.getByTestId('raffles-card-seal')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Enter / })).toBeNull();
+    fireEvent.click(btn);
+    expect(screen.queryByTestId('entry-dialog')).toBeNull();
+  });
+
+  it('successful entry: orb n -> n+1, party class set then cleared after 4500ms, card flips to entered', () => {
+    vi.useFakeTimers();
+    h.board = { ...h.board, data: board([]) };
+    mount();
+    expect(screen.getByTestId('raffles-count-pool').textContent).toBe('1,234');
+    const root = screen.getByTestId('raffles-redesign');
+    expect(root.className).not.toContain('rd-party');
+    fireEvent.click(screen.getByTestId('raffles-enter'));
+    fireEvent.click(screen.getByTestId('fake-submit'));
+    expect(screen.getByTestId('raffles-count-pool').textContent).toBe('1,235');
+    expect(root.className).toContain('rd-party');
+    expect(screen.getByTestId('raffles-card-seal')).toBeTruthy();
+    act(() => { vi.advanceTimersByTime(4400); });
+    expect(root.className).toContain('rd-party');
+    act(() => { vi.advanceTimersByTime(200); });
+    expect(root.className).not.toContain('rd-party');
   });
 });
