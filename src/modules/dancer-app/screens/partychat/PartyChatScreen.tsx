@@ -76,6 +76,19 @@ export const dayLabel = (iso: string, now: Date = new Date()): string => {
 };
 const partyDate = (d: string | null) => (d ? dayFmt.format(new Date(`${d.slice(0, 10)}T12:00:00Z`)).replace(',', '') : null);
 
+/**
+ * The poll returned the newest page: held messages inside that page's time range but absent from it
+ * were removed by an admin, so drop them. Older "Show earlier" messages (before the page) stay.
+ */
+export const dropRemoved = (cur: ChatMsg[], page: ChatMsg[]): ChatMsg[] => {
+  if (page.length === 0) return cur;
+  const ids = new Set(page.map((m) => m.id));
+  const times = page.map((m) => m.created_at).sort();
+  const lo = times[0];
+  const hi = times[times.length - 1];
+  return cur.filter((m) => ids.has(m.id) || m.created_at < lo || m.created_at > hi);
+};
+
 const SEND_ERRORS: Record<string, string> = { too_long: 'Keep it under 500 characters.', slow_down: 'Slow down a little.' };
 
 const Avatar = ({ m }: { m: ChatMsg }) => <PersonAvatar photoUrl={m.avatar_url} name={m.display_name} size={28} />;
@@ -105,14 +118,14 @@ const PartyChatScreen = () => {
 
   const markRead = useCallback(() => { void command('mark_party_chat_read_v1', { p_chat_id: chatId }); }, [chatId]);
 
-  const apply = useCallback((r: Fetched, older = false) => {
+  const apply = useCallback((r: Fetched, older = false, forceStick = false) => {
     if (r.kind === 'not_member') { setPhase('not_member'); return; }
     if (r.kind === 'error') { setPhase((p) => (p === 'loading' ? 'error' : p)); return; }
     setChat(r.page.chat);
-    stick.current = !older && atBottom.current;
+    stick.current = forceStick || (!older && atBottom.current);
     if (older) setHasMore(r.page.has_more);
     else setHasMore((h) => (seen.current.size === 0 ? r.page.has_more : h));
-    setMsgs((cur) => mergeMessages(cur, r.page.messages));
+    setMsgs((cur) => mergeMessages(older ? cur : dropRemoved(cur, r.page.messages), r.page.messages));
     setPhase('ready');
     const fresh = r.page.messages.some((m) => !seen.current.has(m.id));
     r.page.messages.forEach((m) => seen.current.add(m.id));
@@ -122,7 +135,12 @@ const PartyChatScreen = () => {
   useEffect(() => {
     if (!chatId) return;
     let live = true;
-    const tick = async () => { if (!document.hidden) { const r = await fetchChat(chatId); if (live) apply(r); } };
+    let inflight = false;
+    const tick = async () => {
+      if (document.hidden || inflight) return;
+      inflight = true;
+      try { const r = await fetchChat(chatId); if (live) apply(r); } finally { inflight = false; }
+    };
     void tick();
     const id = window.setInterval(() => void tick(), POLL_MS);
     const vis = () => { if (!document.hidden) void tick(); };
@@ -147,9 +165,9 @@ const PartyChatScreen = () => {
     setSending(false);
     if (!err) {
       setText('');
-      stick.current = true;
+      atBottom.current = true;
       const r = await fetchChat(chatId);
-      apply(r);
+      apply(r, false, true);
       return;
     }
     if (err === 'closed') setChat((c) => (c ? { ...c, state: 'closed' } : c));
@@ -251,7 +269,7 @@ const PartyChatScreen = () => {
                   role={reportable ? 'button' : undefined}
                   tabIndex={reportable ? 0 : undefined}
                   onClick={reportable ? () => setReportId(m.id) : undefined}
-                  onKeyDown={reportable ? (e) => { if (e.key === 'Enter') setReportId(m.id); } : undefined}
+                  onKeyDown={reportable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setReportId(m.id); } } : undefined}
                   className={`max-w-[78%] rounded-[14px] px-[10px] py-[6px] ${m.mine ? ACCENT : 'bg-[var(--card)]'} ${reportable ? 'min-h-[44px] outline outline-2 outline-[var(--da-violet,#7c5cff)]' : ''}`}
                 >
                   {!m.mine && <p className="m-0 text-[12px] font-bold opacity-80">{m.display_name ?? 'Dancer'}</p>}

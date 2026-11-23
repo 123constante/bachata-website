@@ -18,7 +18,8 @@ export const BELL_ERROR_LINE = 'Couldn\u2019t load alerts. Try again';
 
 export type BellAlert =
   | { id: string; kind: 'ticket'; title: string; line: string; occurrenceId: string; nightName: string; nightDate: string | null }
-  | { id: string; kind: 'rate'; title: string; line: string; to: string };
+  | { id: string; kind: 'rate'; title: string; line: string; to: string }
+  | { id: string; kind: 'party'; title: string; line: string; to: string };
 
 /**
  * The same title RateNudge's nudgeTitle gives ("Rate last night", else "Rate Sat 10 Oct"). Restated
@@ -69,9 +70,23 @@ export const rateAlert = (night: Night | null, todayKey: string): BellAlert | nu
       }
     : null;
 
-/** Ticket alerts first, then rate; at most five. */
-export const bellAlerts = (tickets: readonly BellAlert[], rate: BellAlert | null): BellAlert[] =>
-  [...tickets, ...(rate ? [rate] : [])].slice(0, BELL_MAX_ALERTS);
+export const partyAlertId = (chatId: string): string => `party:${chatId}`;
+
+/** The party chat alert: only when the card says "open" (in, chat open) and carries a chat id. */
+export const partyAlert = (card: { state: string; chat_id: string | null } | null): BellAlert | null =>
+  card && card.state === 'open' && card.chat_id
+    ? {
+        id: partyAlertId(card.chat_id),
+        kind: 'party',
+        title: 'Party chat is open',
+        line: 'Tap to join the chat.',
+        to: `/account/party-chat/${card.chat_id}`,
+      }
+    : null;
+
+/** Party alert first, then tickets, then rate; the cap applies after the merge. */
+export const bellAlerts = (tickets: readonly BellAlert[], rate: BellAlert | null, party: BellAlert | null = null): BellAlert[] =>
+  [...(party ? [party] : []), ...tickets, ...(rate ? [rate] : [])].slice(0, BELL_MAX_ALERTS);
 
 export const unreadCount = (alerts: readonly BellAlert[], read: ReadonlySet<string>): number =>
   alerts.filter((a) => !read.has(a.id)).length;

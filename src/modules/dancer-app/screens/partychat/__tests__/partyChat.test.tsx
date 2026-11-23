@@ -6,7 +6,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 const h = vi.hoisted(() => ({ calls: [] as { fn: string; args?: Record<string, unknown> }[], rpc: null as unknown as (fn: string, a?: Record<string, unknown>) => unknown }));
 vi.mock('@/integrations/supabase/rpcLoose', () => ({ rpcLoose: async (fn: string, args?: Record<string, unknown>) => { h.calls.push({ fn, args }); return h.rpc(fn, args); } }));
 vi.mock('@/components/auth/AuthGuard', () => ({ AuthGuard: ({ children }: { children: React.ReactNode }) => children }));
-import { PartyChatRoute, dayLabel, mergeMessages } from '../PartyChatScreen';
+import { PartyChatRoute, dayLabel, dropRemoved, mergeMessages } from '../PartyChatScreen';
 
 const now = Date.now();
 const iso = (minsAgo: number) => new Date(now - minsAgo * 60000).toISOString();
@@ -110,5 +110,74 @@ describe('party chat screen', () => {
     fireEvent.click(screen.getByTestId('party-chat-report-send'));
     expect((await screen.findByTestId('party-chat-toast')).textContent).toBe('Thanks, we\u2019ll look at it.');
     expect(h.calls.find((c) => c.fn === 'report_party_chat_message_v1')?.args).toEqual({ p_message_id: 'a', p_reason: 'Rude or unsafe' });
+  });
+});
+
+describe('party chat S3 fixes', () => {
+  it('sending while scrolled up scrolls to the bottom', async () => {
+    open();
+    const list = await screen.findByTestId('party-chat-list');
+    Object.defineProperty(list, 'scrollHeight', { configurable: true, value: 1000 });
+    Object.defineProperty(list, 'clientHeight', { configurable: true, value: 300 });
+    list.scrollTop = 0;
+    fireEvent.scroll(list);
+    type('hello');
+    st.msgs = [msg('a', 5), msg('b', 4, true), msg('c', 0, true)];
+    fireEvent.click(screen.getByTestId('party-chat-send'));
+    await waitFor(() => expect(screen.getAllByTestId('party-chat-msg')).toHaveLength(3));
+    expect(list.scrollTop).toBe(1000);
+  });
+
+  it('polling skips a tick while the previous fetch is pending', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const base = h.rpc;
+    let release: () => void = () => {};
+    let gets = 0;
+    h.rpc = (fn, a) => {
+      if (fn !== 'get_party_chat_v1') return base(fn, a);
+      gets += 1;
+      if (gets === 1) return base(fn, a);
+      return new Promise((res) => { release = () => res(base(fn, a)); });
+    };
+    try {
+      open();
+      await screen.findAllByTestId('party-chat-msg');
+      await act(async () => { await vi.advanceTimersByTimeAsync(5100); });
+      expect(gets).toBe(2);
+      await act(async () => { await vi.advanceTimersByTimeAsync(10100); });
+      expect(gets).toBe(2);
+      await act(async () => { release(); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(5100); });
+      expect(gets).toBe(3);
+    } finally {
+      h.rpc = base;
+    }
+  });
+
+  it('dropRemoved: removes held messages inside the page range, keeps older and newer', () => {
+    const held = [msg('old', 30), msg('a', 5), msg('gone', 4), msg('b', 3), msg('new', 0)];
+    const page = [msg('a', 5), msg('b', 3)];
+    expect(dropRemoved(held, page).map((m) => m.id)).toEqual(['old', 'a', 'b', 'new']);
+    expect(dropRemoved(held, [])).toBe(held);
+  });
+
+  it('a poll that no longer lists a message removes it without reload', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    st.msgs = [msg('a', 5), msg('x', 4), msg('b', 3, true)];
+    open();
+    await waitFor(() => expect(screen.getAllByTestId('party-chat-msg')).toHaveLength(3));
+    st.msgs = [msg('a', 5), msg('b', 3, true)];
+    await act(async () => { await vi.advanceTimersByTimeAsync(5100); });
+    await waitFor(() => expect(screen.getAllByTestId('party-chat-msg')).toHaveLength(2));
+    expect(screen.queryByText('body x')).toBeNull();
+  });
+
+  it('Space activates a message in report mode, same as Enter', async () => {
+    open();
+    fireEvent.click(await screen.findByTestId('party-chat-menu'));
+    fireEvent.click(screen.getByTestId('party-chat-report'));
+    const [theirs] = screen.getAllByTestId('party-chat-msg');
+    fireEvent.keyDown(theirs, { key: ' ' });
+    expect(screen.getByTestId('party-chat-report-sheet')).toBeTruthy();
   });
 });

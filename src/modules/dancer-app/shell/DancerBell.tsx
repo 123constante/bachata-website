@@ -1,7 +1,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Bell, Star, Ticket } from 'lucide-react';
+import { Bell, MessageCircle, Star, Ticket } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { flags } from '@/lib/featureFlags';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
@@ -12,7 +12,7 @@ import { useMyNights } from '../screens/nights/useMyNights';
 import { nudgeCandidates, type Night } from '../screens/nights/nightsModel';
 import { ticketsForNight } from '../screens/nights/nightsTicket';
 import {
-  BELL_EMPTY_LINE, BELL_ERROR_LINE, badgeText, bellAlerts, bellLabel, loadRead, pruneRead, rateAlert, saveRead, ticketAlerts, unreadCount,
+  BELL_EMPTY_LINE, BELL_ERROR_LINE, badgeText, bellAlerts, bellLabel, loadRead, partyAlert, pruneRead, rateAlert, saveRead, ticketAlerts, unreadCount,
   type BellAlert,
 } from './bellAlerts';
 
@@ -35,8 +35,8 @@ const RateProbe = ({ candidates, index, onResolve }: { candidates: readonly Nigh
 };
 
 const Tile = ({ kind }: { kind: BellAlert['kind'] }) => (
-  <span aria-hidden="true" className={`${kind === 'ticket' ? 'da-tone-violet' : 'da-tone-rose'} grid h-[36px] w-[36px] shrink-0 place-items-center rounded-[12px]`}>
-    {kind === 'ticket' ? <Ticket className="h-[20px] w-[20px]" /> : <Star className="h-[20px] w-[20px]" />}
+  <span aria-hidden="true" className={`${kind === 'rate' ? 'da-tone-rose' : 'da-tone-violet'} grid h-[36px] w-[36px] shrink-0 place-items-center rounded-[12px]`}>
+    {kind === 'ticket' ? <Ticket className="h-[20px] w-[20px]" /> : kind === 'party' ? <MessageCircle className="h-[20px] w-[20px]" /> : <Star className="h-[20px] w-[20px]" />}
   </span>
 );
 
@@ -52,7 +52,7 @@ const Row = ({ alert, unread, onTap }: { alert: BellAlert; unread: boolean; onTa
     </>
   );
   const cls = `da-tap flex w-full items-center gap-[10px] rounded-[12px] p-[8px] ${unread ? 'bg-[rgba(139,92,246,0.10)]' : ''}`;
-  return alert.kind === 'rate' ? (
+  return alert.kind === 'rate' || alert.kind === 'party' ? (
     <Link to={alert.to} className={cls} onClick={onTap} data-testid="bell-alert" data-alert-id={alert.id} data-unread={unread}>
       {body}
     </Link>
@@ -83,6 +83,22 @@ const DancerBell = () => {
       throw new Error('tickets');
     },
   });
+  // Party chat card: fetched only with BOTH flags on (the bell itself is mounted only with its own flag).
+  // Same env var as screens/nights/partyChatFlag.ts, read inline: importing that module (or the card API
+  // statically) pulls the nights code into this lazy chunk and breaks the dancer-app.tsx entry key (bundle-budget).
+  const partyOn = import.meta.env.VITE_ENABLE_PARTY_CHAT === 'true';
+  const pq = useQuery({
+    queryKey: ['dancer-bell', 'party-card', userId],
+    enabled: Boolean(userId) && partyOn,
+    queryFn: async () => {
+      try {
+        const { fetchPartyCard } = await import('../screens/nights/partyChatApi');
+        return await fetchPartyCard();
+      } catch {
+        return null;
+      }
+    },
+  });
   const candidates = useMemo(() => nudgeCandidates(my.nights.past, my.todayKey), [my.nights.past, my.todayKey]);
   const candidateKey = candidates.map((c) => c.occurrenceId).join(',');
   // The probe's answer is stored WITH the candidate list it answered for, so an early answer can
@@ -98,12 +114,12 @@ const DancerBell = () => {
   );
 
   const now = new Date();
-  const loading = my.isLoading || (ticketsOn && tq.isLoading) || rateNight === 'loading';
+  const loading = my.isLoading || (ticketsOn && tq.isLoading) || (partyOn && pq.isLoading) || rateNight === 'loading';
   const failed = my.isError || (ticketsOn && tq.isError);
   const alerts = useMemo(
-    () => (loading || failed ? [] : bellAlerts(ticketsOn ? ticketAlerts(my.nights.upcoming, tq.data ?? [], my.todayKey, new Date()) : [], rateAlert(rateNight as Night | null, my.todayKey))),
+    () => (loading || failed ? [] : bellAlerts(ticketsOn ? ticketAlerts(my.nights.upcoming, tq.data ?? [], my.todayKey, new Date()) : [], rateAlert(rateNight as Night | null, my.todayKey), partyOn ? partyAlert(pq.data ?? null) : null)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [loading, failed, ticketsOn, my.nights.upcoming, tq.data, my.todayKey, rateNight, now.getMinutes()],
+    [loading, failed, ticketsOn, partyOn, pq.data, my.nights.upcoming, tq.data, my.todayKey, rateNight, now.getMinutes()],
   );
 
   const [read, setRead] = useState<ReadonlySet<string>>(() => (userId ? loadRead(userId) : new Set()));
