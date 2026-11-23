@@ -1,17 +1,25 @@
+import { Suspense } from 'react';
 import { EmptyState } from '@/modules/organiser/ui';
 import { MoonArt } from '../art';
 import { ScreenTitle } from '../blocks';
 import { FIND_A_NIGHT } from '../../copy/sharedCopy';
 import { NIGHTS_OFF_LINE } from './nightsDates';
+import { PARTY_CHAT_ENABLED } from './partyChatFlag';
+import { PartyChatCard } from './partyChatCardLazy';
 
 /**
  * The Nights screen while the going switch is off: nothing about going renders, no
  * going RPC runs, and none of the going module is loaded (NightsRoute.tsx). Only the
- * way to find a night (the home link top left, D130).
+ * way to find a night (the home link top left, D130), plus the flagged party card.
  */
 export const NightsOff = () => (
   <div data-testid="dancer-screen-nights" className="grid gap-[12px]">
     <ScreenTitle>Nights</ScreenTitle>
+    {PARTY_CHAT_ENABLED() && (
+      <Suspense fallback={null}>
+        <PartyChatCard />
+      </Suspense>
+    )}
     <EmptyState
       testId="nights-empty"
       icon={<MoonArt />}
