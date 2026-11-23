@@ -209,7 +209,7 @@ export const V2 = {
   // flyer and photos sheet + photo sheet (slice 9)
   flyerPhotos: {
     choose: 'Choose a new flyer',
-    remove: 'Remove the flyer',
+    required: 'A flyer is required to continue.',
     backToUsual: 'Back to the usual flyer',
     labNight: 'Photos and videos from this night',
     lab: 'Photos and videos',
