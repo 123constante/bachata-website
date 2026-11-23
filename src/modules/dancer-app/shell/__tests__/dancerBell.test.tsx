@@ -14,6 +14,8 @@ const h = vi.hoisted(() => ({
   nights: { upcoming: [] as unknown[], past: [] as unknown[] },
   tickets: [] as unknown[],
   rating: { summary: { my_level: null as string | null }, isLoading: false, canRate: true },
+  card: null as unknown,
+  cardCalls: 0,
 }));
 
 vi.mock('@/hooks/useAuth', async (importOriginal) =>
@@ -31,8 +33,12 @@ vi.mock('@/modules/tickets/myTicketsApi', () => ({
   fetchMyTickets: async () => ({ kind: 'ok', reply: { tickets: h.tickets } }),
 }));
 
+vi.mock('../../screens/nights/partyChatApi', () => ({
+  fetchPartyCard: async () => { h.cardCalls += 1; return h.card; },
+}));
+
 import DancerBell from '../DancerBell';
-import { badgeText, bellRateTitle, loadRead, rateAlert, readKey, ticketAlerts } from '../bellAlerts';
+import { BELL_MAX_ALERTS, badgeText, bellAlerts, bellRateTitle, partyAlert, loadRead, rateAlert, readKey, ticketAlerts } from '../bellAlerts';
 import { nudgeTitle } from '../../screens/home/RateNudge';
 import { renderInShell, resetShell } from '../renderInShell';
 import { setTestUser } from '../testAuth';
@@ -60,6 +66,8 @@ beforeEach(() => {
   h.on = true;
   h.nights = { upcoming: [], past: [] };
   h.tickets = [];
+  h.card = null;
+  h.cardCalls = 0;
   h.rating = { summary: { my_level: null }, isLoading: false, canRate: true };
   window.localStorage.clear();
   // The direct mounts below have no shell around them: sign the person in here (renderInShell does it itself).
@@ -72,6 +80,7 @@ afterEach(() => {
   resetShell();
   vi.useRealTimers();
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
 });
 
 describe('flag and placement', () => {
@@ -182,5 +191,83 @@ describe('the bell', () => {
     mount();
     await screen.findByTestId('dancer-bell-button');
     await vi.waitFor(() => expect(loadRead(FAKE_USER_ID).size).toBe(0));
+  });
+});
+
+describe('party chat alert', () => {
+  const open = { state: 'open', city_id: 'c', chat_id: 'chat1', closes_at: null };
+  const on = () => vi.stubEnv('VITE_ENABLE_PARTY_CHAT', 'true');
+
+  it('model: built from the open state only, with a chat id', () => {
+    expect(partyAlert(open)).toEqual({
+      id: 'party:chat1', kind: 'party', title: 'Party chat is open', line: 'Tap to join the chat.', to: '/account/party-chat/chat1',
+    });
+    for (const state of ['in', 'none', 'closed']) expect(partyAlert({ ...open, state })).toBeNull();
+    expect(partyAlert({ ...open, chat_id: null })).toBeNull();
+    expect(partyAlert(null)).toBeNull();
+  });
+
+  it('model: order is party, ticket, rate; the cap applies after the merge', () => {
+    const t = (i: number) => ({ id: `t${i}`, kind: 'ticket' as const, title: 't', line: 'l', occurrenceId: 'o', nightName: 'n', nightDate: null });
+    const rate = { id: 'r', kind: 'rate' as const, title: 'r', line: 'l', to: '/x' };
+    const party = partyAlert(open);
+    expect(bellAlerts([t(1)], rate, party).map((a) => a.id)).toEqual(['party:chat1', 't1', 'r']);
+    const many = bellAlerts([1, 2, 3, 4, 5].map(t), rate, party);
+    expect(many).toHaveLength(BELL_MAX_ALERTS);
+    expect(many[0].id).toBe('party:chat1');
+  });
+
+  it('open card: one alert, first, tapping marks it read and goes to the chat', async () => {
+    on();
+    h.card = open;
+    h.nights = { upcoming: [night()], past: [] };
+    h.tickets = [ticket()];
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter initialEntries={['/app/home']}><DancerBell /></MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect((await screen.findByTestId('dancer-bell-badge')).textContent).toBe('2');
+    fireEvent.click(screen.getByTestId('dancer-bell-button'));
+    const rows = screen.getAllByTestId('bell-alert');
+    expect(rows[0].getAttribute('data-alert-id')).toBe('party:chat1');
+    expect(rows[0].getAttribute('href')).toBe('/account/party-chat/chat1');
+    fireEvent.click(rows[0]);
+    expect(loadRead(FAKE_USER_ID)).toEqual(new Set(['party:chat1']));
+  });
+
+  it.each(['in', 'none', 'closed'])('state %s: no alert', async (state) => {
+    on();
+    h.card = { ...open, state };
+    mount();
+    fireEvent.click(await screen.findByTestId('dancer-bell-button'));
+    expect(await screen.findByTestId('bell-empty')).toBeTruthy();
+    expect(h.cardCalls).toBe(1);
+  });
+
+  it('card failure: no party alert, the others still render', async () => {
+    on();
+    h.card = null;
+    h.nights = { upcoming: [night()], past: [] };
+    h.tickets = [ticket()];
+    mount();
+    expect((await screen.findByTestId('dancer-bell-badge')).textContent).toBe('1');
+  });
+
+  it('read id is pruned once the state leaves open', async () => {
+    on();
+    window.localStorage.setItem(readKey(FAKE_USER_ID), JSON.stringify(['party:chat1']));
+    h.card = { ...open, state: 'closed' };
+    mount();
+    await screen.findByTestId('dancer-bell-button');
+    await vi.waitFor(() => expect(loadRead(FAKE_USER_ID).size).toBe(0));
+  });
+
+  it('chat flag off: zero card calls, no party row', async () => {
+    h.card = open;
+    mount();
+    fireEvent.click(await screen.findByTestId('dancer-bell-button'));
+    expect(await screen.findByTestId('bell-empty')).toBeTruthy();
+    expect(h.cardCalls).toBe(0);
   });
 });
