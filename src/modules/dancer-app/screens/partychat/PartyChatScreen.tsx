@@ -3,7 +3,8 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, MoreVertical } from 'lucide-react';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { rpcLoose } from '@/integrations/supabase/rpcLoose';
-import { SheetView, initials, useKeyboardInset } from '@/modules/organiser/ui';
+import { SheetView, useKeyboardInset } from '@/modules/organiser/ui';
+import PersonAvatar from '@/components/account/profiles/PersonAvatar';
 import { PARTY_CHAT_ENABLED } from '../nights/partyChatFlag';
 
 const NIGHTS = '/app/nights';
@@ -77,11 +78,7 @@ const partyDate = (d: string | null) => (d ? dayFmt.format(new Date(`${d.slice(0
 
 const SEND_ERRORS: Record<string, string> = { too_long: 'Keep it under 500 characters.', slow_down: 'Slow down a little.' };
 
-const Avatar = ({ m }: { m: ChatMsg }) => (
-  <span aria-hidden className="grid h-[28px] w-[28px] shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--card)] text-[11px] font-bold">
-    {m.avatar_url ? <img src={m.avatar_url} alt="" loading="lazy" className="h-full w-full object-cover" /> : initials(m.display_name ?? '')}
-  </span>
-);
+const Avatar = ({ m }: { m: ChatMsg }) => <PersonAvatar photoUrl={m.avatar_url} name={m.display_name} size={28} />;
 
 const PartyChatScreen = () => {
   const { chatId = '' } = useParams();
@@ -158,7 +155,7 @@ const PartyChatScreen = () => {
     if (err === 'closed') setChat((c) => (c ? { ...c, state: 'closed' } : c));
     else if (err === 'not_member') setPhase('not_member');
     else if (err === 'empty') setSendErr(null);
-    else setSendErr(SEND_ERRORS[err] ?? 'Couldn’t send. Try again.');
+    else setSendErr(SEND_ERRORS[err] ?? 'Couldn\u2019t send. Try again.');
   };
 
   const leave = async () => {
@@ -167,7 +164,7 @@ const PartyChatScreen = () => {
     setBusy(false);
     if (!err || err === 'not_member') { nav(NIGHTS, { replace: true }); return; }
     setLeaving(false);
-    setToast('Couldn’t leave. Try again.');
+    setToast('Couldn\u2019t leave. Try again.');
   };
 
   const report = async () => {
@@ -178,7 +175,7 @@ const PartyChatScreen = () => {
     setReportId(null);
     setReason(null);
     setReportMode(false);
-    setToast(err && err !== 'own_message' ? 'Couldn’t send the report. Try again.' : 'Thanks, we’ll look at it.');
+    setToast(err && err !== 'own_message' ? 'Couldn\u2019t send the report. Try again.' : 'Thanks, we\u2019ll look at it.');
   };
 
   const older = async () => {
@@ -220,7 +217,7 @@ const PartyChatScreen = () => {
       <header className="relative flex items-center gap-[4px] border-b border-[var(--line)] px-[4px] py-[6px]">
         <button type="button" aria-label="Back to Nights" data-testid="party-chat-back" onClick={() => nav(NIGHTS)} className="grid h-[44px] w-[44px] place-items-center"><ArrowLeft size={22} /></button>
         <div className="min-w-0 flex-1">
-          <h1 className="m-0 truncate text-[16px] font-extrabold">Party chat{chat?.city_name ? ` · ${chat.city_name}` : ''}</h1>
+          <h1 className="m-0 truncate text-[16px] font-extrabold">Party chat{chat?.city_name ? ` \u00b7 ${chat.city_name}` : ''}</h1>
           {date && <p data-testid="party-chat-date" className="m-0 text-[13px] text-[var(--mut)]">{date}</p>}
         </div>
         <button type="button" aria-label="Menu" aria-expanded={menu} data-testid="party-chat-menu" onClick={() => setMenu((v) => !v)} className="grid h-[44px] w-[44px] place-items-center"><MoreVertical size={22} /></button>

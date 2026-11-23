@@ -32,7 +32,7 @@ describe('party chat screen', () => {
   });
   it('open: header, notice, bubbles, mark read', async () => {
     open();
-    expect((await screen.findByText(/Party chat · London/)).textContent).toContain('London');
+    expect((await screen.findByText(/Party chat \u00b7 London/)).textContent).toContain('London');
     expect(screen.getByTestId('party-chat-notice').textContent).toBe('Admin can read this chat to keep it safe.');
     expect(screen.getAllByTestId('party-chat-msg')).toHaveLength(2);
     expect(screen.getAllByTestId('party-chat-msg')[1].getAttribute('data-mine')).toBe('true');
@@ -93,12 +93,12 @@ describe('party chat screen', () => {
     open();
     fireEvent.click(await screen.findByTestId('party-chat-menu'));
     fireEvent.click(screen.getByTestId('party-chat-leave'));
-    expect(screen.getByText('You can’t rejoin once you leave.')).toBeTruthy();
+    expect(screen.getByText('You can\u2019t rejoin once you leave.')).toBeTruthy();
     fireEvent.click(screen.getByTestId('party-chat-leave-confirm'));
     await screen.findByText('NIGHTS');
     expect(h.calls.some((c) => c.fn === 'leave_party_chat_v1')).toBe(true);
   });
-  it('report: only other people’s messages, reason sent, toast', async () => {
+  it('report: only other people\u2019s messages, reason sent, toast', async () => {
     open();
     fireEvent.click(await screen.findByTestId('party-chat-menu'));
     fireEvent.click(screen.getByTestId('party-chat-report'));
@@ -108,7 +108,7 @@ describe('party chat screen', () => {
     fireEvent.click(theirs);
     fireEvent.click(screen.getAllByTestId('party-chat-reason')[1]);
     fireEvent.click(screen.getByTestId('party-chat-report-send'));
-    expect((await screen.findByTestId('party-chat-toast')).textContent).toBe('Thanks, we’ll look at it.');
+    expect((await screen.findByTestId('party-chat-toast')).textContent).toBe('Thanks, we\u2019ll look at it.');
     expect(h.calls.find((c) => c.fn === 'report_party_chat_message_v1')?.args).toEqual({ p_message_id: 'a', p_reason: 'Rude or unsafe' });
   });
 });
