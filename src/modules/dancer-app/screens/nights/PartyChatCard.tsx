@@ -33,7 +33,7 @@ export const PartyChatCard = () => {
     const n = cityName(c.city_id);
     return (
       <section data-testid="party-card-in" className="grid gap-[6px] rounded-[16px] bg-[var(--da-violet,#7c5cff)] p-[14px] text-[#14101f]">
-        <h3 className="m-0 text-[17px] font-extrabold">You&rsquo;re in{n ? ` · ${n}` : ''}</h3>
+        <h3 className="m-0 text-[17px] font-extrabold">You&rsquo;re in{n ? ` \u00b7 ${n}` : ''}</h3>
         <p className="m-0 text-[14px]">The chat opens tonight if enough people join. You&rsquo;ll get a notification.</p>
       </section>
     );
@@ -42,7 +42,7 @@ export const PartyChatCard = () => {
     const n = cityName(c.city_id);
     return (
       <section data-testid="party-card-open" className="grid gap-[10px] rounded-[16px] border border-[var(--line)] bg-[var(--card)] p-[14px]">
-        <h3 className="m-0 text-[17px] font-extrabold">Party chat is open{n ? ` · ${n}` : ''}</h3>
+        <h3 className="m-0 text-[17px] font-extrabold">Party chat is open{n ? ` \u00b7 ${n}` : ''}</h3>
         <button type="button" data-testid="party-open-chat" disabled={!c.chat_id} onClick={() => nav(`/account/party-chat/${c.chat_id}`)} className={`${BTN} bg-[var(--da-violet,#7c5cff)] text-[#14101f]`}>
           Open chat
         </button>
@@ -60,7 +60,7 @@ export const PartyChatCard = () => {
       await qc.invalidateQueries({ queryKey: KEY });
       return;
     }
-    setErr('Couldn’t join. Try again.');
+    setErr('Couldn\u2019t join. Try again.');
   };
   const home = profile.data?.based_city_id ?? null;
   const homeName = profile.data?.city_name ?? null;

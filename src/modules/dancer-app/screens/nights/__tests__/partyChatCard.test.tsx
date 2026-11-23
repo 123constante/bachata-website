@@ -75,7 +75,7 @@ describe('party chat card', () => {
     setFlag(true); h.join = { ok: false, error: 'city_not_found' };
     open();
     fireEvent.click(await screen.findByTestId('party-join-home'));
-    expect((await screen.findByTestId('party-error')).textContent).toBe('Couldn’t join. Try again.');
+    expect((await screen.findByTestId('party-error')).textContent).toBe('Couldn\u2019t join. Try again.');
   });
   it('state in: violet card with the city name, no button', async () => {
     setFlag(true); h.card = { state: 'in', city_id: 'c-lon', chat_id: null, closes_at: null };
