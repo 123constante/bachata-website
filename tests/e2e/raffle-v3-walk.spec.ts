@@ -72,13 +72,13 @@ const SUB_WON = 'Free entry to a bachata night you have never been to. Pick whic
 const SUB_PICK = 'Only nights you have never been to. Once you lock one, only the organiser can change it.';
 
 test.describe('winner screens', () => {
-  test('claim (signed out) -> Continue with Google goes to Auth returnTo', async ({ page }) => {
+  test('claim (signed out) -> Sign in to claim goes to Auth returnTo', async ({ page }) => {
     await mock(page, {});
     await page.route('**/auth/v1/**', (r) => json(r, { message: 'no session' }, 401));
     await page.goto(WIN);
     await check(page, 'claim', 'You won a free night', 'Sign in to claim it. This link works until an organiser cancels it, so keep it private.');
     await expect(page.getByText('The first account to sign in keeps the prize. Do not forward this link.')).toBeVisible();
-    const g = page.getByRole('link', { name: 'Continue with Google' });
+    const g = page.getByRole('link', { name: 'Sign in to claim' });
     await expect(g).toHaveAttribute('href', `/auth?returnTo=${encodeURIComponent(WIN)}`);
   });
 
