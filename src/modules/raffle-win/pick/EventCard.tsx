@@ -24,7 +24,7 @@ export function EventCard({ event, open, selection, onToggle, onPickDate }: Prop
         className="flex min-h-[62px] w-full items-center gap-3 py-[9px] pl-[10px] pr-[10px] text-left"
       >
         {event.posterUrl ? (
-          <img src={event.posterUrl} alt="" className="h-[50px] w-[40px] flex-none rounded-[8px] object-cover" />
+          <img src={event.posterUrl} alt="" loading="lazy" className="h-[50px] w-[40px] flex-none rounded-[8px] object-cover" />
         ) : (
           <span data-testid="pick-flyer-fallback" className="grid h-[50px] w-[40px] flex-none place-items-center rounded-[8px] bg-[#3a2f42] text-white/50">
             <CalendarDays className="h-[20px] w-[20px]" aria-hidden="true" />
