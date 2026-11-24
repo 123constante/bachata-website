@@ -3,11 +3,17 @@ import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/modules/organiser/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { rpcLoose } from '@/integrations/supabase/rpcLoose';
-import { triggerGlobalConfetti } from '@/lib/confetti';
+
 import { parseMyWins, takeFreshFlag } from './raffleWinModel';
 import RaffleDoorView from './RaffleDoorView';
 
 const TicketQrCode = lazy(() => import('../../../tickets/TicketQrCode'));
+
+// Decorative, fresh view only. NOT src/lib/confetti.ts: the event page imports that, and sharing it
+// would make it a shared chunk (+1 first-load request on /event, chunk ratchet). A failed load no-ops.
+const fireConfetti = () => {
+  import('canvas-confetti').then((m) => m.default({ particleCount: 120, spread: 80, origin: { y: 0.3 } })).catch(() => undefined);
+};
 
 const plainButton = { background: 'none', border: 0, padding: 0, color: 'inherit', font: 'inherit', textAlign: 'left' as const };
 const linkBtn = { ...plainButton, minHeight: 44, textDecoration: 'underline', textUnderlineOffset: 3, fontWeight: 600, fontSize: 14, color: 'var(--da-accent)' };
@@ -34,7 +40,7 @@ const HomeRaffleWin = ({ onShare }: { onShare?: () => void }) => {
   });
   const card = q.data ?? null;
   const hasCard = !!card;
-  useEffect(() => { if (fresh && hasCard) triggerGlobalConfetti(); }, [fresh, hasCard]);
+  useEffect(() => { if (fresh && hasCard) fireConfetti(); }, [fresh, hasCard]);
 
   if (!signedIn || !card) return null;
   if (door) return <RaffleDoorView token={card.qrToken} onBack={() => setDoor(false)} />;

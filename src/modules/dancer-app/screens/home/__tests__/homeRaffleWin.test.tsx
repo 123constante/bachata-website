@@ -11,7 +11,7 @@ vi.mock('@/hooks/useAuth', async (importOriginal) =>
 const rpc = vi.fn();
 vi.mock('@/integrations/supabase/rpcLoose', () => ({ rpcLoose: (...a: unknown[]) => rpc(...a) }));
 const confetti = vi.fn();
-vi.mock('@/lib/confetti', () => ({ triggerGlobalConfetti: () => confetti() }));
+vi.mock('canvas-confetti', () => ({ default: () => confetti() }));
 vi.mock('../../../../tickets/TicketQrCode', () => ({ default: () => <svg data-testid="ticket-qr" /> }));
 
 import HomeRaffleWin from '../homeRaffleWin';
@@ -54,7 +54,7 @@ describe('ticket card', () => {
     fireEvent.click(screen.getByText('Saved in your dashboard. We have emailed it to you.'));
     expect(scroll).toHaveBeenCalled();
     fireEvent.click(share); expect(onShare).toHaveBeenCalledTimes(1);
-    expect(confetti).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(confetti).toHaveBeenCalledTimes(1));
     expect(sessionStorage.getItem(RAFFLE_FRESH_KEY)).toBeNull();
   });
 
