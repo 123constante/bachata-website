@@ -3,14 +3,11 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { Copy, MessageCircle, UserPlus } from 'lucide-react';
 import type { AdminOrganiser } from './adminApi';
 import {
-  fetchPageLeader,
   fetchUpcoming,
   invitePerson,
-  pageLeaderQueryKey,
   pageUpcomingQueryKey,
   personSearchQueryKey,
   searchPeople,
-  type PageLeader,
   type PersonHit,
 } from './invitePersonApi';
 import { buildInviteMessage, inviteBlockedReason, invitePersonErrorMessage, isNoPageInvite, shareHref, type PersonInvite } from './invitePersonModel';
@@ -19,12 +16,8 @@ const BTN = 'inline-flex min-h-[44px] items-center justify-center gap-1.5 rounde
 const BTN_PRIMARY = 'inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50';
 const FIELD = 'w-full min-h-[44px] rounded border border-border bg-background px-2 py-2 text-sm';
 
-/** The line under the search box: why nobody is prefilled for this page, else how to search. */
-const leaderNote = (leader: PageLeader | undefined): string => {
-  if (leader?.kind === 'none') return 'This page has no Leader on its team. Search for the person to invite.';
-  if (leader?.kind === 'several') return 'This page has more than one Leader. Search for the person to invite.';
-  return 'Type at least two letters of their name.';
-};
+/** The line under the search box. */
+const SEARCH_NOTE = 'Type at least two letters of their name.';
 
 /**
  * The ready message with the link, Copy, WhatsApp and Done. Shared by "Invite person" and
@@ -59,8 +52,7 @@ export function InviteResult({ title, invite, message, onDone }: { title: string
 }
 
 /**
- * Invite a person (an organiser, or a teacher or DJ with no page) by email. The person is prefilled
- * from the chosen page's Leader when it has one, otherwise searched. The result is a ready message with
+ * Invite a person (an organiser, or a teacher or DJ with no page) by email. The person is searched. The result is a ready message with
  * the link: held in component state only, never in the query cache, storage or a log.
  * With `fixedOrganiser` (a row's "Invite by email" choice) it opens at once for that page only.
  */
@@ -68,16 +60,13 @@ export function InvitePerson({ organisers, fixedOrganiser }: { organisers: reado
   const [open, setOpen] = useState(!!fixedOrganiser);
   const [organiserId, setOrganiserId] = useState<string>(fixedOrganiser?.id ?? '');
   const [picked, setPicked] = useState<PersonHit | null>(null);
-  const [unpicked, setUnpicked] = useState(false);
   const [search, setSearch] = useState('');
   const [email, setEmail] = useState('');
   const [result, setResult] = useState<{ invite: PersonInvite; message: string } | null>(null);
   const organiser = organisers.find((o) => o.id === organiserId) ?? null;
 
-  const leader = useQuery({ queryKey: pageLeaderQueryKey(organiserId || null), queryFn: () => fetchPageLeader(organiserId), enabled: open && !!organiserId, staleTime: 60_000, retry: false });
-  // The page's Leader is the default until someone is picked by hand or "Change" is tapped.
-  const person: PersonHit | null = picked ?? (unpicked || leader.data?.kind !== 'one' ? null : leader.data.person);
-  const setPerson = (p: PersonHit | null) => { setPicked(p); setUnpicked(p === null); };
+  const person: PersonHit | null = picked;
+  const setPerson = (p: PersonHit | null) => setPicked(p);
 
   const hits = useQuery({ queryKey: personSearchQueryKey(search.trim()), queryFn: () => searchPeople(search), enabled: open && !person && search.trim().length >= 2, staleTime: 30_000, retry: false });
   const upcoming = useQuery({ queryKey: pageUpcomingQueryKey(organiserId || null), queryFn: () => fetchUpcoming(organiserId), enabled: open && !!organiserId, staleTime: 60_000, retry: false });
@@ -98,7 +87,7 @@ export function InvitePerson({ organisers, fixedOrganiser }: { organisers: reado
   });
 
   const blocked = inviteBlockedReason(person?.id ?? null, email);
-  const reset = () => { setResult(null); setPicked(null); setUnpicked(false); setSearch(''); setEmail(''); setOrganiserId(fixedOrganiser?.id ?? ''); invite.reset(); };
+  const reset = () => { setResult(null); setPicked(null); setSearch(''); setEmail(''); setOrganiserId(fixedOrganiser?.id ?? ''); invite.reset(); };
 
   if (!open) {
     return <button type="button" className={`${BTN} w-full`} onClick={() => setOpen(true)} data-testid="invite-person-open"><UserPlus className="h-4 w-4" aria-hidden="true" /> Invite person</button>;
@@ -111,7 +100,7 @@ export function InvitePerson({ organisers, fixedOrganiser }: { organisers: reado
       <p className="text-sm font-medium">{fixedOrganiser ? `Invite by email to ${fixedOrganiser.name}` : 'Invite person'}</p>
       {!fixedOrganiser && <label className="block space-y-1 text-xs text-muted-foreground">
         Organiser page (optional)
-        <select value={organiserId} onChange={(e) => { setOrganiserId(e.target.value); setPicked(null); setUnpicked(false); setSearch(''); }} className={FIELD} data-testid="invite-person-page">
+        <select value={organiserId} onChange={(e) => { setOrganiserId(e.target.value); setPicked(null); setSearch(''); }} className={FIELD} data-testid="invite-person-page">
           <option value="">No page (teacher, DJ or other)</option>
           {organisers.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
         </select>
@@ -126,7 +115,7 @@ export function InvitePerson({ organisers, fixedOrganiser }: { organisers: reado
         ) : (
           <>
             <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search people by name" aria-label="Search people" className={FIELD} data-testid="invite-person-search" />
-            {search.trim().length < 2 && <p className="text-xs text-muted-foreground" data-testid="invite-person-search-note">{leaderNote(organiserId ? leader.data : undefined)}</p>}
+            {search.trim().length < 2 && <p className="text-xs text-muted-foreground" data-testid="invite-person-search-note">{SEARCH_NOTE}</p>}
             {hits.isError && <p role="alert" className="text-sm text-destructive" data-testid="invite-person-search-error">The search did not load. Check your connection and try again.</p>}
             {hits.data && hits.data.length === 0 && <p className="text-xs text-muted-foreground" data-testid="invite-person-no-hits">No one matches &ldquo;{search.trim()}&rdquo;. Check the spelling, or search for another name they use.</p>}
             {hits.data && hits.data.length > 0 && (

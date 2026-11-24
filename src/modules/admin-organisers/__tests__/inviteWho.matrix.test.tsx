@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 /**
- * W3 "an invite always names the person": the table over the page's Leader {none, one, several}
- * x the person {unclaimed with email, unclaimed without email, shadow login, already claimed, new}.
+ * W3 "an invite always names the person": the table over the person {unclaimed with email, unclaimed without email, shadow login, already claimed, new}.
  * The network boundary is faked (invitePersonApi, duplicatesApi); nothing here touches a network.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -14,7 +13,7 @@ vi.mock('../invitePersonApi', async (orig) => ({ ...(await orig<typeof import('.
 vi.mock('../duplicates/duplicatesApi', async (orig) => ({ ...(await orig<typeof import('../duplicates/duplicatesApi')>()), ...dup }));
 
 import { InvitePersonWho } from '../InvitePersonWho';
-import { defaultPick, parsePersonInvite, refusalScreen } from '../invitePersonModel';
+import { parsePersonInvite, refusalScreen } from '../invitePersonModel';
 import type { TeamPerson } from '../invitePersonApi';
 
 const ORG = { id: 'o1', name: 'Sensual Vibes', lifecycle: 'live' } as never;
@@ -33,8 +32,7 @@ const PEOPLE = {
 } as const;
 
 const ON_TEAM = [PEOPLE.unclaimedEmail, PEOPLE.unclaimedNoEmail, PEOPLE.shadow];
-const team = (leader: 'none' | 'one' | 'several'): TeamPerson[] =>
-  ON_TEAM.map(({ hasLogin: _unknown, ...p }, i) => ({ ...p, isLeader: leader === 'one' ? i === 1 : leader === 'several' ? i < 2 : false }));
+const team = (): TeamPerson[] => ON_TEAM.map(({ hasLogin: _unknown, ...p }) => p);
 
 const cb = { onSomeoneNew: vi.fn(), onExistingAccount: vi.fn(), onCancel: vi.fn() };
 const mount = () =>
@@ -54,26 +52,16 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-describe('the Leader pre-selection', () => {
-  it.each([
-    ['none', [], 'who-blocked'],
-    ['one', ['p-un'], null],
-    ['several', [], 'who-several-leaders'],
-  ] as const)('leader %s: pre-selected %j', async (leader, want, note) => {
-    api.fetchPageTeam.mockResolvedValue(team(leader));
+describe('no pre-selection', () => {
+  it('nobody is picked and Next is off, however many people are on the team list', async () => {
+    api.fetchPageTeam.mockResolvedValue(team());
     mount();
     await screen.findAllByTestId('who-pick');
-    expect(pressed()).toEqual(want);
-    expect((screen.getByTestId('who-next') as HTMLButtonElement).disabled).toBe(want.length === 0);
-    if (note) expect(screen.getByTestId(note)).toBeTruthy();
-    expect(screen.queryAllByTestId('who-leader-tag')).toHaveLength(leader === 'none' ? 0 : leader === 'one' ? 1 : 2);
-  });
-
-  it('defaultPick: exactly one Leader, else nobody', () => {
-    expect(defaultPick(team('one'))?.id).toBe('p-un');
-    expect(defaultPick(team('none'))).toBeNull();
-    expect(defaultPick(team('several'))).toBeNull();
-    expect(defaultPick(undefined)).toBeNull();
+    expect(pressed()).toEqual([]);
+    expect((screen.getByTestId('who-next') as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('who-blocked')).toBeTruthy();
+    expect(screen.queryByTestId('who-leader-tag')).toBeNull();
+    expect(screen.queryByTestId('who-several-leaders')).toBeNull();
   });
 
   it('an empty team list says what to do; search finds anyone else', async () => {
@@ -88,12 +76,11 @@ describe('the Leader pre-selection', () => {
 });
 
 type Kind = keyof typeof PEOPLE | 'new';
-const LEADERS = ['none', 'one', 'several'] as const;
 const KINDS: Kind[] = ['unclaimedEmail', 'unclaimedNoEmail', 'shadow', 'claimed', 'new'];
 
-describe.each(LEADERS)('leader %s', (leader) => {
+describe('each person', () => {
   it.each(KINDS)('person %s', async (kind) => {
-    api.fetchPageTeam.mockResolvedValue(team(leader));
+    api.fetchPageTeam.mockResolvedValue(team());
     mount();
     await screen.findAllByTestId('who-pick');
     if (kind === 'new') {
@@ -157,10 +144,10 @@ describe('the refusal screens (one copy module)', () => {
   });
   it('the A2 probe decides the copy on screen', async () => {
     dup.fetchDuplicates.mockResolvedValue({ kind: 'ok', pairs: [] });
-    api.fetchPageTeam.mockResolvedValue(team('one'));
+    api.fetchPageTeam.mockResolvedValue(team());
     api.invitePerson.mockImplementation(inUse);
     mount();
-    await screen.findAllByTestId('who-pick');
+    fireEvent.click((await screen.findAllByTestId('who-pick'))[0]);
     // Asked only after a refusal, never on opening the sheet.
     expect(dup.fetchDuplicates).not.toHaveBeenCalled();
     fireEvent.click(screen.getByTestId('who-next'));

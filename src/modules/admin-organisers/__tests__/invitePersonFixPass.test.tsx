@@ -2,7 +2,7 @@
 /**
  * A-WEB2 fix pass (review findings 3, 5, 6, 8, 9). Each block pins a rule the first build's
  * tests let a mutation through: the D16 refusal list literally, the masked-only invite email
- * (D36), "more than one Leader" prefills nothing, the server's own message, the nameless
+ * (D36), the server's own message, the nameless
  * greeting, the 44 px Report link and the four Full profile answers.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -11,7 +11,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const api = vi.hoisted(() => ({
   searchPeople: vi.fn(),
-  fetchPageLeader: vi.fn(),
   fetchUpcoming: vi.fn(),
   invitePerson: vi.fn(),
 }));
@@ -47,7 +46,6 @@ beforeEach(() => {
   Object.values(api).forEach((f) => f.mockReset());
   rpcLoose.mockReset();
   api.searchPeople.mockResolvedValue([{ id: 'p9', name: 'Ana Perez', firstName: 'Ana' }]);
-  api.fetchPageLeader.mockResolvedValue({ kind: 'none' });
   api.fetchUpcoming.mockResolvedValue([]);
 });
 afterEach(cleanup);
@@ -68,22 +66,12 @@ describe('D16 refusal codes (pinned literally)', () => {
   });
 });
 
-describe('Leader prefill (finding 3)', () => {
-  it('one Leader is prefilled', async () => {
-    api.fetchPageLeader.mockResolvedValue({ kind: 'one', person: { id: 'p1', name: 'Rosa Lima', firstName: 'Rosa' } });
+describe('no prefill', () => {
+  it('choosing a page prefills nobody and says to search', async () => {
     mount();
     fireEvent.click(screen.getByTestId('invite-person-open'));
     fireEvent.change(screen.getByTestId('invite-person-page'), { target: { value: 'o1' } });
-    expect((await screen.findByTestId('invite-person-chosen')).textContent).toMatch(/Rosa Lima/);
-  });
-  it('two or more Leaders prefill nobody and say to search', async () => {
-    api.fetchPageLeader.mockResolvedValue({ kind: 'several' });
-    mount();
-    fireEvent.click(screen.getByTestId('invite-person-open'));
-    fireEvent.change(screen.getByTestId('invite-person-page'), { target: { value: 'o1' } });
-    await waitFor(() =>
-      expect(screen.getByTestId('invite-person-search-note').textContent).toBe('This page has more than one Leader. Search for the person to invite.'),
-    );
+    await waitFor(() => expect(screen.getByTestId('invite-person-search-note').textContent).toBe('Type at least two letters of their name.'));
     expect(screen.queryByTestId('invite-person-chosen')).toBeNull();
     expect((screen.getByTestId('invite-person-submit') as HTMLButtonElement).disabled).toBe(true);
   });
