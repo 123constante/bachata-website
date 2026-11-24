@@ -8,6 +8,10 @@ vi.mock('../../../shared/publicVenues', () => ({ useVenueOptions: () => ({ data:
 vi.mock('../../../events/programmeSeriesApi', () => ({ fetchOrganiserPages: async () => [], useSeriesRole: () => ({ role: 'owner', loading: false, myPages: [] }) }));
 vi.mock('@/lib/londonDate', async (orig) => ({ ...((await orig()) as object), londonTodayKey: () => '2026-11-22' }));
 vi.mock('../../screens/CancelEventSheet', () => ({ useCancelReasons: () => ({ data: [{ key: 'v', label: 'Venue not available' }] }) }));
+vi.mock('../../tickets/data', () => ({
+  useSeriesTypes: () => ({ data: [], isSuccess: true, isError: false, refetch: () => {} }),
+  useSummary: () => ({ data: { ok: true, types: [] }, isSuccess: true, isError: false, refetch: () => {} }),
+}));
 import { EveryBody } from '../EveryBody';
 import { CancelEventSheetV2 } from '../StatusSheets';
 
@@ -15,7 +19,7 @@ const RULE = { mode: 'weekly', interval: 1, weekdays: [4], end: { kind: 'none' }
 const date = (id: string, d: string) => ({ id, occurrence_date: d, lifecycle_status: 'scheduled', version: 1, has_override: false, override_keys: [], session_overrides_count: 0, added_sessions_count: 0, materialised_start_utc: null });
 const ws = (life: string, over: Record<string, unknown> = {}, dates: unknown[] = [date('a', '2026-11-26'), date('b', '2026-12-03')]) => ({
   series: { id: 's1', version: 7, format: 'recurring', name: 'Thursdays', lifecycle_status: life, recurrence_rule: RULE, default_venue_id: null, default_description: null, default_cover_image_url: null, default_ticket_url: null, default_local_start_time: null, default_duration: null, passes: null, default_start_date: '2026-01-01', created_at: null },
-  gallery: [], musicStyles: [], organiserIds: [], endedOn: null, dates, ...over,
+  gallery: [], musicStyles: [], organiserIds: ['org1'], endedOn: null, dates, ...over,
 }) as unknown as EventWorkspace;
 const mount = (w: EventWorkspace) => {
   const saveNow = vi.fn(async () => ({ ok: true, error: null }));
