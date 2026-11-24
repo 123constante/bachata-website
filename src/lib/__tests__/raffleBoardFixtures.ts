@@ -24,8 +24,8 @@ export const BOARD_SHAPES: Shape[] = [
   { name: 'empty', json: { pool_count: 0, winners_this_month: 0, total_winners: 0, nights: [] },
     tileInRaffle: false, tileNote: 'empty', seeWho: false, tileWinner: null, pagePool: 0, pageWeekWinners: [] },
   // Prod shape: ~766 attendance pairs counted in total_winners, no night has a winner.
-  { name: 'prod: total_winners 766, no winner nights', json: { pool_count: 521, winners_this_month: 40, total_winners: 766, nights: [night()] },
-    tileInRaffle: true, seeWho: false, tileWinner: null, pagePool: 521, pageWeekWinners: [] },
+  { name: 'prod: total_winners 766, no winner nights', json: { pool_count: 521, winners_this_month: 40, total_winners: 766, winners_ever: 786, entries_ever: 1400, nights: [night()] },
+    tileInRaffle: true, seeWho: false, tileWinner: null, pagePool: 1400, pageWeekWinners: [] },
   { name: 'pool only (event not in raffle)', json: { ...base, nights: [night({ public_event_id: 'other' })] },
     tileInRaffle: false, tileWinner: null, pagePool: 12, pageWeekWinners: [] },
   { name: 'night open, no winner', json: { ...base, nights: [night()] },

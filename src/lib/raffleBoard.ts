@@ -35,6 +35,9 @@ export type RaffleBoard = {
   poolCount: number;
   winnersThisMonth: number;
   totalWinners: number;
+  /** All-time totals from winners_ever / entries_ever; null when the key is absent or not a number. */
+  winnersEver: number | null;
+  entriesEver: number | null;
   nights: RaffleNight[];
   /** Present only when the JSON carried at least one valid winner. */
   winners?: RaffleWinner[];
@@ -44,6 +47,8 @@ export const emptyRaffleBoard = (): RaffleBoard => ({
   poolCount: 0,
   winnersThisMonth: 0,
   totalWinners: 0,
+  winnersEver: null,
+  entriesEver: null,
   nights: [],
 });
 
@@ -53,6 +58,11 @@ const isObj = (v: unknown): v is Record<string, unknown> =>
 const count = (v: unknown): number => {
   const n = typeof v === 'string' && v.trim() !== '' ? Number(v) : v;
   return typeof n === 'number' && Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
+};
+
+const countOrNull = (v: unknown): number | null => {
+  const n = typeof v === 'string' && v.trim() !== '' ? Number(v) : v;
+  return typeof n === 'number' && Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
 };
 
 // A zone-less 'YYYY-MM-DDTHH:MM:SS' from the RPC is UTC: make that explicit.
@@ -107,6 +117,8 @@ export function parseRaffleBoard(json: unknown): RaffleBoard {
     poolCount: count(json.pool_count),
     winnersThisMonth: count(json.winners_this_month),
     totalWinners: count(json.total_winners),
+    winnersEver: countOrNull(json.winners_ever),
+    entriesEver: countOrNull(json.entries_ever),
     nights,
     ...(winners.length > 0 ? { winners } : {}),
   };
