@@ -18,6 +18,12 @@ export async function fetchRaffleNights(seriesId: string): Promise<ReadResult> {
   return parseRead(data);
 }
 
+/** Switch raffles on (true) or off (false) for a whole series. Create flow only: called once, after the create landed. */
+export async function setRaffleSeries(seriesId: string, enabled: boolean): Promise<void> {
+  const { error } = await rpc('organiser_raffle_series_set_v1', { p_series_id: seriesId, p_enabled: enabled });
+  if (error) throw new Error(error.message);
+}
+
 /** Open (true) or close (false) one night. A thrown error means the answer is unknown: the sheet says Nothing changed and offers Try again. */
 export async function setRaffleNight(occurrenceId: string, enabled: boolean): Promise<SetResult> {
   const { data, error } = await rpc('organiser_raffle_night_set_v1', { p_occurrence_id: occurrenceId, p_enabled: enabled });
