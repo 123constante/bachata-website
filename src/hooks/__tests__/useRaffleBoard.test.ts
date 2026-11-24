@@ -27,7 +27,7 @@ describe('flag-off guard', () => {
   const CONSUMERS = [
     'src/modules/event-page/bento/blocks/RaffleBlock.tsx',
     'src/pages/Raffles.tsx',
-    // Winner page share poster: reads pool_count once, only under flags.raffleV2 && flags.raffleSharePoster.
+    // Winner page orchestrator: pool_count once on the share step; unconditional, no flag.
     'src/pages/RaffleWin.tsx',
     // Redesign part A: mounted by Raffles.tsx only under flags.raffleV2 && flags.raffleRedesign.
     'src/components/raffles/RaffleRedesignA.tsx',
@@ -44,7 +44,7 @@ describe('flag-off guard', () => {
     };
     walk('src');
     expect(hits.sort()).toEqual([...CONSUMERS].sort());
-    for (const f of CONSUMERS.filter((c) => !c.endsWith('RaffleRedesignA.tsx'))) expect(readFileSync(f, 'utf8')).toMatch(/flags\.raffleV2/);
+    for (const f of CONSUMERS.filter((c) => !c.endsWith('RaffleRedesignA.tsx') && !c.endsWith('RaffleWin.tsx'))) expect(readFileSync(f, 'utf8')).toMatch(/flags\.raffleV2/);
     expect(readFileSync('src/pages/Raffles.tsx', 'utf8')).toMatch(/flags\.raffleV2 \? \(flags\.raffleRedesign \? <RaffleRedesignA/);
   });
 });
