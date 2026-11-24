@@ -15,7 +15,7 @@ vi.mock('@/lib/londonDate', async (orig) => ({ ...((await orig()) as object), lo
 import { EveryBody } from '../EveryBody';
 
 const ws = (over: Record<string, unknown> = {}, series: Record<string, unknown> = {}) => ({
-  series: { id: 's1', version: 7, format: 'recurring', name: 'Thursdays', lifecycle_status: 'live', default_venue_id: 'v1', default_city_id: 'c1', default_description: 'Old words', default_cover_image_url: 'https://x.test/f.jpg', default_ticket_url: null, default_local_start_time: '19:30:00', default_duration: '03:30:00', passes: null, ...series },
+  series: { id: 's1', version: 7, format: 'recurring', name: 'Thursdays', lifecycle_status: 'live', recurrence_rule: { mode: 'weekly', interval: 1, weekdays: [4], end: { kind: 'none' } }, default_venue_id: 'v1', default_city_id: 'c1', default_description: 'Old words', default_cover_image_url: 'https://x.test/f.jpg', default_ticket_url: null, default_local_start_time: '19:30:00', default_duration: '03:30:00', passes: null, ...series },
   gallery: ['https://x.test/g1.jpg'], musicStyles: ['Sensual', 'Dominican'], organiserIds: ['a', 'b'], endedOn: null, dates: [], ...over,
 }) as unknown as EventWorkspace;
 type Call = [{ target: string; id: string; version: number; command: { kind: string; payload: Record<string, unknown> } }[], Record<string, unknown>[], string];
