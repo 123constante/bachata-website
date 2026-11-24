@@ -47,7 +47,7 @@ export function OneOffBody({ ws, saveNow, busy, onOpenTickets }: { ws: EventWork
   const name = s.name ?? '';
   const music = (ws.musicStyles ?? []).length ? ws.musicStyles.join(', ') : E.noneYet;
   const orgs = orgIds.length === 0 ? E.noneYet : pages.data?.length ? pages.data.map((p) => p.name).join(', ') : E.organisersN(orgIds.length);
-  const life: LifeState = s.lifecycle_status === 'cancelled' ? 'Cancelled' : s.lifecycle_status === 'paused' ? 'Paused' : s.lifecycle_status === 'ended' ? 'Ended' : 'Live';
+  const life: LifeState = s.lifecycle_status === 'archived' ? 'Archived' : s.lifecycle_status === 'rejected' ? 'Rejected' : s.lifecycle_status === 'cancelled' ? 'Cancelled' : s.lifecycle_status === 'paused' ? 'Paused' : s.lifecycle_status === 'ended' ? 'Ended' : 'Live';
 
   const send = async (part: string, payload: Record<string, unknown>, before: Record<string, unknown>) => {
     const step: WriteStep = { part, target: 'series', id: s.id, version: s.version, command: upsertCommand({ name: s.name ?? '', ...payload }), order: 1 };

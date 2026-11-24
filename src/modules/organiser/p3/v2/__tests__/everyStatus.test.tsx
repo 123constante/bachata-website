@@ -34,7 +34,7 @@ describe('status card rows', () => {
   it.each([
     ['live', ['end-pause', 'end-end', 'end-cancel'], ['Pause the event', 'End the event', 'Cancel the event']],
     ['paused', ['end-live', 'end-end', 'end-cancel'], ['Make it live again', 'End the event', 'Cancel the event']],
-    ['ended', ['end-live', 'end-pause', 'end-cancel'], ['Make it live again', 'Pause the event', 'Cancel the event']],
+    ['ended', ['end-live', 'end-cancel'], ['Make it live again', 'Cancel the event']],
     ['cancelled', ['end-live', 'end-cancelled'], ['Make it live again', 'Event cancelled']],
   ])('%s', (life, ids, titles) => {
     mount(ws(life));

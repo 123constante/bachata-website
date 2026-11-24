@@ -20,6 +20,7 @@ import { venueOverridePatch } from '../../dates/venueOverride';
 import { NightPriceSheet } from './PriceSheet';
 import { NightCancelArea, type CancelResult } from './CancelNight';
 import { DRAFT_PILL, DraftNote, isDraftEvent } from './GoLiveBar';
+import { offStatusWord } from './EndCard';
 
 /** The override keys each fact owns. A fact shows "Only this night" only when one of these is saved on the date. */
 export const FACT_KEYS = {
@@ -85,7 +86,8 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
   const cancelled = date.lifecycle_status === 'cancelled' || s.lifecycle_status === 'cancelled';
   const status = s.lifecycle_status === 'paused' ? 'paused' : (s.lifecycle_status === 'ended' || date.lifecycle_status === 'ended') ? 'ended' : 'live';
   const draft = isDraftEvent(ws);
-  const pill = draft ? <span className="pill off" data-testid="draft-pill">{DRAFT_PILL}</span> : cancelled ? <span className="pill x">{V2.tagCancelled}</span>
+  const offWord = offStatusWord(s.lifecycle_status);
+  const pill = draft ? <span className="pill off" data-testid="draft-pill">{DRAFT_PILL}</span> : offWord ? <span className="pill off" data-testid="status-pill">{offWord}</span> : cancelled ? <span className="pill x">{V2.tagCancelled}</span>
     : <span className={status === 'live' ? 'pill' : 'pill off'}>{status === 'live' ? V2.statusLive : status === 'paused' ? V2.statusPaused : V2.statusEnded}</span>;
   const flyer = dt?.coverImageUrl ?? s.default_cover_image_url;
   // O-05: a one-off has no "usual" to go back to, so no "Only this night" tags and no "Back to usual" buttons
