@@ -83,6 +83,16 @@ describe('RaffleRedesignA keep-list', () => {
     expect(screen.getByTestId('raffles-count-open').textContent).toBe('20');
   });
 
+  it('broken flyer falls back to the initials tile', () => {
+    h.board = { ...h.board, data: parseRaffleBoard({ pool_count: 5, winners_this_month: 0, total_winners: 0, nights: [night({ title: 'El Grande', poster_url: 'https://x.test/missing.webp' })], winners: [] }) };
+    mount();
+    const img = document.querySelector('.rd-car img.rd-flyer') as HTMLImageElement;
+    expect(img).toBeTruthy();
+    fireEvent.error(img);
+    expect(document.querySelector('.rd-car img.rd-flyer')).toBeNull();
+    expect(document.querySelector('.rd-car .rd-flyer-tile')?.textContent).toBe('EG');
+  });
+
   it('winner without last_initial or profile_slug shows the first name only; section hidden with none', () => {
     h.board = { ...h.board, data: board([{ first_name: 'Tom', night_title: 'Luna' }]) };
     mount();
