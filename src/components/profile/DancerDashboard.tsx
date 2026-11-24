@@ -52,6 +52,16 @@ import {
   PARTNER_SEARCH_LEVEL_OPTIONS,
   PARTNER_SEARCH_ROLE_OPTIONS,
 } from '@/components/profile/dancerConstants';
+import { LEVEL_RETIRED_ENABLED } from '@/lib/levelRetiredFlag';
+import { PARTNER_YEARS_V3 } from '@/modules/dancer-app/screens/onboarding/modelV3';
+
+// The v8 partner-sheet range id for a stored min/max; null when it matches no pill (incl. unset).
+const yearsIdFor = (min: number | null | undefined, max: number | null | undefined) =>
+  min === null || min === undefined ? null : PARTNER_YEARS_V3.find((y) => y.min === min && y.max === (max ?? null))?.id ?? null;
+const yearsLabelFor = (min: number | null | undefined, max: number | null | undefined) => {
+  const id = yearsIdFor(min, max);
+  return id && id !== 'any' ? `${PARTNER_YEARS_V3.find((y) => y.id === id)?.label} yrs` : 'Any years';
+};
 
 interface DancerProfile {
   id: string;
@@ -79,6 +89,8 @@ interface DancerProfile {
   favorite_songs: string[] | null;
   partner_search_role: string | null;
   partner_search_level: string[] | null;
+  partner_years_min?: number | null;
+  partner_years_max?: number | null;
   partner_practice_goals: string[] | null;
   partner_details: Json | null;
 }
@@ -118,6 +130,8 @@ const emptyEditForm: EditFormData = {
   favorite_songs: [],
   partner_search_role: '',
   partner_search_level: [],
+  partner_years_min: null,
+  partner_years_max: null,
   partner_practice_goals: [],
   partner_details: '',
   favorite_styles: [],
@@ -229,6 +243,8 @@ export const DancerDashboard = () => {
     // than flipping the Partner Mode switch, which saves the whole section.
     partner_search_role: dancer.partner_search_role || '',
     partner_search_level: dancer.partner_search_level || [],
+    partner_years_min: dancer.partner_years_min ?? null,
+    partner_years_max: dancer.partner_years_max ?? null,
     partner_practice_goals: dancer.partner_practice_goals || [],
     partner_details: parsePartnerDetails(dancer.partner_details as PartnerDetailsValue),
     favorite_styles: dancer.favorite_styles || [],
@@ -264,6 +280,8 @@ export const DancerDashboard = () => {
             looking_for_partner: pending.looking_for_partner,
             partner_search_role: pending.partner_search_role,
             partner_search_level: pending.partner_search_level,
+            partner_years_min: pending.partner_years_min,
+            partner_years_max: pending.partner_years_max,
             partner_practice_goals: pending.partner_practice_goals,
             partner_details: pending.partner_details,
           }
@@ -514,6 +532,13 @@ export const DancerDashboard = () => {
     void persistPartnerAutosave(next);
   };
 
+  const selectPartnerYears = (id: (typeof PARTNER_YEARS_V3)[number]['id']) => {
+    const y = PARTNER_YEARS_V3.find((x) => x.id === id);
+    if (!y) return;
+    const next = applyEditForm((prev) => ({ ...prev, partner_years_min: y.min, partner_years_max: y.max }));
+    void persistPartnerAutosave(next);
+  };
+
   const togglePartnerPracticeGoal = (goal: string) => {
     const next = applyEditForm((prev) => ({
       ...prev,
@@ -560,7 +585,7 @@ export const DancerDashboard = () => {
     void persistPartnerAutosave(nextForm, {
       toastTitle: nextLookingForPartner ? 'Partner search enabled' : 'Partner search paused',
       toastDescription: nextLookingForPartner
-        ? 'Complete role and preferred levels to be fully active.'
+        ? (LEVEL_RETIRED_ENABLED ? 'Complete your role to be fully active.' : 'Complete role and preferred levels to be fully active.')
         : undefined,
       // The switch and the inline editor render optimistically. Without this the
       // error toast fired and the UI kept the new state anyway, so the switch sat
@@ -716,13 +741,15 @@ export const DancerDashboard = () => {
       key: 'engagement',
       title: 'Partner Mode',
       subtitle: profile?.looking_for_partner
-        ? (dancerRoleFromStored(profile.partner_search_role) && (profile.partner_search_level?.length || 0) > 0 ? 'Active' : 'Needs setup')
+        ? (dancerRoleFromStored(profile.partner_search_role) && (LEVEL_RETIRED_ENABLED || (profile.partner_search_level?.length || 0) > 0) ? 'Active' : 'Needs setup')
         : 'Paused',
       preview: profile?.partner_search_role
-        ? `${dancerRoleFromStored(profile.partner_search_role)} • ${(profile.partner_search_level || []).slice(0, 2).join(', ') || 'All levels'}`
-        : 'Set role, levels, and goals',
+        ? (LEVEL_RETIRED_ENABLED
+            ? `${dancerRoleFromStored(profile.partner_search_role)} \u2022 ${yearsLabelFor(profile.partner_years_min, profile.partner_years_max)}`
+            : `${dancerRoleFromStored(profile.partner_search_role)} • ${(profile.partner_search_level || []).slice(0, 2).join(', ') || 'All levels'}`)
+        : (LEVEL_RETIRED_ENABLED ? 'Set role, years, and goals' : 'Set role, levels, and goals'),
       actionLabel: 'Open editor',
-      status: profile?.looking_for_partner && dancerRoleFromStored(profile.partner_search_role) && (profile.partner_search_level?.length || 0) > 0 ? 'live' : 'attention',
+      status: profile?.looking_for_partner && dancerRoleFromStored(profile.partner_search_role) && (LEVEL_RETIRED_ENABLED || (profile.partner_search_level?.length || 0) > 0) ? 'live' : 'attention',
       icon: Users,
       sizeClass: 'col-span-12 lg:col-span-8 lg:row-span-1',
       onAction: () => openEditor('partner'),
@@ -912,19 +939,40 @@ export const DancerDashboard = () => {
                           </div>
 
                           <div className="space-y-1.5">
-                            <p className="text-xs text-slate-400">Preferred levels</p>
-                            <div className="flex flex-wrap gap-1.5">
-                              {PARTNER_SEARCH_LEVEL_OPTIONS.map((level) => (
-                                <Badge
-                                  key={level}
-                                  variant={editForm.partner_search_level.includes(level) ? 'default' : 'outline'}
-                                  className="cursor-pointer"
-                                  onClick={() => togglePartnerSearchLevel(level)}
-                                >
-                                  {level}
-                                </Badge>
-                              ))}
-                            </div>
+                            {LEVEL_RETIRED_ENABLED ? (
+                              <>
+                                <p className="text-xs text-slate-400">Years dancing</p>
+                                <div role="group" aria-label="Years dancing" className="flex flex-wrap gap-1.5">
+                                  {PARTNER_YEARS_V3.map((y) => (
+                                    <Badge
+                                      key={y.id}
+                                      data-testid={`partner-years-${y.id}`}
+                                      variant={yearsIdFor(editForm.partner_years_min, editForm.partner_years_max) === y.id || (y.id === 'any' && editForm.partner_years_min == null) ? 'default' : 'outline'}
+                                      className="cursor-pointer"
+                                      onClick={() => selectPartnerYears(y.id)}
+                                    >
+                                      {y.label}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-xs text-slate-400">Preferred levels</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {PARTNER_SEARCH_LEVEL_OPTIONS.map((level) => (
+                                    <Badge
+                                      key={level}
+                                      variant={editForm.partner_search_level.includes(level) ? 'default' : 'outline'}
+                                      className="cursor-pointer"
+                                      onClick={() => togglePartnerSearchLevel(level)}
+                                    >
+                                      {level}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </>
+                            )}
                           </div>
 
                           <div className="space-y-1.5">

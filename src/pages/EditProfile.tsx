@@ -38,6 +38,8 @@ import {
 import GlobalLayout from '@/components/layout/GlobalLayout';
 
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { LEVEL_RETIRED_ENABLED } from '@/lib/levelRetiredFlag';
+import { PARTNER_YEARS_V3 } from '@/modules/dancer-app/screens/onboarding/modelV3';
 import { useSeo } from '@/lib/seo';
 const EDIT_PROFILE_BREADCRUMBS = buildBreadcrumbs('profile.edit');
 const PARTNER_ROLES = ['Leader', 'Follower', 'Both'];
@@ -88,6 +90,8 @@ const EditProfile = () => {
     favorite_songs: [] as string[],
     partner_search_role: '',
     partner_search_level: [] as string[],
+    partner_years_min: null as number | null,
+    partner_years_max: null as number | null,
     partner_practice_goals: [] as string[],
     partner_details: '',
     website: '',
@@ -159,6 +163,17 @@ const EditProfile = () => {
             | typeof data.dancing_role_details
             | typeof data.dancing_role_details[];
           const sidecar = Array.isArray(rawSidecar) ? rawSidecar[0] ?? null : rawSidecar;
+          // The generated types predate partner_years_*, so read them on their own
+          // (flag on only; flag off = the select above, unchanged).
+          let yearsRow: { partner_years_min: number | null; partner_years_max: number | null } | null = null;
+          if (LEVEL_RETIRED_ENABLED) {
+            const { data: yr } = await (supabase as any)
+              .from('dancing_role_details')
+              .select('partner_years_min, partner_years_max')
+              .eq('person_id', data.id)
+              .maybeSingle();
+            yearsRow = yr ?? null;
+          }
           const loadedForm = {
             first_name: data.first_name || '',
             surname: data.surname || '',
@@ -180,6 +195,8 @@ const EditProfile = () => {
             favorite_songs: sidecar?.favorite_songs || [],
             partner_search_role: sidecar?.partner_search_role || '',
             partner_search_level: sidecar?.partner_search_level || [],
+            partner_years_min: yearsRow?.partner_years_min ?? null,
+            partner_years_max: yearsRow?.partner_years_max ?? null,
             partner_practice_goals: sidecar?.partner_practice_goals || [],
             partner_details: parsePartnerDetails(sidecar?.partner_details as any),
             website: data.website_url || '',
@@ -300,6 +317,7 @@ const EditProfile = () => {
           looking_for_partner: form.looking_for_partner,
           partner_search_role: form.partner_search_role || null,
           partner_search_level: form.partner_search_level,
+          ...(LEVEL_RETIRED_ENABLED ? { partner_years_min: form.partner_years_min, partner_years_max: form.partner_years_max } : {}),
           partner_practice_goals: form.partner_practice_goals,
           // TEXT column: send the text. See SaveMyDancerProfileInput. "" rather
           // than null on purpose -- the sidecar arm has no NULLIF, so "" is a
@@ -583,6 +601,24 @@ const EditProfile = () => {
                         </Select>
                     </div>
 
+                    {LEVEL_RETIRED_ENABLED ? (
+                    <div>
+                        <label className='text-xs text-muted-foreground mb-1.5 block'>Years dancing</label>
+                        <div role='group' aria-label='Years dancing' className='flex flex-wrap gap-1.5'>
+                            {PARTNER_YEARS_V3.map(y => (
+                                <Badge
+                                    key={y.id}
+                                    data-testid={`partner-years-${y.id}`}
+                                    variant={(form.partner_years_min ?? null) === y.min && (form.partner_years_max ?? null) === y.max ? 'default' : 'outline'}
+                                    className='cursor-pointer text-xs px-2 py-0.5'
+                                    onClick={() => setForm({ ...form, partner_years_min: y.min, partner_years_max: y.max })}
+                                >
+                                    {y.label}
+                                </Badge>
+                            ))}
+                        </div>
+                    </div>
+                    ) : (
                     <div>
                         <label className='text-xs text-muted-foreground mb-1.5 block'>Preferred Level(s)</label>
                         <div className='flex flex-wrap gap-1.5'>
@@ -604,6 +640,7 @@ const EditProfile = () => {
                             ))}
                         </div>
                     </div>
+                    )}
 
                     <div>
                         <label className='text-xs text-muted-foreground mb-1.5 block'>Practice Goals</label>
