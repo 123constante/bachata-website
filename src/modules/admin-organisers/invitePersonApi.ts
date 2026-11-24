@@ -20,9 +20,7 @@ export interface PersonHit {
 }
 
 /** One person on a page's team list, for "Who is this for?". */
-export interface TeamPerson extends PersonHit {
-  isLeader: boolean;
-}
+export type TeamPerson = PersonHit;
 
 /** A page's Leader: none, exactly one (prefilled), or several (nobody is guessed). */
 export type PageLeader = { kind: 'none' } | { kind: 'one'; person: PersonHit } | { kind: 'several' };
@@ -76,16 +74,15 @@ export async function fetchPageLeader(organiserId: string): Promise<PageLeader> 
 const TEAM_LIMIT = 20;
 
 /**
- * The page's public team list (organiser_team_members, active), Leaders first, for "Who is this for?".
+ * The page's public team list (organiser_team_members, active), oldest first, for "Who is this for?".
  * 52 people sit on team lists and 49 have no login (2026-10-23), so these are the usual invitees.
  */
 export async function fetchPageTeam(organiserId: string): Promise<TeamPerson[]> {
   const { data: rows, error } = await supabase
     .from('organiser_team_members')
-    .select('member_profile_id, is_leader')
+    .select('member_profile_id')
     .eq('organiser_profile_id', organiserId)
     .eq('is_active', true)
-    .order('is_leader', { ascending: false })
     .order('created_at')
     .limit(TEAM_LIMIT);
   if (error) throw error;
@@ -100,10 +97,9 @@ export async function fetchPageTeam(organiserId: string): Promise<TeamPerson[]> 
     .is('archived_at', null);
   if (pe) throw pe;
   const byId = new Map((people ?? []).map((p) => [p.id, p] as const));
-  const leaders = new Set((rows ?? []).filter((r) => r.is_leader).map((r) => r.member_profile_id));
   return ids.flatMap((id) => {
     const p = byId.get(id);
-    return p ? [{ ...toPersonHit(p), isLeader: leaders.has(id) }] : [];
+    return p ? [toPersonHit(p)] : [];
   });
 }
 

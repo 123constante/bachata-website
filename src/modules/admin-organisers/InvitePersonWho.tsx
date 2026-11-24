@@ -15,7 +15,6 @@ import {
 import {
   WHO_COPY,
   buildInviteMessage,
-  defaultPick,
   inviteBlockedReason,
   invitePersonErrorMessage,
   refusalScreen,
@@ -33,13 +32,13 @@ type Step = 'who' | 'email' | 'result';
 
 const subLine = (p: WhoPick) => (p.hasLogin === undefined ? null : p.hasLogin ? WHO_COPY.hasLogin : WHO_COPY.noLogin);
 
-function PickRow({ p, leader, pressed, onPick }: { p: WhoPick; leader: boolean; pressed: boolean; onPick: () => void }) {
+function PickRow({ p, pressed, onPick }: { p: WhoPick; pressed: boolean; onPick: () => void }) {
   const sub = subLine(p);
   return (
     <button type="button" aria-pressed={pressed} onClick={onPick} data-testid="who-pick" data-id={p.id}
       className={`flex min-h-[48px] w-full items-center gap-2 rounded-lg border px-3 py-2 text-left ${pressed ? 'border-primary bg-primary/10' : 'border-border bg-card'}`}>
       <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-1.5 text-sm font-medium"><span className="truncate">{p.name}</span>{leader && <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground" data-testid="who-leader-tag">{WHO_COPY.leaderTag}</span>}</span>
+        <span className="flex items-center gap-1.5 text-sm font-medium"><span className="truncate">{p.name}</span></span>
         {sub && <span className="block text-xs text-muted-foreground">{sub}</span>}
       </span>
       <span aria-hidden="true" className={`h-4 w-4 shrink-0 rounded-full border-2 ${pressed ? 'border-primary bg-primary' : 'border-border'}`} />
@@ -66,7 +65,6 @@ export function InvitePersonWho({ organiser, notes = [], onSomeoneNew, onExistin
   const queryClient = useQueryClient();
   const [step, setStep] = useState<Step>('who');
   const [picked, setPicked] = useState<WhoPick | null>(null);
-  const [touched, setTouched] = useState(false);
   const [search, setSearch] = useState('');
   const [email, setEmail] = useState('');
   const [result, setResult] = useState<{ invite: PersonInvite; message: string } | null>(null);
@@ -77,10 +75,9 @@ export function InvitePersonWho({ organiser, notes = [], onSomeoneNew, onExistin
   const hits = useQuery({ queryKey: personSearchQueryKey(search.trim()), queryFn: () => searchPeople(search), enabled: step === 'who' && search.trim().length >= 2, staleTime: 30_000, retry: false });
   const upcoming = useQuery({ queryKey: pageUpcomingQueryKey(organiser.id), queryFn: () => fetchUpcoming(organiser.id), staleTime: 60_000, retry: false });
 
-  // The one Leader is the pick until the admin taps someone (or nobody when there are none or several).
-  const pick: WhoPick | null = touched ? picked : defaultPick(team.data);
-  const choose = (p: WhoPick) => { setPicked(p); setTouched(true); };
-  const leaders = (team.data ?? []).filter((p) => p.isLeader).length;
+  // Nothing is pre-picked: the admin taps the person.
+  const pick: WhoPick | null = picked;
+  const choose = (p: WhoPick) => setPicked(p);
 
   const invite = useMutation({
     mutationFn: () => invitePerson((pick as WhoPick).id, email, organiser.id),
@@ -172,11 +169,10 @@ export function InvitePersonWho({ organiser, notes = [], onSomeoneNew, onExistin
           </div>
         )}
         {team.data && team.data.length === 0 && <p className="text-xs text-muted-foreground" data-testid="who-team-empty">{WHO_COPY.teamEmpty}</p>}
-        {leaders >= 2 && !touched && <p className="text-xs text-muted-foreground" data-testid="who-several-leaders">{WHO_COPY.severalLeaders}</p>}
       </div>
       {team.data && team.data.length > 0 && (
         <div className="space-y-1.5" data-testid="who-team">
-          {team.data.map((p) => <PickRow key={p.id} p={p} leader={p.isLeader} pressed={pick?.id === p.id} onPick={() => choose(p)} />)}
+          {team.data.map((p) => <PickRow key={p.id} p={p} pressed={pick?.id === p.id} onPick={() => choose(p)} />)}
         </div>
       )}
       <label className="block space-y-1 text-sm font-medium">
@@ -189,7 +185,7 @@ export function InvitePersonWho({ organiser, notes = [], onSomeoneNew, onExistin
       {hits.data && hits.data.length > 0 && others.length === 0 && <p className="text-xs text-muted-foreground" data-testid="who-hits-on-team">Everyone matching &ldquo;{search.trim()}&rdquo; is on the team list above.</p>}
       {others.length > 0 && (
         <div className="space-y-1.5" data-testid="who-hits">
-          {others.map((h) => <PickRow key={h.id} p={h} leader={false} pressed={pick?.id === h.id} onPick={() => choose(h)} />)}
+          {others.map((h) => <PickRow key={h.id} p={h} pressed={pick?.id === h.id} onPick={() => choose(h)} />)}
         </div>
       )}
       <button type="button" className={`${BTN_PRIMARY} w-full`} disabled={!!blocked} aria-describedby={blocked ? 'who-blocked' : undefined} onClick={() => { if (pick) choose(pick); setStep('email'); }} data-testid="who-next">{WHO_COPY.next}</button>

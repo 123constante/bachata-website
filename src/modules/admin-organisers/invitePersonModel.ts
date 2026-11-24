@@ -131,13 +131,11 @@ export interface WhoPick {
 export const WHO_COPY = {
   title: 'Who is this for?',
   lead: 'Pick the person, so their login is joined to the profile you already made.',
-  leaderTag: 'Leader',
   noLogin: 'Profile you made, no login yet',
   hasLogin: 'Has their own login',
   teamLoading: 'Loading the team list.',
   teamFailed: 'The team list did not load. Check your connection, then tap Try again.',
   teamEmpty: 'Nobody is on this page\u2019s team list yet. Search for them below, or pick Someone new.',
-  severalLeaders: 'This page has more than one Leader, so nobody is picked for you. Tap the one you mean.',
   searchLabel: 'Someone else',
   searchHint: 'Type at least two letters of their name.',
   someoneNew: 'Someone new, not on Bachata Calendar yet',
@@ -156,12 +154,6 @@ export const WHO_COPY = {
   // The expiry is the server's to state: its message below says how long the link works.
   ready: (name: string) => `Invite link ready for ${name}.`,
 } as const;
-
-/** The Leader pre-selection: exactly one Leader on the team list; none or several picks nobody. */
-export function defaultPick<T extends { isLeader: boolean }>(team: readonly T[] | undefined): T | null {
-  const leaders = (team ?? []).filter((p) => p.isLeader);
-  return leaders.length === 1 ? leaders[0] : null;
-}
 
 /** Why "Next" is off on "Who is this for?", or null. Always shown beside the button. */
 export const whoBlockedReason = (pick: WhoPick | null): string | null => (pick ? null : 'Pick the person this invite is for, or Someone new.');
