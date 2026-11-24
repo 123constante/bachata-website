@@ -269,6 +269,7 @@ export function missingForLive(d: CreateDraft, hasCover: boolean): string[] {
   const out: string[] = [];
   if (!d.name.trim()) out.push('a name');
   if (!d.venue) out.push('where it is');
+  else if (d.venue.cityName === null) out.push('a city for the venue');
   if (!d.firstDate) out.push(k?.when === 'dates' ? 'a date' : 'the first date');
   if (!d.sessions.length) out.push('a session with its times');
   else if (d.sessions.some((s) => !s.start || !s.end)) out.push('a start and end on every session');
