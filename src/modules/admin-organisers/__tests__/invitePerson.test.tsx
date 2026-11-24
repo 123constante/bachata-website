@@ -10,7 +10,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const api = vi.hoisted(() => ({
   searchPeople: vi.fn(),
-  fetchPageLeader: vi.fn(),
   fetchUpcoming: vi.fn(),
   invitePerson: vi.fn(),
 }));
@@ -41,7 +40,6 @@ const mount = () =>
 beforeEach(() => {
   Object.values(api).forEach((f) => f.mockReset());
   api.searchPeople.mockResolvedValue([{ id: 'p9', name: 'Ana Perez', firstName: 'Ana' }]);
-  api.fetchPageLeader.mockResolvedValue({ kind: 'none' });
   api.fetchUpcoming.mockResolvedValue([{ name: 'Friday Social', date: '2026-10-30' }]);
 });
 afterEach(cleanup);
@@ -61,18 +59,19 @@ describe('Invite person', () => {
     expect(screen.queryByTestId('invite-person-note')).toBeNull();
   });
 
-  it('prefills the page Leader and sends the organiser id; result has a message, Copy and WhatsApp', async () => {
-    api.fetchPageLeader.mockResolvedValue({ kind: 'one', person: { id: 'p1', name: 'Rosa Lima', firstName: 'Rosa' } });
+  it('prefills nobody, sends the organiser id; result has a message, Copy and WhatsApp', async () => {
     api.invitePerson.mockResolvedValue(parsePersonInvite(ANSWER));
     mount();
     fireEvent.click(screen.getByTestId('invite-person-open'));
     fireEvent.change(screen.getByTestId('invite-person-page'), { target: { value: 'o1' } });
-    expect((await screen.findByTestId('invite-person-chosen')).textContent).toMatch(/Rosa Lima/);
-    fireEvent.change(screen.getByTestId('invite-person-email'), { target: { value: 'rosa@example.com' } });
+    expect(screen.queryByTestId('invite-person-chosen')).toBeNull();
+    fireEvent.change(screen.getByTestId('invite-person-search'), { target: { value: 'Ana' } });
+    fireEvent.click(await screen.findByText('Ana Perez'));
+    fireEvent.change(screen.getByTestId('invite-person-email'), { target: { value: 'ana@example.com' } });
     await waitFor(() => expect(api.fetchUpcoming).toHaveBeenCalled());
     fireEvent.click(screen.getByTestId('invite-person-submit'));
     const msg = (await screen.findByTestId('invite-person-message')) as HTMLTextAreaElement;
-    expect(api.invitePerson).toHaveBeenCalledWith('p1', 'rosa@example.com', 'o1');
+    expect(api.invitePerson).toHaveBeenCalledWith('p9', 'ana@example.com', 'o1');
     expect(msg.value).toMatch(/manage Ritmo/);
     expect(msg.value).toMatch(/Friday Social/);
     expect(msg.value).toContain(`/invite/${'t'.repeat(64)}`);

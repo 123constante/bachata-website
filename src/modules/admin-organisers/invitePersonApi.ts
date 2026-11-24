@@ -15,15 +15,12 @@ export interface PersonHit {
   name: string;
   /** For the message greeting; null when the profile has no first or display name. */
   firstName: string | null;
-  /** The profile is already joined to a login (claimed_by set). Unknown (undefined) for a Leader prefill. */
+  /** The profile is already joined to a login (claimed_by set). Unknown (undefined) when the read does not include claimed_by. */
   hasLogin?: boolean;
 }
 
 /** One person on a page's team list, for "Who is this for?". */
 export type TeamPerson = PersonHit;
-
-/** A page's Leader: none, exactly one (prefilled), or several (nobody is guessed). */
-export type PageLeader = { kind: 'none' } | { kind: 'one'; person: PersonHit } | { kind: 'several' };
 
 type NameRow = { id: string; first_name: string | null; surname: string | null; display_name: string | null; claimed_by?: string | null };
 const toPersonHit = (r: NameRow): PersonHit => ({
@@ -34,7 +31,6 @@ const toPersonHit = (r: NameRow): PersonHit => ({
 });
 
 export const personSearchQueryKey = (q: string) => ['admin-invite-person-search', q] as const;
-export const pageLeaderQueryKey = (organiserId: string | null) => ['admin-invite-page-leader', organiserId] as const;
 export const pageTeamQueryKey = (organiserId: string) => ['admin-invite-page-team', organiserId] as const;
 export const pageUpcomingQueryKey = (organiserId: string | null) => ['admin-invite-page-upcoming', organiserId] as const;
 
@@ -45,30 +41,6 @@ export async function searchPeople(query: string): Promise<PersonHit[]> {
   const { data, error } = await supabase.rpc('admin_search_people_v1', { p_query: q, p_limit: 10, p_include_archived: false });
   if (error) throw error;
   return (data ?? []).map(toPersonHit);
-}
-
-/**
- * The page's Leader from its public team (organiser_team_members.is_leader). Some pages have more
- * than one (51 Leader rows on 47 pages, 2026-10-20), so it reads two rows: two or more is
- * 'several' and nobody is prefilled, rather than whichever row the database returns first.
- */
-export async function fetchPageLeader(organiserId: string): Promise<PageLeader> {
-  const { data: rows, error } = await supabase
-    .from('organiser_team_members')
-    .select('member_profile_id')
-    .eq('organiser_profile_id', organiserId)
-    .eq('is_active', true)
-    .eq('is_leader', true)
-    .order('created_at')
-    .limit(2);
-  if (error) throw error;
-  if ((rows?.length ?? 0) >= 2) return { kind: 'several' };
-  const memberId = rows?.[0]?.member_profile_id;
-  if (!memberId) return { kind: 'none' };
-  const { data: p, error: pe } = await supabase.from('dancer_profiles').select('id, first_name, surname, display_name').eq('id', memberId).maybeSingle();
-  if (pe) throw pe;
-  if (!p) return { kind: 'none' };
-  return { kind: 'one', person: toPersonHit(p) };
 }
 
 const TEAM_LIMIT = 20;
