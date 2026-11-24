@@ -121,6 +121,11 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
     const r = await onSave([step], [{ description: d.descriptionOverride }], savedLabel('night', dateWords));
     if (r.ok) setSheet(null);
   };
+  // A failed save must not look saved: throw so the sheet shows its error line (FlyerSheet catches and renders it).
+  const mustSave = async (steps: WriteStep[], before: Parameters<NonNullable<typeof onSave>>[1], label: string) => {
+    const r = await onSave!(steps, before, label);
+    if (!r.ok) throw new Error(r.error ?? 'Not saved. Try again.');
+  };
   const saveFlyer = async (url: string | null, label: string) => {
     if (!onSave) return; // url null = REMOVE for this night: the server owns '' (no flyer), null would inherit
     const d = dt ?? await qc.fetchQuery({ queryKey: dateDetailQueryKey(date.id), queryFn: () => fetchDateDetail(date.id) });
@@ -128,16 +133,16 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
     // A one-off has no separate series flyer and the go-live check reads the series cover, so set both (else "A flyer is required" never clears).
     if (s.format === 'one_off') {
       const seriesStep: WriteStep = { part: V2.flyer, target: 'series', id: s.id, version: s.version, command: upsertCommand({ name: s.name ?? '', default_cover_image_url: url }), order: 2 };
-      await onSave([step, seriesStep], [{ cover_image_url: d.coverImageOverride }, { name: s.name ?? '', default_cover_image_url: s.default_cover_image_url ?? null }], label);
+      await mustSave([step, seriesStep], [{ cover_image_url: d.coverImageOverride }, { name: s.name ?? '', default_cover_image_url: s.default_cover_image_url ?? null }], label);
       return;
     }
     // Recurring with no series cover yet: the first night flyer also becomes the series cover, so go-live clears. An existing series cover is never overwritten, and removing a night flyer never clears it.
     if (url && !s.default_cover_image_url) {
       const seriesStep: WriteStep = { part: V2.flyer, target: 'series', id: s.id, version: s.version, command: upsertCommand({ name: s.name ?? '', default_cover_image_url: url }), order: 2 };
-      await onSave([step, seriesStep], [{ cover_image_url: d.coverImageOverride }, { name: s.name ?? '', default_cover_image_url: null }], label);
+      await mustSave([step, seriesStep], [{ cover_image_url: d.coverImageOverride }, { name: s.name ?? '', default_cover_image_url: null }], label);
       return;
     }
-    await onSave([step], [{ cover_image_url: d.coverImageOverride }], label);
+    await mustSave([step], [{ cover_image_url: d.coverImageOverride }], label);
   };
   const saveGallery = async (next: string[], label: string) => {
     if (!onSave) return;
@@ -145,7 +150,7 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
     const patch = dateGalleryPatch(ws, d, next);
     if (!patch) return;
     const step: WriteStep = { part: V2.gallery, target: 'occurrence', id: date.id, version: date.version, command: { kind: 'occurrence.set_override', payload: patch }, order: 1 };
-    await onSave([step], [{ gallery: d.galleryOverride }], label);
+    await mustSave([step], [{ gallery: d.galleryOverride }], label);
   };
   return (
     <div className="grp" data-testid="night-card">

@@ -225,6 +225,18 @@ describe('go live: what is missing, in words; disabled says why', () => {
     expect(plan(d, { hasCover: true, goLive: true })).toEqual([]);
   });
 
+  it('keep-list: a venue with a city, or no venue, is unchanged; a venue with no city is missing "a city for the venue" but a draft still saves', () => {
+    const d = ready('one_date');
+    expect(missingForLive(d, true)).toEqual([]);
+    expect(liveBlock(d, TODAY, true)).toBeNull();
+    const noCity = { ...d, venue: { ...d.venue!, cityName: null } };
+    expect(missingForLive(noCity, true)).toEqual(['a city for the venue']);
+    expect(liveBlock(noCity, TODAY, true)).toContain('a city for the venue');
+    expect(plan(noCity, { hasCover: true, goLive: true })).toEqual([]);
+    expect(draftBlock(noCity, TODAY)).toBeNull();
+    expect(missingForLive({ ...d, venue: null }, true)).toEqual(['where it is']);
+  });
+
   it('no photo: Go live off, Save draft works now', () => {
     const d = ready('one_date');
     expect(liveBlock(d, TODAY, false)).toBe('A flyer is needed to go live. Save draft works now.');

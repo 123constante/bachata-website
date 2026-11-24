@@ -66,13 +66,13 @@ export function FlyerSheet({ seriesId, flyer, gallery, mode, dateWords, dayName,
     if (!v) return;
     if (!/^https?:\/\/\S+$/i.test(v)) { setLinkErr(F.badLink); return; }
     setLinkErr(null);
-    await onGallery([...gallery, v], label);
+    try { await onGallery([...gallery, v], label); } catch (e) { setErr(e instanceof Error ? e.message : String(e)); return; }
     setLink('');
   };
   const remove = async (i: number) => {
     const video = isVideoUrl(gallery[i]);
     setOpen(null);
-    await onGallery(gallery.filter((_, k) => k !== i), video ? F.videoRemoved : F.photoRemoved);
+    try { await onGallery(gallery.filter((_, k) => k !== i), video ? F.videoRemoved : F.photoRemoved); } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
   };
 
   if (open !== null && gallery[open] !== undefined) {
