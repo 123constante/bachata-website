@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { isListedSeries, type HomeSeriesFull } from '../../shared/homeModel';
 import type { HomeOrganiser, OrganiserHome } from '../../shared/selfServeApi';
@@ -31,6 +31,8 @@ export function payingOrganiser(home: OrganiserHome | undefined, wanted: string 
   const orgs = home?.organisers ?? [];
   return (
     (wanted ? orgs.find((o) => o.id === wanted) : undefined) ??
+    orgs.find((o) => o.role === 'owner' && o.series.some((s) => isListedSeries(s) && s.lifecycle_status === 'live')) ??
+    orgs.find((o) => o.role === 'owner') ??
     orgs.find((o) => o.series.some((s) => isListedSeries(s) && s.lifecycle_status === 'live')) ??
     orgs[0] ??
     null
@@ -108,6 +110,17 @@ export function useStartOnboarding(organiserId: string, from?: 'start', returnTo
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [switchedOff, setSwitchedOff] = useState(false);
+  // Browser Back can restore this page from bfcache with `busy` still set: clear it on return.
+  useEffect(() => {
+    const onShow = (e: PageTransitionEvent) => { if (e.persisted) setBusy(false); };
+    const onVisible = () => { if (document.visibilityState === 'visible') setBusy(false); };
+    window.addEventListener('pageshow', onShow);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.removeEventListener('pageshow', onShow);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, []);
   const go = async () => {
     setBusy(true);
     setNote(null);

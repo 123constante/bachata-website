@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RaffleNight } from '@/lib/raffleBoard';
 
-const MAX_CARDS = 13;
-
 const initials = (title: string): string => {
   const w = title.split(/\s+/).filter(Boolean);
   return ((w[0]?.[0] ?? '') + (w.length > 1 ? (w[w.length - 1][0] ?? '') : '')).toUpperCase() || '?';
@@ -22,8 +20,14 @@ type Props = {
   onBurst?: (x: number, y: number) => void;
 };
 
+const Flyer = ({ title, url }: { title: string; url?: string }) => {
+  const [failed, setFailed] = useState(false);
+  if (!url || failed) return <div className="rd-flyer rd-flyer-tile" aria-hidden="true">{initials(title)}</div>;
+  return <img className="rd-flyer" src={url} alt="" loading="lazy" onError={() => setFailed(true)} />;
+};
+
 export const RaffleNightCarousel = ({ nights, joined, onEnter, onBurst }: Props) => {
-  const items = nights.slice(0, MAX_CARDS);
+  const items = nights;
   const track = useRef<HTMLUListElement>(null);
   const [idx, setIdx] = useState(0);
 
@@ -52,11 +56,7 @@ export const RaffleNightCarousel = ({ nights, joined, onEnter, onBurst }: Props)
         {items.map((n) => (
           <li key={n.occurrenceId} className={`rd-card${joined ? ' is-in' : ''}`}>
             <div className="rd-art">
-              {n.posterUrl ? (
-                <img className="rd-flyer" src={n.posterUrl} alt="" loading="lazy" />
-              ) : (
-                <div className="rd-flyer rd-flyer-tile" aria-hidden="true">{initials(n.title)}</div>
-              )}
+              <Flyer title={n.title} url={n.posterUrl} />
               {joined ? <span className="rd-seal" data-testid="raffles-card-seal" aria-hidden="true"><Tick size={44} /></span> : null}
             </div>
             <p className="rd-card-name">{n.title}</p>

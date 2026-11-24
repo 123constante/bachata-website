@@ -13,6 +13,7 @@ import { NameSheet } from './NameSheet';
 import { MusicSheet } from './MusicSheet';
 import { OrgSheet } from './OrgSheet';
 import { EndCard, type LifeState } from './EndCard';
+import { GoLiveBar, isDraftEvent } from './GoLiveBar';
 import { StatusSheet } from './StatusSheets';
 import { V2Sheet } from './V2Sheet';
 
@@ -82,8 +83,9 @@ export function OneOffBody({ ws, saveNow, busy, onOpenTickets }: { ws: EventWork
           <Line id="organisers" label={E.organisers} value={orgs} onOpen={() => setSheet('orgs')} />
         </div></div>
       </div>
-      <EndCard oneOff status={life} endDate={null} reason={null}
-        onLive={() => void setLife('live', E.toastLive)} onPause={() => { setError(null); setSheet('pause'); }} onEnd={() => { setError(null); setSheet('end'); }} />
+      {isDraftEvent(ws) && <GoLiveBar ws={ws} />}
+      {!isDraftEvent(ws) && <EndCard oneOff status={life} endDate={null} reason={null}
+        onLive={() => void setLife('live', E.toastLive)} onPause={() => { setError(null); setSheet('pause'); }} onEnd={() => { setError(null); setSheet('end'); }} />}
       {sheet === 'pause' && <StatusSheet to="Paused" from={life} lastNight="" tonight={false} error={error} onDo={() => setLife('paused', E.toastPaused)} onClose={() => setSheet(null)} />}
       {sheet === 'end' && (
         <V2Sheet open title={E.endTitle} onClose={() => setSheet(null)}>

@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useRaffleBoard } from '@/hooks/useRaffleBoard';
-import { nightsWithWinner } from '@/lib/raffleBoard';
+import { nightsWithWinner, nextNightPerEvent } from '@/lib/raffleBoard';
 import { isRafflePoolJoined, markRafflePoolJoined } from '@/lib/raffleSession';
 import { ACCOUNT_CONTACT_EMAIL } from '@/lib/accountDeletionCopy';
 import { RaffleEntryDialog } from '@/modules/event-page/bento/modals/RaffleEntryDialog';
@@ -183,8 +183,8 @@ export const RaffleRedesignA = () => {
 
   const poolNow = board ? board.poolCount : null;
   useEffect(() => { poolRef.current = poolNow; }, [poolNow]);
-  const poolShown = board ? board.poolCount + (entryBase !== null && board.poolCount === entryBase ? 1 : 0) : null;
-  const openNights = board ? board.nights.filter((n) => !n.winnerFirstName) : [];
+  const poolShown = board ? (board.entriesEver ?? board.poolCount) + (entryBase !== null && board.poolCount === entryBase ? 1 : 0) : null;
+  const openNights = board ? nextNightPerEvent(board.nights.filter((n) => !n.winnerFirstName)) : [];
   // Winners listed from the nights the board lists, never total_winners (counts ~766 attendance pairs on prod).
   const winnersListed = board ? nightsWithWinner(board).length : 0;
 
@@ -212,7 +212,7 @@ export const RaffleRedesignA = () => {
           <div className="rd-orbs" data-testid="raffles-board-counters">
             <div className="rd-orb" style={{ ['--n' as string]: 0 }}><CountUp index={0} testId="raffles-count-pool" value={poolShown} /><span>Entries</span></div>
             <div className="rd-orb" style={{ ['--n' as string]: 1 }}><CountUp index={1} testId="raffles-count-open" value={board ? openNights.length : null} /><span>Events open</span></div>
-            <div className="rd-orb" style={{ ['--n' as string]: 2 }}><CountUp index={2} testId="raffles-count-winners" value={board ? winnersListed : null} /><span>Prizes won</span></div>
+            <div className="rd-orb" style={{ ['--n' as string]: 2 }}><CountUp index={2} testId="raffles-count-winners" value={board ? (board.winnersEver ?? winnersListed) : null} /><span>Winners ever</span></div>
           </div>
           <ol className="rd-how">
             {STEPS.map((t, i) => (<li key={t}><b>{i + 1}</b>{t}</li>))}
