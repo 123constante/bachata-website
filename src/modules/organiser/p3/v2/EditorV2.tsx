@@ -16,6 +16,7 @@ import { V2 } from './copy';
 import type { WriteStep } from './editorModel';
 import { EveryBody } from './EveryBody';
 import { NightHub } from './NightHub';
+import { GoLiveBar, isDraftEvent } from './GoLiveBar';
 import { OneOffBody } from './OneOffBody';
 import { useSeriesTypes, useSummary } from '../tickets/data';
 import { publicEventRefOf } from '../data/home';
@@ -143,6 +144,7 @@ export function EditorV2({ ws }: { ws: EventWorkspace }) {
           <NightHub seriesId={ws.series.id} seriesName={ws.series.name ?? ''} occurrenceId={picked.id} oneOff={!weekly} ticketsSold={ticketsSold} moneyPence={moneyPence} shareLink={shareLink} toast={say}
             raffleNight={{ seriesId: ws.series.id, date: picked.occurrence_date, dayLabel: fullDate(picked.occurrence_date) } as unknown as RaffleNightRow} />
         )}
+        {weekly && !every && isDraftEvent(ws) && <GoLiveBar ws={ws} />}
         {!weekly && !every && <OneOffBody ws={ws} saveNow={saveNow} busy={busy} onOpenTickets={openTickets} />}
         {every && <EveryBody onOpenTickets={openTickets} ws={ws} day={day} saveNow={saveNow} busy={busy} />}
       </div>
