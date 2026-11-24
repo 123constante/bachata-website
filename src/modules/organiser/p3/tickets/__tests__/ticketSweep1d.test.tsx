@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+// @vitest-environment jsdom
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { askOwner, startView } from '../GetPaid';
@@ -12,6 +13,7 @@ vi.mock('../../../events/eventsApi', () => ({ useEventWorkspace: () => ({ data: 
 vi.mock('../../../shared/runCommands', () => ({ useSendOnce: () => vi.fn(), useRunCommands: () => vi.fn() }));
 
 describe('Ticket sweep 1d', () => {
+  afterEach(cleanup);
   it('draft card: heading, line, Put it live button', () => {
     render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><DraftTicketsCard seriesId="s1" orgId="o1" /></MemoryRouter></QueryClientProvider>);
     expect(screen.getByTestId('r4-tix-draft-card').textContent).toContain(`${DRAFT_HEADING} ${DRAFT_LINE}`);
