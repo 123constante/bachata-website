@@ -20,6 +20,12 @@ type Props = {
   onBurst?: (x: number, y: number) => void;
 };
 
+const Flyer = ({ title, url }: { title: string; url?: string }) => {
+  const [failed, setFailed] = useState(false);
+  if (!url || failed) return <div className="rd-flyer rd-flyer-tile" aria-hidden="true">{initials(title)}</div>;
+  return <img className="rd-flyer" src={url} alt="" loading="lazy" onError={() => setFailed(true)} />;
+};
+
 export const RaffleNightCarousel = ({ nights, joined, onEnter, onBurst }: Props) => {
   const items = nights;
   const track = useRef<HTMLUListElement>(null);
@@ -50,11 +56,7 @@ export const RaffleNightCarousel = ({ nights, joined, onEnter, onBurst }: Props)
         {items.map((n) => (
           <li key={n.occurrenceId} className={`rd-card${joined ? ' is-in' : ''}`}>
             <div className="rd-art">
-              {n.posterUrl ? (
-                <img className="rd-flyer" src={n.posterUrl} alt="" loading="lazy" />
-              ) : (
-                <div className="rd-flyer rd-flyer-tile" aria-hidden="true">{initials(n.title)}</div>
-              )}
+              <Flyer title={n.title} url={n.posterUrl} />
               {joined ? <span className="rd-seal" data-testid="raffles-card-seal" aria-hidden="true"><Tick size={44} /></span> : null}
             </div>
             <p className="rd-card-name">{n.title}</p>
