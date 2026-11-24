@@ -147,13 +147,15 @@ describe('photo screen', () => {
     expect(window.sessionStorage.getItem('da-onboarding-v3-photo')).toBe('1');
   });
 
-  it('coming back with a photo lands on the photo step showing it; Continue celebrates and ends on Home', async () => {
+  it('coming back with a photo lands on the photo step showing it; Continue celebrates and goes to the bio step; Skip ends on Home', async () => {
     window.sessionStorage.setItem('da-onboarding-v3-photo', '1');
     const { location } = atPhoto({ avatar_url: 'https://x.test/a.jpg' });
     await step('photo');
     expect(btn('onboarding-photo-tile').textContent).toBe('Photo added. Tap to change');
     expect(cont().disabled).toBe(false);
     fireEvent.click(cont());
+    await step('bio');
+    fireEvent.click(btn('onboarding-skip'));
     await waitFor(() => expect(location()).toBe('/app/home'));
     expect(daConfetti).toHaveBeenCalledTimes(1);
     expect(screen.queryByText(/you.re in|nice work/i)).toBeNull();

@@ -15,7 +15,8 @@ import { LINK_GHOST, LINK_PRIMARY } from '../blocks';
 import { firstRequiredStage, type RequiredStage } from './model';
 import { bandForYearV3, celebratesOnLeave, partnerDelta, partnerDraftFrom, resumeStep, stepsFor, yearForBandV3, type PartnerDraftV3, type StepV3, type YearBandV3 } from './modelV3';
 import { CityCard, NameCard, RoleCard, photoHandoff } from './steps';
-import { PartnerCardV3, PartnerSheetV3, PhotoCardV3, RolesCardV3, StylesCardV3, YearsCardV3 } from './stepsV3';
+import { bioLinkResult } from './bioModel';
+import { BioLinksCardV3, PartnerCardV3, PartnerSheetV3, PhotoCardV3, RolesCardV3, StylesCardV3, YearsCardV3 } from './stepsV3';
 import { PrimaryButton, WRAP } from './ui';
 
 /** Same 3 lines as OnboardingScreen's leaveFor (copied, not exported: the old file stays untouched). */
@@ -55,6 +56,8 @@ const OnboardingV3 = () => {
   const qc = useQueryClient();
   const [params] = useSearchParams();
   const end = onboardingEnd(params.get(RETURN_TO_PARAM));
+  /** ?step=bio (Home's "Add"): only the bio + links screen, even on a complete profile. */
+  const bioOnly = params.get('step') === 'bio';
   const { data: profile, isPending, isError, isFetching, error: loadError, save, refetch } = useMyDancerEdit({ refetchOnMount: 'always', retry: false });
   const put = usePutMyDancerEdit();
   const [step, setStep] = useState<StepV3 | null>(null);
@@ -62,6 +65,8 @@ const OnboardingV3 = () => {
   const [styles, setStyles] = useState<string[]>([]);
   const [band, setBand] = useState<YearBandV3 | null>(null);
   const [partner, setPartner] = useState<PartnerDraftV3>({ answer: null, kinds: [], role: null, years: null, details: '' });
+  const [bio, setBio] = useState('');
+  const [link, setLink] = useState('');
   const [sheet, setSheet] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,15 +76,16 @@ const OnboardingV3 = () => {
 
   // Decide the starting screen ONCE, from the first server shape with the sign-up questions answered.
   if (profile && !pre && step === null && !leaving) {
-    const resumed = resumeStep(profile);
+    const resumed = bioOnly ? 'bio' : resumeStep(profile);
     // Back from the photo screen with a photo: stay on the photo step (the person pressed Continue next).
-    const start = resumed === 'done' && flag('get') ? 'photo' : resumed;
+    const start: StepV3 | 'done' = resumed === 'done' && flag('get') ? 'photo' : resumed;
     if (start !== 'done') {
       setStep(start);
       setPartner(partnerDraftFrom(profile));
       setRoles(profile.buyer_roles.length > 0 ? profile.buyer_roles : ['dancer']);
       setStyles(profile.favorite_styles);
       setBand(bandForYearV3(profile.dance_started_year));
+      setBio(profile.bio ?? '');
     } else {
       setLeaving(true);
     }
@@ -121,12 +127,12 @@ const OnboardingV3 = () => {
     );
   }
 
-  const run = async (work: () => Promise<MyDancerEdit>, from: StepV3 | null, to: StepV3 | 'end' | null) => {
+  const run = async (work: () => Promise<MyDancerEdit>, from: StepV3 | null, to: StepV3 | 'end' | null, filled = { bio: false, link: false }) => {
     setBusy(true);
     setError(null);
     try {
       await work();
-      if (from && celebratesOnLeave(from, { bio: false, link: false })) daConfetti();
+      if (from && celebratesOnLeave(from, filled)) daConfetti();
       if (to === 'end') setLeaving(true);
       else if (to) setStep(to);
     } catch (err) {
@@ -138,11 +144,10 @@ const OnboardingV3 = () => {
 
   const list = stepsFor(roles);
   const position = step ? Math.max(0, list.indexOf(step)) : 0;
-  const prev = step && position > 0 ? list[position - 1] : null;
+  const prev = step && position > 0 && !bioOnly ? list[position - 1] : null;
   const nextAfter = (s: StepV3): StepV3 | 'end' => {
     const n = list[list.indexOf(s) + 1];
-    // s3 inserts bio: until then the flow ends after photo.
-    return n && n !== 'bio' ? n : 'end';
+    return n ?? 'end';
   };
   const toggleRole = (r: BuyerRole) => setRoles((p) => (p.includes(r) ? p.filter((x) => x !== r) : [...p, r]));
   const toggleStyle = (s: string) => setStyles((p) => (p.includes(s) ? p.filter((x) => x !== s) : [...p, s]));
@@ -161,7 +166,17 @@ const OnboardingV3 = () => {
         </Card>
       ) : (
         <>
-          <Progress total={list.length} position={position} />
+          {bioOnly ? null : <Progress total={list.length} position={position} />}
+          {bioOnly ? (
+            <button
+              type="button"
+              data-testid="onboarding-back"
+              onClick={() => setLeaving(true)}
+              className="mb-[8px] inline-flex min-h-[44px] cursor-pointer items-center gap-[2px] bg-transparent p-0 text-[15px] font-semibold text-[var(--mut)]"
+            >
+              <ChevronLeft size={18} aria-hidden /> Back
+            </button>
+          ) : null}
           {prev ? (
             <button
               type="button"
@@ -228,6 +243,21 @@ const OnboardingV3 = () => {
                   navigate(photoHandoff(params.get(RETURN_TO_PARAM)));
                 }}
                 onContinue={() => void run(() => Promise.resolve(profile), 'photo', nextAfter('photo'))}
+              />
+            ) : null}
+            {step === 'bio' ? (
+              <BioLinksCardV3
+                {...card}
+                bio={bio}
+                link={link}
+                onBio={setBio}
+                onLink={setLink}
+                onSkip={() => setLeaving(true)}
+                onContinue={() => {
+                  const r = bioLinkResult(profile, bio, link);
+                  if (r.error) return setError(r.error);
+                  void run(() => (Object.keys(r.delta).length === 0 ? Promise.resolve(profile) : saveDelta(r.delta)), 'bio', 'end', r.filled);
+                }}
               />
             ) : null}
           </Card>
