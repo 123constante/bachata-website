@@ -19,10 +19,18 @@ export const linkTarget = (raw: string): 'instagram' | 'website_url' | null => {
 const withScheme = (v: string): string => (/^https?:\/\//i.test(v.trim()) ? v.trim() : `https://${v.trim()}`);
 
 /** The keys that changed, from the two boxes. Empty boxes (or an untouched bio) send nothing. */
+/** What the link box shows on open: the saved Instagram, else the saved website, else empty. */
+export const linkPrefill = (profile: Pick<MyDancerEdit, 'instagram' | 'website_url'>): string => {
+  const ig = (profile.instagram ?? '').trim();
+  if (ig !== '') return ig;
+  return (profile.website_url ?? '').trim();
+};
+
 export const bioLinkDraft = (profile: MyDancerEdit, bio: string, link: string) => {
   const d = draftFromProfile(profile);
   d.bio = bio;
-  const target = linkTarget(link);
+  // An untouched prefilled box is the saved value itself: send nothing for it.
+  const target = link.trim() === linkPrefill(profile) ? null : linkTarget(link);
   if (target === 'instagram') d.instagram = link.trim();
   if (target === 'website_url') d.website_url = withScheme(link);
   return { draft: d, target };
