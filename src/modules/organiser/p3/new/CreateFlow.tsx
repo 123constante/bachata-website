@@ -428,6 +428,21 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
         {mark('prices', 'ticketUrl')}
         {problems.price && <p className="p3-error" data-testid="p3-new-price-row-problem">{problems.price}</p>}
       </LookCard>
+      <LookCard label="RAFFLE" testId="p3-look-raffle">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="p3-row-t" data-testid="p3-new-raffle-label">{d.raffle ? 'Raffle: On' : 'Raffle: Off'}</p>
+            <p className="p3-note">Dancers can enter a free draw for your guest list.</p>
+          </div>
+          <button type="button" role="switch" aria-checked={!!d.raffle} aria-label="Raffle" disabled={busy}
+            onClick={() => set({ raffle: !d.raffle })} data-testid="p3-new-raffle-switch"
+            className="shrink-0 min-h-[44px] min-w-[52px] px-2 flex items-center justify-center disabled:opacity-50">
+            <span className="block h-[26px] w-[44px] rounded-full relative" style={{ background: d.raffle ? 'var(--p3-accent, #7c3aed)' : '#6b7280' }}>
+              <span className="absolute top-[3px] h-[20px] w-[20px] rounded-full bg-white" style={{ left: d.raffle ? 21 : 3 }} />
+            </span>
+          </button>
+        </div>
+      </LookCard>
       <LookCard label="DESCRIPTION" testId="p3-look-description">
         <Row title="Description" value={descriptionLine(d)} action="Change >" onClick={() => setSheet('description')} disabled={busy} testId="p3-new-row-description" />
       </LookCard>

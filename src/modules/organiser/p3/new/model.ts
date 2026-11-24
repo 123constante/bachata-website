@@ -81,6 +81,8 @@ export interface CreateDraft {
   ticketUrl: string;
   /** The event's description (default_description), up to DESCRIPTION_MAX letters. */
   description: string;
+  /** RAFFLE card: switched on at create. Absent = Off. Sent after the create lands, never as a series command. */
+  raffle?: boolean;
   /** Kept only in storage: the create landed (review 1 F1), so this draft is opened, never created again. */
   created?: true;
 }
@@ -111,7 +113,7 @@ export function blankCreate(kind: CreateKind, seriesId: string = newSeriesId()):
 export function createSig(d: CreateDraft): string {
   return JSON.stringify({
     k: d.kind, n: d.name.trim(), v: d.venue?.id ?? null, f: d.firstDate, r: draftSig(d.repeat), x: d.extraDates,
-    s: d.sessions, p: d.pay, pr: d.prices.map(toPass), t: d.ticketUrl.trim(), de: d.description.trim(),
+    s: d.sessions, p: d.pay, pr: d.prices.map(toPass), t: d.ticketUrl.trim(), de: d.description.trim(), ra: !!d.raffle,
   });
 }
 
@@ -413,6 +415,7 @@ export const notSavedLine = (keys: StepKey[], today: string): string => {
 export const RESULT_COPY = {
   savedDraft: 'Saved as a draft. Nobody else can see it yet. Go live from here when it is ready.',
   live: 'It is live. Dancers can find it now.',
+  raffleFailed: 'Event created. Raffle could not be switched on. Turn it on from the event’s Raffle page.',
   // review r1 F2: not "Nothing was saved" (F-15 since: the photo uploads only after the create, so none is left behind)
   nothingSaved: 'The event was not saved',
   partTitle: 'Your draft is saved, but not all of it',
@@ -469,6 +472,7 @@ export function parseStoredDraft(raw: string | null): CreateDraft | null {
       prices: Array.isArray(d.prices) ? d.prices : [],
       ticketUrl: typeof d.ticketUrl === 'string' ? d.ticketUrl : '',
       description: typeof d.description === 'string' ? d.description.slice(0, DESCRIPTION_MAX) : '',
+      ...(d.raffle === true ? { raffle: true } : {}),
       ...(d.created === true ? { created: true as const } : {}),
     };
   } catch {

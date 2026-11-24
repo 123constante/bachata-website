@@ -7,6 +7,7 @@ import { envelope, newIdempotencyKey } from '../../shared/seriesCommands';
 import { commandErrorMessage, isOnboardingRefusal } from '../../shared/selfServeErrors';
 import { resolveCreateCityId } from '../../shared/createCity';
 import { uploadEventPicture } from '../../events/media';
+import { setRaffleSeries } from '../events/raffle/raffleApi';
 import { profileQuestionsLeft } from '../../home/onboarding/golive/profileLeft';
 import { repeatFailure } from '../model/repeat';
 import { removeCommand } from '../data/eventPage';
@@ -63,6 +64,7 @@ export function useCreateSave({ draft, cover, organiser, today, onCreated }: {
   const cityId = useRef<string | null | undefined>(undefined);
   // review 1: one save at a time (F4), the Go live a retry repeats (F3), the version to read again after a failure (F6)
   const inFlight = useRef(false);
+  const raffleSent = useRef(false);
   const lastGoLive = useRef(false);
   const stale = useRef(false);
   const [state, setStateNow] = useState<SaveState>({ s: 'idle' });
@@ -184,9 +186,15 @@ export function useCreateSave({ draft, cover, organiser, today, onCreated }: {
         if (typeof res?.new_version === 'number') version.current = res.new_version;
         else await reread();
       }
+      // RAFFLE card: once, after the create landed. A failure never fails the save: it changes the toast only.
+      let raffleFailed = false;
+      if (draft.raffle && !raffleSent.current) {
+        raffleSent.current = true;
+        try { await setRaffleSeries(seriesId, true); } catch { raffleFailed = true; }
+      }
       forgetStoredDraft();
       refresh();
-      go(to ?? P3_PATHS.event(seriesId), { replace: true, state: { p3Toast: goLive ? RESULT_COPY.live : RESULT_COPY.savedDraft } });
+      go(to ?? P3_PATHS.event(seriesId), { replace: true, state: { p3Toast: raffleFailed ? RESULT_COPY.raffleFailed : goLive ? RESULT_COPY.live : RESULT_COPY.savedDraft } });
     } catch (e) {
       const refused = isOnboardingRefusal(e);
       const words = at === 'cover' && !refused ? (e instanceof Error ? e.message : commandErrorMessage(e)) : at === 'repeat' ? repeatFailure(e) : commandErrorMessage(e);
