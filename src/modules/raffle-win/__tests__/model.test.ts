@@ -38,6 +38,11 @@ describe('lock outcome', () => {
     }
     expect(parseLock({ ok: false, reason: 'weird' }).kind).toBe('error');
   });
+  it('profile_incomplete routes to profile steps, known names only, in step order', () => {
+    expect(parseLock({ ok: false, reason: 'profile_incomplete', missing: ['languages', 'bogus', 'avatar_url'] }))
+      .toEqual({ kind: 'profile', missing: ['avatar_url', 'languages'] });
+    expect(parseLock({ ok: false, reason: 'profile_incomplete' })).toEqual({ kind: 'profile', missing: [] });
+  });
 });
 
 describe('taps and helpers', () => {

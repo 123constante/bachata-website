@@ -126,6 +126,7 @@ export default function RaffleWin() {
       if (out.firstName) setFirstName(out.firstName);
       setScreen(screenAfterLock(flags.raffleSharePoster)); return;
     }
+    if (out.kind === 'profile') { setScreen('error'); return; } // old page has no profile steps
     if (out.kind === 'screen') { setScreen(out.screen); return; }
     if (out.kind === 'back-to-pick') {
       if (out.dropNight) setNights((ns) => ns.filter((n) => n.occurrenceId !== night.occurrenceId));

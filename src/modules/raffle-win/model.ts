@@ -1,6 +1,8 @@
 // Raffle v3 winner page: the pure state table (reason -> screen). No React, no network.
 // RPC shapes read from admin migrations 20261121133453 (claim) and 20261121133455 (lock v2).
 
+import { orderMissing, type ProfileField } from './profileFields';
+
 export type WinScreen =
   | 'loading' | 'error' | 'won' | 'claim' | 'pick' | 'honest' | 'share' | 'qr' | 'none' | 'cancel' | 'other';
 
@@ -52,6 +54,7 @@ export type LockOutcome =
   | { kind: 'qr'; qrToken: string; night: OpenNight | null; firstName: string | null }
   | { kind: 'back-to-pick'; line: string; dropNight: boolean }
   | { kind: 'screen'; screen: WinScreen }
+  | { kind: 'profile'; missing: ProfileField[] }
   | { kind: 'error' };
 
 export const LOCK_LINES: Record<string, string> = {
@@ -69,6 +72,10 @@ export function parseLock(data: unknown): LockOutcome {
     return qrToken ? { kind: 'qr', qrToken, night: win ? parseNight(win.night) : null, firstName: str(data.first_name) } : { kind: 'error' };
   }
   const reason = str(data.reason) ?? 'unknown';
+  if (reason === 'profile_incomplete') {
+    const names = Array.isArray(data.missing) ? data.missing : [];
+    return { kind: 'profile', missing: orderMissing(names) }; // unknown names ignored
+  }
   if (reason === 'not_found') return { kind: 'screen', screen: 'cancel' };
   if (reason === 'not_claimable') return { kind: 'screen', screen: 'cancel' };
   if (reason === 'honesty_required') return { kind: 'back-to-pick', line: LOCK_LINES[reason], dropNight: false };
