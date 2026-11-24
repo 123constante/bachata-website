@@ -117,6 +117,10 @@
       "reason": "Account restore after deletion request."
     },
     {
+      "name": "organiser_raffle_series_set_v1",
+      "reason": "Raffle on/off switch for a whole series (admin PR #2212). Not an event edit; owner/manager only, refused when an admin locked it, inside the RPC."
+    },
+    {
       "name": "organiser_raffle_night_set_v1",
       "reason": "Per-night raffle on/off switch (admin PR #1576). Not an event edit; owner/manager only, signed-in person only, called from one confirmation button (raffleHardStop.test.ts)."
     },

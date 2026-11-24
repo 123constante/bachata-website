@@ -102,6 +102,7 @@ export function SeriesSwitchCard({ seriesId }: { seriesId: string }) {
           </span>
         </button>
       </div>
+      <p className="p3-note" data-testid="raffle-series-hint">Default for every night. Nights you set by hand stay as they are.</p>
       {locked && <p className="p3-note" data-testid="raffle-series-locked">Locked. Message us to change this.</p>}
       {error && <p className="p3-error" role="alert" data-testid="raffle-series-error">Could not change the raffle. Try again.</p>}
     </div>
