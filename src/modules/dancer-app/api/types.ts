@@ -60,6 +60,16 @@ export type MyDancerEdit = {
   other_roles: string[];
   /** Buyer onboarding B: what the person said they are (server order); [] = not answered or skipped. Never public. */
   buyer_roles: BuyerRole[];
+  /**
+   * Partner search (DB slice 2). Optional so older fixtures type-check; the parser always sets them
+   * (null / [] when absent). `partner_search_level` is retired: not here.
+   */
+  looking_for_partner?: boolean | null;
+  partner_search_role?: string | null;
+  partner_years_min?: number | null;
+  partner_years_max?: number | null;
+  partner_details?: string | null;
+  partner_practice_goals?: string[];
   /** false = paused via my_profile_disable_v1. */
   is_active: boolean;
   /** Always null in release 1a. */
@@ -92,6 +102,12 @@ export const SAVE_KEYS = [
   'favorite_songs',
   'achievements',
   'show_going_photo',
+  'looking_for_partner',
+  'partner_search_role',
+  'partner_years_min',
+  'partner_years_max',
+  'partner_details',
+  'partner_practice_goals',
 ] as const;
 export type SaveKey = (typeof SAVE_KEYS)[number];
 
