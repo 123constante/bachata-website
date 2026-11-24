@@ -51,6 +51,9 @@ const writeFlag = (store: 'session' | 'local', key: string) => {
 // module (perf-budgets.json, dancer-app row).
 const HomeGoingFeed = lazyWithRetry(() => import('./homeGoing'));
 
+// Raffle winner ticket card: lazy, renders nothing without a locked win (W5).
+const HomeRaffleWin = lazyWithRetry(() => import('./homeRaffleWin'));
+
 // Layout C "Your ticket": the Tickets tab's card, lazy so no ticket read rides the first load.
 const HomeTicket = lazyWithRetry(() => import('./homeTicket'));
 
@@ -176,6 +179,9 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
           <HomeGoingFeed onGoing={setGoing} />
         </Suspense>
       )}
+      <Suspense fallback={null}>
+        <HomeRaffleWin />
+      </Suspense>
       <HomeBodyView profile={profile} going={on ? going : null} />
     </>
   );
