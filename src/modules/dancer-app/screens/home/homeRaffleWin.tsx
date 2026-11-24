@@ -1,10 +1,10 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+
 import { Card } from '@/modules/organiser/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { rpcLoose } from '@/integrations/supabase/rpcLoose';
 
-import { parseMyWins, takeFreshFlag } from './raffleWinModel';
+import { parseMyWins, takeFreshFlag, type RaffleWinCard } from './raffleWinModel';
 import RaffleDoorView from './RaffleDoorView';
 
 const TicketQrCode = lazy(() => import('../../../tickets/TicketQrCode'));
@@ -28,17 +28,22 @@ const HomeRaffleWin = ({ onShare }: { onShare?: () => void }) => {
   const [fresh] = useState(takeFreshFlag);
   const [door, setDoor] = useState(false);
   const qrRef = useRef<HTMLDivElement>(null);
-  const q = useQuery({
-    queryKey: ['raffle_my_wins_v1', user?.id],
-    enabled: signedIn,
-    staleTime: 60_000,
-    queryFn: async () => {
-      const { data, error } = await rpcLoose('raffle_my_wins_v1');
-      if (error) throw new Error(error.message);
-      return parseMyWins(data);
-    },
-  });
-  const card = q.data ?? null;
+  // Plain effect, not react-query: Home renders in tests and shells without a QueryClientProvider.
+  const [card, setCard] = useState<RaffleWinCard | null>(null);
+  const userId = user?.id;
+  useEffect(() => {
+    if (!signedIn) { setCard(null); return; }
+    let live = true;
+    void (async () => {
+      try {
+        const { data, error } = await rpcLoose('raffle_my_wins_v1');
+        if (live) setCard(error ? null : parseMyWins(data));
+      } catch {
+        if (live) setCard(null);
+      }
+    })();
+    return () => { live = false; };
+  }, [signedIn, userId]);
   const hasCard = !!card;
   useEffect(() => { if (fresh && hasCard) fireConfetti(); }, [fresh, hasCard]);
 
