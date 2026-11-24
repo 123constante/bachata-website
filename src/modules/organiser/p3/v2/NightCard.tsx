@@ -19,6 +19,7 @@ import { dateGalleryOf, dateGalleryPatch } from '../data/dateFields';
 import { venueOverridePatch } from '../../dates/venueOverride';
 import { NightPriceSheet } from './PriceSheet';
 import { NightCancelArea, type CancelResult } from './CancelNight';
+import { DRAFT_PILL, DraftNote, isDraftEvent } from './GoLiveBar';
 
 /** The override keys each fact owns. A fact shows "Only this night" only when one of these is saved on the date. */
 export const FACT_KEYS = {
@@ -83,7 +84,8 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
   const dateWords = fullDate(date.occurrence_date, today);
   const cancelled = date.lifecycle_status === 'cancelled' || s.lifecycle_status === 'cancelled';
   const status = s.lifecycle_status === 'paused' ? 'paused' : (s.lifecycle_status === 'ended' || date.lifecycle_status === 'ended') ? 'ended' : 'live';
-  const pill = cancelled ? <span className="pill x">{V2.tagCancelled}</span>
+  const draft = isDraftEvent(ws);
+  const pill = draft ? <span className="pill off" data-testid="draft-pill">{DRAFT_PILL}</span> : cancelled ? <span className="pill x">{V2.tagCancelled}</span>
     : <span className={status === 'live' ? 'pill' : 'pill off'}>{status === 'live' ? V2.statusLive : status === 'paused' ? V2.statusPaused : V2.statusEnded}</span>;
   const flyer = dt?.coverImageUrl ?? s.default_cover_image_url;
   // O-05: a one-off has no "usual" to go back to, so no "Only this night" tags and no "Back to usual" buttons
@@ -149,6 +151,7 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
         </div>
         <div className="fb-list">
           <div className="trow"><b data-testid="night-name">{dt?.titleOverride ?? s.name}</b>{pill}</div>
+          {draft && <DraftNote />}
           <Fact id="when" label={V2.when} main={long} sub={start ? V2.timeRange(start, end || start) : undefined} onOpen={onSave ? () => setWhenOpen(true) : undefined} />
           <Fact id="where" label={V2.where} main={venue?.name ?? '\u2014'} sub={venue?.neighbourhood ?? venue?.city_name ?? undefined}
             changed={own.where} busy={busy} onBack={back('where', V2.venue)} onOpen={onSave ? () => setSheet('where') : undefined} />

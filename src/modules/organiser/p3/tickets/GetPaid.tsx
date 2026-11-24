@@ -129,7 +129,7 @@ function GetPaidBody({ org, back }: { org: HomeOrganiser; back: 'return' | 'refr
   const { go, busy, note, switchedOff } = useStartOnboarding(org.id);
   const manager = canManage(org.role);
   const { phase, again } = useConnectReturn(back === 'return' && canSetUpPayouts(org.role), state === 'connected', () => query.refetch());
-  if (query.isPending) return <StateCard title="Loading your payment set-up&hellip;" testId="tix-getpaid-stripe-loading">This takes a second.</StateCard>;
+  if (query.isPending && query.fetchStatus !== 'idle') return <StateCard title="Loading your payment set-up&hellip;" testId="tix-getpaid-stripe-loading">This takes a second.</StateCard>;
   if (query.isError || !state) {
     return (
       <StateCard title="We could not read your payment set-up." testId="tix-getpaid-error">
@@ -332,7 +332,7 @@ function StartBody({ org, arrival }: { org: HomeOrganiser; arrival: StartArrival
   const { go, busy, note, switchedOff } = useStartOnboarding(org.id, 'start');
   const manager = canManage(org.role);
   const { phase, again } = useConnectReturn(arrival === 'return' && canSetUpPayouts(org.role), state === 'connected', () => query.refetch());
-  if (query.isPending) return <StateCard title="Loading&hellip;" testId="getpaid-start-loading">This takes a second.</StateCard>;
+  if (query.isPending && query.fetchStatus !== 'idle') return <StateCard title="Loading&hellip;" testId="getpaid-start-loading">This takes a second.</StateCard>;
   if (query.isError || !state) {
     return (
       <StateCard title="We could not read your payment set-up." testId="getpaid-start-error">
