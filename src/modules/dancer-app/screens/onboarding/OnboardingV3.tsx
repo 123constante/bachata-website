@@ -13,9 +13,9 @@ import { resetDancerGate, useMyDancerEdit, usePutMyDancerEdit } from '../../api/
 import { daConfetti } from '../../shell/confetti';
 import { LINK_GHOST, LINK_PRIMARY } from '../blocks';
 import { firstRequiredStage, type RequiredStage } from './model';
-import { bandForYearV3, celebratesOnLeave, resumeStep, stepsFor, yearForBandV3, type StepV3, type YearBandV3 } from './modelV3';
-import { CityCard, NameCard, RoleCard } from './steps';
-import { RolesCardV3, StylesCardV3, YearsCardV3 } from './stepsV3';
+import { bandForYearV3, celebratesOnLeave, partnerDelta, partnerDraftFrom, resumeStep, stepsFor, yearForBandV3, type PartnerDraftV3, type StepV3, type YearBandV3 } from './modelV3';
+import { CityCard, NameCard, RoleCard, photoHandoff } from './steps';
+import { PartnerCardV3, PartnerSheetV3, PhotoCardV3, RolesCardV3, StylesCardV3, YearsCardV3 } from './stepsV3';
 import { PrimaryButton, WRAP } from './ui';
 
 /** Same 3 lines as OnboardingScreen's leaveFor (copied, not exported: the old file stays untouched). */
@@ -26,6 +26,19 @@ const leaveFor = (qc: QueryClient, navigate: NavigateFunction, end: string) => {
 
 /** The sign-up questions asked before the code: the existing cards, unchanged. */
 const PRE_STAGES: readonly RequiredStage[] = ['name', 'city', 'role'];
+
+/** Set when the photo tile hands off, so coming back lands on the photo step (with the photo shown), not Home. */
+const PHOTO_FLAG = 'da-onboarding-v3-photo';
+const flag = (op: 'get' | 'set' | 'clear'): boolean => {
+  try {
+    if (op === 'set') window.sessionStorage.setItem(PHOTO_FLAG, '1');
+    else if (op === 'clear') window.sessionStorage.removeItem(PHOTO_FLAG);
+    else return window.sessionStorage.getItem(PHOTO_FLAG) === '1';
+  } catch {
+    /* storage can be blocked: the resume rule still works from server data */
+  }
+  return false;
+};
 
 const Progress = ({ total, position }: { total: number; position: number }) =>
   position >= total ? null : (
@@ -48,6 +61,8 @@ const OnboardingV3 = () => {
   const [roles, setRoles] = useState<BuyerRole[]>([]);
   const [styles, setStyles] = useState<string[]>([]);
   const [band, setBand] = useState<YearBandV3 | null>(null);
+  const [partner, setPartner] = useState<PartnerDraftV3>({ answer: null, kinds: [], role: null, years: null, details: '' });
+  const [sheet, setSheet] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [leaving, setLeaving] = useState(false);
@@ -56,10 +71,12 @@ const OnboardingV3 = () => {
 
   // Decide the starting screen ONCE, from the first server shape with the sign-up questions answered.
   if (profile && !pre && step === null && !leaving) {
-    const start = resumeStep(profile);
-    // s2b replaces: partner / photo / done all end the flow here until those screens exist.
-    if (start === 'roles' || start === 'styles' || start === 'years') {
+    const resumed = resumeStep(profile);
+    // Back from the photo screen with a photo: stay on the photo step (the person pressed Continue next).
+    const start = resumed === 'done' && flag('get') ? 'photo' : resumed;
+    if (start !== 'done') {
       setStep(start);
+      setPartner(partnerDraftFrom(profile));
       setRoles(profile.buyer_roles.length > 0 ? profile.buyer_roles : ['dancer']);
       setStyles(profile.favorite_styles);
       setBand(bandForYearV3(profile.dance_started_year));
@@ -68,6 +85,7 @@ const OnboardingV3 = () => {
     }
   }
   useEffect(() => {
+    if (leaving) flag('clear');
     if (leaving) leaveFor(qc, navigate, end);
   }, [leaving, qc, navigate, end]);
   if (leaving) return null;
@@ -123,8 +141,8 @@ const OnboardingV3 = () => {
   const prev = step && position > 0 ? list[position - 1] : null;
   const nextAfter = (s: StepV3): StepV3 | 'end' => {
     const n = list[list.indexOf(s) + 1];
-    // s2b replaces: only roles, styles and years exist in this slice; after years the flow ends.
-    return n === 'styles' || n === 'years' ? n : 'end';
+    // s3 inserts bio: until then the flow ends after photo.
+    return n && n !== 'bio' ? n : 'end';
   };
   const toggleRole = (r: BuyerRole) => setRoles((p) => (p.includes(r) ? p.filter((x) => x !== r) : [...p, r]));
   const toggleStyle = (s: string) => setStyles((p) => (p.includes(s) ? p.filter((x) => x !== s) : [...p, s]));
@@ -190,7 +208,30 @@ const OnboardingV3 = () => {
                 }
               />
             ) : null}
+            {step === 'partner' ? (
+              <PartnerCardV3
+                {...card}
+                draft={partner}
+                onAnswer={(a) => {
+                  setPartner((d) => ({ ...d, answer: a }));
+                  setSheet(a === 'yes');
+                }}
+                onContinue={() => void run(() => saveDelta(partnerDelta(partner)), 'partner', nextAfter('partner'))}
+              />
+            ) : null}
+            {step === 'photo' ? (
+              <PhotoCardV3
+                {...card}
+                photoUrl={profile.avatar_url}
+                onPickPhoto={() => {
+                  flag('set');
+                  navigate(photoHandoff(params.get(RETURN_TO_PARAM)));
+                }}
+                onContinue={() => void run(() => Promise.resolve(profile), 'photo', nextAfter('photo'))}
+              />
+            ) : null}
           </Card>
+          {step === 'partner' && sheet ? <PartnerSheetV3 draft={partner} onChange={setPartner} onClose={() => setSheet(false)} /> : null}
         </>
       )}
     </section>
