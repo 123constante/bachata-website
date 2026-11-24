@@ -11,7 +11,7 @@ import { useSaveNow } from './saveNow';
 import { NightCard } from './NightCard';
 import { DatesSheet } from './DatesSheet';
 import { LinkSheet } from './PaySheets';
-import { cancelCommand, upsertCommand, cancelOneOffCommand, uncancelCommand, type OwnerCommand } from '../../shared/seriesCommands';
+import { addDateCommand, cancelCommand, upsertCommand, cancelOneOffCommand, uncancelCommand, type OwnerCommand } from '../../shared/seriesCommands';
 import { V2 } from './copy';
 import type { WriteStep } from './editorModel';
 import { EveryBody } from './EveryBody';
@@ -104,6 +104,10 @@ export function EditorV2({ ws }: { ws: EventWorkspace }) {
   const ref = publicEventRefOf(ws.series);
   const shareLink = picked && ref && typeof window !== 'undefined'
     ? `${window.location.origin}/event/${encodeURIComponent(ref)}${weekly ? `?occurrenceId=${picked.id}` : ''}` : null;
+  const addDate = (date: string) => {
+    const step: WriteStep = { part: V2.addADate, target: 'series', id: ws.series.id, version: ws.series.version, command: addDateCommand(date), order: 1 };
+    return saveNow([step], [], V2.addDateSaved, { noUndo: true });
+  };
   const bringBack = () => saveNow([nightStep(picked!, uncancelCommand(), false)], [], V2.broughtBackToast(title), { noUndo: true });
 
   return (
@@ -136,6 +140,14 @@ export function EditorV2({ ws }: { ws: EventWorkspace }) {
       )}
       <h1 className="ev2-title" data-testid="ev2-title">{title}</h1>
       {weekly && <p className="ev2-scope" data-testid="ev2-scope">{scope}</p>}
+      {!weekly && ws.dates.length === 0 && (
+        <div className="card">
+          <button type="button" className="row" data-testid="ev2-add-date" onClick={() => setDatesOpen(true)}>
+            <span><b>{V2.addADate}</b></span>
+            <span className="chev">&rsaquo;</span>
+          </button>
+        </div>
+      )}
       <div data-ev2-slot={every ? 'every' : 'night'}>
         {!every && picked && (
           <NightCard soldCount={ticketsSold} onOpenTickets={goTickets} onChangeLink={() => { setLinkError(null); setLinkOpen(true); }} ws={ws} date={picked} busy={busy} onCancelNight={cancelNight} onBringBack={bringBack} onSave={saveNow} onBack={(step, before, label) => saveNow([step], [before], label)} />
@@ -149,7 +161,7 @@ export function EditorV2({ ws }: { ws: EventWorkspace }) {
         {every && <EveryBody onOpenTickets={openTickets} ws={ws} day={day} saveNow={saveNow} busy={busy} />}
       </div>
       {linkOpen && <LinkSheet link={ws.series.default_ticket_url ?? ''} busy={busy} error={linkError} onDone={(u) => { void saveLink(u); }} onClose={() => setLinkOpen(false)} />}
-      <DatesSheet open={datesOpen} dates={coming} seriesStatus={ws.series.lifecycle_status} onPick={pickFromSheet} onClose={() => setDatesOpen(false)} />
+      <DatesSheet open={datesOpen} dates={coming} seriesStatus={ws.series.lifecycle_status} onPick={pickFromSheet} onClose={() => setDatesOpen(false)} onAdd={addDate} minDate={today} />
       <V2Toast toast={plain ?? toast} onDone={(q) => { setPlain(null); onToastDone(q); }} />
     </div>
   );
