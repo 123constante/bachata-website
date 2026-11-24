@@ -10,7 +10,7 @@ import { StatusSheet, type Send } from '../screens/StatusSheet';
 import { useToast } from '../screens/Toast';
 
 export const DRAFT_PILL = 'Draft';
-export const DRAFT_NOTE = 'Not live yet. Dancers can’t see this event.';
+export const DRAFT_NOTE = 'Not live yet. Dancers can\u2019t see this event.';
 export const COVER_REASON = 'Add a cover photo in Name and details.';
 export const PUT_LIVE = 'Put it live';
 
@@ -43,7 +43,7 @@ export function GoLiveBar({ ws }: { ws: EventWorkspace }) {
   const reason = ready ? null
     : check.isError ? 'Could not check what is left. Try again.'
     : check.data ? (firstGoLiveReason(check.data.eventMissing) ?? 'Finish your profile before it can go live.')
-    : 'Checking what is left…';
+    : 'Checking what is left\u2026';
   return (
     <>
       <div data-testid="golive-bar" style={{ position: 'sticky', bottom: 'calc(var(--tabbar-h, 64px) + env(safe-area-inset-bottom, 0px))', zIndex: 5, background: '#FFFFFF', borderTop: '1px solid #E9E9E9', padding: '8px 12px' }}>
