@@ -190,7 +190,7 @@ export function useCreateSave({ draft, cover, organiser, today, onCreated }: {
       let raffleFailed = false;
       if (draft.raffle && !raffleSent.current) {
         raffleSent.current = true;
-        try { await setRaffleSeries(seriesId, true); } catch { raffleFailed = true; }
+        try { if (!(await setRaffleSeries(seriesId, true))) raffleFailed = true; } catch { raffleFailed = true; }
       }
       forgetStoredDraft();
       refresh();
