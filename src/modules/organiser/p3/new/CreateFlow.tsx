@@ -11,10 +11,11 @@ import { P3Link, RetryButton, StateCard } from '../screens/parts';
 import { P3_PATHS, p3StartReview } from '../shell/paths';
 import { P3_TICKET_PATHS } from '../tickets/paths';
 import { useStripe } from '../tickets/data';
+import { canSetUpPayouts } from '../../tickets/ticketModel';
 import {
   COPY, KINDS, RESULT_COPY, addChosenDate, afterKind, backOf, blankCreate, buildableKind, chosenDates, descriptionLine, draftBlock, isUntouched,
   leaveSheetNeeded, liveBlock, notSavedLine, parseAt, parseStoredDraft, priceLine, removeChosenDate, repeatLine, rowProblems, sessionsLine, whenLine, withFirstDate,
-  DRAFT_STORE_KEY, type CreateDraft, type CreateKind, type KindInfo,
+  DRAFT_STORE_KEY, NAME_MAX, type CreateDraft, type CreateKind, type KindInfo,
 } from './model';
 import { LANDED_PARAM, forgetStoredDraft, useCreateSave } from './useCreateSave';
 import { SessionsSheetLook } from './SessionsSheetLook';
@@ -353,9 +354,9 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
       <div className="p3-card p3-stack-s">
         <label className="p3-field" htmlFor="p3-new-name">Name</label>
         {mark('name')}
-        <input id="p3-new-name" className="p3-in" value={d.name} maxLength={140} disabled={busy} placeholder="For example Friday Bachata at The Loft"
+        <input id="p3-new-name" className="p3-in" value={d.name} maxLength={NAME_MAX} disabled={busy} placeholder="For example Friday Bachata at The Loft"
           onChange={(e) => set({ name: e.target.value })} data-testid="p3-new-name" />
-        {problems.name ? <p className="p3-error" data-testid="p3-new-name-problem">{problems.name}</p> : <p className="p3-note">Up to 120 letters. Needed to save.</p>}
+        {problems.name ? <p className="p3-error" data-testid="p3-new-name-problem">{problems.name}</p> : <p className="p3-note">Up to {NAME_MAX} letters. Needed to save.</p>}
       </div>
 
       <LookCard label="WHEN" testId="p3-look-when">
@@ -425,9 +426,9 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
       <div className="p3-card p3-stack-s">
         <label className="p3-field" htmlFor="p3-new-name">Name</label>
         {mark('name')}
-        <input id="p3-new-name" className="p3-in" value={d.name} maxLength={140} disabled={busy} placeholder="For example Friday Bachata at The Loft"
+        <input id="p3-new-name" className="p3-in" value={d.name} maxLength={NAME_MAX} disabled={busy} placeholder="For example Friday Bachata at The Loft"
           onChange={(e) => set({ name: e.target.value })} data-testid="p3-new-name" />
-        {problems.name ? <p className="p3-error" data-testid="p3-new-name-problem">{problems.name}</p> : <p className="p3-note">Up to 120 letters. Needed to save.</p>}
+        {problems.name ? <p className="p3-error" data-testid="p3-new-name-problem">{problems.name}</p> : <p className="p3-note">Up to {NAME_MAX} letters. Needed to save.</p>}
       </div>
 
       <div className="p3-card p3-tight" data-testid="p3-new-rows">
@@ -513,7 +514,7 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
       {sheet === 'sessions' && !CREATE_LOOK && <SessionsSheet d={d} today={today} teachers={CREATE_LOOK && flags.organiserPeoplePicker && flags.organiserP3} onChange={(s) => set({ sessions: s })} onClose={() => setSheet(null)} />}
       {sheet === 'description' && CREATE_LOOK && <DescriptionSheet value={d.description} onSave={(v) => { set({ description: v }); setSheet(null); }} onClose={() => setSheet(null)} />}
       {sheet === 'price' && <PriceSheet d={d} today={today} onChange={set} onClose={() => setSheet(null)}
-        stripe={CREATE_LOOK && flags.stripeNudgeV2 ? { connected: stripeState === 'connected', busy, why: draftWhy, onConnect: () => { setSheet(null); void save.run(false, P3_TICKET_PATHS.getPaid(organiser.id)); } } : undefined} />}
+        stripe={CREATE_LOOK && flags.stripeNudgeV2 && canSetUpPayouts(organiser.role) && stripeState !== null ? { connected: stripeState === 'connected', busy, why: draftWhy, onConnect: () => { setSheet(null); void save.run(false, P3_TICKET_PATHS.getPaid(organiser.id)); } } : undefined} />}
       {sheet === 'leave' && CREATE_LOOK && (
         <Sheet title={COPY.leaveLookTitle} onClose={keepEditing}>
           <p className="p3-note">{COPY.leaveLookBody}</p>

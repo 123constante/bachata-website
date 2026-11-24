@@ -40,6 +40,10 @@ describe('create price sheet, Stripe first', () => {
     expect((screen.getByTestId('p3-new-stripe-connect') as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByTestId('p3-new-stripe-why').textContent).toBe('Add a name first.');
   });
+  it('connect button says Connect Stripe (no dead-end price promise)', () => {
+    mount(draft(), { connected: false, busy: false, why: null, onConnect: vi.fn() });
+    expect(screen.getByTestId('p3-new-stripe-connect').textContent).toBe('Connect Stripe');
+  });
   it('connected: no Connect button', () => {
     mount(draft(), { connected: true, busy: false, why: null, onConnect: vi.fn() });
     expect(screen.getByText(STRIPE_FIRST.connectedBody)).toBeTruthy();

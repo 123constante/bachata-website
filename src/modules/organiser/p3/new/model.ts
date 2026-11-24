@@ -282,7 +282,7 @@ export function liveBlock(d: CreateDraft, today: string, hasCover: boolean, a1 =
   if (!a1) return COPY.draftOnly;
   const missing = missingForLive(d, hasCover);
   const tail = draftBlock(d, today) ? '' : ' Save draft works now.';
-  if (missing.length === 1 && missing[0] === 'a flyer') return `A flyer is required to continue.${tail}`;
+  if (missing.length === 1 && missing[0] === 'a flyer') return `A flyer is needed to go live.${tail}`;
   if (missing.length) return `Go live needs ${list(missing)}.${tail}`;
   return draftBlock(d, today);
 }

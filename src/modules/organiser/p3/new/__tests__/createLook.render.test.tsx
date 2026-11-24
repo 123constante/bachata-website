@@ -129,6 +129,7 @@ describe('create look (flag on): the form step keeps everything', () => {
     for (const label of ['WHEN', 'CLASSES AND PARTIES', 'WHERE', 'PRICE', 'DESCRIPTION']) expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     expect(screen.getByText('No description')).toBeTruthy();
     expect(screen.getByText('Up to 120 letters. Needed to save.')).toBeTruthy();
+    expect((screen.getByTestId('p3-new-name') as HTMLInputElement).maxLength).toBe(120);
     expect(screen.getAllByText(/Save draft/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Go live/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Go live needs/)).toBeTruthy();
