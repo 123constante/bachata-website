@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { flags } from '@/lib/featureFlags';
 import { supportLinks } from '../../../shared/support';
 import type { Night } from '../eventsModel';
-import { fetchRaffleNights, raffleNightsQueryKey } from './raffleApi';
+import { useQueryClient } from '@tanstack/react-query';
+import { fetchRaffleNights, raffleNightsQueryKey, setRaffleSeries } from './raffleApi';
 import { TRACK, chipWord, nightOnDate, stepOf, type RaffleNight, type RaffleRead } from './raffleModel';
 
 const TAP = { minHeight: 44, minWidth: 44 } as const;
@@ -59,6 +60,52 @@ export function RaffleRow({ night, onOpen }: { night: Night; onOpen: () => void 
 /** The series read, shared by the row and the sheet (one query key). */
 export function useRaffleNights(seriesId: string) {
   return useQuery({ queryKey: raffleNightsQueryKey(seriesId), queryFn: () => fetchRaffleNights(seriesId), staleTime: 15_000 });
+}
+
+/** Top card of the Raffle page: one switch for the whole series. Optimistic; reverts with an inline error on failure. */
+export function SeriesSwitchCard({ seriesId }: { seriesId: string }) {
+  const q = useRaffleNights(seriesId);
+  const qc = useQueryClient();
+  const [pending, setPending] = useState<boolean | null>(null);
+  const [error, setError] = useState(false);
+  if (q.isPending || q.isError || q.data.kind === 'refused') return null;
+  const read = q.data.read;
+  const on = pending ?? read.seriesEnabled;
+  const locked = read.adminLocked;
+  const disabled = locked || !read.canEdit || pending !== null;
+  const flip = async () => {
+    if (disabled) return;
+    const next = !on;
+    setPending(next);
+    setError(false);
+    try {
+      if (!(await setRaffleSeries(seriesId, next))) throw new Error('refused');
+      await qc.invalidateQueries({ queryKey: raffleNightsQueryKey(seriesId) });
+    } catch {
+      setError(true);
+    } finally {
+      setPending(null);
+    }
+  };
+  return (
+    <div className="p3-card p3-inset" data-testid="raffle-series-card">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <div className="p3-grow">
+          <strong className="p3-row-t">Raffle</strong>
+          {locked && <span className="p3-tag" data-testid="raffle-series-chip" style={{ marginLeft: 8 }}>Switched off by admin</span>}
+        </div>
+        <button type="button" role="switch" aria-checked={on} aria-label={`Raffle: ${on ? 'On' : 'Off'}`} disabled={disabled} onClick={() => void flip()}
+          data-testid="raffle-series-switch" style={{ ...TAP, display: 'flex', alignItems: 'center', gap: 8, opacity: locked ? 0.5 : 1 }}>
+          <span>Raffle: {on ? 'On' : 'Off'}</span>
+          <span style={{ display: 'block', width: 44, height: 26, borderRadius: 13, position: 'relative', background: on ? 'var(--p3-accent, #7c3aed)' : '#6b7280' }}>
+            <span style={{ position: 'absolute', top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: 10, background: '#fff' }} />
+          </span>
+        </button>
+      </div>
+      {locked && <p className="p3-note" data-testid="raffle-series-locked">Locked. Message us to change this.</p>}
+      {error && <p className="p3-error" role="alert" data-testid="raffle-series-error">Could not change the raffle. Try again.</p>}
+    </div>
+  );
 }
 
 export function rowFor(read: RaffleRead, night: Night): RaffleNight | null {

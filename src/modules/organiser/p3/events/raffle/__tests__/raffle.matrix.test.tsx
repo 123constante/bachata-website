@@ -11,6 +11,7 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: (...a: unkno
 
 import { NightSheet } from '../../EventsView';
 import { RaffleSheet } from '../RaffleSheet';
+import { SeriesSwitchCard } from '../RaffleParts';
 import { chipWord, closesAt, drawnLine, gate, nightOnDate, parseRead, parseSet, stepOf, type RaffleNight } from '../raffleModel';
 import type { Night } from '../../eventsModel';
 
@@ -182,6 +183,36 @@ describe('read failures', () => {
     wrap(<RaffleSheet night={night} onClose={vi.fn()} />);
     expect((await screen.findByTestId('raffle-sheet-error')).textContent).toMatch(/Ask an owner/);
     expect(screen.queryByTestId('raffle-sheet-retry')).toBeNull();
+  });
+});
+
+describe('series switch card', () => {
+  const card = async (over: Record<string, unknown> = {}) => {
+    h.rpc.mockImplementation(async (fn: string) => (fn === 'organiser_raffle_nights_v1' ? { data: read(row(), over), error: null } : { data: { ok: true }, error: null }));
+    wrap(<SeriesSwitchCard seriesId="s1" />);
+    return (await screen.findByTestId('raffle-series-switch')) as HTMLButtonElement;
+  };
+  it('shows Raffle: On and tapping sends organiser_raffle_series_set_v1 with false, then refetches', async () => {
+    const sw = await card();
+    expect(sw.textContent).toMatch(/Raffle: On/);
+    fireEvent.click(sw);
+    await waitFor(() => expect(h.rpc).toHaveBeenCalledWith('organiser_raffle_series_set_v1', { p_series_id: 's1', p_enabled: false }));
+    await waitFor(() => expect(h.rpc.mock.calls.filter((c) => c[0] === 'organiser_raffle_nights_v1').length).toBeGreaterThan(1));
+  });
+  it('failure reverts and says so inline', async () => {
+    const sw = await card();
+    h.rpc.mockImplementation(async (fn: string) => (fn === 'organiser_raffle_nights_v1' ? { data: read(row()), error: null } : { data: null, error: { message: 'x' } }));
+    fireEvent.click(sw);
+    expect((await screen.findByTestId('raffle-series-error')).textContent).toBe('Could not change the raffle. Try again.');
+    expect(screen.getByTestId('raffle-series-switch').textContent).toMatch(/Raffle: On/);
+  });
+  it('locked by admin: greyed, chip, line, not tappable', async () => {
+    const sw = await card({ series_raffle_enabled: false, series_admin_locked: true });
+    expect(sw.disabled).toBe(true);
+    expect(screen.getByTestId('raffle-series-chip').textContent).toBe('Switched off by admin');
+    expect(screen.getByTestId('raffle-series-locked').textContent).toBe('Locked. Message us to change this.');
+    fireEvent.click(sw);
+    expect(h.rpc.mock.calls.some((c) => c[0] === 'organiser_raffle_series_set_v1')).toBe(false);
   });
 });
 

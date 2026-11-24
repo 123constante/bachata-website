@@ -26,6 +26,10 @@ export interface RaffleRead {
   canEdit: boolean;
   /** 'ask an owner' for a contributor, else null. */
   viewOnlyReason: string | null;
+  /** Series-level switch (series_raffle_enabled). */
+  seriesEnabled: boolean;
+  /** The admin has locked the series switch: organisers cannot change it. */
+  adminLocked: boolean;
   nights: RaffleNight[];
 }
 
@@ -68,6 +72,8 @@ export function parseRead(data: unknown): ReadResult {
       seriesId: str(o.series_id) ?? '',
       canEdit: o.can_edit === true,
       viewOnlyReason: str(o.view_only_reason),
+      seriesEnabled: o.series_raffle_enabled === true,
+      adminLocked: o.series_admin_locked === true || o.admin_locked === true,
       nights: o.nights.flatMap((n) => { const p = parseNight(n); return p ? [p] : []; }),
     },
   };

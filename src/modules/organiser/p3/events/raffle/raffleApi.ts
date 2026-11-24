@@ -24,3 +24,10 @@ export async function setRaffleNight(occurrenceId: string, enabled: boolean): Pr
   if (error) throw new Error(error.message);
   return parseSet(data);
 }
+
+/** Switch the raffle on or off for the whole series. Reads like the night write: an error means the answer is unknown. */
+export async function setRaffleSeries(seriesId: string, enabled: boolean): Promise<boolean> {
+  const { data, error } = await rpc('organiser_raffle_series_set_v1', { p_series_id: seriesId, p_enabled: enabled });
+  if (error) throw new Error(error.message);
+  return !!data && typeof data === 'object' && (data as { ok?: unknown }).ok === true;
+}
