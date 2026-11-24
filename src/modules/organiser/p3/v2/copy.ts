@@ -148,6 +148,9 @@ export const V2 = {
   backToUsualFor: (date: string) => `Back to usual for ${date}`,
   allDates: 'All dates',
   allDatesHint: 'Tap a date to see and change that night.',
+  noUpcomingDates: 'No upcoming dates.',
+  addADate: 'Add a date',
+  addDateSaved: 'Date added',
   // rule lines (model)
   endsNextDay: 'Ends the next day',
   lastDatePast: 'The last date must be today or later.',
