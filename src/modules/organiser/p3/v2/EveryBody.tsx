@@ -32,7 +32,8 @@ import { ownerWeeklyRule } from '@/modules/organiser/shared/eventState';
 import { doorPriceOf } from './payMode';
 import { ownerPassesFromStored, lifecycleCommand } from '../../shared/seriesCommands';
 import { endRunCommand, tonightDate } from '../../events/eventModel';
-import { EndCard, type LifeState } from './EndCard';
+import { EndCard, offStatusWord, type LifeState } from './EndCard';
+import { REPEAT_SHAPE_COPY, repeatShape } from '../model/repeat';
 import { DRAFT_PILL, DraftNote, GoLiveBar, isDraftEvent } from './GoLiveBar';
 import { StatusSheet, CancelEventSheetV2, type TodayAnswer } from './StatusSheets';
 import { cancelCommand, uncancelCommand } from '../../shared/seriesCommands';
@@ -87,7 +88,8 @@ export function EveryBody({ ws, day, saveNow, busy, onOpenTickets }: { ws: Event
   const reasonQ = useQuery({ queryKey: dateDetailQueryKey(firstCancelled?.id ?? ''), queryFn: () => fetchDateDetail(firstCancelled!.id), enabled: !!firstCancelled });
   const status = s.lifecycle_status === 'paused' ? 'paused' : s.lifecycle_status === 'ended' ? 'ended' : 'live';
   const draft = isDraftEvent(ws);
-  const pill = draft ? <span className="pill off" data-testid="draft-pill">{DRAFT_PILL}</span> : cancelled ? <span className="pill x">{V2.tagCancelled}</span>
+  const offWord = offStatusWord(s.lifecycle_status);
+  const pill = draft ? <span className="pill off" data-testid="draft-pill">{DRAFT_PILL}</span> : offWord ? <span className="pill off" data-testid="status-pill">{offWord}</span> : cancelled ? <span className="pill x">{V2.tagCancelled}</span>
     : <span className={status === 'live' ? 'pill' : 'pill off'}>{status === 'live' ? V2.statusLive : status === 'paused' ? V2.statusPaused : V2.statusEnded}</span>;
   const flyer = s.default_cover_image_url;
   const hm = (t: string | null | undefined) => (t ? t.slice(0, 5) : '');
@@ -100,7 +102,9 @@ export function EveryBody({ ws, day, saveNow, busy, onOpenTickets }: { ws: Event
   const price = priceLabel({ link, doorPrice: !link && doorPriceOf(s.passes) != null ? String(doorPriceOf(s.passes)) : null, ticketCount: 0, minPrice: prices.length ? Math.min(...prices) : null });
   const name = s.name ?? '';
   const music = (ws.musicStyles ?? []).length ? ws.musicStyles.join(', ') : E.noneYet;
-  const repeats = ws.endedOn ? E.repeatsEnds(day, fullDate(ws.endedOn, londonTodayKey())) : E.repeatsNoEnd(day);
+  const noRule = s.recurrence_rule == null;
+  const repeatsWord = noRule ? (repeatShape({ format: s.format, rule: null, dates: [] }).from === 'once' ? REPEAT_SHAPE_COPY.once : E.repeatsCustom) : null;
+  const repeats = repeatsWord ? repeatsWord : ws.endedOn ? E.repeatsEnds(day, fullDate(ws.endedOn, londonTodayKey())) : E.repeatsNoEnd(day);
   const orgs = orgIds.length === 0 ? E.noneYet : pages.data?.length ? pages.data.map((p) => p.name).join(', ') : E.organisersN(orgIds.length);
 
   const send = async (part: string, payload: Record<string, unknown>, before: Record<string, unknown>) => {
@@ -179,7 +183,7 @@ export function EveryBody({ ws, day, saveNow, busy, onOpenTickets }: { ws: Event
     if (!row.original) return;
     void saveProg(removeSession(progTree, row.key), label).then((ok) => { if (ok) setSheet(null); });
   };
-  const life: LifeState = cancelled ? 'Cancelled' : status === 'paused' ? 'Paused' : status === 'ended' ? 'Ended' : 'Live';
+  const life: LifeState = s.lifecycle_status === 'archived' ? 'Archived' : s.lifecycle_status === 'rejected' ? 'Rejected' : cancelled ? 'Cancelled' : status === 'paused' ? 'Paused' : status === 'ended' ? 'Ended' : 'Live';
   const nightStep = (d: { id: string; version: number }, command: OwnerCommand): WriteStep => ({ part: E.toastCancelled, target: 'occurrence', id: d.id, version: d.version, command, order: 1 });
   /** Cancel the event: one occurrence.cancel per coming night that is not already cancelled; one save, no Undo. */
   const cancelEventDo = async (reason: string) => {
@@ -241,7 +245,7 @@ export function EveryBody({ ws, day, saveNow, busy, onOpenTickets }: { ws: Event
           <div className="fb-list">
             <div className="trow"><b data-testid="every-name">{name}</b>{pill}</div>
             {draft && <DraftNote />}
-            <Fact id="when" label={V2.when} main={E.everyDay(day)} sub={start ? (endAt ? E.timeRange(start, endAt) : start) : undefined} onOpen={() => { setProgProblem(null); setSheet('prog'); }} />
+            <Fact id="when" label={V2.when} main={repeatsWord ?? E.everyDay(day)} sub={start ? (endAt ? E.timeRange(start, endAt) : start) : undefined} onOpen={() => { setProgProblem(null); setSheet('prog'); }} />
             <Fact id="where" label={V2.where} main={venue?.name ?? '\u2014'} sub={venue?.neighbourhood ?? venue?.city_name ?? undefined} busy={busy} onOpen={() => setSheet('where')} />
             <Fact id="price" label={V2.price} main={price.m} sub={price.s || undefined} onOpen={onOpenTickets} />
           </div>

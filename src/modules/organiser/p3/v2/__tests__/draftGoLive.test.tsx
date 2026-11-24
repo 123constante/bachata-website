@@ -51,12 +51,18 @@ describe('draft go-live', () => {
     expect(screen.queryByTestId('oneoff-end')).toBeNull();
     expect(screen.getByTestId('golive-bar')).toBeTruthy();
   });
-  it.each(['live', 'paused', 'ended', 'archived', 'rejected', 'pending', 'hidden', 'cancelled'])('%s renders as today (no draft pieces, status card kept)', (life) => {
+  it.each(['live', 'paused', 'ended', 'pending', 'hidden', 'cancelled'])('%s renders as today (no draft pieces, status card kept)', (life) => {
     every(life);
     expect(screen.queryByTestId('draft-pill')).toBeNull();
     expect(screen.queryByTestId('draft-note')).toBeNull();
     expect(screen.queryByTestId('golive-bar')).toBeNull();
     expect(screen.getByTestId('every-end')).toBeTruthy();
+  });
+  it.each(['archived', 'rejected'])('%s renders no draft pieces and no status card (nothing on it works)', (life) => {
+    every(life);
+    expect(screen.queryByTestId('draft-pill')).toBeNull();
+    expect(screen.queryByTestId('golive-bar')).toBeNull();
+    expect(screen.queryByTestId('every-end')).toBeNull();
   });
   it('live keeps pill and Pause / End / Cancel', () => {
     every('live');

@@ -2,7 +2,11 @@ import type { CSSProperties, ReactNode } from 'react';
 import { V2 } from './copy';
 
 const E = V2.every;
-export type LifeState = 'Live' | 'Paused' | 'Ended' | 'Cancelled';
+export type LifeState = 'Live' | 'Paused' | 'Ended' | 'Cancelled' | 'Archived' | 'Rejected';
+/** The grey pill word for an archived or rejected event; null for every other state. */
+export function offStatusWord(lifecycle: string | null | undefined): string | null {
+  return lifecycle === 'archived' ? V2.statusArchived : lifecycle === 'rejected' ? V2.statusNotApproved : null;
+}
 const RED = '#B42318';
 const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, width: '100%', minHeight: 52, padding: '8px 16px', background: 'none', border: 0, borderTop: '1px solid #E9E9E9', textAlign: 'left', font: 'inherit', cursor: 'pointer' };
 
@@ -32,8 +36,10 @@ export function EndCard({ status, endDate, reason, onLive, onPause, onEnd, onCan
   oneOff?: boolean;
 }) {
   const rows: { id: string; node: (first: boolean) => ReactNode }[] = [];
+  // Archived / rejected: none of Pause, End, Cancel or Make it live works, so the card shows nothing.
+  if (status === 'Archived' || status === 'Rejected') return null;
   if (status !== 'Live') rows.push({ id: 'live', node: (f) => <Slim first={f} id="live" title={E.liveAgain} sub={E.liveAgainSub(status)} onTap={onLive} /> });
-  if (status === 'Live' || status === 'Ended') rows.push({ id: 'pause', node: (f) => <Slim first={f} id="pause" title={E.pauseRow} sub={E.pauseRowSub} onTap={onPause} /> });
+  if (status === 'Live') rows.push({ id: 'pause', node: (f) => <Slim first={f} id="pause" title={E.pauseRow} sub={E.pauseRowSub} onTap={onPause} /> });
   if (status === 'Live' || status === 'Paused') {
     rows.push({ id: 'end', node: (f) => <Slim first={f} id="end" title={E.endRow} sub={oneOff ? V2.oneOff.endSub : endDate && status === 'Live' ? E.endSubDate(endDate) : E.endSubNone} onTap={onEnd} /> });
   }
