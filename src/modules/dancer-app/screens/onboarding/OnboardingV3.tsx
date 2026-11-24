@@ -15,7 +15,7 @@ import { LINK_GHOST, LINK_PRIMARY } from '../blocks';
 import { firstRequiredStage, type RequiredStage } from './model';
 import { bandForYearV3, celebratesOnLeave, partnerDelta, partnerDraftFrom, resumeStep, stepsFor, yearForBandV3, type PartnerDraftV3, type StepV3, type YearBandV3 } from './modelV3';
 import { CityCard, NameCard, RoleCard, photoHandoff } from './steps';
-import { bioLinkResult } from './bioModel';
+import { bioLinkResult, linkPrefill } from './bioModel';
 import { BioLinksCardV3, PartnerCardV3, PartnerSheetV3, PhotoCardV3, RolesCardV3, StylesCardV3, YearsCardV3 } from './stepsV3';
 import { PrimaryButton, WRAP } from './ui';
 
@@ -86,6 +86,7 @@ const OnboardingV3 = () => {
       setStyles(profile.favorite_styles);
       setBand(bandForYearV3(profile.dance_started_year));
       setBio(profile.bio ?? '');
+      setLink(linkPrefill(profile));
     } else {
       setLeaving(true);
     }

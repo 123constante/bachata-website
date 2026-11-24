@@ -120,3 +120,27 @@ describe('bio screen in the onboarding sequence', () => {
     await waitFor(() => expect(daConfetti).toHaveBeenCalled());
   });
 });
+
+describe('link box prefill (owner 2026-11-24: a saved link must show, Finish must not overwrite it)', () => {
+  it('shows the saved Instagram, and Finish on an untouched box sends nothing for the link', async () => {
+    const { backend } = fromHome({ instagram: 'ana_dances' });
+    await screen.findByTestId('onboarding-bio-input');
+    expect(linkBox().value).toBe('ana_dances');
+    fireEvent.change(bioBox(), { target: { value: 'Hello' } });
+    fireEvent.click(screen.getByTestId('onboarding-finish'));
+    await waitFor(() => expect(saves(backend)).toHaveLength(1));
+    expect(saves(backend)[0]).toEqual(expect.not.objectContaining({ instagram: expect.anything() }));
+  });
+
+  it('shows the saved website when there is no Instagram', async () => {
+    fromHome({ instagram: null, website_url: 'https://ana.com' });
+    await screen.findByTestId('onboarding-bio-input');
+    expect(linkBox().value).toBe('https://ana.com');
+  });
+
+  it('an empty profile still shows an empty box', async () => {
+    fromHome({ instagram: null, website_url: null });
+    await screen.findByTestId('onboarding-bio-input');
+    expect(linkBox().value).toBe('');
+  });
+});
