@@ -111,6 +111,8 @@ export const V2 = {
   // cancel / status
   cancelBody: 'Dancers see Cancelled and your reason.',
   cancelNow: 'This takes effect straight away.',
+  soldCheckError: 'Could not check ticket sales. Try again.',
+  soldCheckRetry: 'Try again',
   saveFirst: 'Save or undo your changes first.',
   pauseLine: 'Dates stop showing until you make it live again.',
   endLine: 'No new dates after today. Upcoming dates show Ended.',
