@@ -79,3 +79,63 @@ export const resumeStep = (p: ResumeProfile): StepV3 | 'done' => {
   if (p.avatar_url === null) return 'photo';
   return 'done';
 };
+
+/** Partner sheet vocabulary: prototype label -> the value the server stores (client-only map, no DB change). */
+export const PARTNER_KINDS_V3 = [
+  { label: 'Social dancing', value: 'Social dancing' },
+  { label: 'Classes', value: 'Practice' },
+  { label: 'Performance', value: 'Performance' },
+  { label: 'Competition', value: 'Competition' },
+] as const;
+export const PARTNER_ROLES_V3 = [
+  { label: 'Leader', value: 'Leader' },
+  { label: 'Follower', value: 'Follower' },
+  { label: 'Either', value: 'Lead and Follow' },
+] as const;
+export const PARTNER_YEARS_V3 = [
+  { id: '0-2', label: '0-2', min: 0, max: 2 as number | null },
+  { id: '2-5', label: '2-5', min: 2, max: 5 as number | null },
+  { id: '5+', label: '5+', min: 5, max: null as number | null },
+  { id: 'any', label: 'Any', min: null as number | null, max: null as number | null },
+] as const;
+export type PartnerYearsId = (typeof PARTNER_YEARS_V3)[number]['id'];
+export const PARTNER_DETAILS_MAX = 300;
+
+/** The partner screen's answers (stored values for kinds and role). */
+export type PartnerDraftV3 = {
+  answer: 'yes' | 'no' | null;
+  kinds: string[];
+  role: string | null;
+  years: PartnerYearsId | null;
+  details: string;
+};
+
+type PartnerProfile = Pick<MyDancerEdit, 'looking_for_partner' | 'partner_search_role' | 'partner_years_min' | 'partner_years_max' | 'partner_details' | 'partner_practice_goals'>;
+
+const yearsIdFor = (min: number | null | undefined, max: number | null | undefined): PartnerYearsId | null => {
+  if (min === null || min === undefined) return null;
+  return PARTNER_YEARS_V3.find((y) => y.min === min && y.max === (max ?? null))?.id ?? null;
+};
+
+/** Draft from SERVER values (resume). */
+export const partnerDraftFrom = (p: PartnerProfile): PartnerDraftV3 => ({
+  answer: p.looking_for_partner === true ? 'yes' : p.looking_for_partner === false ? 'no' : null,
+  kinds: [...(p.partner_practice_goals ?? [])],
+  role: p.partner_search_role ?? null,
+  years: yearsIdFor(p.partner_years_min, p.partner_years_max),
+  details: p.partner_details ?? '',
+});
+
+/** Keys to send: "No" sends only looking_for_partner:false. The caller diffs against the server shape. */
+export const partnerDelta = (d: PartnerDraftV3): Pick<MyDancerEdit, 'looking_for_partner'> & Partial<PartnerProfile> => {
+  if (d.answer !== 'yes') return { looking_for_partner: false };
+  const y = PARTNER_YEARS_V3.find((x) => x.id === d.years);
+  return {
+    looking_for_partner: true,
+    partner_search_role: d.role,
+    partner_years_min: y ? y.min : null,
+    partner_years_max: y ? y.max : null,
+    partner_practice_goals: d.kinds,
+    partner_details: d.details.trim() === '' ? null : d.details.trim().slice(0, PARTNER_DETAILS_MAX),
+  };
+};

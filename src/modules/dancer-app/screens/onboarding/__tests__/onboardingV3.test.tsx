@@ -132,13 +132,14 @@ describe('years screen', () => {
     expect(segs()).toEqual(['true', 'true', 'true', 'false', 'false', 'false']);
   });
 
-  it('saves dance_started_year from the band, celebrates, and ends on Home', async () => {
+  it('saves dance_started_year from the band, celebrates, and goes to the partner screen', async () => {
     const { backend, location } = at();
     await step('years');
     fireEvent.click(screen.getByTestId('onboarding-years-three-five'));
     expect(screen.getByTestId('onboarding-years-three-five-tick')).toBeTruthy();
     fireEvent.click(cont());
-    await waitFor(() => expect(location()).toBe('/app/home'));
+    await step('partner');
+    expect(location()).toBe('/app/welcome');
     expect(profileSaves(backend)).toEqual([{ dance_started_year: yearForBandV3('three-five') }]);
     expect(daConfetti).toHaveBeenCalledTimes(1);
   });
