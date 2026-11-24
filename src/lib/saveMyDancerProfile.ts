@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 import { reportClientErrorLazy } from "@/lib/reportClientErrorLazy";
+import { LEVEL_RETIRED_ENABLED } from "@/lib/levelRetiredFlag";
 
 /**
  * The ONE self-serve write path for a signed-in user's own dancer profile.
@@ -91,6 +92,9 @@ export class MissingDancerProfileError extends Error {
 export type DancerDetailsInput = {
   partner_search_role?: string | null;
   partner_search_level?: string[];
+  /** Preferred-partner years range; both null = Any. */
+  partner_years_min?: number | null;
+  partner_years_max?: number | null;
   partner_practice_goals?: string[];
   /**
    * A TEXT column, so send TEXT. Passing the `{ text: ... }` object that
@@ -163,6 +167,8 @@ const IDENTITY_KEYS = [
 const DETAIL_KEYS = [
   "partner_search_role",
   "partner_search_level",
+  "partner_years_min",
+  "partner_years_max",
   "partner_practice_goals",
   "partner_details",
   "looking_for_partner",
@@ -180,6 +186,7 @@ const DETAIL_KEYS = [
  */
 export const buildDancerProfilePayload = (
   input: SaveMyDancerProfileInput,
+  levelRetired: boolean = LEVEL_RETIRED_ENABLED,
 ): Record<string, unknown> => {
   const payload: Record<string, unknown> = {};
 
@@ -196,6 +203,8 @@ export const buildDancerProfilePayload = (
   if (input.dancer_details) {
     const details: Record<string, unknown> = {};
     for (const key of DETAIL_KEYS) {
+      // Level retired: the level is never sent, whoever asks.
+      if (levelRetired && key === "partner_search_level") continue;
       const value = input.dancer_details[key];
       if (value === undefined) continue;
       details[key] = value;

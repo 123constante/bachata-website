@@ -4,6 +4,7 @@ import {
   type SaveMyDancerProfileInput,
 } from "@/lib/saveMyDancerProfile";
 import { serializePhotoValue } from "@/lib/utils";
+import { LEVEL_RETIRED_ENABLED } from "@/lib/levelRetiredFlag";
 
 /**
  * Pure form -> `save_my_dancer_profile_v1` payload mapping for the two complex
@@ -160,6 +161,9 @@ export type DancerEditorForm = {
   favorite_songs: string[];
   partner_search_role: string;
   partner_search_level: string[];
+  /** Preferred-partner years range (level retired). Both null = "Any" / unset. */
+  partner_years_min?: number | null;
+  partner_years_max?: number | null;
   partner_practice_goals: string[];
   partner_details: string;
   favorite_styles: string[];
@@ -186,6 +190,8 @@ export const buildDashboardSectionPayload = (
      * a failed read left in the form, and never re-sent unchanged.
      */
     loadedWhatsapp?: string | null;
+    /** Test seam; defaults to VITE_ENABLE_LEVEL_RETIRED. */
+    levelRetired?: boolean;
   } = {},
 ): SaveMyDancerProfileInput => {
   if (section === "identity") {
@@ -221,7 +227,13 @@ export const buildDashboardSectionPayload = (
         // "" clears; see the header. Deliberately NOT narrowed to the two badge
         // values, so a legacy "Both" survives instead of being wiped on save.
         partner_search_role: form.partner_search_role,
-        partner_search_level: form.partner_search_level,
+        // Level retired: send the years range, never the level.
+        ...((ctx.levelRetired ?? LEVEL_RETIRED_ENABLED)
+          ? {
+              partner_years_min: form.partner_years_min ?? null,
+              partner_years_max: form.partner_years_max ?? null,
+            }
+          : { partner_search_level: form.partner_search_level }),
         partner_practice_goals: form.partner_practice_goals,
         // TEXT column: the text itself, never serializePartnerDetails' object.
         partner_details: form.partner_details,
@@ -285,13 +297,14 @@ const linesOf = (value: string | undefined): string[] =>
  */
 export const buildCreateProfilePayload = (
   values: CreateProfileFormValues,
-  ctx: { firstName: string; surname: string; cityId: string; currentYear: number },
+  ctx: { firstName: string; surname: string; cityId: string; currentYear: number; levelRetired?: boolean },
 ): SaveMyDancerProfileInput => {
   // An explicit start date always wins; the experience level is the fallback for
   // the user who only answered the quick question.
+  const retired = ctx.levelRetired ?? LEVEL_RETIRED_ENABLED;
   const startYear =
     danceStartedYearFromDateString(values.dancing_start_date) ??
-    danceStartedYearFromExperienceLevel(values.experience_level, ctx.currentYear);
+    (retired ? null : danceStartedYearFromExperienceLevel(values.experience_level, ctx.currentYear));
 
   return {
     first_name: ctx.firstName,
@@ -310,7 +323,7 @@ export const buildCreateProfilePayload = (
       achievements: linesOf(values.achievements_text),
       looking_for_partner: values.looking_for_partner || false,
       partner_search_role: values.partner_search_role || "",
-      partner_search_level: values.partner_search_level || [],
+      ...(retired ? {} : { partner_search_level: values.partner_search_level || [] }),
       partner_practice_goals: values.partner_practice_goals || [],
       partner_details: values.partner_details || "",
       dance_started_year: startYear,
