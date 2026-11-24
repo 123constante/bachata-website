@@ -231,3 +231,60 @@ export const PhotoCardV3 = ({ photoUrl, onPickPhoto, busy, error, onContinue }: 
     {!photoUrl ? <Reason>Add a photo to continue.</Reason> : null}
   </>
 );
+
+const BIO_PLACEHOLDER = 'A short bio (optional)';
+const LINK_PLACEHOLDER = 'Instagram or other link (optional)';
+const BIO_INPUT = 'w-full rounded-[var(--r-ctl,12px)] border border-[var(--line-strong)] bg-[var(--card2)] px-[14px] text-[16px] text-[var(--fg)]';
+
+/** Prototype v8 i==12: optional bio + one link box. "Skip for now" saves nothing. */
+export const BioLinksCardV3 = ({
+  bio,
+  link,
+  onBio,
+  onLink,
+  busy,
+  error,
+  onContinue,
+  onSkip,
+}: CardV3 & { bio: string; link: string; onBio: (v: string) => void; onLink: (v: string) => void; onSkip: () => void }) => (
+  <>
+    <Question>Tell us about you</Question>
+    <Sub>Optional. Skip any time.</Sub>
+    <textarea
+      aria-label={BIO_PLACEHOLDER}
+      placeholder={BIO_PLACEHOLDER}
+      rows={3}
+      value={bio}
+      onChange={(e) => onBio(e.target.value)}
+      data-testid="onboarding-bio-input"
+      className={`${BIO_INPUT} mb-[12px] resize-none py-[12px]`}
+    />
+    <input
+      type="text"
+      inputMode="url"
+      autoCapitalize="none"
+      autoCorrect="off"
+      aria-label={LINK_PLACEHOLDER}
+      placeholder={LINK_PLACEHOLDER}
+      value={link}
+      onChange={(e) => onLink(e.target.value)}
+      data-testid="onboarding-link-input"
+      className={`${BIO_INPUT} min-h-[48px]`}
+    />
+    <ErrorLine message={error} />
+    <div className="mt-[12px] grid gap-[8px]">
+      <PrimaryButton busy={busy} onClick={onContinue} testId="onboarding-finish">
+        Finish
+      </PrimaryButton>
+      <button
+        type="button"
+        data-testid="onboarding-skip"
+        onClick={onSkip}
+        disabled={busy}
+        className="min-h-[44px] cursor-pointer border-0 bg-transparent p-0 text-[15px] font-semibold text-[var(--mut)]"
+      >
+        Skip for now
+      </button>
+    </div>
+  </>
+);

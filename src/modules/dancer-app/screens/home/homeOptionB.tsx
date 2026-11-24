@@ -8,6 +8,8 @@ import type { MyDancerEdit } from '../../api/types';
 import { PROFILE_HELP_MESSAGE } from '../../api/messageUs';
 import { MessageUsLink } from '../me/ui';
 import { LINK_GHOST_SM } from '../blocks';
+import { DANCER_ONBOARDING_V3_ENABLED } from '../onboarding/onboardingV3Flag';
+import ShineCard from './ShineCard';
 import { PAGE_PATH, attendedLabel, homeBView, homeCView, morePlansLabel, type HomeFocus, type ShareRow } from './homeFocus';
 import type { HeroNight } from './homeParts';
 
@@ -237,6 +239,8 @@ export const HomeCView = ({ profile, went, night, goingCount, focusLoading, aler
           </div>
         </Card>
       )}
+
+      {DANCER_ONBOARDING_V3_ENABLED && <ShineCard profile={profile} />}
 
       <Head testId="home-c-head-found">Be found</Head>
       <Card variant="padded" testId="home-c-found">
