@@ -94,6 +94,8 @@ describe('RaffleRedesignA keep-list', () => {
   });
 
   it('one card per event (its next night), no 13 cap', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-05T12:00:00Z')); // fixture nights are dated Nov/Dec 2026
     const nights: unknown[] = [];
     for (let e = 0; e < 20; e++) {
       const d = String(10 + (e % 18)).padStart(2, '0');
@@ -105,6 +107,7 @@ describe('RaffleRedesignA keep-list', () => {
     expect(document.querySelectorAll('.rd-car > li')).toHaveLength(20);
     expect(screen.getByTestId('raffles-carousel-count').textContent).toBe('1 of 20');
     expect(screen.getByTestId('raffles-count-open').textContent).toBe('20');
+    vi.useRealTimers();
   });
 
   it('broken flyer falls back to the initials tile', () => {
