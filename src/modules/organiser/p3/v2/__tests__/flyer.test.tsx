@@ -20,7 +20,7 @@ import { MAX_GALLERY } from '../../../events/eventModel';
 
 const date = (over: Partial<WorkspaceDate> = {}) => ({ id: 'o1', occurrence_date: '2026-11-26', version: 3, lifecycle_status: 'scheduled', has_override: false, override_keys: [], session_overrides_count: 0, added_sessions_count: 0, ...over }) as WorkspaceDate;
 const detail = (extra: Record<string, unknown> = {}) => ({ start: '19:30', end: '23:00', venueId: 'v1', venueOverride: null, descriptionOverride: null, coverImageOverride: null, ticketUrlOverride: null, titleOverride: null, passesOverride: null, coverImageUrl: null, ticketUrl: null, galleryOverride: null, ...extra });
-const ws = (gallery: string[] = []) => ({ series: { id: 's1', version: 7, format: 'recurring', name: 'Thursdays', lifecycle_status: 'live', default_venue_id: 'v1', default_description: null, default_cover_image_url: null, default_ticket_url: null, default_local_start_time: '19:30', passes: null }, gallery, dates: [] }) as unknown as EventWorkspace;
+const ws = (gallery: string[] = [], cover: string | null = 'https://x.test/series.jpg', format = 'recurring') => ({ series: { id: 's1', version: 7, format, name: 'Thursdays', lifecycle_status: 'live', default_venue_id: 'v1', default_description: null, default_cover_image_url: cover, default_ticket_url: null, default_local_start_time: '19:30', passes: null }, gallery, dates: [] }) as unknown as EventWorkspace;
 const P = (n: number) => `https://x.test/p${n}.jpg`;
 const YT = 'https://youtu.be/abcdefghijk';
 type Call = [{ target: string; id: string; part: string; command: { kind: string; payload: Record<string, unknown> } }[], Record<string, unknown>[], string];
@@ -39,7 +39,7 @@ afterEach(cleanup);
 
 describe('Flyer and photos on the night card', () => {
   it('pill opens the sheet with the night texts and an empty hint', async () => {
-    card();
+    card(date(), ws([], null));
     await openSheet();
     expect(screen.getByRole('dialog', { name: 'Flyer and photos' })).toBeTruthy();
     expect(screen.getByText('Photos and videos from this night')).toBeTruthy();
@@ -63,6 +63,44 @@ describe('Flyer and photos on the night card', () => {
     expect(steps[0]).toMatchObject({ target: 'occurrence', id: 'o1', part: 'Flyer', command: { kind: 'occurrence.set_override', payload: { cover_image_url: 'https://x.test/new.jpg' } } });
     expect(before).toEqual([{ cover_image_url: 'https://x.test/old.jpg' }]);
     expect(label).toBe('Saved for Thursday 26 November only');
+  });
+  it('recurring, series cover empty: the night flyer also sets the series cover (two steps)', async () => {
+    net.upload.mockResolvedValue('https://x.test/new.jpg');
+    const { onSave } = card(date(), ws([], null));
+    await openSheet();
+    pick('flyer-file', [file()]);
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    const [steps, before] = onSave.mock.calls[0] as unknown as Call;
+    expect(steps).toHaveLength(2);
+    expect(steps[0]).toMatchObject({ target: 'occurrence', command: { payload: { cover_image_url: 'https://x.test/new.jpg' } } });
+    expect(steps[1]).toMatchObject({ target: 'series', id: 's1', command: { payload: { default_cover_image_url: 'https://x.test/new.jpg' } } });
+    expect(before).toHaveLength(2);
+  });
+  it('recurring, series cover already set: override only, series untouched', async () => {
+    net.upload.mockResolvedValue('https://x.test/new.jpg');
+    const { onSave } = card();
+    await openSheet();
+    pick('flyer-file', [file()]);
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    const [steps] = onSave.mock.calls[0] as unknown as Call;
+    expect(steps).toHaveLength(1);
+    expect(steps[0].target).toBe('occurrence');
+  });
+  it('one-off keeps setting both steps (#2010/#2015)', async () => {
+    net.upload.mockResolvedValue('https://x.test/new.jpg');
+    const { onSave } = card(date(), ws([], 'https://x.test/series.jpg', 'one_off'));
+    await openSheet();
+    pick('flyer-file', [file()]);
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect((onSave.mock.calls[0] as unknown as Call)[0]).toHaveLength(2);
+  });
+  it('save failure shows the upload error path, never saves', async () => {
+    net.upload.mockRejectedValue(new Error('boom'));
+    const { onSave } = card(date(), ws([], null));
+    await openSheet();
+    pick('flyer-file', [file()]);
+    await waitFor(() => expect(screen.getByText('boom')).toBeTruthy());
+    expect(onSave).not.toHaveBeenCalled();
   });
   it('upload error shows under the button, nothing saved', async () => {
     net.upload.mockRejectedValue(new Error('That file is too big.'));

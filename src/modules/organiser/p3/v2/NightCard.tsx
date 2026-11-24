@@ -131,6 +131,12 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
       await onSave([step, seriesStep], [{ cover_image_url: d.coverImageOverride }, { name: s.name ?? '', default_cover_image_url: s.default_cover_image_url ?? null }], label);
       return;
     }
+    // Recurring with no series cover yet: the first night flyer also becomes the series cover, so go-live clears. An existing series cover is never overwritten, and removing a night flyer never clears it.
+    if (url && !s.default_cover_image_url) {
+      const seriesStep: WriteStep = { part: V2.flyer, target: 'series', id: s.id, version: s.version, command: upsertCommand({ name: s.name ?? '', default_cover_image_url: url }), order: 2 };
+      await onSave([step, seriesStep], [{ cover_image_url: d.coverImageOverride }, { name: s.name ?? '', default_cover_image_url: null }], label);
+      return;
+    }
     await onSave([step], [{ cover_image_url: d.coverImageOverride }], label);
   };
   const saveGallery = async (next: string[], label: string) => {
