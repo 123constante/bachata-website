@@ -6,6 +6,10 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 const h = vi.hoisted(() => ({ calls: [] as { fn: string; args?: Record<string, unknown> }[], rpc: null as unknown as (fn: string, a?: Record<string, unknown>) => unknown }));
 vi.mock('@/integrations/supabase/rpcLoose', () => ({ rpcLoose: async (fn: string, args?: Record<string, unknown>) => { h.calls.push({ fn, args }); return h.rpc(fn, args); } }));
+vi.mock('@/integrations/supabase/client', () => {
+  const ch = { on: () => ch, subscribe: () => ch, track: async () => 'ok', presenceState: () => ({}) };
+  return { supabase: { channel: () => ch, removeChannel: async () => 'ok' } };
+});
 vi.mock('@/components/auth/AuthGuard', () => ({ AuthGuard: ({ children }: { children: React.ReactNode }) => children }));
 import { PartyChatRoute, dayLabel, dropRemoved, mergeMessages } from '../PartyChatScreen';
 
