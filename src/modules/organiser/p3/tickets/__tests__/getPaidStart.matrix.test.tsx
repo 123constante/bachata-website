@@ -66,8 +66,8 @@ describe('startView: the one mapping', () => {
     }
   });
   it('owner name or the page owner', () => {
-    expect(askOwner(o)).toBe('Ask the page owner to connect payments');
-    expect(askOwner({ ...o, team: [{ user_id: 'u1', member_role: 'owner', display_name: 'Rafa' }] })).toBe('Ask Rafa to connect payments');
+    expect(askOwner(o)).toBe('The owner connects payments. Tickets stay off sale until then.');
+    expect(askOwner({ ...o, team: [{ user_id: 'u1', member_role: 'owner', display_name: 'Rafa' }] })).toBe('Rafa connects payments. Tickets stay off sale until then.');
   });
 });
 
@@ -91,7 +91,7 @@ describe.each([
         expect(q.onboard.go).toHaveBeenCalledTimes(1);
       } else {
         expect(primaries()).toHaveLength(0);
-        expect(screen.getByTestId('getpaid-start-note').textContent).toBe('Ask the page owner to connect payments');
+        expect(screen.getByTestId('getpaid-start-note').textContent).toBe('Owner onlyThe owner connects payments. Tickets stay off sale until then.');
       }
     });
     it('stripe=refresh says the link ran out and the button carries on', () => {

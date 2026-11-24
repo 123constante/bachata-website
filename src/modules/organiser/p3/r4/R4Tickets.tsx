@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { flags } from '@/lib/featureFlags';
 import { setTicketStatus, ticketKeys } from '../../tickets/ticketsApi';
-import { canRefund, formatPence, totalsOf } from '../../tickets/ticketModel';
+import { canManage, canRefund, formatPence, totalsOf } from '../../tickets/ticketModel';
+import { DraftTicketsCard } from './DraftTicketsCard';
 import { fetchDoorNight } from '../dash/pastNights';
 import { useSeriesTypes, useSummary } from '../tickets/data';
 import { StackSheet } from '../tickets/StackSheet';
@@ -38,6 +39,7 @@ function NightPick({ c }: { c: EventChoice }) {
 
 function Empty({ c, m }: { c: EventChoice; m: R4TicketsModel }) {
   const [open, setOpen] = useState(false);
+  const draft = c.event?.lifecycle === 'draft' && canManage(c.page?.role as Parameters<typeof canManage>[0]);
   return (
     <section className="r4-stack" data-testid="r4-tix-empty">
       <StripeStatusCard organiserId={c.page?.id} role={c.page?.role ?? null} />
@@ -47,7 +49,8 @@ function Empty({ c, m }: { c: EventChoice; m: R4TicketsModel }) {
         <p className="r4-lead">Add your first ticket and it goes on sale on the event page.</p>
       </div>
       <button type="button" className="r4-btn r4-btn-42" disabled={!!m.addWhy} onClick={() => setOpen(true)} data-testid="r4-tix-add">+ Add a ticket</button>
-      {m.addWhy && <p className="r4-hint" data-testid="r4-tix-add-why">{m.addWhy}</p>}
+      {draft ? <DraftTicketsCard seriesId={c.event!.id} orgId={c.page?.id} />
+        : m.addWhy && <p className="r4-hint" data-testid="r4-tix-add-why">{m.addWhy}</p>}
       {open && (
         <StackSheet title="Tickets" onClose={() => setOpen(false)} testId="r4-tix-sheet-all" full>
           <TicketsEntry seriesId={c.event!.id} />

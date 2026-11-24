@@ -19,7 +19,7 @@ describe('payout set-up is owner-only on every entry point', () => {
       const v = startView({ manager: role === 'owner' || role === 'manager', owner, state, arrival: 'fresh', phase: null, switchedOff: false, org: org({ role: role ?? undefined } as never) });
       const connects = [v.primary, v.secondary].filter((c) => c?.kind === 'connect').length;
       expect(connects > 0).toBe(owner);
-      if (!owner) expect(v.note).toMatch(/^Ask .* to connect payments$/);
+      if (!owner) expect(v.note).toMatch(/ connects? payments\. Tickets stay off sale until then\.$/);
     });
     it.each(NOT_CONNECTED)('Tickets connect block, %s', (stripe) => expect(connectBlock(1000, { role: role as never, stripe }, off) !== null).toBe(owner));
     it.each(['none', 'started', 'waiting'] as const)('Tickets return banner, %s: no carry-on for non-owner', (stripe) => {

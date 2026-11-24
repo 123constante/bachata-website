@@ -287,13 +287,15 @@ export interface StartView {
   asks: boolean;
   status: string | null;
   note: string | null;
+  /** A manager (not the owner) on an unconnected page: the note is drawn as an "Owner only" block, no button. */
+  ownerOnly?: boolean;
   primary: { kind: 'connect' | 'add' | 'check'; label: string } | null;
   /** Waiting only: the plain way on to Stripe under Check again. */
   secondary: { kind: 'connect'; label: string } | null;
 }
 
 /** The ask-the-owner line: the owner's name when the home payload carries it, else "the page owner". */
-export const askOwner = (org: HomeOrganiser): string => `Ask ${teamOf(org).find((m) => m.role === 'owner')?.displayName ?? 'the page owner'} to connect payments`;
+export const askOwner = (org: HomeOrganiser): string => `${teamOf(org).find((m) => m.role === 'owner')?.displayName ?? 'The owner'} connects payments. Tickets stay off sale until then.`;
 
 export function startView(i: { manager: boolean; owner: boolean; state: StripeState; arrival: StartArrival; phase: StartPhase; switchedOff: boolean; org: HomeOrganiser }): StartView {
   const ready = i.state === 'connected';
@@ -301,7 +303,7 @@ export function startView(i: { manager: boolean; owner: boolean; state: StripeSt
     return { heading: 'You\u2019re ready to sell tickets', asks: false, status: null, note: null, primary: i.manager ? { kind: 'add', label: 'Add a ticket' } : null, secondary: null };
   }
   const base = { heading: 'Get paid for your tickets', asks: true };
-  if (!i.owner) return { ...base, status: null, note: askOwner(i.org), primary: null, secondary: null };
+  if (!i.owner) return { ...base, status: null, note: askOwner(i.org), ownerOnly: true, primary: null, secondary: null };
   if (i.switchedOff) return { ...base, asks: false, status: null, note: NOT_SWITCHED_ON, primary: null, secondary: null };
   if (i.arrival === 'return' && i.phase === 'checking') return { ...base, asks: false, status: 'Checking with Stripe\u2026', note: null, primary: null, secondary: null };
   if (i.arrival === 'return' && i.phase === 'timeout') {
@@ -353,7 +355,16 @@ function StartBody({ org, arrival }: { org: HomeOrganiser; arrival: StartArrival
         </div>
       )}
       {v.status && <p className="p3-warn" role="status" data-testid="getpaid-start-status">{v.status}</p>}
-      {v.note && <p className={switchedOff ? 'p3-warn' : 'p3-note'} role={switchedOff ? 'status' : undefined} data-testid="getpaid-start-note">{v.note}</p>}
+      {v.note && v.ownerOnly && (
+        <div className="p3-note" data-testid="getpaid-start-note" data-owner-only="true">
+          <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
+            Owner only
+          </strong>
+          <p style={{ margin: '4px 0 0' }}>{v.note}</p>
+        </div>
+      )}
+      {v.note && !v.ownerOnly && <p className={switchedOff ? 'p3-warn' : 'p3-note'} role={switchedOff ? 'status' : undefined} data-testid="getpaid-start-note">{v.note}</p>}
       {v.primary?.kind === 'connect' && (
         <button type="button" className="p3-btn" style={BIG} disabled={busy} aria-busy={busy || undefined} onClick={() => void go()} data-testid="getpaid-start-go">
           {busy ? 'Opening Stripe\u2026' : v.primary.label}
