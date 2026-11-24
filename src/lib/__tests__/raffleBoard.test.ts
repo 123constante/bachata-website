@@ -8,7 +8,7 @@ const night = (o: Record<string, unknown> = {}) => ({
 });
 const board = (nights: unknown[], extra = {}) =>
   ({ pool_count: 10, winners_this_month: 2, total_winners: 766, nights, ...extra });
-const EMPTY = { poolCount: 0, winnersThisMonth: 0, totalWinners: 0, nights: [] };
+const EMPTY = { poolCount: 0, winnersThisMonth: 0, totalWinners: 0, winnersEver: null, entriesEver: null, nights: [] };
 const NOW = new Date('2026-11-11T12:00:00Z');
 
 const shapes: Array<[string, unknown, number, string | null, boolean]> = [
@@ -33,6 +33,18 @@ describe('raffleBoard shapes', () => {
     expect(e.inRaffle).toBe(inRaffle);
     expect(e.winnerFirstName).toBe(winner);
     expect(Array.isArray(thisWeeksWinners(b, NOW))).toBe(true);
+  });
+  it('winners_ever / entries_ever: present, absent, garbage', () => {
+    const ok = parseRaffleBoard(board([], { winners_ever: 786, entries_ever: '1400' }));
+    expect(ok.winnersEver).toBe(786);
+    expect(ok.entriesEver).toBe(1400);
+    const absent = parseRaffleBoard(board([]));
+    expect(absent.winnersEver).toBeNull();
+    expect(absent.entriesEver).toBeNull();
+    const bad = parseRaffleBoard(board([], { winners_ever: 'abc', entries_ever: -3 }));
+    expect(bad.winnersEver).toBeNull();
+    expect(bad.entriesEver).toBeNull();
+    expect(parseRaffleBoard(board([], { winners_ever: 0 })).winnersEver).toBe(0);
   });
   it('empty board for non-objects', () => {
     for (const j of [null, undefined, [], 3, 'x']) expect(parseRaffleBoard(j)).toEqual(EMPTY);
