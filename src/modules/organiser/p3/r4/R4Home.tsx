@@ -65,7 +65,7 @@ function EmptyHome({ pageId, role }: { pageId: string | null; role: string | nul
         <h1 className="r4-h1" data-testid="r4-home-title">{R4_EMPTY_HOME.title}</h1>
         <p className="r4-sub">{R4_EMPTY_HOME.sub}</p>
       </div>
-      <StripeStatusCard organiserId={pageId ?? undefined} role={role} />
+      <StripeStatusCard organiserId={pageId ?? undefined} role={role} hasNight={false} />
       <Link to={P3_PATHS.createFor(pageId)} className="r4-btn r4-btn-42 r4-btn-link" data-testid="r4-home-primary" data-kind="new">
         <Plus />{R4_EMPTY_HOME.add}
       </Link>

@@ -5,10 +5,10 @@ import { P3_TICKET_PATHS } from '../tickets/paths';
 import { r4StripeCardOf } from './r4StripeCardModel';
 
 /** One outlined card (look A) saying where payouts stand. Renders nothing when connected, for other roles, or flag off. */
-export function StripeStatusCard({ organiserId, role }: { organiserId: string | undefined; role: string | null | undefined }) {
+export function StripeStatusCard({ organiserId, role, hasNight = true }: { organiserId: string | undefined; role: string | null | undefined; hasNight?: boolean }) {
   const navigate = useNavigate();
   const { query } = useStripe(flags.stripeNudgeV2 ? organiserId : undefined);
-  const m = r4StripeCardOf({ flagOn: flags.stripeNudgeV2, role, loaded: query.isSuccess, row: query.data });
+  const m = r4StripeCardOf({ flagOn: flags.stripeNudgeV2, role, loaded: query.isSuccess, hasNight, row: query.data });
   if (!m) return null;
   return (
     <div className="r4-card" data-testid="stripe-status-card" data-kind={m.kind}
