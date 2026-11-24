@@ -54,7 +54,7 @@ describe('/raffles board: shape x screen', () => {
         expect(h.board.refetch).toHaveBeenCalled();
         return;
       }
-      expect(screen.getByTestId('raffles-count-pool').textContent).toBe(String(s.pagePool));
+      expect(screen.getByTestId('raffles-count-pool').textContent).toBe(String(parseRaffleBoard(s.json).poolCount)); // this page shows the pool; the A hero shows entries_ever (fixture pagePool)
       // never the RPC's total_winners (766 on prod); only winners listed on nights
       expect(screen.getByTestId('raffles-count-winners').textContent).toBe(String(s.pageWeekWinners.length));
       const list = screen.queryByTestId('raffles-week-list');
