@@ -12,11 +12,19 @@ import { calculateDuration } from "@/components/profile/ExperiencePicker";
 import { optimizedImageUrl } from '@/lib/imageCdn';
 import { NationalityFlag, TILE_FLAG_SIZE } from '@/components/people/NationalityFlag';
 import { useEmbeddedProfile } from '@/lib/embeddedProfile';
+import { LEVEL_RETIRED_ENABLED } from '@/lib/levelRetiredFlag';
+import { partnerYearsLabel } from '@/modules/profile/dancerPublicProfile';
 import { PUBLIC_LINK_REL } from '@/lib/organiserLinkLabels';
 
 interface DancerProfileGridProps {
   dancer: DancerPublicViewModel;
 }
+
+const yearsDancingText = (years: string): string => {
+  const n = Number(years);
+  if (n < 1) return 'Under 1 year dancing';
+  return n === 1 ? '1 year dancing' : `${n} years dancing`;
+};
 
 export const DancerProfileGrid = ({ dancer }: DancerProfileGridProps) => {
   const getInstagramHandle = (instagramUrl: string | null) => {
@@ -87,7 +95,7 @@ export const DancerProfileGrid = ({ dancer }: DancerProfileGridProps) => {
     dancer.lookingForPartner || 
     dancer.partnerSearchRole || 
     dancer.partnerPracticeGoals.length > 0 ||
-    dancer.partnerSearchLevel.length > 0 ||
+    (LEVEL_RETIRED_ENABLED ? partnerYearsLabel(dancer.partnerYearsMin, dancer.partnerYearsMax) !== null : dancer.partnerSearchLevel.length > 0) ||
     !!dancer.partnerDetailsText;
 
   const experienceDuration = calculateDuration(dancer.dancingStartDate);
@@ -186,7 +194,11 @@ export const DancerProfileGrid = ({ dancer }: DancerProfileGridProps) => {
               )}
               {dancer.yearsDancing && (
                 <div className="text-sm text-muted-foreground flex items-center gap-1">
-                  <span className="font-semibold text-primary">{dancer.yearsDancing}</span> years dancing
+                  {LEVEL_RETIRED_ENABLED ? (
+                    <span className="font-semibold text-primary">{yearsDancingText(dancer.yearsDancing)}</span>
+                  ) : (
+                    <><span className="font-semibold text-primary">{dancer.yearsDancing}</span> years dancing</>
+                  )}
                 </div>
               )}
             </div>
@@ -265,7 +277,16 @@ export const DancerProfileGrid = ({ dancer }: DancerProfileGridProps) => {
               </div>
 
               {/* Level preferences */}
-              {dancer.partnerSearchLevel.length > 0 && (
+              {LEVEL_RETIRED_ENABLED ? (
+                partnerYearsLabel(dancer.partnerYearsMin, dancer.partnerYearsMax) && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Vibes with:</span>
+                    <Badge variant="outline" className="text-xs border-cyan-500/30 bg-cyan-500/10 text-cyan-300">
+                      {partnerYearsLabel(dancer.partnerYearsMin, dancer.partnerYearsMax)}
+                    </Badge>
+                  </div>
+                )
+              ) : dancer.partnerSearchLevel.length > 0 && (
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Vibes with:</span>
                   {dancer.partnerSearchLevel.map(level => (
@@ -313,15 +334,23 @@ export const DancerProfileGrid = ({ dancer }: DancerProfileGridProps) => {
                   <Calendar className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Experience</span>
                 </div>
-                <Badge variant="outline" className={`text-[10px] ${level.color} ${level.border} ${level.bg}`}>
-                  {level.label}
-                </Badge>
+                {!LEVEL_RETIRED_ENABLED && (
+                  <Badge variant="outline" className={`text-[10px] ${level.color} ${level.border} ${level.bg}`}>
+                    {level.label}
+                  </Badge>
+                )}
               </div>
               <div className="mt-auto">
                 <div className="flex items-baseline gap-1">
-                  <span className={`text-3xl font-black ${level.color}`}>{experienceYears}</span>
-                  <span className="text-sm font-medium text-muted-foreground">{experienceYears === 1 ? 'Year' : 'Years'}</span>
-                  {experienceMonths !== null && experienceMonths > 0 && (
+                  {LEVEL_RETIRED_ENABLED ? (
+                    <span className="text-lg font-black text-primary">{yearsDancingText(String(experienceYears))}</span>
+                  ) : (
+                    <>
+                      <span className={`text-3xl font-black ${level.color}`}>{experienceYears}</span>
+                      <span className="text-sm font-medium text-muted-foreground">{experienceYears === 1 ? 'Year' : 'Years'}</span>
+                    </>
+                  )}
+                  {!LEVEL_RETIRED_ENABLED && experienceMonths !== null && experienceMonths > 0 && (
                     <>
                       <span className={`text-lg font-bold ${level.color} ml-1`}>{experienceMonths}</span>
                       <span className="text-xs text-muted-foreground">{experienceMonths === 1 ? 'Mo' : 'Mo'}</span>

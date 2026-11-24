@@ -101,6 +101,9 @@ export type DancerPublicViewModel = {
   favoriteSongs: string[];
   partnerSearchRole: string | null;
   partnerSearchLevel: string[];
+  /** Preferred-partner years range (partner_years_min/max); both null = no range / "Any". */
+  partnerYearsMin: number | null;
+  partnerYearsMax: number | null;
   partnerPracticeGoals: string[];
   partnerDetailsText: string;
   isVerified: boolean;
@@ -119,6 +122,15 @@ const normalizeStringArray = (value: unknown): string[] => {
     .filter((item): item is string => typeof item === "string")
     .map((item) => item.trim())
     .filter(Boolean);
+};
+
+const toNumberOrNull = (value: unknown): number | null =>
+  typeof value === "number" && Number.isFinite(value) ? value : null;
+
+export const partnerYearsLabel = (min: number | null, max: number | null): string | null => {
+  if (min === null && max === null) return null;
+  if (max === null) return `${min}+ years`;
+  return `${min ?? 0}-${max} years`;
 };
 
 const normalizeUrl = (value: string | null, kind: "instagram" | "facebook" | "website") => {
@@ -199,6 +211,8 @@ export const mapDancerPublicProfile = (record: DancerPublicRecord | DancerPublic
     favoriteSongs: normalizeStringArray(canonicalRecord.favorite_songs),
     partnerSearchRole: canonicalRecord.partner_search_role,
     partnerSearchLevel: normalizeStringArray(canonicalRecord.partner_search_level),
+    partnerYearsMin: toNumberOrNull((canonicalRecord as Record<string, unknown>).partner_years_min),
+    partnerYearsMax: toNumberOrNull((canonicalRecord as Record<string, unknown>).partner_years_max),
     partnerPracticeGoals: normalizeStringArray(canonicalRecord.partner_practice_goals),
     partnerDetailsText,
     isVerified: false,

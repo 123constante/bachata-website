@@ -2,6 +2,7 @@ import React from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Clock } from 'lucide-react';
+import { LEVEL_RETIRED_ENABLED } from '@/lib/levelRetiredFlag';
 
 interface ExperiencePickerProps {
     value?: string | null;
@@ -79,6 +80,7 @@ export const ExperiencePicker: React.FC<ExperiencePickerProps> = ({ value, onCha
 
     const experience = calculateDuration(value);
     const level = experience ? getExperienceLevel(experience.years) : null;
+    const showLevel = !LEVEL_RETIRED_ENABLED;
 
     return (
         <div className="space-y-4">
@@ -138,18 +140,22 @@ export const ExperiencePicker: React.FC<ExperiencePickerProps> = ({ value, onCha
                                 <div className="absolute left-0 top-3 bottom-3 w-1.5 bg-festival-teal rounded-r-full" />
                                 
                                 {/* Icon Container */}
+                                {showLevel && (
                                 <div className="relative w-12 h-12 shrink-0 ml-2">
                                     <div className="absolute inset-0 bg-white/10 rounded-full blur-xl transform group-hover:scale-125 transition-transform duration-500" />
                                     <div className="relative w-full h-full rounded-full bg-gradient-to-br from-white to-slate-200 flex items-center justify-center text-2xl shadow-lg border-2 border-white/20">
                                         {level.icon}
                                     </div>
                                 </div>
+                                )}
                                 
                                 {/* Text Content */}
                                 <div>
+                                    {showLevel && (
                                     <div className={`text-[10px] font-bold uppercase tracking-widest mb-0.5 ${level.color}`}>
                                         {level.title}
                                     </div>
+                                    )}
                                     <div className="text-xl font-bold text-white tracking-tight leading-none">
                                         {experience.years > 0 && `${experience.years} Year${experience.years !== 1 ? 's' : ''}`}
                                         {experience.years > 0 && experience.months > 0 && <span className="text-slate-500 mx-1.5">&</span>}
