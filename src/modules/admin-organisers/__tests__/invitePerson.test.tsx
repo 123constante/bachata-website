@@ -10,7 +10,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const api = vi.hoisted(() => ({
   searchPeople: vi.fn(),
-  fetchPageLeader: vi.fn(),
   fetchUpcoming: vi.fn(),
   invitePerson: vi.fn(),
 }));
@@ -41,7 +40,6 @@ const mount = () =>
 beforeEach(() => {
   Object.values(api).forEach((f) => f.mockReset());
   api.searchPeople.mockResolvedValue([{ id: 'p9', name: 'Ana Perez', firstName: 'Ana' }]);
-  api.fetchPageLeader.mockResolvedValue({ kind: 'none' });
   api.fetchUpcoming.mockResolvedValue([{ name: 'Friday Social', date: '2026-10-30' }]);
 });
 afterEach(cleanup);
@@ -61,12 +59,15 @@ describe('Invite person', () => {
     expect(screen.queryByTestId('invite-person-note')).toBeNull();
   });
 
-  it('prefills the page Leader and sends the organiser id; result has a message, Copy and WhatsApp', async () => {
-    api.fetchPageLeader.mockResolvedValue({ kind: 'one', person: { id: 'p1', name: 'Rosa Lima', firstName: 'Rosa' } });
+  it('searches the person and sends the organiser id; result has a message, Copy and WhatsApp', async () => {
+    api.searchPeople.mockResolvedValue([{ id: 'p1', name: 'Rosa Lima', firstName: 'Rosa' }]);
     api.invitePerson.mockResolvedValue(parsePersonInvite(ANSWER));
     mount();
     fireEvent.click(screen.getByTestId('invite-person-open'));
     fireEvent.change(screen.getByTestId('invite-person-page'), { target: { value: 'o1' } });
+    expect(screen.queryByTestId('invite-person-chosen')).toBeNull();
+    fireEvent.change(screen.getByTestId('invite-person-search'), { target: { value: 'Rosa' } });
+    fireEvent.click(await screen.findByText('Rosa Lima'));
     expect((await screen.findByTestId('invite-person-chosen')).textContent).toMatch(/Rosa Lima/);
     fireEvent.change(screen.getByTestId('invite-person-email'), { target: { value: 'rosa@example.com' } });
     await waitFor(() => expect(api.fetchUpcoming).toHaveBeenCalled());
@@ -111,12 +112,12 @@ describe('Invite person', () => {
     expect(invitePersonErrorMessage(new Error('Could not find the function public.admin_invite_person_v1'))).toBe('Something went wrong. Please try again.');
   });
 
-  it('a page without a Leader says to search, an empty search says what to do', async () => {
+  it('a chosen page prefills nobody and says to search, an empty search says what to do', async () => {
     api.searchPeople.mockResolvedValue([]);
     mount();
     fireEvent.click(screen.getByTestId('invite-person-open'));
     fireEvent.change(screen.getByTestId('invite-person-page'), { target: { value: 'o1' } });
-    await waitFor(() => expect(screen.getByTestId('invite-person-search-note').textContent).toMatch(/no Leader/));
+    await waitFor(() => expect(screen.getByTestId('invite-person-search-note').textContent).toBe('Type at least two letters of their name.'));
     fireEvent.change(screen.getByTestId('invite-person-search'), { target: { value: 'Zed' } });
     expect((await screen.findByTestId('invite-person-no-hits')).textContent).toMatch(/No one matches/);
   });

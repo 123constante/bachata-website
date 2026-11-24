@@ -15,17 +15,12 @@ export interface PersonHit {
   name: string;
   /** For the message greeting; null when the profile has no first or display name. */
   firstName: string | null;
-  /** The profile is already joined to a login (claimed_by set). Unknown (undefined) for a Leader prefill. */
+  /** The profile is already joined to a login (claimed_by set). Unknown (undefined) for a team-list person. */
   hasLogin?: boolean;
 }
 
 /** One person on a page's team list, for "Who is this for?". */
-export interface TeamPerson extends PersonHit {
-  isLeader: boolean;
-}
-
-/** A page's Leader: none, exactly one (prefilled), or several (nobody is guessed). */
-export type PageLeader = { kind: 'none' } | { kind: 'one'; person: PersonHit } | { kind: 'several' };
+export type TeamPerson = PersonHit;
 
 type NameRow = { id: string; first_name: string | null; surname: string | null; display_name: string | null; claimed_by?: string | null };
 const toPersonHit = (r: NameRow): PersonHit => ({
@@ -36,7 +31,6 @@ const toPersonHit = (r: NameRow): PersonHit => ({
 });
 
 export const personSearchQueryKey = (q: string) => ['admin-invite-person-search', q] as const;
-export const pageLeaderQueryKey = (organiserId: string | null) => ['admin-invite-page-leader', organiserId] as const;
 export const pageTeamQueryKey = (organiserId: string) => ['admin-invite-page-team', organiserId] as const;
 export const pageUpcomingQueryKey = (organiserId: string | null) => ['admin-invite-page-upcoming', organiserId] as const;
 
@@ -49,43 +43,18 @@ export async function searchPeople(query: string): Promise<PersonHit[]> {
   return (data ?? []).map(toPersonHit);
 }
 
-/**
- * The page's Leader from its public team (organiser_team_members.is_leader). Some pages have more
- * than one (51 Leader rows on 47 pages, 2026-10-20), so it reads two rows: two or more is
- * 'several' and nobody is prefilled, rather than whichever row the database returns first.
- */
-export async function fetchPageLeader(organiserId: string): Promise<PageLeader> {
-  const { data: rows, error } = await supabase
-    .from('organiser_team_members')
-    .select('member_profile_id')
-    .eq('organiser_profile_id', organiserId)
-    .eq('is_active', true)
-    .eq('is_leader', true)
-    .order('created_at')
-    .limit(2);
-  if (error) throw error;
-  if ((rows?.length ?? 0) >= 2) return { kind: 'several' };
-  const memberId = rows?.[0]?.member_profile_id;
-  if (!memberId) return { kind: 'none' };
-  const { data: p, error: pe } = await supabase.from('dancer_profiles').select('id, first_name, surname, display_name').eq('id', memberId).maybeSingle();
-  if (pe) throw pe;
-  if (!p) return { kind: 'none' };
-  return { kind: 'one', person: toPersonHit(p) };
-}
-
 const TEAM_LIMIT = 20;
 
 /**
- * The page's public team list (organiser_team_members, active), Leaders first, for "Who is this for?".
+ * The page's public team list (organiser_team_members, active), oldest first, for "Who is this for?".
  * 52 people sit on team lists and 49 have no login (2026-10-23), so these are the usual invitees.
  */
 export async function fetchPageTeam(organiserId: string): Promise<TeamPerson[]> {
   const { data: rows, error } = await supabase
     .from('organiser_team_members')
-    .select('member_profile_id, is_leader')
+    .select('member_profile_id')
     .eq('organiser_profile_id', organiserId)
     .eq('is_active', true)
-    .order('is_leader', { ascending: false })
     .order('created_at')
     .limit(TEAM_LIMIT);
   if (error) throw error;
@@ -100,10 +69,9 @@ export async function fetchPageTeam(organiserId: string): Promise<TeamPerson[]> 
     .is('archived_at', null);
   if (pe) throw pe;
   const byId = new Map((people ?? []).map((p) => [p.id, p] as const));
-  const leaders = new Set((rows ?? []).filter((r) => r.is_leader).map((r) => r.member_profile_id));
   return ids.flatMap((id) => {
     const p = byId.get(id);
-    return p ? [{ ...toPersonHit(p), isLeader: leaders.has(id) }] : [];
+    return p ? [toPersonHit(p)] : [];
   });
 }
 

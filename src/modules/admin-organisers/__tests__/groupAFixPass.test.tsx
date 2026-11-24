@@ -14,7 +14,6 @@ import { join } from 'node:path';
 
 const api = vi.hoisted(() => ({
   searchPeople: vi.fn(),
-  fetchPageLeader: vi.fn(),
   fetchUpcoming: vi.fn(),
   invitePerson: vi.fn(),
 }));
@@ -80,7 +79,6 @@ const pickAnaAndInvite = async (email = 'ana@example.com') => {
 beforeEach(() => {
   Object.values(api).forEach((f) => f.mockReset());
   api.searchPeople.mockResolvedValue([{ id: 'p9', name: 'Ana Perez', firstName: 'Ana' }]);
-  api.fetchPageLeader.mockResolvedValue({ kind: 'none' });
   api.fetchUpcoming.mockResolvedValue([{ name: 'Friday Social', date: '2026-10-30' }]);
 });
 afterEach(cleanup);
@@ -164,11 +162,13 @@ describe('invite message uses the server text as is (finding 5)', () => {
     expect(m).toMatch(/Coming up/);
   });
   it('the copied text on screen is the server message', async () => {
-    api.fetchPageLeader.mockResolvedValue({ kind: 'one', person: { id: 'p1', name: 'Rosa Lima', firstName: 'Rosa' } });
+    api.searchPeople.mockResolvedValue([{ id: 'p1', name: 'Rosa Lima', firstName: 'Rosa' }]);
     answerWith(PAGE_ANSWER);
     mount();
     fireEvent.click(screen.getByTestId('invite-person-open'));
     fireEvent.change(screen.getByTestId('invite-person-page'), { target: { value: 'o1' } });
+    fireEvent.change(screen.getByTestId('invite-person-search'), { target: { value: 'Rosa' } });
+    fireEvent.click(await screen.findByText('Rosa Lima'));
     await screen.findByTestId('invite-person-chosen');
     fireEvent.change(screen.getByTestId('invite-person-email'), { target: { value: 'rosa@example.com' } });
     fireEvent.click(screen.getByTestId('invite-person-submit'));
