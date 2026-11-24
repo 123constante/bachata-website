@@ -18,6 +18,8 @@ import { LINK_GHOST, LINK_PRIMARY } from '../blocks';
 import { GhostButton, Meter, PrimaryButton, Question, Tag, WRAP } from './ui';
 import { resetDancerGate, useMyDancerEdit } from '../../api/useMyDancerEdit';
 import { daConfetti } from '../../shell/confetti';
+import OnboardingV3 from './OnboardingV3';
+import { DANCER_ONBOARDING_V3_ENABLED } from './onboardingV3Flag';
 
 const nameOf = (p: MyDancerEdit) => p.first_name?.trim() || 'there';
 
@@ -203,7 +205,7 @@ const OnboardingCards = () => {
 /** The route's root carries the id every dancer screen carries (shell reachability tests look for it). */
 const OnboardingScreen = () => (
   <div data-testid="dancer-screen-welcome">
-    <OnboardingCards />
+    {DANCER_ONBOARDING_V3_ENABLED ? <OnboardingV3 /> : <OnboardingCards />}
   </div>
 );
 
