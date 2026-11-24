@@ -164,11 +164,12 @@ describe('invite message uses the server text as is (finding 5)', () => {
     expect(m).toMatch(/Coming up/);
   });
   it('the copied text on screen is the server message', async () => {
-    api.fetchPageLeader.mockResolvedValue({ kind: 'one', person: { id: 'p1', name: 'Rosa Lima', firstName: 'Rosa' } });
     answerWith(PAGE_ANSWER);
     mount();
     fireEvent.click(screen.getByTestId('invite-person-open'));
     fireEvent.change(screen.getByTestId('invite-person-page'), { target: { value: 'o1' } });
+    fireEvent.change(screen.getByTestId('invite-person-search'), { target: { value: 'Ana' } });
+    fireEvent.click(await screen.findByText('Ana Perez'));
     await screen.findByTestId('invite-person-chosen');
     fireEvent.change(screen.getByTestId('invite-person-email'), { target: { value: 'rosa@example.com' } });
     fireEvent.click(screen.getByTestId('invite-person-submit'));
