@@ -11,7 +11,7 @@ import { useToast } from '../screens/Toast';
 import { PUT_LIVE } from '../v2/GoLiveBar';
 
 export const DRAFT_HEADING = 'This event is a draft.';
-export const DRAFT_LINE = 'Tickets can’t be added until it is live.';
+export const DRAFT_LINE = 'Tickets can\u2019t be added until it is live.';
 
 /** Opens the existing go-live StatusSheet (same sheet the All dates screen uses) for one event. */
 function PutLive({ seriesId, orgId }: { seriesId: string; orgId: string | undefined }) {
