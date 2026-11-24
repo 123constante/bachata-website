@@ -57,7 +57,7 @@ const HomeRaffleWin = ({ onShare }: { onShare?: () => void }) => {
           <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase' }}>Your free night</span>
           {n ? (
             <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-              {n.posterUrl && <img data-testid="raffle-win-flyer" src={n.posterUrl} alt="" width={64} height={80} style={{ objectFit: 'cover', borderRadius: 10, flex: 'none' }} />}
+              {n.posterUrl && <img data-testid="raffle-win-flyer" src={n.posterUrl} alt="" loading="lazy" width={64} height={80} style={{ objectFit: 'cover', borderRadius: 10, flex: 'none' }} />}
               <div>
                 <b data-testid="raffle-win-title" style={{ fontSize: 17 }}>{n.title}</b>
                 <div data-testid="raffle-win-date" style={{ fontSize: 14, fontWeight: 600 }}>{n.dateLine}</div>
