@@ -69,6 +69,30 @@ describe('RaffleRedesignA keep-list', () => {
     expect(screen.getByTestId('entry-dialog')).toBeTruthy();
   });
 
+  it('hero totals: entries_ever / winners_ever win; label Winners ever; +1 after own entry; fallback when absent', () => {
+    const withTotals = (extra: Record<string, unknown>) => parseRaffleBoard({
+      pool_count: 521, winners_this_month: 1, total_winners: 766,
+      nights: [night(), night({ occurrence_id: 'o2', public_event_id: 'e2', winner_first_name: 'Maya', start_local: '2026-11-22T20:00:00' })],
+      winners: [], ...extra,
+    });
+    h.board = { ...h.board, data: withTotals({ entries_ever: 1400, winners_ever: 786 }) };
+    mount();
+    expect(screen.getByTestId('raffles-count-pool').textContent).toBe('1,400');
+    expect(screen.getByTestId('raffles-count-winners').textContent).toBe('786');
+    expect(screen.getByTestId('raffles-count-winners').parentElement?.textContent).toContain('Winners ever');
+    expect(screen.getByTestId('raffles-count-winners').parentElement?.textContent).not.toContain('Prizes won');
+    fireEvent.click(screen.getByTestId('raffles-enter'));
+    fireEvent.click(screen.getByTestId('fake-submit'));
+    expect(screen.getByTestId('raffles-count-pool').textContent).toBe('1,401');
+    cleanup();
+    window.sessionStorage.clear();
+    window.localStorage.clear();
+    h.board = { ...h.board, data: withTotals({}) };
+    mount();
+    expect(screen.getByTestId('raffles-count-pool').textContent).toBe('521');
+    expect(screen.getByTestId('raffles-count-winners').textContent).toBe('1');
+  });
+
   it('one card per event (its next night), no 13 cap', () => {
     const nights: unknown[] = [];
     for (let e = 0; e < 20; e++) {
@@ -81,6 +105,16 @@ describe('RaffleRedesignA keep-list', () => {
     expect(document.querySelectorAll('.rd-car > li')).toHaveLength(20);
     expect(screen.getByTestId('raffles-carousel-count').textContent).toBe('1 of 20');
     expect(screen.getByTestId('raffles-count-open').textContent).toBe('20');
+  });
+
+  it('broken flyer falls back to the initials tile', () => {
+    h.board = { ...h.board, data: parseRaffleBoard({ pool_count: 5, winners_this_month: 0, total_winners: 0, nights: [night({ title: 'El Grande', poster_url: 'https://x.test/missing.webp' })], winners: [] }) };
+    mount();
+    const img = document.querySelector('.rd-car img.rd-flyer') as HTMLImageElement;
+    expect(img).toBeTruthy();
+    fireEvent.error(img);
+    expect(document.querySelector('.rd-car img.rd-flyer')).toBeNull();
+    expect(document.querySelector('.rd-car .rd-flyer-tile')?.textContent).toBe('EG');
   });
 
   it('winner without last_initial or profile_slug shows the first name only; section hidden with none', () => {

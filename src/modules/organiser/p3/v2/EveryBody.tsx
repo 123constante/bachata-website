@@ -33,6 +33,7 @@ import { doorPriceOf } from './payMode';
 import { ownerPassesFromStored, lifecycleCommand } from '../../shared/seriesCommands';
 import { endRunCommand, tonightDate } from '../../events/eventModel';
 import { EndCard, type LifeState } from './EndCard';
+import { DRAFT_PILL, DraftNote, GoLiveBar, isDraftEvent } from './GoLiveBar';
 import { StatusSheet, CancelEventSheetV2, type TodayAnswer } from './StatusSheets';
 import { cancelCommand, uncancelCommand } from '../../shared/seriesCommands';
 import { upcomingOf, organisersPayload } from './editorModel';
@@ -85,7 +86,8 @@ export function EveryBody({ ws, day, saveNow, busy, onOpenTickets }: { ws: Event
   const firstCancelled = allNightsCancelled ? comingNights[0] : null;
   const reasonQ = useQuery({ queryKey: dateDetailQueryKey(firstCancelled?.id ?? ''), queryFn: () => fetchDateDetail(firstCancelled!.id), enabled: !!firstCancelled });
   const status = s.lifecycle_status === 'paused' ? 'paused' : s.lifecycle_status === 'ended' ? 'ended' : 'live';
-  const pill = cancelled ? <span className="pill x">{V2.tagCancelled}</span>
+  const draft = isDraftEvent(ws);
+  const pill = draft ? <span className="pill off" data-testid="draft-pill">{DRAFT_PILL}</span> : cancelled ? <span className="pill x">{V2.tagCancelled}</span>
     : <span className={status === 'live' ? 'pill' : 'pill off'}>{status === 'live' ? V2.statusLive : status === 'paused' ? V2.statusPaused : V2.statusEnded}</span>;
   const flyer = s.default_cover_image_url;
   const hm = (t: string | null | undefined) => (t ? t.slice(0, 5) : '');
@@ -238,6 +240,7 @@ export function EveryBody({ ws, day, saveNow, busy, onOpenTickets }: { ws: Event
           </div>
           <div className="fb-list">
             <div className="trow"><b data-testid="every-name">{name}</b>{pill}</div>
+            {draft && <DraftNote />}
             <Fact id="when" label={V2.when} main={E.everyDay(day)} sub={start ? (endAt ? E.timeRange(start, endAt) : start) : undefined} onOpen={() => { setProgProblem(null); setSheet('prog'); }} />
             <Fact id="where" label={V2.where} main={venue?.name ?? '\u2014'} sub={venue?.neighbourhood ?? venue?.city_name ?? undefined} busy={busy} onOpen={() => setSheet('where')} />
             <Fact id="price" label={V2.price} main={price.m} sub={price.s || undefined} onOpen={onOpenTickets} />
@@ -254,8 +257,9 @@ export function EveryBody({ ws, day, saveNow, busy, onOpenTickets }: { ws: Event
           <Line id="organisers" label={E.organisers} value={orgs} onOpen={() => setSheet('orgs')} />
         </div></div>
       </div>
-      <EndCard status={life} endDate={ws.endedOn ? fullDate(ws.endedOn, londonTodayKey()) : null} reason={cancelled ? (reasonQ.data?.cancellationReason ?? null) : null}
-        onLive={() => void liveAgain()} onCancel={() => { setStatusError(null); setSheet('cancel'); }} onPause={() => { setStatusError(null); setSheet('pause'); }} onEnd={() => { setStatusError(null); setSheet('end'); }} />
+      {draft && <GoLiveBar ws={ws} />}
+      {!draft && <EndCard status={life} endDate={ws.endedOn ? fullDate(ws.endedOn, londonTodayKey()) : null} reason={cancelled ? (reasonQ.data?.cancellationReason ?? null) : null}
+        onLive={() => void liveAgain()} onCancel={() => { setStatusError(null); setSheet('cancel'); }} onPause={() => { setStatusError(null); setSheet('pause'); }} onEnd={() => { setStatusError(null); setSheet('end'); }} />}
       {sheet === 'prog' && (
         <ProgSheet rows={progRows} oneOff={false} onOpenSession={(r) => setEditing({ row: r })} onClose={() => { setSheet(null); setEditing(null); }} />
       )}
