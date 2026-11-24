@@ -1,7 +1,8 @@
 // "Pick a night" carousel (redesign part B1): one open night per card, flyer,
 // name, Enter button. No dates. Scroll-snap = native swipe.
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RaffleNight } from '@/lib/raffleBoard';
+import { shuffleForPageLoad } from '@/lib/shuffleOnce';
 
 const initials = (title: string): string => {
   const w = title.split(/\s+/).filter(Boolean);
@@ -27,7 +28,8 @@ const Flyer = ({ title, url }: { title: string; url?: string }) => {
 };
 
 export const RaffleNightCarousel = ({ nights, joined, onEnter, onBurst }: Props) => {
-  const items = nights;
+  // Random order per page load, stable while browsing (see shuffleOnce.ts).
+  const items = useMemo(() => shuffleForPageLoad(nights, (n) => n.occurrenceId), [nights]);
   const track = useRef<HTMLUListElement>(null);
   const [idx, setIdx] = useState(0);
 
