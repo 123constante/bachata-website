@@ -18,7 +18,7 @@ describe('organiser raffle hard stop', () => {
     expect(sheet.match(/setRaffleNight\(/g)).toHaveLength(1);
     expect(sheet).not.toMatch(/useEffect/);
   });
-  it('the live flag defaults off', () => {
-    expect(readFileSync('src/lib/featureFlags.ts', 'utf8')).toMatch(/organiserRaffleLive:\s+import\.meta\.env\.VITE_ENABLE_ORGANISER_RAFFLE_LIVE === 'true'/);
+  it('the live flag defaults on (off only when set to false)', () => {
+    expect(readFileSync('src/lib/featureFlags.ts', 'utf8')).toMatch(/organiserRaffleLive:\s+import\.meta\.env\.VITE_ENABLE_ORGANISER_RAFFLE_LIVE !== 'false'/);
   });
 });

@@ -4,7 +4,7 @@ import { flags } from '@/lib/featureFlags';
 import { londonTodayKey } from '@/lib/londonDate';
 import type { EventWorkspace } from '../../events/eventModel';
 import type { Night } from '../events/eventsModel';
-import { ComingSoonRaffle, rowFor, useRaffleNights } from '../events/raffle/RaffleParts';
+import { ComingSoonRaffle, SeriesSwitchCard, rowFor, useRaffleNights } from '../events/raffle/RaffleParts';
 import { RaffleSheet } from '../events/raffle/RaffleSheet';
 import { WorkspaceGate } from '../screens/EventPage';
 import { P3_PATHS } from '../shell/paths';
@@ -99,6 +99,7 @@ function Raffle({ ws }: { ws: EventWorkspace }) {
         <Link to={P3_PATHS.event(id)} className="r4-back" data-testid="r4-raffle-back">&larr; {name}</Link>
         <h1 className="r4-h1">Raffle</h1>
       </div>
+      {flags.organiserRaffleLive && <SeriesSwitchCard seriesId={id} />}
       {night?.date && <p className="r4-sub" data-testid="r4-raffle-when">{name}, {shortDay(night.date)}</p>}
       {!flags.organiserRaffleLive ? <ComingSoonRaffle />
         : night ? <Live night={night} />
