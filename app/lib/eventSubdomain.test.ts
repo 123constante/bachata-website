@@ -377,6 +377,7 @@ describe("host routes: / and /<night> served inside the app (brief #2157)", () =
     expect(r.thrown).toBeUndefined();
     expect(r.data?.data.subdomainLabel).toBe("lounge");
     expect(resolveMock).toHaveBeenCalledWith("lounge", "throw");
+    expect(r.data?.data.subdomainOccurrenceId).toBeUndefined();
   });
 
   it("flag on: '/19-dec' resolves the label AND the night", async () => {
@@ -385,6 +386,8 @@ describe("host routes: / and /<night> served inside the app (brief #2157)", () =
     expect(r.thrown).toBeUndefined();
     expect(r.data?.data.subdomainLabel).toBe("lounge");
     expect(snapshotMock.mock.calls.some(([, a]) => a.p_target.occurrence_id === OCCS[0].occurrenceId)).toBe(true);
+    // EventPage reads the night from loader data (no ?occurrenceId= on a night path).
+    expect(r.data?.data.subdomainOccurrenceId).toBe(OCCS[0].occurrenceId);
   });
 
   it("flag off, label not listed: both routes 302 to www home", async () => {
