@@ -31,14 +31,33 @@ export async function fetchNameMatches(name: string, cityId: string): Promise<Na
 
 export async function onboardOrganiser(
   name: string, cityId: string, claimOrganiserId: string | null, firstEvent: FirstEventInput | null = null,
+  social: string | null = null,
 ): Promise<OnboardResult> {
   try {
     const { data, error } = await rpc('organiser_onboard_v1', {
       p_name: name.trim(), p_city: cityId, p_first_event: firstEventPayload(firstEvent), p_claim_organiser_id: claimOrganiserId,
+      p_social: social?.trim() ? social.trim() : null,
     });
     if (error) return /not_authenticated|jwt/i.test(error.message) ? { kind: 'signed_out' } : { kind: 'failed' };
     return parseOnboardResult(data);
   } catch {
     return { kind: 'failed' };
+  }
+}
+
+export type SocialPreview = { kind: 'instagram' | 'website' | 'unknown'; value: string };
+
+/** Preview only: what the server understood. A failed call returns null (no line, never blocks). */
+export async function normaliseSocial(text: string): Promise<SocialPreview | null> {
+  try {
+    const { data, error } = await rpc('organiser_normalise_social_v1', { p_input: text });
+    if (error || !data || typeof data !== 'object') return null;
+    const d = data as Record<string, unknown>;
+    if (d.kind === 'instagram' && typeof d.instagram === 'string' && d.instagram) return { kind: 'instagram', value: d.instagram.replace(/^@/, '') };
+    if (d.kind === 'website' && typeof d.website === 'string' && d.website) return { kind: 'website', value: d.website };
+    if (d.kind === 'unknown') return { kind: 'unknown', value: '' };
+    return null;
+  } catch {
+    return null;
   }
 }

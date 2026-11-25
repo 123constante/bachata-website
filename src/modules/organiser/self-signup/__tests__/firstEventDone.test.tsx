@@ -6,6 +6,7 @@ import { firstEventPayload, refusalView } from '../selfSignupModel';
 const onboard = vi.fn();
 vi.mock('../selfSignupApi', () => ({
   fetchFlagOn: async () => true,
+  normaliseSocial: async () => null,
   fetchNameMatches: vi.fn(async () => [{ organiserId: 'org1', displayName: 'Salsa Club', city: 'London', claimed: false, emailMatch: false }]),
   onboardOrganiser: (...a: unknown[]) => onboard(...a),
 }));
@@ -56,15 +57,17 @@ describe('page', () => {
     fireEvent.change(screen.getByTestId('signup-event-name'), { target: { value: 'Friday Social' } });
     fireEvent.change(screen.getByTestId('signup-event-date'), { target: { value: '2099-01-02' } });
     fireEvent.click(cont);
+    fireEvent.click(screen.getByTestId('signup-social-skip'));
     await waitFor(() => expect(onboard).toHaveBeenCalledTimes(1));
-    expect(onboard).toHaveBeenCalledWith('Salsa Club', 'c1', null, { name: 'Friday Social', date: '2099-01-02' });
+    expect(onboard).toHaveBeenCalledWith('Salsa Club', 'c1', null, { name: 'Friday Social', date: '2099-01-02' }, null);
   });
 
   it('Skip onboards with no first event', async () => {
     await toWho();
     fireEvent.click(screen.getByTestId('signup-submit'));
     fireEvent.click(screen.getByTestId('signup-event-skip'));
-    await waitFor(() => expect(onboard).toHaveBeenCalledWith('Salsa Club', 'c1', null, null));
+    fireEvent.click(screen.getByTestId('signup-social-skip'));
+    await waitFor(() => expect(onboard).toHaveBeenCalledWith('Salsa Club', 'c1', null, null, null));
   });
 
   it('claim picked: no event step', async () => {
@@ -73,7 +76,8 @@ describe('page', () => {
     fireEvent.change(screen.getByTestId('signup-name'), { target: { value: 'Salsa Club ' } });
     fireEvent.click(await screen.findByTestId('signup-yes'));
     fireEvent.click(screen.getByTestId('signup-submit'));
-    await waitFor(() => expect(onboard).toHaveBeenCalledWith('Salsa Club ', 'c1', 'org1', null));
+    fireEvent.click(screen.getByTestId('signup-social-skip'));
+    await waitFor(() => expect(onboard).toHaveBeenCalledWith('Salsa Club ', 'c1', 'org1', null, null));
     expect(screen.queryByText('Your first event')).toBeNull();
   });
 
@@ -96,9 +100,10 @@ describe('page', () => {
     fireEvent.click(screen.getByTestId('signup-event-back'));
     fireEvent.click(screen.getByTestId('signup-submit'));
     fireEvent.click(screen.getByTestId('signup-event-skip'));
+    fireEvent.click(screen.getByTestId('signup-social-skip'));
     fireEvent.click(await screen.findByTestId('signup-retry'));
     await waitFor(() => expect(onboard).toHaveBeenCalledTimes(2));
-    expect(onboard).toHaveBeenLastCalledWith('Salsa Club', 'c1', null, null);
+    expect(onboard).toHaveBeenLastCalledWith('Salsa Club', 'c1', null, null, null);
   });
 
   it('keep-list: who, refused and result screens keep their controls', async () => {
@@ -108,6 +113,7 @@ describe('page', () => {
     expect(screen.getByTestId('signup-submit').textContent).toBe('Create my page');
     fireEvent.click(screen.getByTestId('signup-submit'));
     fireEvent.click(screen.getByTestId('signup-event-skip'));
+    fireEvent.click(screen.getByTestId('signup-social-skip'));
     for (const id of ['signup-refusal', 'signup-retry', 'signup-back']) expect(await screen.findByTestId(id)).toBeTruthy();
     fireEvent.click(screen.getByTestId('signup-retry'));
     for (const id of ['signup-outcome', 'signup-continue']) expect(await screen.findByTestId(id)).toBeTruthy();
@@ -117,6 +123,7 @@ describe('page', () => {
     await toWho();
     fireEvent.click(screen.getByTestId('signup-submit'));
     fireEvent.click(screen.getByTestId('signup-event-skip'));
+    fireEvent.click(screen.getByTestId('signup-social-skip'));
     fireEvent.click(await screen.findByTestId('signup-continue'));
     fireEvent.click(await screen.findByTestId('about-skip'));
     expect(await screen.findByTestId('signup-done-tick')).toBeTruthy();

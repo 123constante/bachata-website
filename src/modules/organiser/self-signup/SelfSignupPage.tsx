@@ -10,6 +10,7 @@ import { EmailCodeProof } from '@/modules/organiser/shared/components/EmailCodeP
 import { searchCities, type CityResult } from '@/modules/organiser/home/onboarding/citySearch';
 import AboutYouScreen from '@/modules/organiser/claim-link/AboutYouScreen';
 import NotFound from '@/pages/NotFound';
+import SocialStep from './SocialStep';
 import { fetchFlagOn, fetchNameMatches, onboardOrganiser } from './selfSignupApi';
 import FirstEventStep from './FirstEventStep';
 import {
@@ -29,7 +30,7 @@ async function sharePage(url: string) {
 const BTN = 'inline-flex w-full min-h-[48px] items-center justify-center rounded-xl bg-primary px-4 text-[15px] font-semibold text-primary-foreground disabled:opacity-50';
 const GHOST = 'inline-flex w-full min-h-[44px] items-center justify-center rounded-xl border border-border px-4 text-[14px] font-medium';
 
-type Step = 'email' | 'code' | 'who' | 'working' | 'result' | 'refused' | 'about' | 'done' | 'event';
+type Step = 'email' | 'code' | 'who' | 'working' | 'result' | 'refused' | 'about' | 'done' | 'event' | 'social';
 
 /** /start-organiser. Unlisted, noindex. The DB flag organiser_onboarding_v2 off = the not-found page. */
 export default function SelfSignupPage() {
@@ -50,6 +51,9 @@ export default function SelfSignupPage() {
   const [eventError, setEventError] = useState<string | null>(null);
   // What the last save actually sent, so "Try again" never resends an event the person skipped.
   const [sentEvent, setSentEvent] = useState<FirstEventInput | null>(null);
+  const [pendingEvent, setPendingEvent] = useState<FirstEventInput | null>(null);
+  const [socialDraft, setSocialDraft] = useState('');
+  const [sentSocial, setSentSocial] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [flagOn, setFlagOn] = useState(false);
   const seq = useRef(0);
@@ -93,12 +97,13 @@ export default function SelfSignupPage() {
   if (notFound || !flagOn) return <NotFound />;
   if (authStatus === 'resolving') return shell(<p className="text-[14px] text-muted-foreground">One moment&hellip;</p>);
 
-  const submit = async (firstEvent: FirstEventInput | null = null) => {
+  const submit = async (firstEvent: FirstEventInput | null, social: string | null) => {
     if (!city) return;
     setStep('working');
     setEventError(null);
     setSentEvent(firstEvent);
-    const res = await onboardOrganiser(name, city.id, claimTarget, firstEvent);
+    setSentSocial(social);
+    const res = await onboardOrganiser(name, city.id, claimTarget, firstEvent, social);
     if (res.kind === 'success') { setResult(res); setStep('result'); return; }
     if (res.kind === 'signed_out') { setStep('email'); return; }
     const view = res.kind === 'refused' ? refusalView(res.reason) : { action: 'retry' as const, message: GENERIC_FAILURE };
@@ -116,7 +121,7 @@ export default function SelfSignupPage() {
       <>
         <p className="text-[15px]" data-testid="signup-refusal">{refusal.message}</p>
         {refusal.action === 'own_page' && <Link to={ORGANISER_HOME_PATH} className={BTN} data-testid="signup-own-page">Open my page</Link>}
-        {refusal.action === 'retry' && <button type="button" className={BTN} onClick={() => void submit(sentEvent)} data-testid="signup-retry">Try again</button>}
+        {refusal.action === 'retry' && <button type="button" className={BTN} onClick={() => void submit(sentEvent, sentSocial)} data-testid="signup-retry">Try again</button>}
         <button type="button" className={GHOST} onClick={() => setStep('who')} data-testid="signup-back">Back</button>
       </>,
       true,
@@ -154,13 +159,25 @@ export default function SelfSignupPage() {
     );
   }
 
+  if (step === 'social') {
+    return shell(
+      <SocialStep
+        initial={socialDraft}
+        onContinue={(t) => { setSocialDraft(t); void submit(pendingEvent, t); }}
+        onSkip={() => void submit(pendingEvent, null)}
+        onBack={(t) => { setSocialDraft(t); setStep(claimTarget ? 'who' : 'event'); }}
+      />,
+      true,
+    );
+  }
+
   if (step === 'event') {
     return shell(
       <FirstEventStep
         initial={eventDraft}
         error={eventError}
-        onContinue={(e) => { setEventDraft(e); void submit(e); }}
-        onSkip={() => void submit(null)}
+        onContinue={(e) => { setEventDraft(e); setPendingEvent(e); setStep('social'); }}
+        onSkip={() => { setPendingEvent(null); setStep('social'); }}
         onBack={(e) => { setEventDraft(e); setEventError(null); setStep('who'); }}
       />,
       true,
@@ -196,7 +213,7 @@ export default function SelfSignupPage() {
             ))}
           </>
         )}
-        <button type="button" className={BTN} disabled={name.trim().length < 2 || !city} onClick={() => (claimTarget ? void submit() : setStep('event'))} data-testid="signup-submit">Create my page</button>
+        <button type="button" className={BTN} disabled={name.trim().length < 2 || !city} onClick={() => (claimTarget ? (setPendingEvent(null), setStep('social')) : setStep('event'))} data-testid="signup-submit">Create my page</button>
         {!user && <button type="button" className={GHOST} onClick={() => setStep('code')} data-testid="signup-back">Back</button>}
       </>,
       true,
