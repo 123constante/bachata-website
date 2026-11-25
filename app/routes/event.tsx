@@ -16,6 +16,7 @@ import { resolvePublicEventRef } from "@/lib/seo/resolvePublicEventRef";
 import { hiddenEventResponse } from "../lib/hiddenEventResponse";
 import {
   EVENT_SUBDOMAIN_WWW_HOME,
+  eventHostServable,
   eventSubdomainLinksEnabled,
   eventSubdomainOrigin,
   isSubdomainLabel,
@@ -77,22 +78,24 @@ export const loader = withSsrLoaderTimeout("event-loader", async function loader
   const routeParam = params.id;
   const isUuid = UUID_RE.test(routeParam);
 
-  // Event subdomains (#2147). vercel.json rewrites <label>.bachatacalendar.co.uk
-  // [/<day>-<mon>] onto this route as /event/<label>[?night=<day>-<mon>]; the
-  // flag and host rules live here. www / apex / *.vercel.app hosts parse to
-  // "none" and fall straight through, exactly as before, flag on or off.
+  // Event subdomains (#2147). <label>.bachatacalendar.co.uk is served by the app
+  // itself: routes/index.tsx ("/") and routes/event-night.tsx ("/<day>-<mon>",
+  // passed in as ?night=) call this loader with params.id = <label>. The flag /
+  // test-label gate and host rules live here. www / apex / *.vercel.app hosts
+  // parse to "none" and fall straight through, exactly as before.
   const requestHost =
     request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? new URL(request.url).host;
   const hostInfo = parseEventHost(requestHost);
   if (hostInfo.kind !== "none") {
-    // Flag OFF (default): no subdomain is live, send everyone to the main site.
-    if (!eventSubdomainLinksEnabled()) throw redirect(EVENT_SUBDOMAIN_WWW_HOME, 302);
+    // Flag OFF and label not in EVENT_SUBDOMAIN_TEST_LABELS (default): not live,
+    // send everyone to the main site.
+    if (!eventHostServable(hostInfo.label)) throw redirect(EVENT_SUBDOMAIN_WWW_HOME, 302);
     if (hostInfo.kind === "www-event") {
       const night = new URL(request.url).searchParams.get("night");
       throw redirect(`${eventSubdomainOrigin(hostInfo.label)}${night ? `/${night}` : ""}`, 301);
     }
   }
-  // Only the rewritten shape (/event/<label> on <label>.<domain>) is subdomain mode.
+  // Subdomain mode: the host's own label is the route param (set by the host routes).
   const sub = hostInfo.kind === "event" && hostInfo.label === routeParam ? hostInfo : null;
 
   // Malformed-UUID attempt (UUID-shaped prefix, invalid length): can't match a

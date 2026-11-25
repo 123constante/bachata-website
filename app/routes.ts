@@ -59,5 +59,8 @@ export default [
   route("api/io-health", "routes/api.io-health.tsx"),
   // Proxy for the admin `advertising-stop` edge function (owner email link).
   route("advertising-stop", "routes/advertising-stop.tsx"),
+  // Event subdomain nights (<label>.bachatacalendar.co.uk/19-dec). Outranked by
+  // every static route above; off an event host it behaves as the catchall.
+  route(":night", "routes/event-night.tsx"),
   route("*", "routes/catchall.tsx"),
 ] satisfies RouteConfig;

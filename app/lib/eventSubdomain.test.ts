@@ -337,3 +337,120 @@ describe("D2a rows 6-7: sitemap loc and cache purge", () => {
     expect(on).toContain("https://www.bachatacalendar.co.uk/event/c");
   });
 });
+
+describe("host routes: / and /<night> served inside the app (brief #2157)", () => {
+  type L = (a: { params: Record<string, string>; request: Request }) => Promise<unknown>;
+  const OCCS = [{ occurrenceId: "11111111-1111-1111-1111-111111111111", localDate: "2999-12-19T20:00" }];
+  const WWW = "https://www.bachatacalendar.co.uk/";
+  let indexLoader: L;
+  let nightLoader: L;
+  const call = async (l: L, host: string, path: string, params: Record<string, string> = {}) => {
+    const request = new Request(`https://${host}${path}`, { headers: { host } });
+    try {
+      return { data: (await l({ params, request })) as { data: Record<string, unknown> } | null };
+    } catch (e) {
+      return { thrown: e as Response };
+    }
+  };
+
+  beforeEach(async () => {
+    vi.resetAllMocks();
+    delete process.env.EVENT_SUBDOMAIN_LINKS;
+    delete process.env.EVENT_SUBDOMAIN_TEST_LABELS;
+    resolveMock.mockImplementation(async (ref: string) => (ref === "lounge" ? { id: "22222222-2222-2222-2222-222222222222", slug: "lounge" } : null));
+    snapshotMock.mockImplementation(async (_n: string, a: { p_target: { occurrence_id?: string } }) => ({
+      data: { event: { name: "Lounge" }, occurrences: OCCS, seenOcc: a.p_target.occurrence_id ?? null },
+      error: null,
+    }));
+    // The sitemap test above doMock()s the supabase client; put the file-level mock back.
+    vi.resetModules();
+    vi.doMock("@/integrations/supabase/client", () => ({
+      supabase: { rpc: async (name: string, args: { p_target: { occurrence_id?: string } }) => snapshotMock(name, args) },
+    }));
+    indexLoader = (await import("./../routes/index")).loader as unknown as L;
+    nightLoader = (await import("./../routes/event-night")).loader as unknown as L;
+  });
+
+  it("flag on: '/' on the event host is the event page (label from the host)", async () => {
+    process.env.EVENT_SUBDOMAIN_LINKS = "true";
+    const r = await call(indexLoader, "lounge.bachatacalendar.co.uk", "/");
+    expect(r.thrown).toBeUndefined();
+    expect(r.data?.data.subdomainLabel).toBe("lounge");
+    expect(resolveMock).toHaveBeenCalledWith("lounge", "throw");
+  });
+
+  it("flag on: '/19-dec' resolves the label AND the night", async () => {
+    process.env.EVENT_SUBDOMAIN_LINKS = "true";
+    const r = await call(nightLoader, "lounge.bachatacalendar.co.uk", "/19-dec", { night: "19-dec" });
+    expect(r.thrown).toBeUndefined();
+    expect(r.data?.data.subdomainLabel).toBe("lounge");
+    expect(snapshotMock.mock.calls.some(([, a]) => a.p_target.occurrence_id === OCCS[0].occurrenceId)).toBe(true);
+  });
+
+  it("flag off, label not listed: both routes 302 to www home", async () => {
+    for (const r of [
+      await call(indexLoader, "lounge.bachatacalendar.co.uk", "/"),
+      await call(nightLoader, "lounge.bachatacalendar.co.uk", "/19-dec", { night: "19-dec" }),
+    ]) {
+      expect(r.thrown?.status).toBe(302);
+      expect(r.thrown?.headers.get("location")).toBe(WWW);
+    }
+  });
+
+  it("test-label list serves exactly that label with the flag off", async () => {
+    process.env.EVENT_SUBDOMAIN_TEST_LABELS = "lounge";
+    const ok = await call(indexLoader, "lounge.bachatacalendar.co.uk", "/");
+    expect(ok.thrown).toBeUndefined();
+    expect(ok.data?.data.subdomainLabel).toBe("lounge");
+    const other = await call(indexLoader, "nope.bachatacalendar.co.uk", "/");
+    expect(other.thrown?.headers.get("location")).toBe(WWW);
+  });
+
+  it("test labels do NOT turn on the www->subdomain 301 or the sitemap flag", () => {
+    process.env.EVENT_SUBDOMAIN_TEST_LABELS = "lounge";
+    expect(eventSubdomainLinksEnabled()).toBe(false);
+  });
+
+  it("night route off an event host is the catchall (null), index redirects home", async () => {
+    for (const h of ["www.bachatacalendar.co.uk", "bachatacalendar.co.uk", "x.vercel.app"]) {
+      expect((await call(nightLoader, h, "/search", { night: "search" })).data).toBeNull();
+      expect((await call(indexLoader, h, "/")).thrown?.headers.get("location")).toBe("/city/london-gb");
+    }
+  });
+
+  it("non-night single segment on an event host forwards to www", async () => {
+    const r = await call(nightLoader, "lounge.bachatacalendar.co.uk", "/search", { night: "search" });
+    expect(r.thrown?.status).toBe(302);
+    expect(r.thrown?.headers.get("location")).toBe("https://www.bachatacalendar.co.uk/search");
+  });
+});
+
+describe("host routes: client-side navigation (clientLoader)", () => {
+  type CL = (a: { serverLoader: () => Promise<unknown> }) => Promise<unknown>;
+  const SERVER = { from: "server" };
+  const run = async (mod: string, host: string) => {
+    vi.stubGlobal("window", { location: { host } });
+    const cl = (await import(mod)).clientLoader as CL;
+    try {
+      return { data: await cl({ serverLoader: async () => SERVER }) };
+    } catch (e) {
+      return { thrown: e as Response };
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  };
+
+  it("'/' on www redirects to the city page (never a blank page)", async () => {
+    const r = await run("./../routes/index", "www.bachatacalendar.co.uk");
+    expect(r.thrown?.headers.get("location")).toBe("/city/london-gb");
+  });
+  it("'/' on an event host fetches the event page from the server", async () => {
+    expect((await run("./../routes/index", "lounge.bachatacalendar.co.uk")).data).toBe(SERVER);
+  });
+  it("'/<night>' on an event host fetches the night (next-night button)", async () => {
+    expect((await run("./../routes/event-night", "lounge.bachatacalendar.co.uk")).data).toBe(SERVER);
+  });
+  it("'/<x>' off an event host stays the catchall shell (no data)", async () => {
+    expect((await run("./../routes/event-night", "www.bachatacalendar.co.uk")).data).toBeNull();
+  });
+});

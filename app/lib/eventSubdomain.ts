@@ -2,10 +2,11 @@ import { londonTodayKey } from "@/lib/londonDate";
 
 // Event subdomains (brief D1, #2147): https://<label>.bachatacalendar.co.uk is
 // one event, https://<label>.bachatacalendar.co.uk/19-dec is one night of it.
-// Pure host/path parsing + the server flag + reserved labels. vercel.json maps
-// the subdomain host onto the existing /event/:id route (rewrite); the checks
-// that need the DB or the flag (miss -> www, www.<label> -> bare) live in the
-// /event loader and read this module.
+// Pure host/path parsing + the server flag + reserved labels. The app serves the
+// host itself (routes/index.tsx for "/", routes/event-night.tsx for "/<night>",
+// both delegating to the /event loader; vercel.json rewrites do NOT change the
+// path React Router sees). The checks that need the DB or the flag (miss -> www,
+// www.<label> -> bare) live in the /event loader and read this module.
 
 export const EVENT_SUBDOMAIN_DOMAIN = "bachatacalendar.co.uk";
 export const EVENT_SUBDOMAIN_WWW_HOME = `https://www.${EVENT_SUBDOMAIN_DOMAIN}/`;
@@ -18,6 +19,22 @@ export const RESERVED_LABELS: readonly string[] = [
 /** Server env flag, read at call time (pattern: OG_BRANDED_CARD_ENABLED). Default OFF. */
 export function eventSubdomainLinksEnabled(env: Record<string, string | undefined> = process.env): boolean {
   return env.EVENT_SUBDOMAIN_LINKS === "true";
+}
+
+/** Server env EVENT_SUBDOMAIN_TEST_LABELS: comma list of labels served on their own
+ *  subdomain while the flag is OFF (prod test of one real event). Default empty.
+ *  It gates ONLY serving the event host; the www->subdomain 301s and the sitemap
+ *  read eventSubdomainLinksEnabled() and never this. */
+export function eventSubdomainTestLabels(env: Record<string, string | undefined> = process.env): string[] {
+  return (env.EVENT_SUBDOMAIN_TEST_LABELS ?? "")
+    .split(",")
+    .map((l) => l.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+/** True when <label>.<domain> may serve its event page: flag ON, or label listed. */
+export function eventHostServable(label: string, env: Record<string, string | undefined> = process.env): boolean {
+  return eventSubdomainLinksEnabled(env) || eventSubdomainTestLabels(env).includes(label.toLowerCase());
 }
 
 export type EventHost =
