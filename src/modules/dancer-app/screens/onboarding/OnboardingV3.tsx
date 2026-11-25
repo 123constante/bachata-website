@@ -22,6 +22,7 @@ import { LockedHome } from '../home/lockedMode';
 import { DANCER_ONBOARDING_V3_ENABLED } from './onboardingV3Flag';
 import { NeonFrame } from './neon/NeonFrame';
 import { RolesNeon, StylesNeon, YearsNeon } from './neon/NeonSteps';
+import { NeonPartner } from './neon/NeonPartner';
 
 /** Same 3 lines as OnboardingScreen's leaveFor (copied, not exported: the old file stays untouched). */
 const leaveFor = (qc: QueryClient, navigate: NavigateFunction, end: string) => {
@@ -172,7 +173,7 @@ const OnboardingV3 = () => {
   const toggleStyle = (s: string) => setStyles((p) => (p.includes(s) ? p.filter((x) => x !== s) : [...p, s]));
   const card = { busy, error };
   // v8 Neon Night look for roles, styles, years only: same state and handlers, different shell and rows.
-  const neonStep = DANCER_ONBOARDING_V3_ENABLED && (step === 'roles' || step === 'styles' || step === 'years');
+  const neonStep = DANCER_ONBOARDING_V3_ENABLED && (step === 'roles' || step === 'styles' || step === 'years' || step === 'partner');
   const Roles = neonStep ? RolesNeon : RolesCardV3;
   const Styles = neonStep ? StylesNeon : StylesCardV3;
   const Years = neonStep ? YearsNeon : YearsCardV3;
@@ -269,7 +270,25 @@ const OnboardingV3 = () => {
                 }
               />
             ) : null}
-            {step === 'partner' ? (
+            {step === 'partner' && neonStep ? (
+              <NeonPartner
+                {...card}
+                draft={partner}
+                sheet={sheet}
+                onAnswer={(a) => {
+                  setPartner((d) => ({ ...d, answer: a }));
+                  setSheet(a === 'yes');
+                }}
+                onChange={setPartner}
+                onOpenSheet={() => setSheet(true)}
+                onSave={() => {
+                  setSheet(false);
+                  void run(() => saveDelta(partnerDelta(partner)), 'partner', nextAfter('partner'));
+                }}
+                onContinue={() => void run(() => saveDelta(partnerDelta(partner)), 'partner', nextAfter('partner'))}
+              />
+            ) : null}
+            {step === 'partner' && !neonStep ? (
               <PartnerCardV3
                 {...card}
                 draft={partner}
@@ -307,7 +326,7 @@ const OnboardingV3 = () => {
               />
             ) : null}
           </>)}
-          {step === 'partner' && sheet ? <PartnerSheetV3 draft={partner} onChange={setPartner} onClose={() => setSheet(false)} /> : null}
+          {step === 'partner' && sheet && !neonStep ? <PartnerSheetV3 draft={partner} onChange={setPartner} onClose={() => setSheet(false)} /> : null}
         </>
       )}
     </section>
