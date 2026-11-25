@@ -4,9 +4,8 @@ import type { BuyerRole, MyDancerEdit } from '../../api/types';
 export const STEPS_V3 = ['roles', 'styles', 'years', 'partner', 'photo', 'bio'] as const;
 export type StepV3 = (typeof STEPS_V3)[number];
 
-/** Progress segments = this list's length. `partner` is skipped (both directions) without the dancer role. */
-export const stepsFor = (buyerRoles: readonly BuyerRole[]): StepV3[] =>
-  STEPS_V3.filter((s) => s !== 'partner' || buyerRoles.includes('dancer'));
+/** Progress segments = this list's length. OWNER 2026-11-25: every role has a dancer profile, so `partner` is shown to everyone. */
+export const stepsFor = (_buyerRoles: readonly BuyerRole[]): StepV3[] => [...STEPS_V3];
 
 export type YearBandV3 = 'under-1' | 'one-two' | 'three-five' | 'six-ten' | 'over-10';
 
@@ -39,7 +38,35 @@ export type DraftV3 = {
   /** null = not answered. */
   lookingForPartner: boolean | null;
   partnerRole: string | null;
+  /** Partner YES needs kind + role + years (v8). Absent = not picked. */
+  partnerKinds?: readonly string[];
+  partnerYears?: string | null;
   hasPhoto: boolean;
+};
+
+/** Parts of the YES sheet still missing, in order (mockup pmiss()). */
+export const partnerMissing = (d: Pick<DraftV3, 'partnerRole' | 'partnerKinds' | 'partnerYears'>): string[] => {
+  const out: string[] = [];
+  if (!d.partnerKinds || d.partnerKinds.length === 0) out.push('a kind');
+  if (!d.partnerRole) out.push('their role');
+  if (!d.partnerYears) out.push('years dancing');
+  return out;
+};
+
+/** "Pick a kind, their role and years dancing to save." */
+export const PARTNER_HINT = (missing: readonly string[]): string =>
+  `Pick ${missing.join(', ').replace(/, ([^,]*)$/, ' and $1')} to save.`;
+
+export const partnerCanSave = (d: Pick<DraftV3, 'partnerRole' | 'partnerKinds' | 'partnerYears'>): boolean => partnerMissing(d).length === 0;
+
+/** Save in the sheet closes it and continues to the next step (the consumer wires it). */
+export const partnerSaveAdvances = true;
+
+/** Continue on the partner step: YES with an incomplete sheet reopens the sheet, never advances. */
+export const partnerContinue = (d: DraftV3): 'reopen-sheet' | 'advance' | 'blocked' => {
+  if (d.lookingForPartner === null) return 'blocked';
+  if (d.lookingForPartner && !partnerCanSave(d)) return 'reopen-sheet';
+  return 'advance';
 };
 
 /** Can Continue be pressed on this step? `bio` is optional ("Skip for now"). */
@@ -50,7 +77,7 @@ export const stepIsSatisfied = (step: StepV3, d: DraftV3): boolean => {
     case 'years': return d.band !== null;
     case 'partner':
       if (d.lookingForPartner === null) return false;
-      return d.lookingForPartner ? !!d.partnerRole : true;
+      return d.lookingForPartner ? partnerCanSave(d) : true;
     case 'photo': return d.hasPhoto;
     case 'bio': return true;
   }
