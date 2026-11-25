@@ -21,7 +21,7 @@ import EventRoute, { headers as eventHeaders, loader as eventLoader, meta as eve
 // EXCEPT on an event subdomain (<label>.bachatacalendar.co.uk): there "/" IS the
 // event page. vercel.json rewrites do not change the path React Router sees, so
 // this route runs the /event loader with params.id = <label> (flag / test-label
-// gate and www fallbacks live in that loader). clientLoader: no new .data fetch.
+// gate and www fallbacks live in that loader).
 export function loader(args: { request: Request; context?: unknown }) {
   const url = new URL(args.request.url);
   const host = args.request.headers.get("x-forwarded-host") ?? args.request.headers.get("host") ?? url.host;
@@ -32,8 +32,12 @@ export function loader(args: { request: Request; context?: unknown }) {
   throw redirect("/city/london-gb", 307);
 }
 
-export function clientLoader() {
-  return null;
+// Client-side navigation to "/": on www (header logo, Link to="/") the server
+// loader would 307 to the city page, so redirect here too (a null would render
+// a blank page). On an event host, fetch the event page from the server.
+export async function clientLoader({ serverLoader }: { serverLoader: () => Promise<unknown> }) {
+  if (parseEventHost(window.location.host).kind !== "none") return serverLoader();
+  throw redirect("/city/london-gb");
 }
 
 export function headers(args: { loaderHeaders: Headers }) {

@@ -13,7 +13,7 @@ import EventRoute, { headers as eventHeaders, loader as eventLoader, meta as eve
 // the catchall (client shell) used to serve on www. So off an event host this
 // route must behave exactly like the catchall: loader returns null, the default
 // export IS the catchall, headers() are the catchall's. clientLoader keeps
-// client-side navigations from making a new .data request for those paths.
+// client-side navigations off an event host from making a .data request.
 export function loader(args: { request: Request; params: { night?: string }; context?: unknown }) {
   const url = new URL(args.request.url);
   const host = args.request.headers.get("x-forwarded-host") ?? args.request.headers.get("host") ?? url.host;
@@ -32,7 +32,10 @@ export function loader(args: { request: Request; params: { night?: string }; con
   } as unknown as Parameters<typeof eventLoader>[0]);
 }
 
-export function clientLoader() {
+// Off an event host: no data (the catchall shell). On an event host (e.g. the
+// "Go to the next night" button), fetch the night from the server.
+export async function clientLoader({ serverLoader }: { serverLoader: () => Promise<unknown> }) {
+  if (parseEventHost(window.location.host).kind !== "none") return serverLoader();
   return null;
 }
 

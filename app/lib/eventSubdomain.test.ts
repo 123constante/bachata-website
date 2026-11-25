@@ -424,3 +424,33 @@ describe("host routes: / and /<night> served inside the app (brief #2157)", () =
     expect(r.thrown?.headers.get("location")).toBe("https://www.bachatacalendar.co.uk/search");
   });
 });
+
+describe("host routes: client-side navigation (clientLoader)", () => {
+  type CL = (a: { serverLoader: () => Promise<unknown> }) => Promise<unknown>;
+  const SERVER = { from: "server" };
+  const run = async (mod: string, host: string) => {
+    vi.stubGlobal("window", { location: { host } });
+    const cl = (await import(mod)).clientLoader as CL;
+    try {
+      return { data: await cl({ serverLoader: async () => SERVER }) };
+    } catch (e) {
+      return { thrown: e as Response };
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  };
+
+  it("'/' on www redirects to the city page (never a blank page)", async () => {
+    const r = await run("./../routes/index", "www.bachatacalendar.co.uk");
+    expect(r.thrown?.headers.get("location")).toBe("/city/london-gb");
+  });
+  it("'/' on an event host fetches the event page from the server", async () => {
+    expect((await run("./../routes/index", "lounge.bachatacalendar.co.uk")).data).toBe(SERVER);
+  });
+  it("'/<night>' on an event host fetches the night (next-night button)", async () => {
+    expect((await run("./../routes/event-night", "lounge.bachatacalendar.co.uk")).data).toBe(SERVER);
+  });
+  it("'/<x>' off an event host stays the catchall shell (no data)", async () => {
+    expect((await run("./../routes/event-night", "www.bachatacalendar.co.uk")).data).toBeNull();
+  });
+});
