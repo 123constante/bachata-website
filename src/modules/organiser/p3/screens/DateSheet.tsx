@@ -223,7 +223,6 @@ function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent, re
   const pick = (a: DateAction) => {
     if (a === 'cancelEvent') return onCancelEvent();
     if (a === 'bringBack') return void go(PLAN.bringBack(d), done(a, DATE_COPY.done.bringBack));
-    if (a === 'resetTime') return void go(PLAN.resetTime(d), done(a, DATE_COPY.done.resetTime));
     const next = CONFIRM_STEP[a];
     if (next) to(next, a === 'time' ? start ?? '' : '');
   };
@@ -308,14 +307,14 @@ function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent, re
     );
   }
   if (step === 'skip' || step === 'resetNormal') {
-    const plan = step === 'skip' ? PLAN.skip(d) : resetNormalPlan(d, detail, facts.ownTime);
+    const plan = step === 'skip' ? PLAN.skip(d) : resetNormalPlan(d, detail);
     const title = step === 'skip' ? DATE_COPY.skipTitle(day) : DATE_COPY.resetTitle;
     const words = step === 'skip' ? DATE_COPY.done.skip : DATE_COPY.done.resetNormal;
     return (
       <Sheet title={title} onClose={onClose}>
         {backLink}
         {step === 'skip' && <p className="p3-note">{DATE_COPY.skipBody}</p>}
-        {step === 'skip' && (facts.ownDetails || facts.ownTime) && <p className="p3-warn">{DATE_COPY.skipOwn}</p>}
+        {step === 'skip' && facts.ownDetails && <p className="p3-warn">{DATE_COPY.skipOwn}</p>}
         {step === 'skip' && <p className="p3-note">{DATE_COPY.skipHint}</p>}
         {step === 'resetNormal' && <p className="p3-note">{DATE_COPY.resetBody(day)}</p>}
         {step === 'resetNormal' && detail?.cancelled && fieldsOwned(detail) && <p className="p3-warn" data-testid="p3-reset-cancelled">{L.dateFieldsCancelled}</p>}
@@ -454,7 +453,7 @@ function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent, re
   return (
     <Sheet title={start && !cancelled ? `${day}, ${timeWord(start)}` : day} onClose={onClose}>
       <p className="p3-note" data-testid="p3-date-state">
-        {cancelled ? DATE_COPY.cancelledBody(detail?.cancellationReason ?? null) : facts.ownDetails || facts.ownTime ? L.ownChanges : L.sameUsual}
+        {cancelled ? DATE_COPY.cancelledBody(detail?.cancellationReason ?? null) : facts.ownDetails ? L.ownChanges : L.sameUsual}
       </p>
       <div className="p3-stack-s" data-testid="p3-date-actions">
         {rows.map((r) => <ActionChoice key={r.action} row={r} busy={busy} onPick={pick} />)}

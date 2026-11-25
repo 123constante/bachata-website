@@ -14,18 +14,17 @@ import type { DateAction, DateFacts, P3Kind, SeriesFacts } from '..';
 const TODAY = '2026-10-25';
 const KINDS: P3Kind[] = ['weekly', 'monthly', 'course', 'custom', 'oneoff', 'festival'];
 
-type StateKey = 'coming' | 'today' | 'past' | 'cancelled' | 'skipped' | 'moved' | 'ownTime' | 'ownDetails' | 'added' | 'pastCancelled';
+type StateKey = 'coming' | 'today' | 'past' | 'cancelled' | 'skipped' | 'moved' | 'ownDetails' | 'added' | 'pastCancelled';
 const STATES: Record<StateKey, DateFacts> = {
-  coming: { date: '2026-10-30', state: 'scheduled', ruleDate: true, ownTime: false, ownDetails: false },
-  today: { date: TODAY, state: 'scheduled', ruleDate: true, ownTime: false, ownDetails: false },
-  past: { date: '2026-10-16', state: 'scheduled', ruleDate: true, ownTime: false, ownDetails: false },
-  cancelled: { date: '2026-11-06', state: 'cancelled', ruleDate: true, ownTime: false, ownDetails: false },
-  pastCancelled: { date: '2026-10-09', state: 'cancelled', ruleDate: true, ownTime: false, ownDetails: false },
-  skipped: { date: '2026-11-13', state: 'skip', ruleDate: true, ownTime: false, ownDetails: false },
-  moved: { date: '2026-11-21', state: 'scheduled', ruleDate: false, ownTime: false, ownDetails: false },
-  ownTime: { date: '2026-11-20', state: 'scheduled', ruleDate: true, ownTime: true, ownDetails: false },
-  ownDetails: { date: '2026-11-27', state: 'scheduled', ruleDate: true, ownTime: false, ownDetails: true },
-  added: { date: '2026-12-02', state: 'cancelled', ruleDate: false, ownTime: false, ownDetails: false },
+  coming: { date: '2026-10-30', state: 'scheduled', ruleDate: true, ownDetails: false },
+  today: { date: TODAY, state: 'scheduled', ruleDate: true, ownDetails: false },
+  past: { date: '2026-10-16', state: 'scheduled', ruleDate: true, ownDetails: false },
+  cancelled: { date: '2026-11-06', state: 'cancelled', ruleDate: true, ownDetails: false },
+  pastCancelled: { date: '2026-10-09', state: 'cancelled', ruleDate: true, ownDetails: false },
+  skipped: { date: '2026-11-13', state: 'skip', ruleDate: true, ownDetails: false },
+  moved: { date: '2026-11-21', state: 'scheduled', ruleDate: false, ownDetails: false },
+  ownDetails: { date: '2026-11-27', state: 'scheduled', ruleDate: true, ownDetails: true },
+  added: { date: '2026-12-02', state: 'cancelled', ruleDate: false, ownDetails: false },
 };
 
 /** Only a weekly rule (weekly, course) generates rule dates (seriesModel.isRuleDate). */
@@ -43,26 +42,26 @@ const WEEKLY_COMING: DateAction[] = ['cancel', 'details', 'move', 'skip', 'time'
 const EXPECT: Record<P3Kind, Record<StateKey, DateAction[]>> = {
   weekly: {
     coming: WEEKLY_COMING, today: WEEKLY_COMING, past: [], cancelled: ['bringBack'], pastCancelled: [], skipped: ['unskip'],
-    moved: ['cancel', 'details', 'move', 'time'], ownTime: [...WEEKLY_COMING, 'resetNormal', 'resetTime'],
+    moved: ['cancel', 'details', 'move', 'time'],
     ownDetails: [...WEEKLY_COMING, 'resetNormal'], added: ['bringBack'],
   },
   course: {} as Record<StateKey, DateAction[]>,
   monthly: {
     coming: ['cancel', 'details', 'move', 'time'], today: ['cancel', 'details', 'move', 'time'], past: [], cancelled: ['bringBack'],
-    pastCancelled: [], skipped: [], moved: ['cancel', 'details', 'move', 'time'], ownTime: ['cancel', 'details', 'move', 'resetNormal', 'resetTime', 'time'],
+    pastCancelled: [], skipped: [], moved: ['cancel', 'details', 'move', 'time'],
     ownDetails: ['cancel', 'details', 'move', 'resetNormal', 'time'], added: ['bringBack'],
   },
   custom: {} as Record<StateKey, DateAction[]>,
   oneoff: {
     coming: ['cancelEvent', 'details', 'move', 'time'], today: ['cancelEvent', 'details', 'move', 'time'], past: [], cancelled: ['bringBack'],
-    pastCancelled: [], skipped: [], moved: ['cancelEvent', 'details', 'move', 'time'], ownTime: ['cancelEvent', 'details', 'move', 'resetNormal', 'resetTime', 'time'],
+    pastCancelled: [], skipped: [], moved: ['cancelEvent', 'details', 'move', 'time'],
     ownDetails: ['cancelEvent', 'details', 'move', 'resetNormal', 'time'], added: ['bringBack'],
   },
   // A festival's date takes occurrence.cancel (no format rule in _cmd_occurrence_cancel_p5;
   // the owner refusals are set_time and move_date only): review 1062 r1 finding 4.
   festival: {
     coming: ['cancel', 'details'], today: ['cancel', 'details'], past: [], cancelled: ['bringBack'], pastCancelled: [], skipped: [], moved: ['cancel', 'details'],
-    ownTime: ['cancel', 'details', 'resetNormal'], ownDetails: ['cancel', 'details', 'resetNormal'], added: ['bringBack'],
+    ownDetails: ['cancel', 'details', 'resetNormal'], added: ['bringBack'],
   },
 };
 EXPECT.course = EXPECT.weekly;
@@ -93,8 +92,8 @@ describe('never hidden: a stored date always lists the same rows; a break lists 
     }
     expect(dateActions(series(kind), facts(kind, 'skipped'), TODAY).map((r) => r.action)).toEqual(['unskip']);
   });
-  it('the undo rows show only when there is something to undo', () => {
-    expect(dateActions(series('weekly'), STATES.ownTime, TODAY).map((r) => r.action)).toEqual(['cancel', 'move', 'time', 'resetTime', 'details', 'resetNormal', 'skip', 'remove']);
+  it('the undo row shows only when there is something to undo; there is no reset-time row', () => {
+    expect(dateActions(series('weekly'), STATES.ownDetails, TODAY).map((r) => r.action)).toEqual(['cancel', 'move', 'time', 'details', 'resetNormal', 'skip', 'remove']);
   });
 });
 
@@ -186,7 +185,7 @@ describe('the ONE tag mapping (Coming rows and All dates)', () => {
     ['weekly', 'cancelled', true, false, [L.cancelled], false],
     ['weekly', 'skipped', false, false, [L.skipped], false],
     ['weekly', 'moved', false, false, [L.notUsualDay], false],
-    ['weekly', 'ownTime', false, false, [L.ownTime], true],
+    ['weekly', 'coming', false, false, [], false],
     ['weekly', 'ownDetails', true, false, [L.ownChanges], true],
     ['weekly', 'coming', false, true, [L.ownChanges], true],
     ['monthly', 'moved', false, false, [], false],
@@ -214,6 +213,6 @@ describe('labels', () => {
     }
   });
   it('every action exists in the rule set', () => {
-    expect(Object.keys(L.dateAct).sort()).toEqual([...CORE, 'cancel', 'cancelEvent', 'resetNormal', 'resetTime', 'unskip'].sort());
+    expect(Object.keys(L.dateAct).sort()).toEqual([...CORE, 'cancel', 'cancelEvent', 'resetNormal', 'unskip'].sort());
   });
 });

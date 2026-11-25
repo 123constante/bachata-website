@@ -15,7 +15,7 @@ import type { IsoDate, P3Kind } from './types';
  */
 
 export type DateAction =
-  | 'cancel' | 'cancelEvent' | 'bringBack' | 'move' | 'time' | 'resetTime'
+  | 'cancel' | 'cancelEvent' | 'bringBack' | 'move' | 'time'
   | 'details' | 'resetNormal' | 'skip' | 'unskip' | 'remove';
 
 /** `skip` = a break (a tombstone in removed_dates, not a stored date). */
@@ -31,8 +31,6 @@ export interface DateFacts {
    * dates that follow no pattern), so "off the usual day" does not apply.
    */
   ruleDate: boolean | null;
-  /** The date starts at another time than the series (changeModel.hasOwnTime). */
-  ownTime: boolean;
   /** The date has its own Where, About, Ticket link or photo. */
   ownDetails: boolean;
 }
@@ -119,9 +117,8 @@ export function dateActions(s: SeriesFacts, d: DateFacts, today: IsoDate): DateR
   // No programme time is no grey: D8 makes the date its own time session. A date whose own
   // session set is empty is refused by the server (no_sessions_for_time_override, with copy).
   out.push(row('time', base ?? (fest ? DATE_WHY.festivalTime : onFirst)));
-  if (d.ownTime) out.push(row('resetTime', base ?? (fest ? DATE_WHY.festivalTime : onFirst)));
   out.push(row('details', base ?? onFirst));
-  if (d.ownDetails || d.ownTime) out.push(row('resetNormal', base));
+  if (d.ownDetails) out.push(row('resetNormal', base));
 
   const skipWhy = oneoff ? DATE_WHY.oneOffNoBreak
     : fest ? DATE_WHY.festivalOne
@@ -160,9 +157,8 @@ export function dateMarks(kind: P3Kind, d: DateFacts, extra: { today: IsoDate; h
   if (d.date < extra.today) tags.push(L.done);
   if (d.state === 'skip') return { tags: [...tags, L.skipped], own: false };
   if (d.state === 'cancelled') return { tags: [...tags, L.cancelled], own: false };
-  const own = extra.hasOverride || extra.sessionChanges || d.ownTime;
-  if (d.ownTime) tags.push(L.ownTime);
-  else if (own) tags.push(L.ownChanges);
+  const own = extra.hasOverride || extra.sessionChanges;
+  if (own) tags.push(L.ownChanges);
   if ((kind === 'weekly' || kind === 'course') && d.ruleDate === false) tags.push(L.notUsualDay);
   return { tags, own };
 }

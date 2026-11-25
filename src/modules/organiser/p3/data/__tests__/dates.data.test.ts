@@ -25,7 +25,6 @@ describe('every action sends ONE existing builder, an owner-admitted kind (prod 
     ['bringBack', PLAN.bringBack(D), { to: 'date', occurrenceId: D.id, version: 3, commands: [{ kind: 'occurrence.cancel', payload: { cancelled: false } }] }],
     ['move', PLAN.move(D, '2026-10-31'), { to: 'date', occurrenceId: D.id, version: 3, commands: [{ kind: 'occurrence.move_date', payload: { to_date: '2026-10-31' } }] }],
     ['time', PLAN.time(D, '21:00'), { to: 'date', occurrenceId: D.id, version: 3, commands: [{ kind: 'occurrence.set_time', payload: { new_local_start: '21:00', new_local_end: null } }] }],
-    ['resetTime', PLAN.resetTime(D), { to: 'date', occurrenceId: D.id, version: 3, commands: [{ kind: 'occurrence.set_time', payload: { reset: true } }] }],
     ['details', PLAN.details(D, { ticket_url: ' https://t.example.test/x ' }), { to: 'date', occurrenceId: D.id, version: 3, commands: [{ kind: 'occurrence.set_override', payload: { ticket_url: 'https://t.example.test/x' } }] }],
     ['skip', PLAN.skip(D), { to: 'series', command: { kind: 'series.skip_date', payload: { occurrence_id: D.id } } }],
     ['unskip', PLAN.unskip('2026-11-13'), { to: 'series', command: { kind: 'series.unskip_date', payload: { date: '2026-11-13' } } }],
@@ -47,20 +46,24 @@ describe('every action sends ONE existing builder, an owner-admitted kind (prod 
 const detailRaw = (event: Record<string, unknown>, status = 'scheduled') =>
   parseDateDetail({ event, occurrence: { id: D.id, date: D.occurrence_date, version: 3, lifecycle_status: status }, schedule: {} });
 
+/** A hand-built two-command date plan: the multi-step sender still has to handle one (no reset builds one now). */
+const TWO_STEP: DatePlan = { to: 'date', occurrenceId: D.id, version: 3, commands: [
+  { kind: 'occurrence.set_override', payload: { description: null } },
+  { kind: 'occurrence.set_time', payload: { new_local_start: '21:00', new_local_end: null } },
+] };
+
 describe('Put this date back to normal: the composite (CONTRACT 2), only what the date has', () => {
   it.each([
-    ['venue only', { venue_id_override: 'v2' }, false, [{ kind: 'occurrence.set_override', payload: { venue_id: null, city_id: null } }]],
+    ['venue only', { venue_id_override: 'v2' }, [{ kind: 'occurrence.set_override', payload: { venue_id: null, city_id: null } }]],
     ['every detail', { venue_id_override: 'v2', description_override: 'd', ticket_url_override: 't', cover_image_url_override: 'c' }, false,
       [{ kind: 'occurrence.set_override', payload: { venue_id: null, city_id: null, description: null, ticket_url: null, cover_image_url: null } }]],
-    ['time only', {}, true, [{ kind: 'occurrence.set_time', payload: { reset: true } }]],
-    ['details and time', { description_override: 'd' }, true, [{ kind: 'occurrence.set_override', payload: { description: null } }, { kind: 'occurrence.set_time', payload: { reset: true } }]],
-  ] as Array<[string, Record<string, unknown>, boolean, unknown[]]>)('%s', (_n, ev, ownTime, commands) => {
-    const plan = resetNormalPlan(D, detailRaw(ev), ownTime)!;
+  ] as Array<[string, Record<string, unknown>, unknown[]]>)('%s', (_n, ev, commands) => {
+    const plan = resetNormalPlan(D, detailRaw(ev))!;
     expect(planCommands(plan)).toEqual(commands);
   });
   it('nothing of its own: nothing is sent (a cancellation reason is not a detail)', () => {
-    expect(resetNormalPlan(D, detailRaw({ cancellation_reason_label: 'Illness' }, 'cancelled'), false)).toBeNull();
-    expect(resetNormalPlan(D, null, false)).toBeNull();
+    expect(resetNormalPlan(D, detailRaw({ cancellation_reason_label: 'Illness' }, 'cancelled'))).toBeNull();
+    expect(resetNormalPlan(D, null)).toBeNull();
   });
 });
 
@@ -90,7 +93,7 @@ describe('sending: keys kept per plan, the date version chained', () => {
     expect(ring.for(PLAN.cancel({ ...D, id: 'o-other' }, 'Illness'))).not.toEqual(ring.for(first));
   });
   it('the composite: a refused SECOND call says the details went back and the time did not (r1 finding 8)', async () => {
-    const plan = resetNormalPlan(D, detailRaw({ description_override: 'd' }), true)!;
+    const plan = TWO_STEP;
     const refusal = Object.assign(new Error('invalid_payload: date_time_session_has_people: reset would drop a session with people'), { code: 'P0001' });
     const run: DateRunner = {
       date: vi.fn(async (_id, v, c) => { if (c.kind === 'occurrence.set_time') throw refusal; return { ok: true, new_version: (v ?? 0) + 1 }; }),
@@ -107,7 +110,7 @@ describe('sending: keys kept per plan, the date version chained', () => {
     expect(err1).toBe(refusal);
   });
   it('a composite: one key per command; the second goes against the version the first returned', async () => {
-    const plan = resetNormalPlan(D, detailRaw({ description_override: 'd' }), true)!;
+    const plan = TWO_STEP;
     const keys = new KeyRing().for(plan);
     expect(new Set(keys).size).toBe(2);
     const calls: unknown[] = [];

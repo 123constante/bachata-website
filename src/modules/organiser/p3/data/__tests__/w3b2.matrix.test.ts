@@ -126,7 +126,7 @@ describe.each(KINDS)('%s series', (k) => {
     });
 
     it('"Put this date back to normal" uses the composite: the three keys go as null, never on a cancelled date', () => {
-      const plan = resetNormalPlan(D, det, false);
+      const plan = resetNormalPlan(D, det);
       const payload = (plan ? planCommands(plan)[0]?.payload : {}) ?? {};
       const want: Record<string, null> = {};
       if (!det.cancelled) {
