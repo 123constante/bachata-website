@@ -86,8 +86,13 @@ export default function AddSomeoneR2() {
   });
   const whatsapp = () => {
     setLinkError(null);
+    const wa = (u: string) => `https://wa.me/?text=${encodeURIComponent(`Join me on ${pageName} on Bachata Calendar: ${u}`)}`;
+    // Open the tab inside the tap: phone browsers block a window opened after an await.
+    const tab = window.open('', '_blank');
+    if (tab) tab.opener = null;
     mint.mutate(undefined, {
-      onSuccess: (u) => window.open(`https://wa.me/?text=${encodeURIComponent(`Join me on ${pageName} on Bachata Calendar: ${u}`)}`, '_blank', 'noopener'),
+      onSuccess: (u) => { if (tab) tab.location.href = wa(u); else window.location.href = wa(u); },
+      onError: () => tab?.close(),
     });
   };
   const copy = () => {

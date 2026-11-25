@@ -55,13 +55,15 @@ describe('AddSomeoneR2', () => {
     expect(screen.getByTestId('add-search')).toBeTruthy();
   });
   it('mints ONCE across WhatsApp and Copy and builds the wa.me url', async () => {
-    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    const tab = { opener: {} as unknown, location: { href: '' }, close: vi.fn() };
+    const open = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window);
     Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
     mountAt(ORG_PATHS.teamAdd, routes);
     fireEvent.click(await screen.findByTestId('add-whatsapp'));
-    await waitFor(() => expect(open).toHaveBeenCalled());
-    expect(String(open.mock.calls[0][0])).toContain(encodeURIComponent('/invite/tok1'));
-    expect(String(open.mock.calls[0][0]).startsWith('https://wa.me/?text=')).toBe(true);
+    expect(open).toHaveBeenCalledTimes(1); // opened inside the tap, before the mint resolves
+    await waitFor(() => expect(tab.location.href).toContain(encodeURIComponent('/invite/tok1')));
+    expect(tab.location.href.startsWith('https://wa.me/?text=')).toBe(true);
+    expect(tab.opener).toBeNull();
     fireEvent.click(screen.getByTestId('add-copy-link'));
     await screen.findByText('Link copied');
     expect(h.link).toHaveBeenCalledTimes(1);
