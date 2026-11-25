@@ -34,3 +34,7 @@
 .neon .fld{display:block;width:100%;padding:16px;margin-bottom:12px;font:inherit;color:#fff;resize:none;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.3);border-radius:14px}
 .neon .lnk{align-self:center;padding:8px 0;font:inherit;font-size:14px;color:#fff;opacity:.8;cursor:pointer;background:none;border:0;text-decoration:underline}
 .neon .ctr{text-align:center}
+.neon .citylist{max-height:150px;overflow-y:auto;margin-bottom:6px}
+.neon .citylist .opt{padding:10px 14px;margin-bottom:6px}
+.neon .citylist .opt .ic{font-size:18px}
+.neon .lnk{text-align:center}
