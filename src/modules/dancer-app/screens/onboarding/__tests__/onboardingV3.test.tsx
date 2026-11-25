@@ -27,7 +27,7 @@ const btn = (id: string) => screen.getByTestId(id) as HTMLButtonElement;
 const cont = () => btn('onboarding-continue');
 const roleSaves = (b: FakeDancerBackend) => b.calls.filter((c) => c.fn === 'setMyBuyerRoles');
 const profileSaves = (b: FakeDancerBackend) => b.calls.filter((c) => c.fn === 'saveMyDancerProfile').map((c) => c.args);
-const segs = () => screen.getAllByTestId('onboarding-seg').map((s) => s.getAttribute('data-filled'));
+const segs = () => screen.getAllByTestId('onboarding-seg').map((s) => s.getAttribute('data-filled') ?? String(s.classList.contains('on')));
 
 describe('roles screen', () => {
   it('keep-list: heading, sub, 4 rows in order with icon, title, sub; Dancer ticked first; Continue enabled', async () => {
@@ -36,8 +36,8 @@ describe('roles screen', () => {
     expect(screen.getByRole('heading').textContent).toBe('Who’s hitting the floor?');
     expect(screen.getByTestId('onboarding-sub').textContent).toBe('Pick all that fit. Change anytime.');
     const rows = screen.getAllByRole('checkbox');
-    expect(rows.map((r) => r.textContent)).toEqual(['DancerFind nights and partners', 'OrganiserRun events and classes', 'TeacherShare your classes', 'DJPlay at nights']);
-    rows.forEach((r) => expect(r.querySelector('svg')).toBeTruthy());
+    expect(rows.map((r) => r.textContent)).toEqual(['\u{1F483}DancerFind nights and partners', '\u{1F39F}\uFE0FOrganiserRun events and classes', '\u{1F393}TeacherShare your classes', '\u{1F3A7}DJPlay at nights']);
+    rows.forEach((r) => expect(r.querySelector('.ic')).toBeTruthy());
     expect(rows.map((r) => r.getAttribute('aria-checked'))).toEqual(['true', 'false', 'false', 'false']);
     expect(screen.getByTestId('onboarding-role-dancer-tick')).toBeTruthy();
     expect(screen.queryByTestId('onboarding-back')).toBeNull();
@@ -124,8 +124,8 @@ describe('years screen', () => {
     expect(screen.getByRole('heading').textContent).toBe('How long have you danced?');
     expect(screen.getByTestId('onboarding-sub').textContent).toBe('Required. We store the year you started.');
     const rows = screen.getAllByRole('radio');
-    expect(rows.map((r) => r.textContent)).toEqual(['Under 1 year', '1 to 2 years', '3 to 5 years', '6 to 10 years', 'Over 10 years']);
-    rows.forEach((r) => expect(r.querySelector('svg')).toBeTruthy());
+    expect(rows.map((r) => r.textContent)).toEqual(['Under 1 year', '1 to 2 years', '3 to 5 years', '6 to 10 years', 'Over 10 years'].map((l) => `\u{1F4C5}${l}`));
+    rows.forEach((r) => expect(r.querySelector('.ic')).toBeTruthy());
     expect(rows.every((r) => r.getAttribute('aria-checked') === 'false')).toBe(true);
     expect(cont().disabled).toBe(true);
     expect(screen.queryByText('Skip')).toBeNull();

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams, type NavigateFunction } from 'react-router-dom';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { ChevronLeft } from 'lucide-react';
@@ -19,6 +19,9 @@ import { bioLinkResult, linkPrefill } from './bioModel';
 import { BioLinksCardV3, PartnerCardV3, PartnerSheetV3, PhotoCardV3, RolesCardV3, StylesCardV3, YearsCardV3 } from './stepsV3';
 import { PrimaryButton, WRAP } from './ui';
 import { LockedHome } from '../home/lockedMode';
+import { DANCER_ONBOARDING_V3_ENABLED } from './onboardingV3Flag';
+import { NeonFrame } from './neon/NeonFrame';
+import { RolesNeon, StylesNeon, YearsNeon } from './neon/NeonSteps';
 
 /** Same 3 lines as OnboardingScreen's leaveFor (copied, not exported: the old file stays untouched). */
 const leaveFor = (qc: QueryClient, navigate: NavigateFunction, end: string) => {
@@ -168,6 +171,33 @@ const OnboardingV3 = () => {
   const toggleRole = (r: BuyerRole) => setRoles((p) => (p.includes(r) ? p.filter((x) => x !== r) : [...p, r]));
   const toggleStyle = (s: string) => setStyles((p) => (p.includes(s) ? p.filter((x) => x !== s) : [...p, s]));
   const card = { busy, error };
+  // v8 Neon Night look for roles, styles, years only: same state and handlers, different shell and rows.
+  const neonStep = DANCER_ONBOARDING_V3_ENABLED && (step === 'roles' || step === 'styles' || step === 'years');
+  const Roles = neonStep ? RolesNeon : RolesCardV3;
+  const Styles = neonStep ? StylesNeon : StylesCardV3;
+  const Years = neonStep ? YearsNeon : YearsCardV3;
+  const shell = (kids: ReactNode) =>
+    neonStep ? (
+      <NeonFrame
+        pos={position}
+        total={list.length}
+        top={step === 'years' ? 215 : 300}
+        onBack={
+          prev
+            ? () => {
+                setError(null);
+                setStep(prev);
+              }
+            : undefined
+        }
+      >
+        {kids}
+      </NeonFrame>
+    ) : (
+      <Card variant="padded" className="p-[12px]">
+        {kids}
+      </Card>
+    );
   const saveDelta = (delta: DancerDelta) => save(diffDelta(profile, delta), profile);
   const preProps = { profile, busy, error, tag: null, onSubmit: (d: DancerDelta) => void run(() => saveDelta(d), null, null) };
 
@@ -182,7 +212,7 @@ const OnboardingV3 = () => {
         </Card>
       ) : (
         <>
-          {bioOnly ? null : <Progress total={list.length} position={position} />}
+          {bioOnly || neonStep ? null : <Progress total={list.length} position={position} />}
           {bioOnly ? (
             <button
               type="button"
@@ -193,7 +223,7 @@ const OnboardingV3 = () => {
               <ChevronLeft size={18} aria-hidden /> Back
             </button>
           ) : null}
-          {prev ? (
+          {prev && !neonStep ? (
             <button
               type="button"
               data-testid="onboarding-back"
@@ -206,9 +236,9 @@ const OnboardingV3 = () => {
               <ChevronLeft size={18} aria-hidden /> Back
             </button>
           ) : null}
-          <Card variant="padded" className="p-[12px]">
+          {shell(<>
             {step === 'roles' ? (
-              <RolesCardV3
+              <Roles
                 {...card}
                 picked={roles}
                 onToggle={toggleRole}
@@ -226,10 +256,10 @@ const OnboardingV3 = () => {
               />
             ) : null}
             {step === 'styles' ? (
-              <StylesCardV3 {...card} picked={styles} onToggle={toggleStyle} onContinue={() => void run(() => saveDelta({ favorite_styles: styles }), 'styles', nextAfter('styles'))} />
+              <Styles {...card} picked={styles} onToggle={toggleStyle} onContinue={() => void run(() => saveDelta({ favorite_styles: styles }), 'styles', nextAfter('styles'))} />
             ) : null}
             {step === 'years' ? (
-              <YearsCardV3
+              <Years
                 {...card}
                 band={band}
                 onPick={setBand}
@@ -276,7 +306,7 @@ const OnboardingV3 = () => {
                 }}
               />
             ) : null}
-          </Card>
+          </>)}
           {step === 'partner' && sheet ? <PartnerSheetV3 draft={partner} onChange={setPartner} onClose={() => setSheet(false)} /> : null}
         </>
       )}
