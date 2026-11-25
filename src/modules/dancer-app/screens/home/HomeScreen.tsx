@@ -187,6 +187,9 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
   );
 };
 
+/** Sneak peek (onboarding): the real Home body, rendered by LockedHome inside its lock. No going feed props change. */
+export const HomeBodyForPeek = HomeBody;
+
 const HomeScreen = () => {
   const profile = useMyDancerEdit({ staleTime: 60_000 });
 
