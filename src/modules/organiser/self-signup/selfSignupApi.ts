@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { parseNameMatches, parseOnboardResult, type NameMatch, type OnboardResult } from './selfSignupModel';
+import { firstEventPayload, parseNameMatches, parseOnboardResult, type FirstEventInput, type NameMatch, type OnboardResult } from './selfSignupModel';
 
 // These RPCs are not in the generated Database type (never hand-edited): string-named boundary.
 type UntypedRpc = {
@@ -29,10 +29,12 @@ export async function fetchNameMatches(name: string, cityId: string): Promise<Na
   }
 }
 
-export async function onboardOrganiser(name: string, cityId: string, claimOrganiserId: string | null): Promise<OnboardResult> {
+export async function onboardOrganiser(
+  name: string, cityId: string, claimOrganiserId: string | null, firstEvent: FirstEventInput | null = null,
+): Promise<OnboardResult> {
   try {
     const { data, error } = await rpc('organiser_onboard_v1', {
-      p_name: name.trim(), p_city: cityId, p_first_event: null, p_claim_organiser_id: claimOrganiserId,
+      p_name: name.trim(), p_city: cityId, p_first_event: firstEventPayload(firstEvent), p_claim_organiser_id: claimOrganiserId,
     });
     if (error) return /not_authenticated|jwt/i.test(error.message) ? { kind: 'signed_out' } : { kind: 'failed' };
     return parseOnboardResult(data);

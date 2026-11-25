@@ -68,7 +68,13 @@ export function outcomeCopy(outcome: OnboardOutcomeKind, displayName: string): s
   return 'Your page is live.';
 }
 
-export type RefusalAction = 'not_found' | 'back_to_email' | 'back' | 'own_page' | 'retry';
+export type RefusalAction = 'not_found' | 'back_to_email' | 'back' | 'own_page' | 'retry' | 'back_to_event';
+
+export interface FirstEventInput { name: string; date: string }
+
+/** The p_first_event payload: {name, date} trimmed, or null (Skip / claim). */
+export const firstEventPayload = (e: FirstEventInput | null): FirstEventInput | null =>
+  e ? { name: e.name.trim(), date: e.date } : null;
 export interface RefusalView { action: RefusalAction; message: string }
 
 const CALM: Record<string, string> = {
@@ -89,6 +95,7 @@ export const GENERIC_FAILURE = 'Something went wrong. Nothing was saved.';
 export function refusalView(reason: string): RefusalView {
   if (reason === 'flag_off') return { action: 'not_found', message: '' };
   if (reason === 'email_not_proven') return { action: 'back_to_email', message: 'Please confirm your email first.' };
+  if (reason === 'first_event_invalid') return { action: 'back_to_event', message: 'Check the event name and date.' };
   if (reason === 'name_taken') return { action: 'back', message: 'That name is taken in this city. Try adding a word.' };
   if (reason === 'already_owns_page') return { action: 'own_page', message: 'You already have a page.' };
   if (CALM[reason]) return { action: 'back', message: CALM[reason] };

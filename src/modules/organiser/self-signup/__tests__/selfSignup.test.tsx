@@ -98,7 +98,7 @@ describe('page', () => {
     expect(screen.getByText(/Its contact email matches yours\./)).toBeTruthy();
     fireEvent.click(screen.getByTestId('signup-yes'));
     fireEvent.click(screen.getByTestId('signup-submit'));
-    await waitFor(() => expect(onboard).toHaveBeenCalledWith('Salsa Club', 'c1', 'org1'));
+    await waitFor(() => expect(onboard).toHaveBeenCalledWith('Salsa Club', 'c1', 'org1', null));
   });
 
   it('No, mine is different clears the claim target', async () => {
@@ -107,12 +107,14 @@ describe('page', () => {
     fireEvent.click(screen.getByTestId('signup-no'));
     expect(screen.queryByTestId('signup-match-card')).toBeNull();
     fireEvent.click(screen.getByTestId('signup-submit'));
-    await waitFor(() => expect(onboard).toHaveBeenCalledWith('Salsa Club', 'c1', null));
+    fireEvent.click(screen.getByTestId('signup-event-skip'));
+    await waitFor(() => expect(onboard).toHaveBeenCalledWith('Salsa Club', 'c1', null, null));
   });
 
   it('without Yes the claim target is null', async () => {
     await fill();
     fireEvent.click(screen.getByTestId('signup-submit'));
-    await waitFor(() => expect(onboard).toHaveBeenCalledWith('Salsa Club', 'c1', null));
+    fireEvent.click(screen.getByTestId('signup-event-skip'));
+    await waitFor(() => expect(onboard).toHaveBeenCalledWith('Salsa Club', 'c1', null, null));
   });
 });
