@@ -251,7 +251,6 @@ describe('C42-C44: each action sends exactly ONE command, then Done', () => {
 type Field = { field: Parameters<typeof detailEditPath>[1]; value: string; key: string; sent: unknown };
 const FIELDS: Field[] = [
   { field: 'name', value: 'Friday Social Club', key: 'name', sent: 'Friday Social Club' },
-  { field: 'time', value: '21:30', key: 'default_local_start_time', sent: '21:30' },
   // 'music' is chips since SW1: events/__tests__/sw1.parity.test.tsx
   { field: 'tickets', value: 'https://tickets.example.com/x', key: 'default_ticket_url', sent: 'https://tickets.example.com/x' },
   { field: 'about', value: 'Open social, all levels.', key: 'default_description', sent: 'Open social, all levels.' },
@@ -260,9 +259,14 @@ const FIELDS: Field[] = [
 describe('C37 details: tap-to-edit rows, ONE series.upsert each', () => {
   it('lists the rows, the cover link and the existing line-up row (EditorRows ScheduleCard)', async () => {
     const { container } = mount(ORG_PATHS.eventDetails(A), routes);
-    for (const f of ['name', 'venue', 'time', 'music', 'tickets', 'about']) {
+    for (const f of ['name', 'venue', 'music', 'tickets', 'about']) {
       expect(await screen.findByTestId(`org-detail-${f}`)).toBeTruthy();
     }
+    // No event start time: only sessions have times, so Details has no Time row.
+    expect(screen.queryByTestId('org-detail-time')).toBeNull();
+    expect(screen.getByTestId('org-detail-rows').textContent ?? '').not.toMatch(/\bTime\b/);
+    expect(screen.getByTestId('org-detail-payment')).toBeTruthy();
+    expect(screen.getByTestId('org-detail-cast')).toBeTruthy();
     // S-FEEDBACK 1: the owner's four rows are not on the event page.
     for (const f of ['ends', 'level', 'instagram', 'prices']) expect(screen.queryByTestId(`org-detail-${f}`)).toBeNull();
     const card = screen.getByTestId('org-detail-rows').textContent ?? '';
