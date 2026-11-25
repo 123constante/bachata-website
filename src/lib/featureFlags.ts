@@ -156,6 +156,10 @@ export const flags = {
   // Stripe for organisers v2 S2a: one Stripe status card on organiser Home and Tickets. OFF = both screens as before.
   // Turn on with VITE_ENABLE_STRIPE_NUDGE_V2=true (Vercel env) -- no code change.
   stripeNudgeV2:       import.meta.env.VITE_ENABLE_STRIPE_NUDGE_V2 === 'true',
+  // Finished / cancelled night notes on the event page (docs: brief #2148): a finished-night card and a cancelled-night
+  // red bar, each with a button to the next night. OFF = the event page is exactly as before.
+  // Turn on with VITE_ENABLE_NIGHT_NOTES=true (Vercel env) -- no code change.
+  nightNotes:          import.meta.env.VITE_ENABLE_NIGHT_NOTES === 'true',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the
