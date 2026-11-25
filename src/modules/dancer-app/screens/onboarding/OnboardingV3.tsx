@@ -24,6 +24,9 @@ import { NeonFrame } from './neon/NeonFrame';
 import { RolesNeon, StylesNeon, YearsNeon } from './neon/NeonSteps';
 import { NeonPartner } from './neon/NeonPartner';
 import { BioNeon, PhotoNeon } from './neon/NeonPhotoBio';
+import { YoureIn } from './neon/YoureIn';
+import { boom } from './neon/neonConfetti';
+import { CONFETTI_DELAY_MS } from './neonMotion';
 
 /** Same 3 lines as OnboardingScreen's leaveFor (copied, not exported: the old file stays untouched). */
 const leaveFor = (qc: QueryClient, navigate: NavigateFunction, end: string) => {
@@ -43,6 +46,18 @@ const flag = (op: 'get' | 'set' | 'clear'): boolean => {
     else return window.sessionStorage.getItem(PHOTO_FLAG) === '1';
   } catch {
     /* storage can be blocked: the resume rule still works from server data */
+  }
+  return false;
+};
+
+/** Set once the "You're in" moment has shown, so a reload does not repeat it. */
+const SEEN_FLAG = 'da-onboarding-v8-youre-in';
+const seen = (set?: boolean): boolean => {
+  try {
+    if (set) window.sessionStorage.setItem(SEEN_FLAG, '1');
+    else return window.sessionStorage.getItem(SEEN_FLAG) === '1';
+  } catch {
+    /* blocked storage: the moment may repeat, nothing breaks */
   }
   return false;
 };
@@ -79,6 +94,8 @@ const OnboardingV3 = () => {
   const [leaving, setLeaving] = useState(false);
   /** ?step=peek: the locked real Home. B3 owns the trigger; the screen itself only shows while photo, years and styles are all missing. */
   const [peekDone, setPeekDone] = useState(false);
+  /** v8 phase flow: 'in' (2s moment) then 'peek'; null = no moment. Decided once with the starting step. */
+  const [phase, setPhase] = useState<'in' | 'peek' | null>(null);
 
   const pre = profile ? PRE_STAGES.find((s) => s === firstRequiredStage(profile.strength.missing)) ?? null : null;
 
@@ -89,6 +106,7 @@ const OnboardingV3 = () => {
     const start: StepV3 | 'done' = resumed === 'done' && flag('get') ? 'photo' : resumed;
     if (start !== 'done') {
       setStep(start);
+      if (DANCER_ONBOARDING_V3_ENABLED && !params.get('step') && !seen() && profile.avatar_url === null && profile.dance_started_year === null && profile.favorite_styles.length === 0) setPhase('in');
       setPartner(partnerDraftFrom(profile));
       setRoles(profile.buyer_roles.length > 0 ? profile.buyer_roles : ['dancer']);
       setStyles(profile.favorite_styles);
@@ -99,6 +117,9 @@ const OnboardingV3 = () => {
       setLeaving(true);
     }
   }
+  useEffect(() => {
+    if (phase === 'in') seen(true);
+  }, [phase]);
   useEffect(() => {
     if (leaving) flag('clear');
     if (leaving) leaveFor(qc, navigate, end);
@@ -136,7 +157,9 @@ const OnboardingV3 = () => {
     );
   }
 
-  if (!peekDone && !pre && params.get('step') === 'peek' && profile.avatar_url === null && profile.dance_started_year === null && profile.favorite_styles.length === 0) {
+  if (phase === 'in' && !pre) return <YoureIn firstName={(profile.first_name ?? profile.display_name ?? '').trim() || 'there'} onDone={() => setPhase('peek')} />;
+
+  if (!peekDone && !pre && (params.get('step') === 'peek' || phase === 'peek') && profile.avatar_url === null && profile.dance_started_year === null && profile.favorite_styles.length === 0) {
     return (
       <LockedHome
         profile={profile}
@@ -153,7 +176,10 @@ const OnboardingV3 = () => {
     setError(null);
     try {
       await work();
-      if (from && celebratesOnLeave(from, filled)) daConfetti();
+      if (from && celebratesOnLeave(from, filled)) {
+        if (DANCER_ONBOARDING_V3_ENABLED) setTimeout(() => boom(false), CONFETTI_DELAY_MS);
+        else daConfetti();
+      }
       if (to === 'end') setLeaving(true);
       else if (to) setStep(to);
     } catch (err) {
