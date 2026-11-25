@@ -1,4 +1,5 @@
 import { wallClockDateKey } from '@/lib/time/wallClock';
+import { eventHref } from '@/lib/seo/eventHref';
 import { formatKeyDayLabel } from '@/lib/londonDate';
 import type { EventPageSnapshotOccurrence } from '@/modules/event-page/types';
 
@@ -10,9 +11,9 @@ export type NextNight = {
   href: string;
 };
 
-/** ONE builder for a night's address (`/event/<slug>?occurrenceId=<id>`), so a later slice can swap it. */
+/** ONE builder for a night's address (`/event/<slug>?occurrenceId=<id>`), via `eventHref` (one link builder). */
 export const buildNightHref = (eventKey: string, occurrenceId: string): string =>
-  `/event/${eventKey}?occurrenceId=${occurrenceId}`;
+  eventHref({ slug: eventKey, event_id: eventKey }, occurrenceId);
 
 /**
  * The next public, NOT cancelled night of the same series after the shown night.

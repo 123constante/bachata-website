@@ -71,6 +71,9 @@ export const flags = {
   // exactly as before. Separate from parityGate's AW1_APPLIED (a code constant).
   // Turn on with VITE_ENABLE_ORGANISER_P3=true (Vercel env) -- no code change.
   organiserP3:         import.meta.env.VITE_ENABLE_ORGANISER_P3 === 'true',
+  // Event links point at https://<name>.bachatacalendar.co.uk (brief D2b, src/lib/seo/eventHref.ts).
+  // OFF = today's /event/<slug> links. Turn on with VITE_ENABLE_EVENT_SUBDOMAIN_LINKS=true (Vercel env).
+  eventSubdomainLinks: import.meta.env.VITE_ENABLE_EVENT_SUBDOMAIN_LINKS === 'true',
   // Teacher picker lists all teachers with an empty search (layout B). OFF = today's picker.
   // Turn on with VITE_ENABLE_ORGANISER_PICKER_LIST=true (Vercel env) -- no code change.
   organiserPickerList: import.meta.env.VITE_ENABLE_ORGANISER_PICKER_LIST === 'true',
