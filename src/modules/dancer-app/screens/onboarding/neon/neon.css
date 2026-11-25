@@ -1,0 +1,24 @@
+/* Dancer onboarding v8, Neon Night (D1). Everything scoped under .neon. */
+.neon{position:relative;width:100%;max-width:390px;height:844px;max-height:100dvh;margin:0 auto;overflow:hidden;background:#0b0614;color:#fff;font-family:Inter,system-ui,sans-serif;font-size:16px}
+.neon *{box-sizing:border-box}
+.neon-photo{position:absolute;inset:0}
+.neon-photo svg{width:100%;height:100%;display:block}
+.neon-photo:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(11,6,20,.1) 0%,rgba(11,6,20,.55) 40%,rgba(11,6,20,.95) 78%)}
+.neon-seg{position:absolute;left:20px;right:20px;top:20px;display:flex;gap:4px;z-index:3}
+.neon-seg i{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.35)}
+.neon-seg i.on{background:#fff}
+.neon-back{position:absolute;left:14px;top:34px;z-index:3;font:600 15px Inter,system-ui,sans-serif;background:rgba(0,0,0,.35);border:0;color:#fff;border-radius:99px;padding:6px 12px;cursor:pointer}
+.neon-body{position:absolute;z-index:2;left:22px;right:22px;bottom:30px;display:flex;flex-direction:column}
+.neon h2.q{margin:0 0 8px;font:400 54px/1 Anton,Impact,sans-serif;text-transform:uppercase;letter-spacing:.01em;text-wrap:balance}
+.neon .sub{margin:0 0 18px;opacity:.85}
+.neon .opt{display:flex;align-items:center;gap:12px;width:100%;margin-bottom:10px;padding:14px;text-align:left;font:inherit;color:inherit;cursor:pointer;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:16px;backdrop-filter:blur(8px)}
+.neon .opt.on{background:rgba(255,45,149,.25);border-color:#ff2d95;box-shadow:0 0 22px rgba(255,45,149,.55)}
+.neon .opt small{display:block;font-size:13px;opacity:.75}
+.neon .opt .ic{font-size:26px}
+.neon .opt .ck{width:24px;height:24px;margin-left:auto;display:flex;align-items:center;justify-content:center;border:2px solid currentColor;border-radius:50%;opacity:.6}
+.neon .opt.on .ck{opacity:1}
+.neon .opt .ck svg{width:14px;height:14px}
+.neon .chip{font:600 15px Inter,system-ui,sans-serif;color:#fff;cursor:pointer;padding:10px 16px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.3);border-radius:99px}
+.neon .chip.on{background:rgba(255,45,149,.35);border-color:#ff2d95}
+.neon .cta{margin-top:auto;width:100%;padding:17px;font:800 17px Inter,system-ui,sans-serif;color:#fff;cursor:pointer;border:0;border-radius:16px;text-transform:uppercase;letter-spacing:.06em;background:linear-gradient(90deg,#ff2d95,#ffa600);box-shadow:0 0 28px rgba(255,45,149,.6)}
+.neon .cta:disabled{opacity:.4;cursor:default}
