@@ -6,7 +6,7 @@ import {
   type CommandResponse,
 } from '../../shared/selfServeApi';
 import {
-  addDateCommand, cancelCommand, envelope, moveDateCommand, newIdempotencyKey, overrideCommand, resetTimeCommand,
+  addDateCommand, cancelCommand, envelope, moveDateCommand, newIdempotencyKey, overrideCommand,
   setTimeCommand, skipDateCommand, uncancelCommand, unskipDateCommand, type OverridePatch, type OwnerCommand,
 } from '../../shared/seriesCommands';
 import { eventWorkspaceQueryKey } from '../../shared/runCommands';
@@ -188,7 +188,6 @@ export const PLAN = {
   /** `acknowledge`: the organiser saw the people on the date and confirmed (the server refuses without it). */
   move: (d: D, to: IsoDate, acknowledge = false) => onDate(d, moveDateCommand(to, acknowledge)),
   time: (d: D, start: string) => onDate(d, setTimeCommand(start, null)),
-  resetTime: (d: D) => onDate(d, resetTimeCommand()),
   details: (d: D, patch: OverridePatch) => onDate(d, overrideCommand(patch)),
   skip: (d: D) => onSeries(skipDateCommand(d.id)),
   unskip: (date: IsoDate) => onSeries(unskipDateCommand(date)),
@@ -209,10 +208,10 @@ export const PLAN = {
  */
 export function dateRowsOf(ws: EventWorkspace, d: D, detail: DateDetail | null, facts: DateFacts, today: IsoDate): DateRow[] {
   return dateActions(seriesFactsOf(ws, today), facts, today).map((r) =>
-    (r.action === 'resetNormal' && !r.reason && !resetNormalPlan(d, detail, facts.ownTime) ? { ...r, reason: L.dateFieldsCancelled } : r));
+    (r.action === 'resetNormal' && !r.reason && !resetNormalPlan(d, detail) ? { ...r, reason: L.dateFieldsCancelled } : r));
 }
 
-export function resetNormalPlan(d: D, detail: DateDetail | null | undefined, ownTime: boolean): DatePlan | null {
+export function resetNormalPlan(d: D, detail: DateDetail | null | undefined): DatePlan | null {
   const patch: OverridePatch = {};
   if (detail?.venueOverride) { patch.venue_id = null; patch.city_id = null; }
   if (detail?.descriptionOverride) patch.description = null;
@@ -227,7 +226,6 @@ export function resetNormalPlan(d: D, detail: DateDetail | null | undefined, own
   }
   const commands: OwnerCommand[] = [];
   if (Object.keys(patch).length) commands.push(overrideCommand(patch));
-  if (ownTime) commands.push(resetTimeCommand());
   return commands.length ? onDate(d, ...commands) : null;
 }
 
@@ -240,7 +238,6 @@ export const DATE_COPY = {
     bringBack: 'Back on. Dancers can see it again.',
     move: (day: string) => `Moved to ${day}.`,
     time: (t: string) => `This date now starts at ${t}.`,
-    resetTime: 'Back to the usual time.',
     details: 'Saved for this date only.',
     resetNormal: 'Back to normal for this date.',
     skip: 'Skipped. Dancers won\u2019t see this week.',

@@ -1,5 +1,4 @@
 import { isRuleDate, weeklyRule, type DateDetail, type WorkspaceDate } from '../../shared/seriesModel';
-import { hasOwnTime } from '../../flows/change/changeModel';
 import type { EventWorkspace } from '../../events/eventModel';
 import { DETAIL_OVERRIDE_KEYS } from '../model/differentDates';
 import { dateMarks, kindOf, type DateFacts, type IsoDate } from '../model';
@@ -53,7 +52,6 @@ export function dateFactsOf(ws: EventWorkspace, d: WorkspaceDate, detail?: DateD
     date: d.occurrence_date,
     state: d.lifecycle_status === 'cancelled' ? 'cancelled' : 'scheduled',
     ruleDate: ruleDateOf(ws, d.occurrence_date),
-    ownTime: hasOwnTime(d, ws.series.default_local_start_time),
     ownDetails: ownDetailsOf(d, detail),
   };
 }
@@ -69,7 +67,7 @@ export function breakFactsOf(ws: EventWorkspace, date: IsoDate): DateFacts {
     const main = mainWeekday(ws.dates.map((d) => d.occurrence_date));
     if (main !== null && new Date(`${date}T12:00:00Z`).getUTCDay() !== main) ruleDate = false;
   }
-  return { date, state: 'skip', ruleDate, ownTime: false, ownDetails: false };
+  return { date, state: 'skip', ruleDate, ownDetails: false };
 }
 
 const ruleMode = (rule: unknown): string | null =>
