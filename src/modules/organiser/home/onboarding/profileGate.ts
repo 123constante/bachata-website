@@ -37,6 +37,15 @@ export const withAdmin = (
   return admin.isAdmin ? { ...gate, isAdmin: true } : gate;
 };
 
+/**
+ * Organiser onboarding v2 (W1c): a claimant is not stopped by the dancer-profile gate. Only an
+ * explicit `profileGateApplies === false` lifts it; loading, error and malformed keep today's gate.
+ */
+export const gateForClaimant = (
+  gate: ProfileGateValue | 'loading' | null,
+  state: { profileGateApplies: boolean } | undefined,
+): ProfileGateValue | 'loading' | null => (state && state.profileGateApplies === false ? null : gate);
+
 /** Under the switched-off Claim it / Ask to join on the gate sheet (mockup no-city B, frames 3 and 4b). */
 export const GATE_OFF_REASON = 'Finish your dancer profile first.';
 /** True today: the gated Finish screen goes back to Welcome, search empty (no task carry, owner decision). */
