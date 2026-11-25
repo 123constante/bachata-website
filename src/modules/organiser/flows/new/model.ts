@@ -42,7 +42,7 @@ export function dateCommands(format: NewEventFormat, date: string): OwnerCommand
 }
 
 /** C22b: ONE upsert. */
-export const timeCommands = (time: string): OwnerCommand[] => [upsertCommand({ default_local_start_time: time })];
+
 
 /** C23: ONE upsert (the picture is already uploaded). */
 export const coverCommands = (url: string): OwnerCommand[] => [upsertCommand({ default_cover_image_url: url })];
@@ -105,11 +105,10 @@ export const isTime = (value: string): boolean => HHMM.test(value);
 
 /** Why a step button is off (shown beside it, never silent); null when it can go. */
 export const nameBlock = (name: string): string | null => (name.trim() ? null : 'Type a name to go on.');
-export const timeBlock = (time: string): string | null => (isTime(time) ? null : 'Pick a start time to go on.');
 
-/** C24 "Live - Friday 23 October, 20:00". */
+/** C24 "Live - Friday 23 October, 20:00"; the time is the first session's, and is left off when there is none. */
 export const liveMessage = (date: string | null, time: string | null): string =>
-  date && time ? `Live - ${dayLabel(date)}, ${time.slice(0, 5)}` : 'Live';
+  date ? (time ? `Live - ${dayLabel(date)}, ${time.slice(0, 5)}` : `Live - ${dayLabel(date)}`) : 'Live';
 
 /** The question on each step. */
 export const STEP_TITLE = {
@@ -117,6 +116,6 @@ export const STEP_TITLE = {
   name: 'What is it called?',
   venue: 'Where is it?',
   date: 'When is the first one?',
-  time: 'What time does it start?',
+
   cover: 'Add a photo',
 } as const;

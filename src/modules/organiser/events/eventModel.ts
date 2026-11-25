@@ -428,12 +428,11 @@ export const stopKeepingCommand = (ws: EventWorkspace, today: string): OwnerComm
   stopRepeatingCommand(wsComing(ws, today).map((d) => d.id));
 
 /** The C37 rows; venue goes through the existing editor sheet, cover to its own screen, How to pay to its chips (paymentModel). */
-export type DetailField = 'name' | 'venue' | 'time' | 'level' | 'music' | 'tickets' | 'instagram' | 'about' | 'payment';
+export type DetailField = 'name' | 'venue' | 'level' | 'music' | 'tickets' | 'instagram' | 'about' | 'payment';
 export type TextDetail = Exclude<DetailField, 'venue' | 'payment'>;
 
 export const DETAIL_KEY: Record<TextDetail, string> = {
   name: 'name',
-  time: 'default_local_start_time',
   level: 'default_level',
   music: 'default_music_styles',
   tickets: 'default_ticket_url',
@@ -442,7 +441,7 @@ export const DETAIL_KEY: Record<TextDetail, string> = {
 };
 
 export const DETAIL_LABEL: Record<DetailField, string> = {
-  name: 'Name', venue: 'Venue', time: 'Time', level: 'Level', music: 'Music', tickets: 'Tickets', instagram: 'Instagram', about: 'About', payment: 'How to pay',
+  name: 'Name', venue: 'Venue', level: 'Level', music: 'Music', tickets: 'Tickets', instagram: 'Instagram', about: 'About', payment: 'How to pay',
 };
 
 const styleList = (typed: string) => typed.split(',').map((s) => s.trim()).filter(Boolean);
@@ -452,7 +451,6 @@ export function detailValue(ws: EventWorkspace, field: TextDetail): string {
   const s = ws.series;
   switch (field) {
     case 'name': return s.name;
-    case 'time': return s.default_local_start_time?.slice(0, 5) ?? '';
     case 'level': return ws.level ?? '';
     case 'music': return ws.musicStyles.join(', ');
     case 'tickets': return s.default_ticket_url ?? '';
@@ -461,13 +459,10 @@ export function detailValue(ws: EventWorkspace, field: TextDetail): string {
   }
 }
 
-const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
-
 /** Why the typed value cannot be saved; null when it can. */
 export function detailProblem(field: TextDetail, typed: string): string | null {
   const v = typed.trim();
   if (field === 'name') return v ? null : 'Add a name';
-  if (field === 'time') return TIME_RE.test(v) ? null : 'Use a time like 20:00';
   if (field === 'tickets') return linkProblem('ticket', v);
   if (field === 'instagram') return linkProblem('instagram', v);
   return null;

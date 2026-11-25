@@ -17,7 +17,7 @@ import { EmptyState, ErrorState, GhostButton, PrimaryButton, SearchField, Skelet
 import { goDone } from '../doneState';
 import {
   DRAFT_ONLY_NOTE, DRAFT_SAVED_MESSAGE, NEW_FORMATS, NO_SESSION_NEW_REASON, STEP_TITLE, coverCommands, finishReason, offerLeave, dateCommands, draftCommand, finishLabel, firstDateChoices, liveCommands, liveMessage,
-  nameBlock, parseFormat, timeBlock, timeCommands, venueCommands,
+  nameBlock, parseFormat, venueCommands,
 } from './model';
 import { useNewSend } from './useNewSend';
 import { invalidatePublicEventCaches } from '@/modules/organiser/shared/publicCache';
@@ -244,7 +244,7 @@ function DateStep({ seriesId }: { seriesId: string }) {
   if (!draft.data) return <Frame title={STEP_TITLE.date} back={back}><ErrorState onRetry={() => void draft.refetch()} retrying={draft.isFetching} /></Frame>;
   const format: NewEventFormat = draft.data.series.format === 'one_off' ? 'one_off' : 'recurring';
   const pick = async (date: string) => {
-    if (await send(dateCommands(format, date))) navigate(paths.newTime(seriesId));
+    if (await send(dateCommands(format, date))) navigate(paths.newCover(seriesId));
   };
   if (conflict) return <NewConflict seriesId={seriesId} />;
   return (
@@ -260,34 +260,6 @@ function DateStep({ seriesId }: { seriesId: string }) {
   );
 }
 
-// ---- C22b time --------------------------------------------------------------------
-
-function TimeStep({ seriesId }: { seriesId: string }) {
-  const navigate = useNavigate();
-  const { paths } = useOrgSurface();
-  const { send, busy, error, setError, conflict } = useNewSend(seriesId);
-  const [time, setTime] = useState('');
-  const go = async () => {
-    if (!timeBlock(time) && (await send(timeCommands(time)))) navigate(paths.newCover(seriesId));
-  };
-  if (conflict) return <NewConflict seriesId={seriesId} />;
-  return (
-    <Frame title={STEP_TITLE.time} back={paths.newDate(seriesId)}>
-      <input
-        type="time"
-        value={time}
-        onChange={(e) => { setTime(e.target.value); setError(null); }}
-        aria-label="Start time"
-        disabled={busy}
-        data-testid="org-new-time"
-        className="h-[52px] w-full rounded-[12px] bg-[var(--card2)] px-[16px] text-[18px] text-[var(--fg)]"
-      />
-      <StepError message={error} />
-      <StepButton label="Next" reason={timeBlock(time)} busy={busy} onClick={() => void go()} testId="org-new-next" />
-      <LeaveLink />
-    </Frame>
-  );
-}
 
 // ---- C23 cover, then C24 Live -----------------------------------------------------
 
@@ -335,7 +307,7 @@ function CoverStep({ seriesId }: { seriesId: string }) {
     let message = liveMessage(null, null);
     try {
       const after = await fetchSeriesWorkspace(seriesId);
-      message = liveMessage(after.series.default_start_date, after.series.default_local_start_time);
+      message = liveMessage(after.series.default_start_date, after.firstSessionStart ?? null);
     } catch {
       // The event is live; the confirmation just loses its date.
     }
@@ -344,7 +316,7 @@ function CoverStep({ seriesId }: { seriesId: string }) {
 
   if (conflict) return <NewConflict seriesId={seriesId} />;
   return (
-    <Frame title={STEP_TITLE.cover} back={paths.newTime(seriesId)}>
+    <Frame title={STEP_TITLE.cover} back={paths.newDate(seriesId)}>
       {cover && <img src={cover} alt="Your photo" loading="eager" className="max-h-[240px] w-full rounded-[12px] object-cover" data-testid="org-new-cover-preview" />}
       <label className={ROW + ' cursor-pointer justify-center'} data-testid="org-new-cover-label">
         {uploading ? 'Uploading' : cover ? 'Choose a different photo' : 'Choose a photo'}
@@ -376,7 +348,8 @@ export default function NewFlow() {
   if (!seriesId) return <Navigate to={paths.newWhat} replace />;
   if (step === 'venue') return <VenueStep seriesId={seriesId} />;
   if (step === 'date') return <DateStep seriesId={seriesId} />;
-  if (step === 'time') return <TimeStep seriesId={seriesId} />;
+  // The time step is gone (an event has no start time of its own); an old link goes on to the photo.
+  if (step === 'time') return <Navigate to={paths.newCover(seriesId)} replace />;
   if (step === 'cover') return <CoverStep seriesId={seriesId} />;
   return <Navigate to={paths.newWhat} replace />;
 }

@@ -55,6 +55,12 @@ describe('parseWorkspace', () => {
     expect(ws.dates[1]).toMatchObject({ id: 'o2', lifecycle_status: 'cancelled', has_override: true, version: 3 });
   });
 
+  it('firstSessionStart is the earliest session start, or null when there is none', () => {
+    expect(parseWorkspace(workspaceRaw).firstSessionStart).toBe('19:30:00');
+    expect(parseWorkspace({ ...workspaceRaw, series: { ...workspaceRaw.series, program: [] } }).firstSessionStart).toBeNull();
+    expect(parseWorkspace(null).firstSessionStart).toBeNull();
+  });
+
   it('a series without programme sessions cannot move a date time', () => {
     const raw = { ...workspaceRaw, series: { ...workspaceRaw.series, program: [] } };
     expect(parseWorkspace(raw).hasSessions).toBe(false);

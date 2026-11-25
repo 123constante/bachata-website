@@ -70,11 +70,7 @@ const file = () => new File(['x'], 'cover.png', { type: 'image/png' });
 const STEPS: Array<{ name: string; path: string; act: () => Promise<void>; key: string }> = [
   { name: 'New event: venue', path: '/account/o/new/s1/venue', key: 'default_venue_id', act: async () => { fireEvent.click((await screen.findAllByTestId('org-new-venue-row'))[0]); } },
   { name: 'New event: first date', path: '/account/o/new/s1/date', key: 'default_start_date', act: async () => { fireEvent.click((await screen.findAllByTestId('org-new-date-row'))[1]); } },
-  { name: 'New event: time', path: '/account/o/new/s1/time', key: 'default_local_start_time', act: async () => {
-    fireEvent.change(await screen.findByTestId('org-new-time'), { target: { value: '20:30' } });
-    await waitFor(() => expect((screen.getByTestId('org-new-next') as HTMLButtonElement).disabled).toBe(false));
-    fireEvent.click(screen.getByTestId('org-new-next'));
-  } },
+
   { name: 'New event: flyer', path: '/account/o/new/s1/cover', key: 'default_cover_image_url', act: async () => {
     const input = (await screen.findByTestId('org-new-live')).closest('div')!.parentElement!.querySelector('input[type=file]') as HTMLInputElement;
     fireEvent.change(input, { target: { files: [file()] } });

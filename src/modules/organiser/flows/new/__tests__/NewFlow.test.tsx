@@ -20,7 +20,7 @@ vi.mock('@/hooks/useLondonToday', () => ({ useLondonToday: () => '2026-10-08' })
 vi.mock('@/lib/city-canonical', () => ({ resolveCanonicalCity: async () => ({ cityId: 'c-london' }) }));
 
 import NewFlow from '../NewFlow';
-import { NEW_FORMATS, dateCommands, draftCommand, firstDateChoices, liveMessage, parseFormat, timeBlock, venueCommands } from '../model';
+import { NEW_FORMATS, dateCommands, draftCommand, firstDateChoices, liveMessage, parseFormat, STEP_TITLE, venueCommands } from '../model';
 import { ORG_PATHS } from '../../../shell/paths';
 import { createSeriesCommand } from '../../../shared/selfServeApi';
 
@@ -127,8 +127,12 @@ describe('model: the pinned command per step', () => {
     expect(days[0]).toEqual({ date: '2026-10-08', label: 'Thursday 8 October' });
     expect(liveMessage('2026-10-23', '20:00:00')).toBe('Live - Friday 23 October, 20:00');
     expect(liveMessage(null, null)).toBe('Live');
-    expect(timeBlock('')).toMatch(/start time/);
-    expect(timeBlock('20:00')).toBeNull();
+  });
+
+  it('the Done line: the first session start when the event has one, else just the date (no dangling comma or dash)', () => {
+    expect(liveMessage('2026-10-23', '20:00:00')).toBe('Live - Friday 23 October, 20:00');
+    expect(liveMessage('2026-10-23', null)).toBe('Live - Friday 23 October');
+    expect(liveMessage('2026-10-23', null)).not.toMatch(/[,-]\s*$/);
   });
 });
 
@@ -242,7 +246,7 @@ describe('screens: venue, date, time', () => {
     const rows = await screen.findAllByTestId('org-new-date-row');
     expect(rows).toHaveLength(30);
     fireEvent.click(rows.find((r) => r.textContent === 'Friday 9 October') as HTMLElement);
-    await waitFor(() => expect(where()).toBe('/account/o/new/s1/time'));
+    await waitFor(() => expect(where()).toBe('/account/o/new/s1/cover'));
     const calls = sent();
     expect(calls.map((c) => c.command.kind)).toEqual(['series.upsert', 'series.set_recurrence']);
     expect(calls.map((c) => c.expected_version)).toEqual([3, 4]);
@@ -255,20 +259,29 @@ describe('screens: venue, date, time', () => {
     mount('/account/o/new/s1/date');
     const rows = await screen.findAllByTestId('org-new-date-row');
     fireEvent.click(rows[1]);
-    await waitFor(() => expect(where()).toBe('/account/o/new/s1/time'));
+    await waitFor(() => expect(where()).toBe('/account/o/new/s1/cover'));
     expect(sent().map((c) => c.command.kind)).toEqual(['series.upsert']);
   });
 
-  it('C22b time: off with a reason until a time is typed, then ONE upsert', async () => {
-    mount('/account/o/new/s1/time');
-    const next = (await screen.findByTestId('org-new-next')) as HTMLButtonElement;
-    expect(next.disabled).toBe(true);
-    expect(screen.getByTestId('org-new-next-reason').textContent).toMatch(/start time/);
-    fireEvent.change(screen.getByTestId('org-new-time'), { target: { value: '20:30' } });
-    await waitFor(() => expect((screen.getByTestId('org-new-next') as HTMLButtonElement).disabled).toBe(false));
-    fireEvent.click(screen.getByTestId('org-new-next'));
+  it('there is no start-time step: a tapped date goes straight to the photo and no time control exists', async () => {
+    mount('/account/o/new/s1/date');
+    fireEvent.click((await screen.findAllByTestId('org-new-date-row'))[1]);
     await waitFor(() => expect(where()).toBe('/account/o/new/s1/cover'));
-    expect(sent().map((c) => c.command.payload)).toEqual([{ name: 'Friday Party', default_local_start_time: '20:30' }]);
+    expect(screen.queryByTestId('org-new-time')).toBeNull();
+    expect(sent().every((c) => !('default_local_start_time' in (c.command.payload as object)))).toBe(true);
+  });
+
+  it('an old /time link goes on to the photo step, never a dead end', async () => {
+    mount('/account/o/new/s1/time');
+    await waitFor(() => expect(where()).toBe('/account/o/new/s1/cover'));
+    expect(screen.queryByTestId('org-new-time')).toBeNull();
+    expect(sent()).toHaveLength(0);
+  });
+
+  it('the photo step still renders and the step titles have no time question', async () => {
+    mount('/account/o/new/s1/cover');
+    expect((await screen.findByTestId('org-new-live')).textContent).toBeTruthy();
+    expect(STEP_TITLE).not.toHaveProperty('time');
   });
 });
 
@@ -304,7 +317,7 @@ describe('screens: cover, leaving, conflicts', () => {
   });
 
   it('every step after the name offers Save as draft and leave, which sends nothing and goes Home', async () => {
-    mount('/account/o/new/s1/time');
+    mount('/account/o/new/s1/date');
     const leave = await screen.findByTestId('org-new-leave');
     expect(leave.textContent).toBe('Save as draft and leave');
     fireEvent.click(leave);

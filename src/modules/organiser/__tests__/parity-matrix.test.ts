@@ -30,7 +30,7 @@ import { musicCommand } from '@/modules/organiser/events/musicModel';
 import { organisersCommand } from '@/modules/organiser/events/organisersModel';
 import { addPerson, addSession, parseTree, programCommand, updateItem } from '@/modules/organiser/events/programmeSeriesModel';
 import { coverFixCommands } from '@/modules/organiser/flows/fix/coverModel';
-import { dateCommands, liveCommands, timeCommands, venueCommands } from '@/modules/organiser/flows/new/model';
+import { dateCommands, liveCommands, venueCommands } from '@/modules/organiser/flows/new/model';
 
 const SRC = resolve(__dirname, '../../..');
 const ROOT = resolve(__dirname, '..');
@@ -277,10 +277,7 @@ export const PARITY: Row[] = [
     shows: [['events/ProgrammeSheet.tsx', 'prog-add-person'], ['events/ProgrammeSheet.tsx', 'prog-recent']] },
   { id: 'C13', capability: 'See + edit the sessions inside one date', verdict: 'MATCH', screen: LINEUP, from: TO_LINEUP,
     sends: [SAVE_PROGRAMME], shows: [['shared/selfServeApi.ts', "programmeRpc('organiser_get_occurrence_programme_v1'"], [SHEET, 'label="Type"']] },
-  { id: 'C14', capability: 'Usual start / end time', verdict: 'MATCH', screen: DETAILS, from: [[DETAILS, 'detailEditPath']],
-    sends: [
-      upsert(['name', 'default_local_start_time'], () => detailCommand(ws, 'time', '21:00'), DETAILS, 'detailCommand('),
-    ] },
+  { id: 'C14', capability: 'Usual start / end time', verdict: 'DROPPED-BY-DECISION', decision: 'An event has no start time of its own; only sessions have times (owner 2026-11-25)' },
   { id: 'C15', capability: 'Repeat rule (weekly)', verdict: 'MATCH', screen: ONE, from: TO_STEP,
     sends: [
       { in: 'flows/event/EventStep.tsx', token: 'dayChangeCommand(', kind: 'series.set_recurrence', keys: ['mode', 'weekdays', 'interval', 'end'], build: () => dayChangeCommand(ws.series.recurrence_rule, 3) },
@@ -356,7 +353,6 @@ export const PARITY: Row[] = [
     sends: [
       upsert(['default_venue_id', 'default_city_id'], () => venueCommands('v1', 'c1')[0], 'flows/new/NewFlow.tsx', 'venueCommands('),
       upsert(['default_start_date'], () => dateCommands('one_off', '2026-10-23')[0], 'flows/new/NewFlow.tsx', 'dateCommands('),
-      upsert(['default_local_start_time'], () => timeCommands('20:00')[0], 'flows/new/NewFlow.tsx', 'timeCommands('),
     ] },
   { id: 'C51', capability: 'Course length (N weeks)', verdict: 'MISSING-ADMIN-ONLY', adminKey: 'course_total_sessions' },
   { id: 'C52', capability: "One session's name / type / start / end on one date", verdict: 'MATCH', screen: LINEUP, from: TO_LINEUP,

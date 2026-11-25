@@ -61,24 +61,45 @@ export interface SeriesWorkspace {
   series: WorkspaceSeries;
   /** True when the series has at least one programme session with a start time. */
   hasSessions: boolean;
+  /** The earliest programme session start (HH:MM:SS as stored), or null: an event has no start time of its own. */
+  firstSessionStart?: string | null;
   dates: WorkspaceDate[];
 }
 
 const str = (v: unknown): string | null => (typeof v === 'string' ? v : null);
 const num = (v: unknown, fallback = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : Number(v) || fallback);
 
+/** Every programme session start (non-empty strings), in programme order. */
+function sessionStarts(program: unknown): string[] {
+  if (!Array.isArray(program)) return [];
+  const out: string[] = [];
+  for (const day of program) {
+    const sections = (day as { sections?: unknown })?.sections;
+    if (!Array.isArray(sections)) continue;
+    for (const section of sections) {
+      const items = (section as { items?: unknown })?.items;
+      if (!Array.isArray(items)) continue;
+      for (const entry of items) {
+        const t = (entry as { item?: { start_time?: unknown } })?.item?.start_time;
+        if (typeof t === 'string' && t !== '') out.push(t);
+      }
+    }
+  }
+  return out;
+}
+
 function programHasSessions(program: unknown): boolean {
-  if (!Array.isArray(program)) return false;
-  return program.some((day) =>
-    Array.isArray((day as { sections?: unknown })?.sections) &&
-    (day as { sections: unknown[] }).sections.some((section) =>
-      Array.isArray((section as { items?: unknown })?.items) &&
-      (section as { items: unknown[] }).items.some((entry) => {
-        const item = (entry as { item?: { start_time?: unknown } })?.item;
-        return typeof item?.start_time === 'string' && item.start_time !== '';
-      }),
-    ),
-  );
+  return sessionStarts(program).length > 0;
+}
+
+/** The first session's start: the first programme day's earliest one. Null when there is no session. */
+function firstSessionStartOf(program: unknown): string | null {
+  if (!Array.isArray(program)) return null;
+  for (const day of program) {
+    const starts = sessionStarts([day]).sort();
+    if (starts.length) return starts[0];
+  }
+  return null;
 }
 
 /** admin_event_workspace_p5 → the page's model. Unknown shapes degrade to empty. */
@@ -119,7 +140,7 @@ export function parseWorkspace(raw: unknown): SeriesWorkspace {
     added_sessions_count: num(o.added_sessions_count),
     materialised_start_utc: str(o.materialised_start_utc),
   }));
-  return { series, hasSessions: programHasSessions(root.series?.program), dates };
+  return { series, hasSessions: programHasSessions(root.series?.program), firstSessionStart: firstSessionStartOf(root.series?.program), dates };
 }
 
 /** The date's own state, from event_view_p5 (occurrence target, organiser role). */
