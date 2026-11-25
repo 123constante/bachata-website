@@ -5,6 +5,7 @@ import {
   Outlet,
   Scripts,
   isRouteErrorResponse,
+  redirect,
   useRouteError,
   type LinksFunction,
   type MetaFunction,
@@ -19,6 +20,7 @@ import { CityProvider } from "@/contexts/CityContext";
 import { SearchProvider } from "@/components/search/SearchProvider";
 import { AppChrome } from "@/components/AppChrome";
 import { reportClientErrorLazy } from "@/lib/reportClientErrorLazy";
+import { eventHostForwardUrl } from "./lib/eventHostForward";
 
 import { NavigationSplash } from "./NavigationSplash";
 import { useNonce } from "./nonce";
@@ -184,6 +186,17 @@ export function ErrorBoundary() {
       </a>
     </div>
   );
+}
+
+// Event subdomain hosts (<label>.bachatacalendar.co.uk) only serve their own
+// /event/<label>; every other path forwards to www, flag on or off. Returns
+// null for all other hosts (www, apex, *.vercel.app), so nothing changes there.
+export function loader({ request }: { request: Request }) {
+  const url = new URL(request.url);
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? url.host;
+  const target = eventHostForwardUrl(host, url.pathname, url.search);
+  if (target) throw redirect(target, 302);
+  return null;
 }
 
 export default function Root() {
