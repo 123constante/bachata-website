@@ -35,6 +35,10 @@ on:
         description: 'Fail deliberately, to prove the failure notification still works'
         type: boolean
         default: false
+      extra_paths:
+        description: 'Extra pages to load signed out after a merge or flag flip (comma-separated paths or https://*.bachatacalendar.co.uk URLs)'
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -88,6 +92,7 @@ jobs:
         env:
           SMOKE_BASE_URL: https://www.bachatacalendar.co.uk
           CI_BYPASS_HEADER: ${{ secrets.CI_BYPASS_HEADER }}
+          SMOKE_EXTRA_PATHS: ${{ inputs.extra_paths }}
         run: |
           set -o pipefail
           node scripts/launch-critical-smoke.mjs | tee smoke-report.json
