@@ -308,6 +308,9 @@ export const loader = withSsrLoaderTimeout("event-loader", async function loader
       slug,
       // Present only on <label>.<domain> pages: their canonical is the bare subdomain.
       ...(sub ? { subdomainLabel: sub.label } : {}),
+      // Subdomain night (/19-dec): the resolved occurrence, for EventPage (the
+      // night is a path there, so the client cannot read ?occurrenceId=).
+      ...(sub && occurrenceId ? { subdomainOccurrenceId: occurrenceId } : {}),
       ...(ogTall ? { ogTall } : {}),
       // Present ONLY when the card is not 1200x630 (a whole-flyer card), so a
       // legacy page's serialized loader data is byte-identical to before.
@@ -416,8 +419,11 @@ export default function EventRoute({ loaderData, params }: Route.ComponentProps)
       {/* key={params.id} reproduces today's full-remount on /event/a → /event/b
           (AnimatedRoutes keyed <Routes> on location.pathname) so param-only
           navigations reset per-event component state (e.g. BentoPage popovers). */}
-      <InitialVisiblePageTransition key={params.id}>
-        <EventPage />
+      <InitialVisiblePageTransition key={params.id ?? loaderData.subdomainLabel}>
+        <EventPage
+          routeParam={loaderData.subdomainLabel}
+          occurrenceId={loaderData.subdomainOccurrenceId}
+        />
       </InitialVisiblePageTransition>
     </HydrationBoundary>
   );

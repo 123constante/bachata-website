@@ -35,10 +35,16 @@ const FestivalFallback = () => (
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const EventPageInner = () => {
-  const { id: routeParam } = useParams<{ id: string }>();
+// On an event subdomain (<label>.bachatacalendar.co.uk[/19-dec]) the route has
+// no :id param and the night is a path, not ?occurrenceId=, so app/routes/event.tsx
+// passes both in from its loader data. Absent on /event/<id>: URL wins, as before.
+type EventPageProps = { routeParam?: string; occurrenceId?: string | null };
+
+const EventPageInner = ({ routeParam: routeParamProp, occurrenceId: occurrenceIdProp }: EventPageProps) => {
+  const { id: urlParam } = useParams<{ id: string }>();
+  const routeParam = routeParamProp ?? urlParam;
   const location = useLocation();
-  const rawOccurrenceId = new URLSearchParams(location.search).get('occurrenceId');
+  const rawOccurrenceId = occurrenceIdProp ?? new URLSearchParams(location.search).get('occurrenceId');
   const requestedOccurrenceId = rawOccurrenceId && UUID_RE.test(rawOccurrenceId) ? rawOccurrenceId : null;
 
   // Slug-or-id: if URL param is a UUID, use as-is and look up the slug for
@@ -89,9 +95,9 @@ const EventPageInner = () => {
   return <BentoPage eventId={validId} occurrenceId={requestedOccurrenceId} eventSlug={slug} />;
 };
 
-const EventPage = () => (
+const EventPage = (props: EventPageProps) => (
   <PageErrorBoundary>
-    <EventPageInner />
+    <EventPageInner {...props} />
   </PageErrorBoundary>
 );
 
