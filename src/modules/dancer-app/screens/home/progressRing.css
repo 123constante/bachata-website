@@ -1,0 +1,13 @@
+.ring-card { display: grid; gap: 12px; }
+.ring-row { display: flex; align-items: center; gap: 16px; }
+.ring-svg { flex: none; transform: rotate(-90deg); }
+.ring-bar { transition: stroke-dashoffset 1.1s cubic-bezier(.2, .8, .2, 1); }
+.ring-count { font-size: 22px; font-weight: 800; }
+.ring-next { color: #ffa600; font-size: 14px; }
+.ring-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.ring-chip { min-height: 44px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 22px; border: 1px solid var(--da-border); font-size: 14px; font-weight: 700; color: inherit; text-decoration: none; }
+.ring-win { text-align: center; border: 1px solid #ffa600; border-radius: 16px; padding: 16px; background: linear-gradient(135deg, rgba(255, 45, 149, .35), rgba(255, 166, 0, .35)); animation: ring-pop .6s both; }
+.ring-win b { display: block; font-size: 20px; }
+.ring-trophy { font-size: 44px; }
+@keyframes ring-pop { 0% { transform: scale(.8); } 60% { transform: scale(1.06); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .ring-bar { transition: none; } .ring-win { animation: none; } }

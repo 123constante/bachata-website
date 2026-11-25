@@ -10,6 +10,9 @@ import { MessageUsLink } from '../me/ui';
 import { LINK_GHOST_SM } from '../blocks';
 import { DANCER_ONBOARDING_V3_ENABLED } from '../onboarding/onboardingV3Flag';
 import ShineCard from './ShineCard';
+import ProgressRingCard from './ProgressRingCard';
+import { linkPrefill } from '../onboarding/bioModel';
+import { profileProgress } from '../onboarding/profileProgress';
 import { PAGE_PATH, attendedLabel, homeBView, homeCView, morePlansLabel, type HomeFocus, type ShareRow } from './homeFocus';
 import type { HeroNight } from './homeParts';
 
@@ -55,7 +58,7 @@ const FocusBody = ({ f }: { f: HomeFocus }) => (
         <Link to={f.night.href ?? nightsPath} data-testid="home-b-cta" style={{ ...buttonStyle, textAlign: 'center' }}>Open the night</Link>
       </>
     )}
-    {f.kind === 'find' && (
+    {f.kind === 'find' && !DANCER_ONBOARDING_V3_ENABLED && (
       <>
         <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>Nothing planned yet</h2>
         <p style={{ margin: 0, fontSize: 15 }}>Tap Going on a night and it shows up here.</p>
@@ -120,9 +123,11 @@ export const HomeBView = ({ profile, went, night, goingCount, focusLoading }: {
       {focusLoading && v.base.kind === 'complete' ? (
         <HomeBLoading />
       ) : (
-        <Card variant="padded" testId="home-b-focus">
-          <FocusBody f={f} />
-        </Card>
+        !(DANCER_ONBOARDING_V3_ENABLED && f.kind === 'find') && (
+          <Card variant="padded" testId="home-b-focus">
+            <FocusBody f={f} />
+          </Card>
+        )
       )}
 
       <div style={{ display: 'grid', gap: 10 }}>
@@ -188,13 +193,24 @@ export const HomeCView = ({ profile, went, night, goingCount, focusLoading, aler
   const complete = v.base.kind === 'complete';
   const goOutLoading = focusLoading && complete;
   const rows = v.morePlans !== null || v.attended.kind !== 'hidden';
-  const goOut = Boolean(rate) || Boolean(ticket) || goOutLoading || v.goOut !== null || rows;
+  // Onboarding v8: "Nothing planned yet" is gone, so a find focus draws no card (and no gap).
+  const goCard = v.goOut && !(DANCER_ONBOARDING_V3_ENABLED && v.goOut.kind === 'find') ? v.goOut : null;
+  const goOut = Boolean(rate) || Boolean(ticket) || goOutLoading || goCard !== null || rows;
+  const progress = DANCER_ONBOARDING_V3_ENABLED
+    ? profileProgress({ photo: Boolean(profile.avatar_url), startedYear: profile.dance_started_year, styles: profile.favorite_styles, partnerAnswered: profile.looking_for_partner != null, bio: profile.bio ?? '', link: linkPrefill(profile) })
+    : null;
   return (
     <div style={{ display: 'grid', gap: 12 }} data-testid={`home-c-${v.base.kind}`}>
       <h1 style={{ fontSize: 26, fontWeight: 800, margin: 0, overflowWrap: 'anywhere' }}>{v.base.title}</h1>
       {alerts}
 
-      {v.ready && (
+      {progress && (
+        <>
+          <Head testId="home-c-head-ready">Get ready</Head>
+          <ProgressRingCard progress={progress} requiredPath={v.ready?.cta.path ?? '/app/welcome'} />
+        </>
+      )}
+      {!progress && v.ready && (
         <>
           <Head testId="home-c-head-ready">Get ready</Head>
           <Card variant="padded" testId="home-b-focus">
@@ -209,9 +225,9 @@ export const HomeCView = ({ profile, went, night, goingCount, focusLoading, aler
       {goOutLoading ? (
         <HomeBLoading />
       ) : (
-        v.goOut && (
+        goCard && (
           <Card variant="padded" testId="home-c-go-card">
-            <FocusBody f={v.goOut} />
+            <FocusBody f={goCard} />
           </Card>
         )
       )}
