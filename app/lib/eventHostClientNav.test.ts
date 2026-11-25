@@ -1,4 +1,4 @@
-// @vitest-environment happy-dom
+// @vitest-environment jsdom
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { eventHostLinkTarget, installEventHostLinkForward } from "./eventHostClientNav";
@@ -81,7 +81,7 @@ describe("installEventHostLinkForward", () => {
 });
 
 describe("root.tsx wiring", () => {
-  const src = readFileSync(new URL("../root.tsx", import.meta.url), "utf8");
+  const src = readFileSync("app/root.tsx", "utf8");
   it("installs the forwarder and the programmatic fallback", () => {
     expect(src).toContain("installEventHostLinkForward(");
     expect(src).toContain('parseEventHost(window.location.host).kind === "none"');
