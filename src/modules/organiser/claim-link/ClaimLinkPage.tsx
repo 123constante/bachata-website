@@ -11,12 +11,14 @@ import { EmailCodeProof } from '@/modules/organiser/shared/components/EmailCodeP
 import { fetchOrganiserHome } from '@/modules/organiser/shared/selfServeApi';
 import NotFound from '@/pages/NotFound';
 import { redeemClaimLink } from './claimLinkApi';
+import AboutYouScreen from './AboutYouScreen';
+import { nextAfterClaim } from './aboutYouModel';
 import { CLAIM_TOKEN_RE, REFUSAL_SCREENS, type ClaimOutcome } from './claimLinkModel';
 
 const BTN = 'inline-flex w-full min-h-[48px] items-center justify-center rounded-xl bg-primary px-4 text-[15px] font-semibold text-primary-foreground';
 const GHOST = 'inline-flex w-full min-h-[44px] items-center justify-center rounded-xl border border-border px-4 text-[14px] font-medium';
 
-type Step = 'email' | 'code' | 'working' | 'result';
+type Step = 'email' | 'code' | 'working' | 'result' | 'about' | 'done';
 
 /** /claim/:token. Flag organiser_onboarding_v2 is a DB flag: the server answers feature_off, which shows the not-found page. */
 export default function ClaimLinkPage() {
@@ -65,6 +67,29 @@ export default function ClaimLinkPage() {
 
   if (step === 'working') return shell(<p className="text-[14px] text-muted-foreground" role="status">Claiming your page&hellip;</p>);
 
+  if (step === 'about' && user) {
+    return shell(
+      <AboutYouScreen
+        userId={user.id}
+        signInEmail={user.email ?? null}
+        onSaved={() => setStep('done')}
+        onSkip={() => setStep('done')}
+        onBack={() => setStep('result')}
+      />,
+    );
+  }
+
+  if (step === 'done') {
+    return shell(
+      <>
+        <h1 className="text-[26px] font-bold leading-tight" data-testid="claim-done-line">You&rsquo;re all set</h1>
+        {pageName && <p className="text-[18px] font-semibold" data-testid="claim-done-page-name">{pageName}</p>}
+        <p className="text-[14px] text-muted-foreground">Your page is live. Welcome aboard.</p>
+        <Link to={ORGANISER_HOME_PATH} className={BTN} data-testid="claim-open-page">Open my page</Link>
+      </>,
+    );
+  }
+
   if (step === 'result' && outcome) {
     if (outcome.kind === 'success') {
       return shell(
@@ -72,7 +97,7 @@ export default function ClaimLinkPage() {
           <h1 className="text-[22px] font-bold leading-tight">It&rsquo;s yours</h1>
           {pageName && <p className="text-[16px] font-semibold" data-testid="claim-page-name">{pageName}</p>}
           <p className="text-[14px] text-muted-foreground">You can now look after this page and add your events.</p>
-          <Link to={ORGANISER_HOME_PATH} className={BTN} data-testid="claim-continue">Continue</Link>
+          <button type="button" className={BTN} onClick={() => setStep(nextAfterClaim(outcome.aboutYouNeeded))} data-testid="claim-continue">Continue</button>
         </>,
       );
     }
