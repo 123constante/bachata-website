@@ -18,6 +18,7 @@ import { CityCard, NameCard, RoleCard, photoHandoff } from './steps';
 import { bioLinkResult, linkPrefill } from './bioModel';
 import { BioLinksCardV3, PartnerCardV3, PartnerSheetV3, PhotoCardV3, RolesCardV3, StylesCardV3, YearsCardV3 } from './stepsV3';
 import { PrimaryButton, WRAP } from './ui';
+import { LockedHome } from '../home/lockedMode';
 
 /** Same 3 lines as OnboardingScreen's leaveFor (copied, not exported: the old file stays untouched). */
 const leaveFor = (qc: QueryClient, navigate: NavigateFunction, end: string) => {
@@ -71,6 +72,8 @@ const OnboardingV3 = () => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [leaving, setLeaving] = useState(false);
+  /** ?step=peek: the locked real Home. B3 owns the trigger; the screen itself only shows while photo, years and styles are all missing. */
+  const [peekDone, setPeekDone] = useState(false);
 
   const pre = profile ? PRE_STAGES.find((s) => s === firstRequiredStage(profile.strength.missing)) ?? null : null;
 
@@ -125,6 +128,18 @@ const OnboardingV3 = () => {
         <div className="mt-[16px] h-[30px] w-[70%] rounded-[8px] bg-[var(--card2)]" />
         <div className="mt-[16px] h-[48px] rounded-[12px] bg-[var(--card2)]" />
       </Card>
+    );
+  }
+
+  if (!peekDone && !pre && params.get('step') === 'peek' && profile.avatar_url === null && profile.dance_started_year === null && profile.favorite_styles.length === 0) {
+    return (
+      <LockedHome
+        profile={profile}
+        onFinish={() => {
+          setStep('roles');
+          setPeekDone(true);
+        }}
+      />
     );
   }
 

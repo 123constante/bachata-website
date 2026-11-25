@@ -1,0 +1,47 @@
+/* Sneak peek: the real Home, visible, inert. No filter/blur anywhere here. */
+.da-peek { position: relative; padding-bottom: 150px; }
+.da-peek-title { font-family: Anton, sans-serif; font-size: 30px; margin: 0 0 12px; padding-top: 52px; line-height: 1.1; }
+
+.da-locked a,
+.da-locked button,
+.da-locked [role="button"],
+.da-locked [role="link"],
+.da-locked [role="tab"] { position: relative; cursor: default; }
+.da-locked a::after,
+.da-locked button::after,
+.da-locked [role="button"]::after,
+.da-locked [role="link"]::after,
+.da-locked [role="tab"]::after {
+  content: "\1F512"; position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  font-size: 12px; line-height: 1; pointer-events: none;
+}
+
+.da-locked .shake { animation: da-shake 0.45s ease; }
+@keyframes da-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-7px); }
+  40% { transform: translateX(7px); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(5px); }
+}
+
+.da-peek-toast {
+  position: fixed; left: 20px; right: 20px; bottom: 150px; z-index: 9;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: #fff; color: #1b1330; border-radius: 14px; padding: 12px 14px; font-weight: 600;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5); transition: opacity 0.25s;
+}
+.da-peek-toast button {
+  background: #ff2d95; color: #fff; border: 0; border-radius: 99px; padding: 8px 14px; font-weight: 700; font-size: 14px; cursor: pointer;
+}
+
+.peekbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 8;
+  background: linear-gradient(to bottom, rgba(11, 6, 20, 0), rgba(11, 6, 20, 0.97) 30%);
+  padding: 16px 22px 28px;
+}
+.peekbar b { display: block; font-family: Anton, sans-serif; font-size: 28px; text-transform: uppercase; font-weight: 400; }
+.peekbar p { margin: 4px 0 12px; font-size: 14px; }
+.peekbar button {
+  width: 100%; min-height: 48px; border: 0; border-radius: 14px; background: #ff2d95; color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;
+}
