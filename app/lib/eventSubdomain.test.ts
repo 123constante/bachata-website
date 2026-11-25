@@ -6,6 +6,8 @@ import {
   parseEventHost,
   parseNightPath,
   pickNightOccurrenceId,
+  nightFallbackDateKey,
+  nextDateKey,
   RESERVED_LABELS,
 } from "./eventSubdomain";
 import { classifyCatchallPath } from "../catchallGate";
@@ -115,6 +117,28 @@ describe("night paths (row 2)", () => {
   });
 });
 
+describe("nightFallbackDateKey (night missing from the 52-row snapshot window)", () => {
+  it("no year: this year's date when already past", () => {
+    expect(nightFallbackDateKey({ day: 22, month: 11, year: null }, "2026-11-25")).toBe("2026-11-22");
+  });
+  it("no year: today counts as this year", () => {
+    expect(nightFallbackDateKey({ day: 25, month: 11, year: null }, "2026-11-25")).toBe("2026-11-25");
+  });
+  it("no year: a later day+month means last year", () => {
+    expect(nightFallbackDateKey({ day: 19, month: 12, year: null }, "2026-11-25")).toBe("2025-12-19");
+  });
+  it("year given: exact date", () => {
+    expect(nightFallbackDateKey({ day: 3, month: 1, year: 2028 }, "2026-11-25")).toBe("2028-01-03");
+  });
+  it("not a real date -> null", () => {
+    expect(nightFallbackDateKey({ day: 31, month: 2, year: null }, "2026-11-25")).toBeNull();
+  });
+  it("nextDateKey rolls month and year", () => {
+    expect(nextDateKey("2026-11-30")).toBe("2026-12-01");
+    expect(nextDateKey("2026-12-31")).toBe("2027-01-01");
+  });
+});
+
 describe("/event loader on subdomain hosts (rows 1-6)", () => {
   type Loader = (a: { params: { id: string }; request: Request }) => Promise<unknown>;
   let loader: Loader;
@@ -160,6 +184,34 @@ describe("/event loader on subdomain hosts (rows 1-6)", () => {
     const r = await run("lounge.bachatacalendar.co.uk", "lounge", "?night=1-jun");
     expect(r.thrown).toBeUndefined();
     expect(snapshotMock.mock.calls.every(([, a]) => !a.p_target.occurrence_id)).toBe(true);
+  });
+
+  it("row 2: a past night outside the 52-row snapshot window comes from the calendar", async () => {
+    process.env.EVENT_SUBDOMAIN_LINKS = "true";
+    const PAST = "33333333-3333-3333-3333-333333333333";
+    snapshotMock.mockImplementation(async (name: string, a: Record<string, unknown> & { p_target?: { occurrence_id?: string } }) => {
+      if (name === "get_calendar_events_v2") {
+        return {
+          data: a.range_start === "2026-11-22" && a.range_end === "2026-11-23" && a.p_include_past === true
+            ? [
+                { event_id: "other", instance_date: "2026-11-22", occurrence_id: "nope" },
+                { event_id: "22222222-2222-2222-2222-222222222222", instance_date: "2026-11-22", occurrence_id: PAST },
+              ]
+            : [],
+          error: null,
+        };
+      }
+      return { data: { event: { name: "Lounge" }, occurrences: OCCS, seenOcc: a.p_target?.occurrence_id ?? null }, error: null };
+    });
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-25T12:00:00Z"));
+    try {
+      const r = await run("lounge.bachatacalendar.co.uk", "lounge", "?night=22-nov");
+      expect(r.thrown).toBeUndefined();
+      expect(snapshotMock.mock.calls.some(([, a]) => a.p_target?.occurrence_id === PAST)).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("row 3: unresolved label -> 302 to www home", async () => {

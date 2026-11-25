@@ -23,8 +23,11 @@ import {
   isWwwOrApexHost,
   parseEventHost,
   parseNightPath,
+  nextDateKey,
+  nightFallbackDateKey,
   pickNightOccurrenceId,
 } from "../lib/eventSubdomain";
+import type { NightSpec } from "../lib/eventSubdomain";
 import { measureWholeFlyerCanvas, resolveOgTallPreview } from "../lib/ogTallPreview.server";
 import { LEGACY_CARD_H, LEGACY_CARD_W, OG_LAYOUT_POLICY, WF_LAYOUT } from "../lib/ogLayout";
 import { buildEventShareDescription } from "@/modules/event-page/endedShareDescription";
@@ -58,6 +61,23 @@ async function fetchEventSnapshot(eventId: string, occurrenceId: string | null) 
   } as never);
   if (error) throw new Error((error as { message?: string }).message ?? JSON.stringify(error));
   return parseEventPageSnapshot(data);
+}
+
+// A night outside the snapshot's occurrence window: the public calendar RPC
+// (anon, include_past) lists that date's occurrences with their event id.
+// Range end is exclusive. Any miss or error -> null = plain event page.
+async function fetchNightOccurrenceId(eventId: string, spec: NightSpec): Promise<string | null> {
+  const day = nightFallbackDateKey(spec);
+  if (!day) return null;
+  const { data, error } = await supabase.rpc("get_calendar_events_v2" as never, {
+    range_start: day,
+    range_end: nextDateKey(day),
+    p_include_past: true,
+  } as never);
+  if (error || !Array.isArray(data)) return null;
+  const rows = data as Array<{ event_id?: string; instance_date?: string; occurrence_id?: string | null }>;
+  const hit = rows.find((r) => r.event_id === eventId && r.instance_date === day && r.occurrence_id);
+  return hit?.occurrence_id ?? null;
 }
 
 // SPIKE — the /event/:id server loader. Folds the client-side slug→uuid resolve
@@ -150,6 +170,10 @@ export const loader = withSsrLoaderTimeout("event-loader", async function loader
       staleTime: 1000 * 30,
     });
     occurrenceId = pickNightOccurrenceId(base?.occurrences ?? [], nightSpec);
+    // The snapshot list is a 52-row window, upcoming nights first, so a series
+    // with a year of dates ahead carries no past nights (musketeers /22-nov
+    // showed the next night). Ask the public calendar for that one date.
+    if (!occurrenceId) occurrenceId = await fetchNightOccurrenceId(eventId, nightSpec);
     // The night's own snapshot is fetched below; drop the base entry so the
     // dehydrated state carries one snapshot, as /event/<slug>?occurrenceId= does.
     if (occurrenceId) qc.removeQueries({ queryKey: eventPageQueryKey(eventId, null) });
