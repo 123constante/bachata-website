@@ -80,19 +80,10 @@ describe('Back to the usual times (row 39)', () => {
     render(<QueryClientProvider client={qc}><WhenSheet date={d} oneOff={false} today="2026-11-22" onSave={onSave} onClose={onClose} /></QueryClientProvider>);
     return { onSave, onClose };
   };
-  it('absent when the night runs at the usual time', () => {
-    mountNight(night({ materialised_start_utc: '2026-11-26T19:30:00Z' }));
+  it.each(['2026-11-26T19:30:00Z', '2026-11-26T21:00:00Z'])('no button, whatever the night starts at (%s)', (start) => {
+    mountNight(night({ materialised_start_utc: start }));
     expect(screen.queryByTestId('when-back-usual')).toBeNull();
-  });
-  it('present with its own time; tap resets, toasts Back to usual for <date>, Undo restores the start', async () => {
-    const { onSave, onClose } = mountNight(night({ materialised_start_utc: '2026-11-26T21:00:00Z' }));
-    fireEvent.click(screen.getByTestId('when-back-usual'));
-    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
-    const [steps, before, label] = onSave.mock.calls[0] as unknown as [Parameters<typeof undoPlan>[0], Parameters<typeof undoPlan>[1], string];
-    expect(steps[0].command).toEqual({ kind: 'occurrence.set_time', payload: { reset: true } });
-    expect(label).toBe('Back to usual for Thursday 26 November');
-    expect(undoPlan(steps, before)?.[0].command).toEqual({ kind: 'occurrence.set_time', payload: { new_local_start: '21:00', new_local_end: null } });
-    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(screen.queryByText('Back to the usual times')).toBeNull();
   });
 });
 

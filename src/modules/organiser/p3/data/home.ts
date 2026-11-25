@@ -73,18 +73,15 @@ function sessionKindOf(category: string | null): SessionKind {
 }
 
 function eventOf(s: HomeSeriesRow, kind: P3Kind): P3Event {
-  const base = s.default_local_start_time?.slice(0, 5) || null;
+  // An event has no start time of its own: the row shows the first date's own start.
+  const base = localAsZTime(s.next_dates[0]?.materialised_start_utc) || null;
   return {
     kind,
     sessions: [{ id: STORED_SESSION, kind: sessionKindOf(s.category), title: null, start: base, end: null, people: [] }],
-    dates: s.next_dates.map((d) => {
-      const t = localAsZTime(d.materialised_start_utc);
-      return {
-        date: d.occurrence_date,
-        status: d.lifecycle_status === 'cancelled' ? 'cancelled' : 'scheduled',
-        ...(t && t !== base ? { changes: { [STORED_SESSION]: { start: t } } } : {}),
-      };
-    }),
+    dates: s.next_dates.map((d) => ({
+      date: d.occurrence_date,
+      status: d.lifecycle_status === 'cancelled' ? 'cancelled' : 'scheduled',
+    })),
   };
 }
 
