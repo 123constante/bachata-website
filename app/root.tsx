@@ -6,6 +6,7 @@ import {
   Scripts,
   isRouteErrorResponse,
   redirect,
+  useLocation,
   useRouteError,
   type LinksFunction,
   type MetaFunction,
@@ -21,6 +22,8 @@ import { SearchProvider } from "@/components/search/SearchProvider";
 import { AppChrome } from "@/components/AppChrome";
 import { reportClientErrorLazy } from "@/lib/reportClientErrorLazy";
 import { eventHostForwardUrl } from "./lib/eventHostForward";
+import { installEventHostLinkForward } from "./lib/eventHostClientNav";
+import { parseEventHost } from "./lib/eventSubdomain";
 
 import { NavigationSplash } from "./NavigationSplash";
 import { useNonce } from "./nonce";
@@ -213,6 +216,19 @@ export default function Root() {
   const [queryClient] = useState(() =>
     typeof window === "undefined" ? createQueryClient() : getBrowserQueryClient(),
   );
+
+  // Event subdomains: in-site links must leave for www (the root loader's 302
+  // never runs on client navs, shouldRevalidate is false). Click capture covers
+  // <Link>s; the pathname effect covers programmatic navigate().
+  useEffect(() => {
+    if (parseEventHost(window.location.host).kind === "none") return;
+    return installEventHostLinkForward(window.location.host);
+  }, []);
+  const { pathname, search } = useLocation();
+  useEffect(() => {
+    const to = eventHostForwardUrl(window.location.host, pathname, search);
+    if (to) window.location.replace(to);
+  }, [pathname, search]);
 
   // Error reporter: dynamic import on idle after the first commit, never on the
   // first-load path (tests/clientErrorReporterLazy.test.ts). Scheduled HERE, not
