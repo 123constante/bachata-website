@@ -11,15 +11,25 @@ import { searchCities, type CityResult } from '@/modules/organiser/home/onboardi
 import AboutYouScreen from '@/modules/organiser/claim-link/AboutYouScreen';
 import NotFound from '@/pages/NotFound';
 import { fetchFlagOn, fetchNameMatches, onboardOrganiser } from './selfSignupApi';
+import FirstEventStep from './FirstEventStep';
 import {
   DEBOUNCE_MS, outcomeCopy, refusalView, shouldSearchMatches, GENERIC_FAILURE,
-  type NameMatch, type OnboardResult, type RefusalView,
+  type FirstEventInput, type NameMatch, type OnboardResult, type RefusalView,
 } from './selfSignupModel';
+
+const SITE_ORIGIN = 'https://bachatacalendar.co.uk';
+
+async function sharePage(url: string) {
+  try {
+    if (typeof navigator !== 'undefined' && navigator.share) await navigator.share({ url });
+    else await navigator.clipboard.writeText(url);
+  } catch { /* cancelled or blocked: nothing to do */ }
+}
 
 const BTN = 'inline-flex w-full min-h-[48px] items-center justify-center rounded-xl bg-primary px-4 text-[15px] font-semibold text-primary-foreground disabled:opacity-50';
 const GHOST = 'inline-flex w-full min-h-[44px] items-center justify-center rounded-xl border border-border px-4 text-[14px] font-medium';
 
-type Step = 'email' | 'code' | 'who' | 'working' | 'result' | 'refused' | 'about' | 'done';
+type Step = 'email' | 'code' | 'who' | 'working' | 'result' | 'refused' | 'about' | 'done' | 'event';
 
 /** /start-organiser. Unlisted, noindex. The DB flag organiser_onboarding_v2 off = the not-found page. */
 export default function SelfSignupPage() {
@@ -36,6 +46,10 @@ export default function SelfSignupPage() {
   const [dismissed, setDismissed] = useState<string[]>([]);
   const [result, setResult] = useState<Extract<OnboardResult, { kind: 'success' }> | null>(null);
   const [refusal, setRefusal] = useState<RefusalView | null>(null);
+  const [eventDraft, setEventDraft] = useState<FirstEventInput>({ name: '', date: '' });
+  const [eventError, setEventError] = useState<string | null>(null);
+  // What the last save actually sent, so "Try again" never resends an event the person skipped.
+  const [sentEvent, setSentEvent] = useState<FirstEventInput | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [flagOn, setFlagOn] = useState(false);
   const seq = useRef(0);
@@ -79,15 +93,18 @@ export default function SelfSignupPage() {
   if (notFound || !flagOn) return <NotFound />;
   if (authStatus === 'resolving') return shell(<p className="text-[14px] text-muted-foreground">One moment&hellip;</p>);
 
-  const submit = async () => {
+  const submit = async (firstEvent: FirstEventInput | null = null) => {
     if (!city) return;
     setStep('working');
-    const res = await onboardOrganiser(name, city.id, claimTarget);
+    setEventError(null);
+    setSentEvent(firstEvent);
+    const res = await onboardOrganiser(name, city.id, claimTarget, firstEvent);
     if (res.kind === 'success') { setResult(res); setStep('result'); return; }
     if (res.kind === 'signed_out') { setStep('email'); return; }
     const view = res.kind === 'refused' ? refusalView(res.reason) : { action: 'retry' as const, message: GENERIC_FAILURE };
     if (view.action === 'not_found') { setNotFound(true); return; }
     if (view.action === 'back_to_email') { setStep('code'); return; }
+    if (view.action === 'back_to_event') { setEventError(view.message); setStep('event'); return; }
     setRefusal(view);
     setStep('refused');
   };
@@ -99,7 +116,7 @@ export default function SelfSignupPage() {
       <>
         <p className="text-[15px]" data-testid="signup-refusal">{refusal.message}</p>
         {refusal.action === 'own_page' && <Link to={ORGANISER_HOME_PATH} className={BTN} data-testid="signup-own-page">Open my page</Link>}
-        {refusal.action === 'retry' && <button type="button" className={BTN} onClick={() => void submit()} data-testid="signup-retry">Try again</button>}
+        {refusal.action === 'retry' && <button type="button" className={BTN} onClick={() => void submit(sentEvent)} data-testid="signup-retry">Try again</button>}
         <button type="button" className={GHOST} onClick={() => setStep('who')} data-testid="signup-back">Back</button>
       </>,
       true,
@@ -127,11 +144,26 @@ export default function SelfSignupPage() {
   if (step === 'done') {
     return shell(
       <>
+        <div className="flex justify-center" aria-hidden="true" data-testid="signup-done-tick"><span className="flex h-16 w-16 items-center justify-center rounded-full bg-[#2f7d4f] text-[36px] font-bold leading-none text-white">&#10003;</span></div>
         <h1 className="text-[26px] font-bold leading-tight" data-testid="signup-done-line">You&rsquo;re all set</h1>
-        {result?.displayName && <p className="text-[18px] font-semibold">{result.displayName}</p>}
         <p className="text-[14px] text-muted-foreground" data-testid="signup-done-sub">{result?.outcome === 'created_claim_waiting' ? 'Your claim is in.' : 'Your page is live. Welcome aboard.'}</p>
-        <Link to={ORGANISER_HOME_PATH} className={BTN} data-testid="signup-open-page">Open my page</Link>
+        {result?.slug && <p className="text-[14px] font-medium break-all" data-testid="signup-page-link">bachatacalendar.co.uk/organisers/{result.slug}</p>}
+        {result?.slug && <button type="button" className={BTN} onClick={() => void sharePage(`${SITE_ORIGIN}/organisers/${result.slug}`)} data-testid="signup-share">Share your page</button>}
+        <Link to={ORGANISER_HOME_PATH} className={GHOST} data-testid="signup-open-page">See my page</Link>
       </>,
+    );
+  }
+
+  if (step === 'event') {
+    return shell(
+      <FirstEventStep
+        initial={eventDraft}
+        error={eventError}
+        onContinue={(e) => { setEventDraft(e); void submit(e); }}
+        onSkip={() => void submit(null)}
+        onBack={(e) => { setEventDraft(e); setEventError(null); setStep('who'); }}
+      />,
+      true,
     );
   }
 
@@ -164,7 +196,7 @@ export default function SelfSignupPage() {
             ))}
           </>
         )}
-        <button type="button" className={BTN} disabled={name.trim().length < 2 || !city} onClick={() => void submit()} data-testid="signup-submit">Create my page</button>
+        <button type="button" className={BTN} disabled={name.trim().length < 2 || !city} onClick={() => (claimTarget ? void submit() : setStep('event'))} data-testid="signup-submit">Create my page</button>
         {!user && <button type="button" className={GHOST} onClick={() => setStep('code')} data-testid="signup-back">Back</button>}
       </>,
       true,
