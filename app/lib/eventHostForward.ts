@@ -1,8 +1,9 @@
-import { EVENT_SUBDOMAIN_DOMAIN, parseEventHost } from "./eventSubdomain";
+import { EVENT_SUBDOMAIN_DOMAIN, parseEventHost, parseNightPath } from "./eventSubdomain";
 
-// Event subdomain hosts only serve their own event (/event/<label>, reached via
-// the vercel.json rewrite). Every OTHER path on such a host is forwarded to the
-// same path on www. Pure: the root loader calls it with the request host + URL.
+// Event subdomain hosts only serve their own event: "/" and "/<night>" (served by
+// the app, routes/index.tsx + routes/event-night.tsx). Every OTHER path on such a
+// host is forwarded to the same path on www. Pure: the root loader calls it with
+// the request host + URL.
 
 const EXEMPT_PREFIXES = ["/assets/", "/api/", "/_vercel/"];
 const STATIC_FILE_RE = /\.(?:png|jpe?g|ico|svg|webp|avif|gif|woff2?|webmanifest|txt|xml|js|css|map)$/i;
@@ -15,7 +16,7 @@ export function eventHostForwardUrl(
 ): string | null {
   const host = parseEventHost(rawHost);
   if (host.kind === "none") return null;
-  if (pathname === `/event/${host.label}` || pathname.startsWith(`/event/${host.label}/`)) return null;
+  if (pathname === "/" || parseNightPath(pathname)) return null;
   if (EXEMPT_PREFIXES.some((p) => pathname.startsWith(p))) return null;
   if (STATIC_FILE_RE.test(pathname)) return null;
   // React Router single-fetch data requests (/x.data, /_root.data): never forward,

@@ -116,7 +116,12 @@ export default async function handleRequest(
   const { matches } = routerContext.staticHandlerContext;
   const leaf = matches[matches.length - 1];
   let edge404 = false;
-  if (responseStatusCode === 200 && leaf?.route.id === "routes/catchall") {
+  // routes/event-night (":night") also serves the catchall shell for single-segment
+  // paths off an event host (its loader returns null there): same gate.
+  const isCatchallShell =
+    leaf?.route.id === "routes/catchall" ||
+    (leaf?.route.id === "routes/event-night" && !routerContext.staticHandlerContext.loaderData["routes/event-night"]);
+  if (responseStatusCode === 200 && isCatchallShell) {
     const gated = await gateCatchallOutcome(request);
     if (gated instanceof Response) return gated;
     responseStatusCode = gated.status;

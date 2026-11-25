@@ -114,28 +114,6 @@
       "permanent": true
     }
   ],
-  "rewrites": [
-    {
-      "source": "/:night(\\d{1,2}-[a-z]{3}(?:-\\d{4})?)",
-      "has": [{ "type": "host", "value": "(?<label>(?:[a-vx-z0-9][a-z0-9]*|w(?:[a-vx-z0-9][a-z0-9]*)?|ww(?:[a-vx-z0-9][a-z0-9]*)?|www[a-z0-9]+))\\.bachatacalendar\\.co\\.uk" }],
-      "destination": "/event/:label?night=:night"
-    },
-    {
-      "source": "/:night(\\d{1,2}-[a-z]{3}(?:-\\d{4})?)",
-      "has": [{ "type": "host", "value": "www\\.(?<label>[a-z0-9]+)\\.bachatacalendar\\.co\\.uk" }],
-      "destination": "/event/:label?night=:night"
-    },
-    {
-      "source": "/",
-      "has": [{ "type": "host", "value": "(?<label>(?:[a-vx-z0-9][a-z0-9]*|w(?:[a-vx-z0-9][a-z0-9]*)?|ww(?:[a-vx-z0-9][a-z0-9]*)?|www[a-z0-9]+))\\.bachatacalendar\\.co\\.uk" }],
-      "destination": "/event/:label"
-    },
-    {
-      "source": "/",
-      "has": [{ "type": "host", "value": "www\\.(?<label>[a-z0-9]+)\\.bachatacalendar\\.co\\.uk" }],
-      "destination": "/event/:label"
-    }
-  ],
   "headers": [
     {
       "source": "/assets/(.*)",

@@ -290,7 +290,12 @@ describe("public/ files and the sitemap are not catchall 404s", () => {
     const matched = matchRoutes(toObjects(routes), "/sitemap.xml");
     expect(matched?.[matched.length - 1].route.id).toBe("routes/sitemap.tsx");
     const probe = matchRoutes(toObjects(routes), "/zz-probe-123");
-    expect(probe?.[probe.length - 1].route.id).toBe("routes/catchall.tsx");
+    // A single segment lands on ":night" (event subdomain nights, brief #2157), which
+    // is the catchall shell off an event host and is gated by entry.server's
+    // isCatchallShell; deeper paths still hit the catchall itself.
+    expect(probe?.[probe.length - 1].route.id).toBe("routes/event-night.tsx");
+    const deep = matchRoutes(toObjects(routes), "/zz/probe-123");
+    expect(deep?.[deep.length - 1].route.id).toBe("routes/catchall.tsx");
   });
 });
 
