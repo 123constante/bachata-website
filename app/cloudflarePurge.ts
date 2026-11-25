@@ -53,6 +53,7 @@ import {
   STAMP_PLACEHOLDER_ID,
   STAMP_PLACEHOLDER_SLUG,
 } from "./cacheTags";
+import { eventSubdomainLinksEnabled, eventSubdomainOrigin, isSubdomainLabel } from "./lib/eventSubdomain";
 
 // The production hostname Cloudflare caches. Apex redirects here; previews are
 // not behind Cloudflare. Mirrors BASE_URL in app/routes/sitemap.tsx.
@@ -207,6 +208,7 @@ export async function planCloudflarePurge(
   const log = opts.log ?? console.warn;
   const pages = new Set<string>();
   const warm = new Set<string>();
+  const subdomainUrls = new Set<string>();
   const skipped: CfPurgePlan["skipped"] = [];
   const slugMemo = new Map<string, Promise<string | null>>();
 
@@ -273,6 +275,10 @@ export async function planCloudflarePurge(
           break;
         }
         const slug = await slugFor(rule.table, id);
+        // D2a: an /event page also lives at <slug>.bachatacalendar.co.uk/ (flag ON).
+        if (slug && rule.basePaths.includes("/event") && eventSubdomainLinksEnabled() && isSubdomainLabel(slug)) {
+          subdomainUrls.add(`${eventSubdomainOrigin(slug)}/`);
+        }
         for (const base of rule.basePaths) {
           pages.add(`${base}/${id}`);
           if (slug) pages.add(`${base}/${slug}`);
@@ -291,6 +297,10 @@ export async function planCloudflarePurge(
     // navigation and cached by the same Cloudflare rule.
     urls.push(`${CF_SITE_ORIGIN}${p}`, `${CF_SITE_ORIGIN}${p}.data`);
     prefixes.push(`${CF_SITE_HOST}${p}`);
+  }
+  for (const u of subdomainUrls) {
+    urls.push(u);
+    prefixes.push(u.replace(/^https:\/\//, ""));
   }
   return { urls, prefixes, warm: [...warm].map((p) => `${CF_SITE_ORIGIN}${p}`), skipped };
 }

@@ -18,6 +18,8 @@ import {
   EVENT_SUBDOMAIN_WWW_HOME,
   eventSubdomainLinksEnabled,
   eventSubdomainOrigin,
+  isSubdomainLabel,
+  isWwwOrApexHost,
   parseEventHost,
   parseNightPath,
   pickNightOccurrenceId,
@@ -79,9 +81,9 @@ export const loader = withSsrLoaderTimeout("event-loader", async function loader
   // [/<day>-<mon>] onto this route as /event/<label>[?night=<day>-<mon>]; the
   // flag and host rules live here. www / apex / *.vercel.app hosts parse to
   // "none" and fall straight through, exactly as before, flag on or off.
-  const hostInfo = parseEventHost(
-    request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? new URL(request.url).host,
-  );
+  const requestHost =
+    request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? new URL(request.url).host;
+  const hostInfo = parseEventHost(requestHost);
   if (hostInfo.kind !== "none") {
     // Flag OFF (default): no subdomain is live, send everyone to the main site.
     if (!eventSubdomainLinksEnabled()) throw redirect(EVENT_SUBDOMAIN_WWW_HOME, 302);
@@ -148,6 +150,19 @@ export const loader = withSsrLoaderTimeout("event-loader", async function loader
     // The night's own snapshot is fetched below; drop the base entry so the
     // dehydrated state carries one snapshot, as /event/<slug>?occurrenceId= does.
     if (occurrenceId) qc.removeQueries({ queryKey: eventPageQueryKey(eventId, null) });
+  }
+
+  // D2a: www/apex /event/<slug|uuid|old-slug> -> the CURRENT slug's subdomain in
+  // ONE hop, flag ON only. Runs before the 301s below so it replaces them when it
+  // applies. Not for the subdomain's own path (hostInfo none only) nor *.vercel.app.
+  if (
+    hostInfo.kind === "none" &&
+    eventSubdomainLinksEnabled() &&
+    isWwwOrApexHost(requestHost) &&
+    isSubdomainLabel(resolved?.slug)
+  ) {
+    const qs = rawOcc && UUID_RE.test(rawOcc) ? `?occurrenceId=${rawOcc}` : "";
+    throw redirect(`${eventSubdomainOrigin(resolved!.slug as string)}/${qs}`, 301);
   }
 
   // UUID→slug 301 (query preserved, incl. ?occurrenceId): collapse the

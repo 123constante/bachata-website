@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   eventSubdomainLinksEnabled,
+  isSubdomainLabel,
+  isWwwOrApexHost,
   parseEventHost,
   parseNightPath,
   pickNightOccurrenceId,
@@ -39,6 +41,7 @@ vi.mock("@/pages/EventPage", () => ({ default: () => null }));
 vi.mock("../InitialVisiblePageTransition", () => ({ InitialVisiblePageTransition: () => null }));
 vi.mock("../detailLoader", () => ({
   cacheHeaders: () => ({}),
+  edgeCacheControl: () => "s-maxage=3600",
   resolveOgCardImageSized: async () => ({ url: "x", width: 1200, height: 630 }),
   taggedData: (d: unknown) => ({ data: d }),
 }));
@@ -184,17 +187,153 @@ describe("/event loader on subdomain hosts (rows 1-6)", () => {
     expect(resolveMock).not.toHaveBeenCalled();
   });
 
-  it("row 5: www host is untouched, flag on or off", async () => {
-    for (const flag of [undefined, "true"]) {
-      if (flag) process.env.EVENT_SUBDOMAIN_LINKS = flag;
-      const r = await run("www.bachatacalendar.co.uk", "lounge");
-      expect(r.thrown).toBeUndefined();
-      expect(r.data?.data.subdomainLabel).toBeUndefined();
-    }
+  it("row 5: www host is untouched with the flag off (D2a row 4)", async () => {
+    const r = await run("www.bachatacalendar.co.uk", "lounge");
+    expect(r.thrown).toBeUndefined();
+    expect(r.data?.data.subdomainLabel).toBeUndefined();
   });
 
   it("row 6: a www page keeps its www canonical (no subdomainLabel)", async () => {
     const r = await run("www.bachatacalendar.co.uk", "lounge");
     expect(r.data?.data).not.toHaveProperty("subdomainLabel");
+  });
+
+  // ---- D2a (brief #2151): www/apex /event/<ref> forwards to the subdomain ----
+  const UUID = "22222222-2222-2222-2222-222222222222";
+  const OCC = "33333333-3333-3333-3333-333333333333";
+  const SUB = "https://lounge.bachatacalendar.co.uk/";
+  const resolveAs = (slug: string | null) =>
+    resolveMock.mockImplementation(async () => (slug === null ? null : { id: UUID, slug }));
+
+  it("D2a row 1: flag on, www + apex, slug / uuid / old slug -> one 301 to the current slug's subdomain", async () => {
+    process.env.EVENT_SUBDOMAIN_LINKS = "true";
+    resolveAs("lounge");
+    for (const host of ["www.bachatacalendar.co.uk", "bachatacalendar.co.uk"]) {
+      for (const ref of ["lounge", UUID, "old-lounge-slug"]) {
+        const r = await run(host, ref);
+        expect(r.thrown?.status).toBe(301);
+        expect(r.thrown?.headers.get("location")).toBe(SUB);
+      }
+    }
+  });
+
+  it("D2a row 2: ?occurrenceId is carried to the subdomain, and the subdomain loader serves it", async () => {
+    process.env.EVENT_SUBDOMAIN_LINKS = "true";
+    resolveAs("lounge");
+    const r = await run("www.bachatacalendar.co.uk", "lounge", `?occurrenceId=${OCC}`);
+    expect(r.thrown?.status).toBe(301);
+    expect(r.thrown?.headers.get("location")).toBe(`${SUB}?occurrenceId=${OCC}`);
+    const sub = await run("lounge.bachatacalendar.co.uk", "lounge", `?occurrenceId=${OCC}`);
+    expect(sub.thrown).toBeUndefined();
+    expect(snapshotMock.mock.calls.some(([, a]) => a.p_target.occurrence_id === OCC)).toBe(true);
+  });
+
+  it("D2a row 3: dashed or reserved current slug -> no forward, page served as today", async () => {
+    process.env.EVENT_SUBDOMAIN_LINKS = "true";
+    for (const slug of ["lounge-leeds", "admin"]) {
+      resolveAs(slug);
+      const r = await run("www.bachatacalendar.co.uk", slug);
+      expect(r.thrown).toBeUndefined();
+      expect(r.data?.data.slug).toBe(slug);
+    }
+    resolveAs("lounge-leeds");
+    const byUuid = await run("www.bachatacalendar.co.uk", UUID);
+    expect(byUuid.thrown?.status).toBe(301);
+    expect(byUuid.thrown?.headers.get("location")).toBe("/event/lounge-leeds");
+  });
+
+  it("D2a row 4: flag off -> www response is today's (page, or the uuid->slug 301)", async () => {
+    resolveAs("lounge");
+    const page = await run("www.bachatacalendar.co.uk", "lounge");
+    expect(page.thrown).toBeUndefined();
+    expect(Object.keys(page.data!.data).sort()).toEqual(["dehydratedState", "description", "ogImage", "slug", "title"]);
+    const byUuid = await run("www.bachatacalendar.co.uk", UUID);
+    expect(byUuid.thrown?.headers.get("location")).toBe("/event/lounge");
+  });
+
+  it("D2a row 5: not public -> 404, never a forward", async () => {
+    process.env.EVENT_SUBDOMAIN_LINKS = "true";
+    resolveAs(null);
+    const r = await run("www.bachatacalendar.co.uk", "lounge");
+    expect(r.thrown?.status).toBe(404);
+  });
+
+  it("D2a traps: the subdomain does not forward to itself; *.vercel.app previews do not forward", async () => {
+    process.env.EVENT_SUBDOMAIN_LINKS = "true";
+    resolveAs("lounge");
+    const sub = await run("lounge.bachatacalendar.co.uk", "lounge");
+    expect(sub.thrown).toBeUndefined();
+    const preview = await run("bachata-website-git-x.vercel.app", "lounge");
+    expect(preview.thrown).toBeUndefined();
+  });
+});
+
+describe("isSubdomainLabel / isWwwOrApexHost (D2a)", () => {
+  it("accepts one lowercase alphanumeric label that is not reserved", () => {
+    expect(isSubdomainLabel("bachataloungeleeds")).toBe(true);
+    for (const bad of ["lounge-leeds", "Lounge", "", null, undefined, ...RESERVED_LABELS]) {
+      expect(isSubdomainLabel(bad as string | null)).toBe(false);
+    }
+  });
+  it("matches only www and the apex", () => {
+    expect(isWwwOrApexHost("www.bachatacalendar.co.uk:443")).toBe(true);
+    expect(isWwwOrApexHost("bachatacalendar.co.uk")).toBe(true);
+    expect(isWwwOrApexHost("x.vercel.app")).toBe(false);
+    expect(isWwwOrApexHost("lounge.bachatacalendar.co.uk")).toBe(false);
+  });
+});
+
+describe("D2a rows 6-7: sitemap loc and cache purge", () => {
+  beforeEach(() => {
+    delete process.env.EVENT_SUBDOMAIN_LINKS;
+  });
+
+  it("row 7: purge adds the absolute subdomain URL only with the flag on and a valid label", async () => {
+    const { planCloudflarePurge } = await import("../cloudflarePurge");
+    const id = "22222222-2222-2222-2222-222222222222";
+    const plan = (slug: string) =>
+      planCloudflarePurge([`event-${id}`], { slugFor: async () => slug, activeCitySlugs: async () => [] }, { log: () => {} });
+    const off = await plan("lounge");
+    expect(off.urls.some((u) => u.includes("lounge.bachatacalendar.co.uk"))).toBe(false);
+    process.env.EVENT_SUBDOMAIN_LINKS = "true";
+    const on = await plan("lounge");
+    expect(on.urls).toContain("https://lounge.bachatacalendar.co.uk/");
+    expect(on.urls).toContain("https://www.bachatacalendar.co.uk/event/lounge");
+    expect(on.prefixes).toContain("lounge.bachatacalendar.co.uk/");
+    const dashed = await plan("lounge-leeds");
+    expect(dashed.urls.some((u) => u.includes("lounge-leeds.bachatacalendar"))).toBe(false);
+  });
+
+  it("row 6: sitemap locs", async () => {
+    vi.resetModules();
+    const rpc = async () => ({
+      data: [
+        { id: "a", slug: "lounge", updated_at: null },
+        { id: "b", slug: "lounge-leeds", updated_at: null },
+        { id: "c", slug: null, updated_at: null },
+      ],
+      error: null,
+    });
+    // Chainable, awaitable empty query: every other sitemap source returns no rows.
+    const q: Record<string, unknown> = {};
+    for (const m of ["select", "not", "neq", "eq", "order", "limit", "in"]) q[m] = () => q;
+    q.then = (res: (v: unknown) => unknown) => res({ data: [], error: null });
+    vi.doMock("@/integrations/supabase/client", () => ({ supabase: { rpc, from: () => q } }));
+    const { loader } = await import("../routes/sitemap");
+    const locs = async () => {
+      try {
+        const res = (await (loader as unknown as (a: unknown) => Promise<Response>)({})) as Response;
+        return [...(await res.text()).matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+      } catch (e) {
+        return ["ERR " + String(e)];
+      }
+    };
+    const off = await locs();
+    expect(off).toContain("https://www.bachatacalendar.co.uk/event/lounge");
+    process.env.EVENT_SUBDOMAIN_LINKS = "true";
+    const on = await locs();
+    expect(on).toContain("https://lounge.bachatacalendar.co.uk/");
+    expect(on).toContain("https://www.bachatacalendar.co.uk/event/lounge-leeds");
+    expect(on).toContain("https://www.bachatacalendar.co.uk/event/c");
   });
 });
