@@ -257,17 +257,17 @@ describe('P-DATES: Change time shows the sessions (C19, C61)', () => {
   });
 
   it.each([
-    { own: undefined, shown: false },
-    { own: '21:30', shown: true },
-  ])('Back to usual time only when the date runs at its own time (own=$own)', async ({ own, shown }) => {
+    { own: undefined },
+    { own: '21:30' },
+  ])('no Back to the usual time button, with or without an own start (own=$own)', async ({ own }) => {
     if (own) ownStart[D1] = own;
     mount(ORG_PATHS.changeTime(S, D1));
     await screen.findByTestId('change-time-screen');
-    expect(!!screen.queryByTestId('change-time-reset')).toBe(shown);
-    if (!shown) return;
-    fireEvent.click(screen.getByTestId('change-time-reset'));
-    await waitFor(() => expect(commands()).toHaveLength(1));
-    expect(commands()[0][1].p_envelope.command).toEqual({ kind: 'occurrence.set_time', payload: { reset: true } });
+    expect(screen.queryByTestId('change-time-reset')).toBeNull();
+    expect(screen.queryByText(/usual time/i)).toBeNull();
+    // keep-list: the rest of the screen is unchanged
+    expect(screen.getByTestId('change-time-one')).toBeTruthy();
+    expect(screen.getByTestId('change-time-input')).toBeTruthy();
   });
 
   it('a typed end equal to today\u2019s end is kept when the start moves (REVIEW P-DATES 1)', async () => {
@@ -469,12 +469,6 @@ describe('F-PAR Change time preview and words (PAR-B S1, S2, S3, N2, N9)', () =>
     sessions = [{ id: 'i1', type: 'party', title: '', start: '20:00', end: '23:00' }];
     mount(ORG_PATHS.changeTime(S, D1));
     expect((await screen.findByTestId('change-time-start-label')).textContent).toBe('Start time');
-  });
-
-  it('N2: the reset button and its done line use one label', async () => {
-    ownStart[D1] = '21:30';
-    mount(ORG_PATHS.changeTime(S, D1));
-    expect((await screen.findByTestId('change-time-reset')).textContent).toMatch(/^Back to the usual time/);
   });
 
   it('N9: the live region is mounted before any change, and the time fields keep their visible label (no aria-label)', async () => {

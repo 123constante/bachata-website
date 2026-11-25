@@ -1,7 +1,7 @@
 import { useId, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
-import { resetTimeCommand, setTimeCommand } from '@/modules/organiser/shared/seriesCommands';
+import { setTimeCommand } from '@/modules/organiser/shared/seriesCommands';
 import { localAsZTime } from '@/modules/organiser/shared/homeModel';
 import { toDraft } from '@/modules/organiser/shared/programmeModel';
 import { sessionName, typeLabel } from '@/modules/organiser/shared/sessionSummary';
@@ -10,7 +10,7 @@ import { FIELD_CLASS, GhostButton } from '@/modules/organiser/ui';
 import { cn } from '@/lib/utils';
 import { DateStep, type DateStepReady } from './DateStep';
 import {
-  END_GUARD, FESTIVAL_TIME, deltaLine, endBoxShown, endProblem, festivalTimeNext, hasOwnTime, isFestival, lastEnding, nightStart, previewTimes, timeDelta,
+  END_GUARD, FESTIVAL_TIME, deltaLine, endBoxShown, endProblem, festivalTimeNext, isFestival, lastEnding, nightStart, previewTimes, timeDelta,
   timeDoneMessage, type TimedSession,
 } from './changeModel';
 import { useChangeSend } from './useChange';
@@ -18,7 +18,6 @@ import { Loading, SaveButton, StepList, StepRow } from './parts';
 import { EventConflict } from '../event/parts';
 
 /** The reset button's label AND its done line (F-PAR N2: one wording). */
-export const BACK_TO_USUAL_DONE = 'Back to the usual time';
 
 /**
  * C5: the time of this one date, with its sessions (PARITY-GAP "What Change
@@ -94,7 +93,6 @@ function TimeForm({ seriesId, occurrenceId, date, detail, ws }: DateStepReady) {
   const preview = delta === null
     ? sessions.map((s) => ({ ...s, newStart: s.start, newEnd: s.end }))
     : previewTimes(sessions, delta, endTyped && !badEnd ? end : null);
-  const own = hasOwnTime(date, ws.series.default_local_start_time);
   const endLabel = many && last ? `End of ${last.name}` : 'End time';
   // PAR-B S3: the date can start before its first session (a door time); say which start this is.
   const startLabel = sessions.length && sessions[0].start !== current ? 'Night starts' : many ? 'New start' : 'Start time';
@@ -188,15 +186,6 @@ function TimeForm({ seriesId, occurrenceId, date, detail, ws }: DateStepReady) {
           onClick={() => navigate(ORG_PATHS.dateLineup(seriesId, occurrenceId))}
         />
       </StepList>
-      {own && (
-        <GhostButton
-          testId="change-time-reset"
-          disabled={busy}
-          onClick={() => void send(resetTimeCommand(), detail.version, BACK_TO_USUAL_DONE)}
-        >
-          {BACK_TO_USUAL_DONE}{ws.series.default_local_start_time ? ` (${ws.series.default_local_start_time.slice(0, 5)})` : ''}
-        </GhostButton>
-      )}
     </div>
   );
 }
