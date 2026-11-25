@@ -60,9 +60,9 @@ export async function fetchTeamR2People(org: string): Promise<R4TeamR2People> {
   return parsePeople(data);
 }
 
-export async function setTeamR2Switches(org: string, userId: string, canSignIn: boolean, onPublic: boolean): Promise<void> {
+export async function setTeamR2Switches(org: string, userId: string, canSignIn: boolean, onPublic: boolean, role: 'manager' | 'contributor' | null = null): Promise<void> {
   const { error } = await rpc().rpc('organiser_team_set_switches_v1', {
-    p_org: org, p_user: userId, p_can_sign_in: canSignIn, p_on_public: onPublic, p_role: null,
+    p_org: org, p_user: userId, p_can_sign_in: canSignIn, p_on_public: onPublic, p_role: role,
   });
   if (error) throw error;
 }
@@ -72,4 +72,14 @@ export async function fetchTeamR2Changes(org: string, limit = 20): Promise<R4Tea
   const { data, error } = await rpc().rpc('organiser_team_recent_changes_v1', { p_org: org, p_limit: limit });
   if (error) return null;
   return parseChanges(data);
+}
+
+/** organiser_team_invite_link_v1 (owner only): a fresh invite token. */
+export async function inviteLink(org: string, role = 'manager'): Promise<{ token: string; expiresAt: string | null }> {
+  const { data, error } = await rpc().rpc('organiser_team_invite_link_v1', { p_org: org, p_role: role });
+  if (error) throw error;
+  const o = obj(data);
+  const token = str(o.token);
+  if (!token) throw new Error('invite_link_no_token');
+  return { token, expiresAt: str(o.expires_at) };
 }
