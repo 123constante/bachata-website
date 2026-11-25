@@ -302,6 +302,31 @@ const run = async () => {
     }
   });
 
+  // Post-merge quick check: SMOKE_EXTRA_PATHS is a comma-separated list of
+  // paths ("/start-organiser") or full https URLs on bachatacalendar.co.uk
+  // (event subdomains included). Each page loads signed out with the same
+  // observers as above (page errors, console errors, failed requests,
+  // Supabase 4xx/5xx), plus a 4xx/5xx document status and the app's
+  // error-boundary text. Set via the workflow_dispatch input extra_paths.
+  const extraPaths = (process.env.SMOKE_EXTRA_PATHS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  for (const extra of extraPaths) {
+    await runScenario(`Extra page ${extra}`, async () => {
+      const url = new URL(extra, baseUrl);
+      const local = url.hostname === 'localhost';
+      const ours = url.protocol === 'https:' && /(^|\.)bachatacalendar\.co\.uk$/.test(url.hostname);
+      if (!local && !ours) throw new Error(`Refused host: ${url.href}`);
+      const response = await page.goto(url.href, { waitUntil: 'domcontentloaded' });
+      if (!response) throw new Error('No document response');
+      if (response.status() >= 400) throw new Error(`Document status ${response.status()}`);
+      await page.waitForTimeout(3000);
+      const crashed = await page.getByText('Something went wrong', { exact: false }).count();
+      if (crashed > 0) throw new Error('Error text "Something went wrong" on page');
+    });
+  }
+
   await browser.close();
 
   const report = {
