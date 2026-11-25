@@ -1,0 +1,12 @@
+/* Dancer onboarding v8, B4b: neon email + code screens. Scoped under .neon. */
+.neon .nauth-err{margin:0 0 8px;font-size:14px;color:#ffb3d6}
+.neon .nauth-code{display:flex;justify-content:center;margin:4px 0 14px}
+.neon .nauth-code [data-input-otp-container]{gap:6px}
+.neon .nauth-code .nauth-grp{display:flex;gap:6px;width:100%}
+.neon .nauth-slot{flex:1;height:54px;display:grid;place-items:center;position:relative;font-weight:800;font-size:22px;color:#fff;background:rgba(255,255,255,.1);border:1px solid #ff2d95;border-radius:10px}
+.neon .nauth-slot.act{box-shadow:0 0 14px rgba(255,45,149,.7)}
+.neon .nauth-links{display:flex;justify-content:center;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px}
+.neon .nauth-links .lnk:disabled{opacity:.5;cursor:default}
+.neon .nauth-consent{margin:0 0 10px;font-size:13px;opacity:.8}
+.neon .nauth-consent a{color:#fff;text-decoration:underline}
+.neon .nauth-in{display:block;width:100%;padding:16px;margin-bottom:12px;font:inherit;color:#fff;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.3);border-radius:14px}

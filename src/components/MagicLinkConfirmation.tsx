@@ -7,6 +7,10 @@ import { trackAnalyticsEvent } from '@/lib/analytics';
 import { OTP_CODE_LENGTH, OTP_LIFETIME_SECONDS, OTP_RESEND_COOLDOWN_SECONDS } from '@/lib/auth-otp-routing';
 import { trackAuthStep } from '@/lib/trackAuthStep';
 import { ConsentLine } from '@/components/auth/ConsentLine';
+import { DANCER_ONBOARDING_V3_ENABLED } from '@/modules/dancer-app/screens/onboarding/onboardingV3Flag';
+import { NeonPhoto } from '@/modules/dancer-app/screens/onboarding/neon/NeonPhoto';
+import '@/modules/dancer-app/screens/onboarding/neon/neon.css';
+import '@/modules/dancer-app/screens/onboarding/neon/neonAuth.css';
 // L1: the account pages' one long-email wrap (break before "@", then overflow-wrap:anywhere).
 import { EmailText } from '@/components/account/EmailText';
 
@@ -198,6 +202,63 @@ const MagicLinkConfirmation = ({ email, onResend, resendError, onChangeEmail, on
       setIsResending(false);
     }
   };
+
+  if (DANCER_ONBOARDING_V3_ENABLED) {
+    const resting = countdown > 0 && !locked && !expired;
+    return (
+      <div className="neon" data-testid="neon-auth-code">
+        <NeonPhoto />
+        <div className="neon-body" style={{ top: 215 }}>
+          <h2 className="q">Check your email</h2>
+          <p className="sub">Open it on this phone and type the 8 digit code we sent.</p>
+          <div className="nauth-code">
+            <InputOTP
+              id="email-code"
+              maxLength={CODE_LENGTH}
+              value={code}
+              onChange={(value) => {
+                setCode(value.replace(/\D/g, ''));
+                if (codeError) setCodeError(null);
+              }}
+              onComplete={(value) => void verify(value)}
+              disabled={isVerifying || locked || expired}
+              autoFocus
+              autoComplete="one-time-code"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              aria-label={CODE_LABEL}
+              aria-invalid={codeError || locked ? true : undefined}
+              aria-describedby={ERROR_ID}
+            >
+              <div className="nauth-grp">
+                {Array.from({ length: CODE_LENGTH }, (_, i) => (
+                  <InputOTPSlot key={i} index={i} className="nauth-slot" />
+                ))}
+              </div>
+            </InputOTP>
+          </div>
+          <p id={ERROR_ID} role="alert" aria-live="assertive" className="nauth-err">
+            {locked ? LOCKED_MESSAGE : codeError || resendError}
+          </p>
+          {isVerifying && <p className="small" role="status">Checking code&hellip;</p>}
+          {showConsent && <ConsentLine lead="Entering the code confirms you agree to our" />}
+          <button type="button" className="cta" disabled={code.length < CODE_LENGTH || isVerifying || locked || expired} onClick={() => void verify(code)}>
+            {isVerifying ? 'Checking\u2026' : 'Sign me in'}
+          </button>
+          <div className="nauth-links">
+            <button type="button" className="lnk" disabled={resting || isResending} onClick={handleResend}>
+              {isResending ? 'Sending\u2026' : locked || expired ? 'Send a new code' : resting ? `Resend code (${countdown}s)` : 'Resend code'}
+            </button>
+            <span aria-hidden="true">&middot;</span>
+            <button type="button" className="lnk" onClick={onChangeEmail}>Use a different email</button>
+          </div>
+          {extraAction && (
+            <button type="button" className="lnk" onClick={extraAction.onClick}>{extraAction.label}</button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center text-center space-y-4 py-2">

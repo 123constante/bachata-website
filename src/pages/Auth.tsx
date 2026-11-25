@@ -41,7 +41,7 @@ import { sanitizeReturnTo } from "@/lib/authRouting";
 import { authModeFromSearch } from "@/lib/focusMode";
 import { signInWithDevBypass, DEV_AUTH_BYPASS_HINT, createRandomDevAccount } from "@/lib/devAuthBypass";
 import { trackAuthStep } from "@/lib/trackAuthStep";
-import { acceptTerms, hasAcceptedTerms } from "@/lib/termsConsent";
+import { acceptTerms, hasAcceptedTerms, PRIVACY_PATH, TERMS_PATH } from "@/lib/termsConsent";
 import { TermsAcceptCard } from "@/components/auth/TermsAcceptCard";
 import MagicLinkConfirmation, { forgetCodeStep, readCodeStep, rememberCodeStep, type ResendOutcome } from "@/components/MagicLinkConfirmation";
 import { ConsentLine } from "@/components/auth/ConsentLine";
@@ -51,6 +51,10 @@ import { AuthFormProvider, useAuthForm, type EntryRole } from "@/contexts/AuthFo
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { EmberWorld, PrimaryButton } from "@/modules/organiser/ui";
 import { flags } from "@/lib/featureFlags";
+import { DANCER_ONBOARDING_V3_ENABLED } from "@/modules/dancer-app/screens/onboarding/onboardingV3Flag";
+import { NeonPhoto } from "@/modules/dancer-app/screens/onboarding/neon/NeonPhoto";
+import "@/modules/dancer-app/screens/onboarding/neon/neon.css";
+import "@/modules/dancer-app/screens/onboarding/neon/neonAuth.css";
 import { SIGNUP_STEPS, getNextStep, getPreviousStep, getStepIndex, type SignupStep } from "@/lib/auth-signup-resolver";
 import { DanceRolePicker } from "@/components/profile/DanceRolePicker";
 
@@ -515,6 +519,53 @@ const AuthContent = () => {
         {children}
       </div>
     ) : null;
+
+  // v8 (flag on): the neon email screen. Same handlers, validation and consent; look and copy only.
+  if (DANCER_ONBOARDING_V3_ENABLED && (mode === "signin" || activeStep === "email")) {
+    return (
+      <div className="neon" data-testid="neon-auth-email">
+        <NeonPhoto />
+        <div className="neon-body" style={{ top: 215 }}>
+          <h2 className="q">Where do we send your code?</h2>
+          <p className="sub">No password. We email you 8 digits.</p>
+          <input
+            id={mode === "signin" ? "signin-email" : "signup-email"}
+            type="email"
+            autoComplete="email"
+            enterKeyHint="send"
+            placeholder="you@email.com"
+            aria-label="Email"
+            className="nauth-in"
+            value={email}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !isSubmitting) {
+                e.preventDefault();
+                void handleSendMagicLink();
+              }
+            }}
+            {...invalidProps(emailErrorId, fieldErrors.email)}
+            onChange={(e) => {
+              const update = updateEmail(e.target.value);
+              clearEmailFeedback();
+              if (update.changed) {
+                setMagicLinkSent(false);
+                setAuthNotice(null);
+              }
+            }}
+          />
+          <FieldError id={emailErrorId} message={fieldErrors.email} />
+          {sendError}
+          <p className="nauth-consent" data-testid="auth-consent">
+            By continuing you accept our <a href={TERMS_PATH} target="_blank" rel="noopener noreferrer">Terms</a> and{" "}
+            <a href={PRIVACY_PATH} target="_blank" rel="noopener noreferrer">Privacy</a>.
+          </p>
+          <button type="button" className="cta" onClick={() => void handleSendMagicLink()} disabled={isSubmitting}>
+            {isSubmitting ? "Sending\u2026" : "Send my code"}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <GlobalLayout showSubheader={false} showGradientBg={false}>
