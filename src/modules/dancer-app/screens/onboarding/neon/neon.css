@@ -22,3 +22,5 @@
 .neon .chip.on{background:rgba(255,45,149,.35);border-color:#ff2d95}
 .neon .cta{margin-top:auto;width:100%;padding:17px;font:800 17px Inter,system-ui,sans-serif;color:#fff;cursor:pointer;border:0;border-radius:16px;text-transform:uppercase;letter-spacing:.06em;background:linear-gradient(90deg,#ff2d95,#ffa600);box-shadow:0 0 28px rgba(255,45,149,.6)}
 .neon .cta:disabled{opacity:.4;cursor:default}
+.neon .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.neon .small{margin:0 0 8px;font-size:13px;opacity:.8}
