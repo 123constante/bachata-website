@@ -64,6 +64,7 @@ const AdminFrontDoor = lazyWithRetry(() => import("@/modules/admin-organisers/Fr
 const AmbassadorQueue = lazyWithRetry(() => import("@/modules/ambassador/AmbassadorQueuePage"));
 const InviteRedeem = lazyWithRetry(() => import("@/modules/admin-organisers/InviteRedeemPage"));
 const ClaimLink = lazyWithRetry(() => import("@/modules/organiser/claim-link/ClaimLinkPage"));
+const SelfSignup = lazyWithRetry(() => import("@/modules/organiser/self-signup/SelfSignupPage"));
 // The door invite link and a door-seat holder's door screen (organiser R4 slice a): live whatever the organiser flags.
 const RaffleDoor = lazyWithRetry(() => import("../pages/RaffleDoor"));
 const DoorJoin = lazyWithRetry(() => import("@/modules/organiser/p3/door/join/DoorJoinPage"));
@@ -301,6 +302,7 @@ export const AnimatedRoutes = () => {
             <Route path="/invite" element={<PageTransition><InviteRedeem /></PageTransition>} />
             <Route path="/invite/:token" element={<PageTransition><InviteRedeem /></PageTransition>} />
             <Route path="/claim/:token" element={<PageTransition><ClaimLink /></PageTransition>} />
+            <Route path="/start-organiser" element={<PageTransition><SelfSignup /></PageTransition>} />
             {/* Raffle v3 winner door scan (flags.raffleV2): anon, no login. Not the ticket /door/... routes. */}
             <Route path="/raffle/door/:token" element={
               flags.raffleV2 ? <RaffleDoor /> : <Navigate to="/" replace />
