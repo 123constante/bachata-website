@@ -23,6 +23,7 @@ import { DANCER_ONBOARDING_V3_ENABLED } from './onboardingV3Flag';
 import { NeonFrame } from './neon/NeonFrame';
 import { RolesNeon, StylesNeon, YearsNeon } from './neon/NeonSteps';
 import { NeonPartner } from './neon/NeonPartner';
+import { BioNeon, PhotoNeon } from './neon/NeonPhotoBio';
 
 /** Same 3 lines as OnboardingScreen's leaveFor (copied, not exported: the old file stays untouched). */
 const leaveFor = (qc: QueryClient, navigate: NavigateFunction, end: string) => {
@@ -173,16 +174,17 @@ const OnboardingV3 = () => {
   const toggleStyle = (s: string) => setStyles((p) => (p.includes(s) ? p.filter((x) => x !== s) : [...p, s]));
   const card = { busy, error };
   // v8 Neon Night look for roles, styles, years only: same state and handlers, different shell and rows.
-  const neonStep = DANCER_ONBOARDING_V3_ENABLED && (step === 'roles' || step === 'styles' || step === 'years' || step === 'partner');
+  const neonStep = DANCER_ONBOARDING_V3_ENABLED && (step === 'roles' || step === 'styles' || step === 'years' || step === 'partner' || step === 'photo' || step === 'bio');
   const Roles = neonStep ? RolesNeon : RolesCardV3;
   const Styles = neonStep ? StylesNeon : StylesCardV3;
   const Years = neonStep ? YearsNeon : YearsCardV3;
+  const Photo = neonStep ? PhotoNeon : PhotoCardV3;
   const shell = (kids: ReactNode) =>
     neonStep ? (
       <NeonFrame
         pos={position}
         total={list.length}
-        top={step === 'years' ? 215 : 300}
+        top={step === 'years' ? 215 : step === 'photo' || step === 'bio' ? 130 : 300}
         onBack={
           prev
             ? () => {
@@ -200,6 +202,19 @@ const OnboardingV3 = () => {
       </Card>
     );
   const saveDelta = (delta: DancerDelta) => save(diffDelta(profile, delta), profile);
+  const bioProps = {
+    ...card,
+    bio,
+    link,
+    onBio: setBio,
+    onLink: setLink,
+    onSkip: () => setLeaving(true),
+    onContinue: () => {
+      const r = bioLinkResult(profile, bio, link);
+      if (r.error) return setError(r.error);
+      void run(() => (Object.keys(r.delta).length === 0 ? Promise.resolve(profile) : saveDelta(r.delta)), 'bio', 'end', r.filled);
+    },
+  };
   const preProps = { profile, busy, error, tag: null, onSubmit: (d: DancerDelta) => void run(() => saveDelta(d), null, null) };
 
   return (
@@ -300,7 +315,7 @@ const OnboardingV3 = () => {
               />
             ) : null}
             {step === 'photo' ? (
-              <PhotoCardV3
+              <Photo
                 {...card}
                 photoUrl={profile.avatar_url}
                 onPickPhoto={() => {
@@ -311,19 +326,11 @@ const OnboardingV3 = () => {
               />
             ) : null}
             {step === 'bio' ? (
-              <BioLinksCardV3
-                {...card}
-                bio={bio}
-                link={link}
-                onBio={setBio}
-                onLink={setLink}
-                onSkip={() => setLeaving(true)}
-                onContinue={() => {
-                  const r = bioLinkResult(profile, bio, link);
-                  if (r.error) return setError(r.error);
-                  void run(() => (Object.keys(r.delta).length === 0 ? Promise.resolve(profile) : saveDelta(r.delta)), 'bio', 'end', r.filled);
-                }}
-              />
+              neonStep ? (
+                <BioNeon {...bioProps} bioOnly={bioOnly} />
+              ) : (
+                <BioLinksCardV3 {...bioProps} />
+              )
             ) : null}
           </>)}
           {step === 'partner' && sheet && !neonStep ? <PartnerSheetV3 draft={partner} onChange={setPartner} onClose={() => setSheet(false)} /> : null}
