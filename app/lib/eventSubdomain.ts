@@ -116,3 +116,29 @@ export function pickNightOccurrenceId(
   const upcoming = hits.find((h) => h.key >= todayKey);
   return (upcoming ?? hits[hits.length - 1]).id;
 }
+
+/**
+ * The calendar date (YYYY-MM-DD) a night path means when the event snapshot's
+ * occurrence list does not carry it. That list is a 52-row window filled with
+ * upcoming nights first, so a weekly series with a year of dates ahead has no
+ * past nights in it at all. Year given: that exact date. No year: the most
+ * recent past date with that day+month (an upcoming one would already be in
+ * the window). Invalid calendar date (e.g. 31-feb) -> null.
+ */
+export function nightFallbackDateKey(spec: NightSpec, todayKey: string = londonTodayKey()): string | null {
+  const mm = String(spec.month).padStart(2, "0");
+  const dd = String(spec.day).padStart(2, "0");
+  const thisYear = Number(todayKey.slice(0, 4));
+  let year = spec.year ?? thisYear;
+  if (spec.year === null && `${year}-${mm}-${dd}` > todayKey) year -= 1;
+  const d = new Date(Date.UTC(year, spec.month - 1, spec.day));
+  if (d.getUTCMonth() !== spec.month - 1 || d.getUTCDate() !== spec.day) return null;
+  return `${year}-${mm}-${dd}`;
+}
+
+/** The day after a YYYY-MM-DD key (calendar RPC ranges end exclusive). */
+export function nextDateKey(key: string): string {
+  const d = new Date(`${key}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
