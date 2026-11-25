@@ -5,7 +5,8 @@ import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { ORGANISER_HOME_KEY, fetchMyAccessRequests, myAccessRequestsQueryKey } from '@/modules/organiser/shared/selfServeApi';
 import { isMailboxProvenToken } from '@/modules/organiser/shared/sessionProof';
 import { OnboardingView } from '../../home/onboarding/OnboardingView';
-import { withAdmin } from '../../home/onboarding/profileGate';
+import { gateForClaimant, withAdmin } from '../../home/onboarding/profileGate';
+import { useOnboardingV2State } from '../../claim-link/onboardingStateApi';
 import { useP3Home } from '../data/useP3Data';
 import { RetryButton, StateCard } from '../screens/parts';
 import { P3_PATHS } from '../shell/paths';
@@ -25,7 +26,9 @@ export default function AddPageScreen() {
   const firstRun = !!home.data && organisers.length === 0;
   const back = firstRun ? undefined : { to: P3_PATHS.you, label: 'You' };
   // The server exempts an admin from the profile check; the tap gate reads the same (S2, PR #1118).
-  const gate = withAdmin(useContext(ProfileGateContext), useIsAdmin());
+  // W1c: a claimant (server says the gate does not apply) is never stopped; anything else is today's gate.
+  const v2State = useOnboardingV2State();
+  const gate = gateForClaimant(withAdmin(useContext(ProfileGateContext), useIsAdmin()), v2State);
 
   if (!user) return null;
 
