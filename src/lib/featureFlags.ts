@@ -163,6 +163,9 @@ export const flags = {
   // red bar, each with a button to the next night. OFF = the event page is exactly as before.
   // Turn on with VITE_ENABLE_NIGHT_NOTES=true (Vercel env) -- no code change.
   nightNotes:          import.meta.env.VITE_ENABLE_NIGHT_NOTES === 'true',
+  // Organiser Team R2 (brief #2161): one list with two switches (Can sign in / On public page) + Recent changes.
+  // OFF = the R4Team screen exactly as before. Turn on with VITE_ENABLE_ORGANISER_TEAM_R2=true (Vercel env).
+  organiserTeamR2:     import.meta.env.VITE_ENABLE_ORGANISER_TEAM_R2 === 'true',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the

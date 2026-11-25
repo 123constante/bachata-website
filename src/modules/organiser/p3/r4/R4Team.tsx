@@ -8,7 +8,9 @@ import { MESSAGE_US, NO_PAGE, canDecline, isInterim } from '@/modules/organiser/
 import { useSeatState } from '@/modules/organiser/shared/useSeatKind';
 import { selfServeErrorCode } from '@/modules/organiser/shared/selfServeErrors';
 import { SEARCH_LIMIT, inviteShare, parsePeople, searchTerm } from '@/modules/organiser/edit-in-place/teamPickerModel';
+import { flags } from '@/lib/featureFlags';
 import { useTeamContext } from '../../team/useTeamContext';
+import { R4TeamR2 } from './R4TeamR2';
 import { addErrorMessage } from '../../team/teamErrors';
 import { JoinRequestCard } from '../../flows/fix/JoinRequest';
 import { useDebounced } from '../../ui';
@@ -199,6 +201,9 @@ function InvitedSection({ m, onRetry }: { m: R4InvitedModel; onRetry: () => void
 
 /** Board R4Team (flag organiserR4), Team T1: Add a teammate, one section per role, Waiting to join. */
 export function R4Team() {
+  // organiserTeamR2 is a build-time constant, so the hook order never changes between renders.
+  if (flags.organiserTeamR2) return <R4TeamR2 />;
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const ctx = useTeamContext();
   const { organiser, members, listed, viewerRole } = ctx;
   const { seat, known: seatKnown, failed: seatFailed, retry: retrySeat } = useSeatState(organiser?.id);
