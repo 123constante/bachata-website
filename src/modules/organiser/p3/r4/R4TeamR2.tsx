@@ -107,7 +107,7 @@ export function buildRows(people: R4TeamR2Person[], viewerRole: string): R4TeamR
 function Switch({ label, on, disabled, onToggle, testId }: { label: string; on: boolean; disabled: boolean; onToggle: () => void; testId: string }) {
   return (
     <button type="button" role="switch" aria-checked={on} aria-label={label} disabled={disabled} onClick={onToggle} data-testid={testId}
-      className="r4-row-btn" style={{ minHeight: 44, display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 0, padding: 0, opacity: disabled ? 0.6 : 1 }}>
+      className="r4-row-btn" style={{ width: 'auto', minHeight: 44, display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 0, padding: 0, opacity: disabled ? 0.6 : 1 }}>
       <span className="r4-sub">{label}</span>
       <span className={`r4-pill ${on ? 'r4-pill-live' : 'r4-pill-grey'}`}>{on ? 'On' : 'Off'}</span>
     </button>
@@ -204,8 +204,8 @@ export function R4TeamR2() {
           const cur = over[p.userId] ?? { canSignIn: p.canSignIn, onPublic: p.onPublic };
           const expired = r.kind === 'door-expired';
           return (
-            <div key={p.userId} className="r4-row" data-testid="r4-team-r2-row" data-role={p.role} style={{ display: 'block', opacity: expired ? 0.5 : 1 }}>
-              <Link to={P3_PATHS.youTeamPerson(p.userId)} className="r4-row-body" data-testid="r4-team-r2-name" style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 44 }}>
+            <div key={p.userId} className="r4-row" data-testid="r4-team-r2-row" data-role={p.role} style={{ display: 'block', paddingBlock: 8, opacity: expired ? 0.5 : 1 }}>
+              <Link to={P3_PATHS.youTeamPerson(p.userId)} className="r4-row-body" data-testid="r4-team-r2-name" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 }}>
                 {p.avatarUrl
                   ? <img src={p.avatarUrl} alt="" width={32} height={32} style={{ borderRadius: '50%', objectFit: 'cover' }} />
                   : <span aria-hidden="true" className="r4-pill r4-pill-grey">{p.name.charAt(0).toUpperCase()}</span>}
