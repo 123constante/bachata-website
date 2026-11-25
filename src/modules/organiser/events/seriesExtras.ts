@@ -1,5 +1,5 @@
 // The series-wide fields the admin editor has and the C37 rows lacked (P-SERIES,
-// PARITY-GAP C06, C09b, C14): gallery, videos, the usual end, the price list.
+// PARITY-GAP C06, C09b, C14): gallery, videos, the price list.
 // Pure. Each builder returns ONE series.upsert carrying `name` (the handler needs
 // it) plus the one changed key, or null when nothing changed (an untouched Save
 // sends nothing).
@@ -28,60 +28,6 @@ export function photosCommand(ws: EventWorkspace, cover: string, next: string[])
 }
 
 export const countLabel = (n: number, one: string, many: string) => (n ? `${n} ${n === 1 ? one : many}` : 'Add');
-
-// ---- C14 the usual end --------------------------------------------------------------
-
-const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
-const minutesOf = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
-/** The server's bound on default_duration_minutes (apply_aggregate_write_p5: 1 to 1200). */
-export const MAX_DURATION = 1200;
-
-/** event_series_p5.default_duration as read ("05:00:00", "1 day 02:00:00") -> minutes; null when unset. */
-export function durationMinutes(raw: string | null): number | null {
-  if (!raw) return null;
-  const m = /^(?:(\d+) days? )?(\d+):(\d{2})(?::\d{2})?$/.exec(raw.trim());
-  if (!m) return null;
-  return Number(m[1] ?? 0) * 1440 + Number(m[2]) * 60 + Number(m[3]);
-}
-
-/** The usual end as the row shows it ("01:00"), from the start and the stored length; '' when unknown. */
-export function usualEnd(ws: EventWorkspace): string {
-  const start = ws.series.default_local_start_time?.slice(0, 5) ?? '';
-  const len = durationMinutes(ws.series.default_duration);
-  if (!HHMM.test(start) || len === null) return '';
-  const end = (minutesOf(start) + len) % 1440;
-  return `${String(Math.floor(end / 60)).padStart(2, '0')}:${String(end % 60).padStart(2, '0')}`;
-}
-
-/** Minutes from the start to a typed end; an end at or before the start is the next day. */
-export function lengthTo(start: string, end: string): number | null {
-  if (!HHMM.test(start) || !HHMM.test(end)) return null;
-  const d = minutesOf(end) - minutesOf(start);
-  return d > 0 ? d : d + 1440;
-}
-
-/** Why the typed end cannot be saved; null when it can. */
-export function endProblem(ws: EventWorkspace, typed: string): string | null {
-  const start = ws.series.default_local_start_time?.slice(0, 5) ?? '';
-  if (!HHMM.test(start)) return 'Add the start time first';
-  if (!HHMM.test(typed.trim())) return 'Use a time like 23:00';
-  const len = lengthTo(start, typed.trim()) ?? 0;
-  if (len > MAX_DURATION) return 'Choose an end within 20 hours of the start';
-  return null;
-}
-
-/**
- * What saving the end does (prod _cmd_series_upsert_p5, read 2026-10-17): the
- * length is stored and every date ADDED from now on uses it; dates already
- * listed keep their times (only a new START time re-times them). Said plainly.
- */
-export const END_CONSEQUENCE = 'Dates added from now on end at this time. Dates already listed keep their times; to change one, open it from Coming dates on the event.';
-
-export function endCommand(ws: EventWorkspace, typed: string): OwnerCommand | null {
-  if (endProblem(ws, typed) || typed.trim() === usualEnd(ws)) return null;
-  const len = lengthTo(ws.series.default_local_start_time?.slice(0, 5) ?? '', typed.trim());
-  return len === null ? null : upsertCommand({ name: ws.series.name, default_duration_minutes: len });
-}
 
 // ---- C09b the price list ------------------------------------------------------------
 
