@@ -18,5 +18,8 @@ export function eventHostForwardUrl(
   if (pathname === `/event/${host.label}` || pathname.startsWith(`/event/${host.label}/`)) return null;
   if (EXEMPT_PREFIXES.some((p) => pathname.startsWith(p))) return null;
   if (STATIC_FILE_RE.test(pathname)) return null;
+  // React Router single-fetch data requests (/x.data, /_root.data): never forward,
+  // a redirect here would send the browser to a www .data URL.
+  if (pathname.endsWith(".data")) return null;
   return `https://www.${EVENT_SUBDOMAIN_DOMAIN}${pathname}${search}`;
 }

@@ -199,6 +199,13 @@ export function loader({ request }: { request: Request }) {
   return null;
 }
 
+// The host never changes inside one page load, so the root loader only needs to
+// run on the document request. Without this, every client navigation (even to
+// loader-less routes) would make an extra .data request (Vercel request cap).
+export function shouldRevalidate() {
+  return false;
+}
+
 export default function Root() {
   // Phase-2 invariant: getBrowserQueryClient() THROWS on the server, so a
   // server render mints a fresh per-request client; the browser reuses the

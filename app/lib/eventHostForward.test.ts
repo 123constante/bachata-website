@@ -58,5 +58,7 @@ describe("eventHostForwardUrl", () => {
     expect(eventHostForwardUrl(h, "/assets/a.js")).toBeNull();
     expect(eventHostForwardUrl(h, "/api/og/card")).toBeNull();
     expect(eventHostForwardUrl(h, "/_vercel/insights/script.js")).toBeNull();
+    expect(eventHostForwardUrl(h, "/_root.data")).toBeNull();
+    expect(eventHostForwardUrl(h, "/city/london-gb.data")).toBeNull();
   });
 });
