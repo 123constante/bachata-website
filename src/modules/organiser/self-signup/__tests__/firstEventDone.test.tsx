@@ -87,6 +87,32 @@ describe('page', () => {
     expect((screen.getByTestId('signup-event-name') as HTMLInputElement).value).toBe('Friday Social');
   });
 
+  it('Try again after Skip resends no event, even with a typed draft', async () => {
+    onboard.mockResolvedValueOnce({ kind: 'failed' });
+    await toWho();
+    fireEvent.click(screen.getByTestId('signup-submit'));
+    fireEvent.change(screen.getByTestId('signup-event-name'), { target: { value: 'Friday Social' } });
+    fireEvent.change(screen.getByTestId('signup-event-date'), { target: { value: '2099-01-02' } });
+    fireEvent.click(screen.getByTestId('signup-event-back'));
+    fireEvent.click(screen.getByTestId('signup-submit'));
+    fireEvent.click(screen.getByTestId('signup-event-skip'));
+    fireEvent.click(await screen.findByTestId('signup-retry'));
+    await waitFor(() => expect(onboard).toHaveBeenCalledTimes(2));
+    expect(onboard).toHaveBeenLastCalledWith('Salsa Club', 'c1', null, null);
+  });
+
+  it('keep-list: who, refused and result screens keep their controls', async () => {
+    onboard.mockResolvedValueOnce({ kind: 'failed' });
+    await toWho();
+    for (const id of ['signup-name', 'signup-city-chosen', 'signup-submit', 'signup-save-later']) expect(screen.getByTestId(id)).toBeTruthy();
+    expect(screen.getByTestId('signup-submit').textContent).toBe('Create my page');
+    fireEvent.click(screen.getByTestId('signup-submit'));
+    fireEvent.click(screen.getByTestId('signup-event-skip'));
+    for (const id of ['signup-refusal', 'signup-retry', 'signup-back']) expect(await screen.findByTestId(id)).toBeTruthy();
+    fireEvent.click(screen.getByTestId('signup-retry'));
+    for (const id of ['signup-outcome', 'signup-continue']) expect(await screen.findByTestId(id)).toBeTruthy();
+  });
+
   it('done screen', async () => {
     await toWho();
     fireEvent.click(screen.getByTestId('signup-submit'));

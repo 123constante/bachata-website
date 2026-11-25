@@ -48,6 +48,8 @@ export default function SelfSignupPage() {
   const [refusal, setRefusal] = useState<RefusalView | null>(null);
   const [eventDraft, setEventDraft] = useState<FirstEventInput>({ name: '', date: '' });
   const [eventError, setEventError] = useState<string | null>(null);
+  // What the last save actually sent, so "Try again" never resends an event the person skipped.
+  const [sentEvent, setSentEvent] = useState<FirstEventInput | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [flagOn, setFlagOn] = useState(false);
   const seq = useRef(0);
@@ -95,6 +97,7 @@ export default function SelfSignupPage() {
     if (!city) return;
     setStep('working');
     setEventError(null);
+    setSentEvent(firstEvent);
     const res = await onboardOrganiser(name, city.id, claimTarget, firstEvent);
     if (res.kind === 'success') { setResult(res); setStep('result'); return; }
     if (res.kind === 'signed_out') { setStep('email'); return; }
@@ -113,7 +116,7 @@ export default function SelfSignupPage() {
       <>
         <p className="text-[15px]" data-testid="signup-refusal">{refusal.message}</p>
         {refusal.action === 'own_page' && <Link to={ORGANISER_HOME_PATH} className={BTN} data-testid="signup-own-page">Open my page</Link>}
-        {refusal.action === 'retry' && <button type="button" className={BTN} onClick={() => void submit(eventDraft.date ? eventDraft : null)} data-testid="signup-retry">Try again</button>}
+        {refusal.action === 'retry' && <button type="button" className={BTN} onClick={() => void submit(sentEvent)} data-testid="signup-retry">Try again</button>}
         <button type="button" className={GHOST} onClick={() => setStep('who')} data-testid="signup-back">Back</button>
       </>,
       true,
