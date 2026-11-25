@@ -100,9 +100,6 @@ export function firstDateChoices(today: string, days = 30): Array<{ date: string
   });
 }
 
-const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
-export const isTime = (value: string): boolean => HHMM.test(value);
-
 /** Why a step button is off (shown beside it, never silent); null when it can go. */
 export const nameBlock = (name: string): string | null => (name.trim() ? null : 'Type a name to go on.');
 
