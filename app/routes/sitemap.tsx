@@ -7,6 +7,7 @@ import { NOT_DEACTIVATED } from "@/lib/notDeactivatedFilter";
 import { NOT_PUBLIC_LIFECYCLE } from "@/modules/profile/organiserPublicProfile";
 import { fetchOrganiserDirectoryHiddenIds, withoutHiddenOrganisers } from "@/lib/organiserDirectoryHiddenIds";
 import { withSsrLoaderTimeout } from "../lib/ssrLoaderTimeout";
+import { eventSubdomainLinksEnabled, eventSubdomainOrigin, isSubdomainLabel } from "../lib/eventSubdomain";
 import { teachersSitemapPaths, type CityRow } from "@/modules/teachers-directory/teachersCity";
 
 // Live /sitemap.xml resource route (loader-only, no component) - replaces the
@@ -117,8 +118,10 @@ type ProfileRow = { id: string; slug: string | null; updated_at: string | null }
 async function fetchEvents(): Promise<UrlRow[]> {
   const { data, error } = await db.rpc("list_public_event_urls_v1", { p_limit: 2000 });
   if (error) throw error;
+  const subdomains = eventSubdomainLinksEnabled();
   return ((data ?? []) as ProfileRow[]).map((e) => ({
-    loc: `${BASE_URL}/event/${e.slug || e.id}`,
+    // D2a: flag ON + a slug that can be a subdomain label -> the subdomain URL.
+    loc: subdomains && isSubdomainLabel(e.slug) ? `${eventSubdomainOrigin(e.slug)}/` : `${BASE_URL}/event/${e.slug || e.id}`,
     lastmod: toDate(e.updated_at),
     changefreq: "daily",
     priority: "0.8",

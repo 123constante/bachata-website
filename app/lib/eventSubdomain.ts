@@ -43,6 +43,17 @@ export function parseEventHost(rawHost: string | null | undefined): EventHost {
   return LABEL_RE.test(prefix) && !RESERVED_LABELS.includes(prefix) ? { kind: "event", label: prefix } : { kind: "none" };
 }
 
+/** True when a CURRENT event slug can live on its own subdomain: one DNS label
+ *  (no dashes yet) and not infrastructure. The one copy of this rule (D2a). */
+export const isSubdomainLabel = (slug: string | null | undefined): slug is string =>
+  !!slug && LABEL_RE.test(slug) && !RESERVED_LABELS.includes(slug);
+
+/** Hosts whose /event/<ref> forwards to the subdomain (never *.vercel.app previews). */
+export const isWwwOrApexHost = (rawHost: string | null | undefined): boolean => {
+  const host = (rawHost ?? "").split(",")[0].trim().toLowerCase().replace(/:\d+$/, "").replace(/\.$/, "");
+  return host === `www.${EVENT_SUBDOMAIN_DOMAIN}` || host === EVENT_SUBDOMAIN_DOMAIN;
+};
+
 /** Canonical URL of an event page on its own subdomain (night pages canonical to this). */
 export const eventSubdomainOrigin = (label: string): string => `https://${label}${SUFFIX}`;
 
