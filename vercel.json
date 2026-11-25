@@ -4,9 +4,8 @@
       "source": "/",
       "destination": "/city/london-gb",
       "permanent": false,
-      "missing": [
-        { "type": "host", "value": "(?!(?:www|api|admin|app|mail|cdn|static|assets|status|blog|docs)\\.)[a-z0-9]+\\.bachatacalendar\\.co\\.uk" },
-        { "type": "host", "value": "www\\.[a-z0-9]+\\.bachatacalendar\\.co\\.uk" }
+      "has": [
+        { "type": "host", "value": "(?:www\\.)?bachatacalendar\\.co\\.uk|.*\\.vercel\\.app" }
       ]
     },
     {
@@ -118,7 +117,7 @@
   "rewrites": [
     {
       "source": "/:night(\\d{1,2}-[a-z]{3}(?:-\\d{4})?)",
-      "has": [{ "type": "host", "value": "(?<label>(?!(?:www|api|admin|app|mail|cdn|static|assets|status|blog|docs)\\.)[a-z0-9]+)\\.bachatacalendar\\.co\\.uk" }],
+      "has": [{ "type": "host", "value": "(?<label>(?:[a-vx-z0-9][a-z0-9]*|w(?:[a-vx-z0-9][a-z0-9]*)?|ww(?:[a-vx-z0-9][a-z0-9]*)?|www[a-z0-9]+))\\.bachatacalendar\\.co\\.uk" }],
       "destination": "/event/:label?night=:night"
     },
     {
@@ -128,7 +127,7 @@
     },
     {
       "source": "/",
-      "has": [{ "type": "host", "value": "(?<label>(?!(?:www|api|admin|app|mail|cdn|static|assets|status|blog|docs)\\.)[a-z0-9]+)\\.bachatacalendar\\.co\\.uk" }],
+      "has": [{ "type": "host", "value": "(?<label>(?:[a-vx-z0-9][a-z0-9]*|w(?:[a-vx-z0-9][a-z0-9]*)?|ww(?:[a-vx-z0-9][a-z0-9]*)?|www[a-z0-9]+))\\.bachatacalendar\\.co\\.uk" }],
       "destination": "/event/:label"
     },
     {
