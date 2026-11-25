@@ -62,6 +62,9 @@ import type { LiveOffer } from '@/modules/tickets/ticketCheckoutApi';
 import { ENDED_DOOR_LABEL } from '@/lib/seo/eventPageSeoPolicy';
 import { serialiseJsonLd } from '@/lib/serialiseJsonLd';
 import { flags } from '@/lib/featureFlags';
+import { FinishedNightCard, CancelledNightBar } from '@/modules/event-page/bento/NightNotes';
+import { nextPublicNight } from '@/modules/event-page/bento/nextPublicNight';
+import { formatKeyDayLabel, londonTodayKey } from '@/lib/londonDate';
 
 type BentoPageProps = {
   eventId: string | null;
@@ -279,6 +282,23 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
   // was already written this way, on exactly this reasoning; its siblings were
   // not, and the comment on the ticket line asserted the coincidence held.
   const over = past || isEnded;
+
+  // Night notes (flag-gated, brief #2148). Per-night truth: the occurrence on screen, not the series.
+  // Whole-series cancelled, paused and ended pages keep today's banners.
+  const nightNotesOn = flags.nightNotes && state === 'ready' && !isEnded && !pageModel.page.isPaused;
+  const nightCancelled = nightNotesOn && !!occurrence?.isCancelled && !pageModel.page.isCancelled;
+  const nightFinished = nightNotesOn && past && !occurrence?.isCancelled;
+  const nextNight = nightCancelled || nightFinished
+    ? nextPublicNight(
+        snapshot?.occurrences ?? [],
+        occurrenceId ?? snapshot?.occurrenceId ?? null,
+        resolvedEventSlug ?? eventId,
+        londonTodayKey(),
+      )
+    : null;
+  const shownNightLabel = formatKeyDayLabel(
+    wallClockDateKey(occurrence?.localDate ?? occurrence?.startsAt),
+  );
 
   // No useSeo() here, and that is deliberate. /event/:id is a React Router
   // FRAMEWORK route, so its meta() export owns the document head -- title,
@@ -737,6 +757,15 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
         </div>
       )}
 
+      {nightCancelled && (
+        <div className="sticky top-[60px] z-30 w-full">
+          <CancelledNightBar
+            reasonLabel={occurrence?.cancellationReasonLabel ?? pageModel.page.cancellationReasonLabel}
+            next={nextNight}
+          />
+        </div>
+      )}
+
       <div
         className="mx-auto w-full max-w-[430px] px-2 pb-32 pt-4"
         style={{
@@ -765,7 +794,9 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
           // (_p5_series_has_past_public_date_v1), and "This event has ended"
           // under the "On hiatus" banner contradicts it -- the series is
           // resting, not over.
-          past && !pageModel.page.isPaused && (
+          nightFinished ? (
+            <FinishedNightCard dateLabel={shownNightLabel} next={nextNight} />
+          ) : past && !pageModel.page.isPaused && !nightCancelled && (
             <div
               className="mb-3 rounded-md px-3 py-2 text-center text-[11px]"
               style={{
