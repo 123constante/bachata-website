@@ -25,6 +25,7 @@ import { RolesNeon, StylesNeon, YearsNeon } from './neon/NeonSteps';
 import { NeonPartner } from './neon/NeonPartner';
 import { BioNeon, PhotoNeon } from './neon/NeonPhotoBio';
 import { YoureIn } from './neon/YoureIn';
+import { CityNeon, NameNeon, RoleNeon } from './neon/NeonAuthSteps';
 import { boom } from './neon/neonConfetti';
 import { CONFETTI_DELAY_MS } from './neonMotion';
 
@@ -245,7 +246,13 @@ const OnboardingV3 = () => {
 
   return (
     <section data-testid={pre ? `onboarding-${pre}` : `onboarding-${step}`} className={`${WRAP} mx-auto max-w-[520px]`}>
-      {pre ? (
+      {pre && DANCER_ONBOARDING_V3_ENABLED ? (
+        <NeonFrame pos={PRE_STAGES.indexOf(pre)} total={PRE_STAGES.length} top={pre === 'city' ? 215 : 300}>
+          {pre === 'name' ? <NameNeon {...preProps} /> : null}
+          {pre === 'city' ? <CityNeon {...preProps} /> : null}
+          {pre === 'role' ? <RoleNeon {...preProps} /> : null}
+        </NeonFrame>
+      ) : pre ? (
         <Card variant="padded" className="p-[12px]">
           {/* The save refreshes the cache; the next pre-stage (or the first v3 step) follows from the server shape. */}
           {pre === 'name' ? <NameCard {...preProps} /> : null}
