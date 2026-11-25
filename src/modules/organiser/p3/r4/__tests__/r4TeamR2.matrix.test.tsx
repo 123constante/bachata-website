@@ -6,14 +6,23 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { R4TeamR2Person } from '../r4TeamR2Api';
 
-const api = vi.hoisted(() => ({ people: vi.fn(), set: vi.fn(), changes: vi.fn() }));
+const api = vi.hoisted(() => ({ people: vi.fn(), set: vi.fn(), changes: vi.fn(), requests: vi.fn() }));
+vi.mock('@/modules/organiser/shared/selfServeApi', async (orig) => ({
+  ...(await orig<typeof import('@/modules/organiser/shared/selfServeApi')>()),
+  fetchIncomingAccessRequests: api.requests,
+}));
+vi.mock('../../../flows/fix/JoinRequest', () => ({
+  JoinRequestCard: (p: { onAnswered: (m: string) => void; blockedReason: string | null }) => (
+    <div data-testid="join-card">{p.blockedReason}<button type="button" onClick={() => p.onAnswered('Done')}>answer</button></div>
+  ),
+}));
 const ctx = vi.hoisted(() => ({ viewerRole: 'owner' }));
 vi.mock('../r4TeamR2Api', async (orig) => ({
   ...(await orig<typeof import('../r4TeamR2Api')>()),
   fetchTeamR2People: api.people, setTeamR2Switches: api.set, fetchTeamR2Changes: api.changes,
 }));
 vi.mock('../../../team/useTeamContext', () => ({
-  useTeamContext: () => ({ organiser: { id: 'org1', name: 'Page' }, loading: false, failed: false, retry: () => {}, viewerRole: ctx.viewerRole }),
+  useTeamContext: () => ({ organiser: { id: 'org1', name: 'Page' }, members: [], listed: null, loading: false, failed: false, retry: () => {}, viewerRole: ctx.viewerRole }),
 }));
 import { R4TeamR2, buildRows, changeSentence, doorUntilWords, switchErrorLine } from '../R4TeamR2';
 
@@ -61,9 +70,9 @@ describe('R4 Team R2 model', () => {
   });
 });
 
-const mount = () => render(
+const mount = (entry = '/') => render(
   <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-    <MemoryRouter><R4TeamR2 /></MemoryRouter>
+    <MemoryRouter initialEntries={[entry]}><R4TeamR2 /></MemoryRouter>
   </QueryClientProvider>,
 );
 const seed = () => {
@@ -124,6 +133,42 @@ describe('R4 Team R2 screen (flag ON)', () => {
     mount();
     expect((await screen.findByTestId('r4-team-r2-error')).textContent).toContain('Could not load your team. Pull to refresh.');
     expect(screen.getByTestId('r4-team-r2-retry')).toBeTruthy();
+  });
+});
+
+describe('R4 Team R2 Waiting to join (flag ON)', () => {
+  const req = { requestId: 'rq1', userId: 'ux', requesterEmail: 'sam@example.com', message: null, createdAt: '2026-11-25T10:00:00Z' };
+  const seedReq = (rows: unknown[]) => { seed(); api.requests.mockResolvedValue(rows); };
+  it('renders above the list; tapping the row opens the request; answering closes it and shows the message', async () => {
+    seedReq([req]);
+    mount();
+    const section = await screen.findByTestId('r4-team-waiting');
+    const first = (await screen.findAllByTestId('r4-team-r2-row'))[0];
+    expect(section.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByTestId('r4-team-request')).toBeNull();
+    fireEvent.click(screen.getByTestId('r4-team-waiting-row'));
+    expect(await screen.findByTestId('r4-team-request')).toBeTruthy();
+    fireEvent.click(screen.getByText('answer'));
+    await waitFor(() => expect(screen.queryByTestId('r4-team-request')).toBeNull());
+    expect(screen.getByTestId('r4-team-said').textContent).toBe('Done');
+    await waitFor(() => expect(api.people.mock.calls.length).toBeGreaterThan(1));
+  });
+  it('?answer=<id> opens that request on mount', async () => {
+    seedReq([req]);
+    mount('/?answer=rq1');
+    expect(await screen.findByTestId('r4-team-request')).toBeTruthy();
+  });
+  it('zero requests -> no section; no Door invite link row', async () => {
+    seedReq([]);
+    mount();
+    await screen.findAllByTestId('r4-team-r2-row');
+    expect(screen.queryByTestId('r4-team-waiting')).toBeNull();
+    expect(screen.queryByTestId('r4-team-door-invite')).toBeNull();
+  });
+  it('request load error shows the line and Try again', async () => {
+    seed(); api.requests.mockRejectedValue(new Error('x'));
+    mount();
+    expect((await screen.findByTestId('r4-team-requests-error')).textContent).toContain('We could not load join requests.');
   });
 });
 

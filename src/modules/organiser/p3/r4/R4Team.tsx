@@ -154,7 +154,7 @@ function AddTeammateSheet({ organiserId, pageName, memberCount, memberIds, onClo
   );
 }
 
-function WaitingSection({ rows, onOpen }: { rows: R4Waiting[]; onOpen: (w: R4Waiting) => void }) {
+export function WaitingSection({ rows, onOpen }: { rows: R4Waiting[]; onOpen: (w: R4Waiting) => void }) {
   if (rows.length === 0) return null;
   return (
     <section className="r4-section" aria-labelledby="r4-team-waiting" data-testid="r4-team-waiting">

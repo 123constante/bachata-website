@@ -1,7 +1,13 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchIncomingAccessRequests, incomingAccessRequestsQueryKey } from '@/modules/organiser/shared/selfServeApi';
+import { TEAM_FULL_REASON, teamIsFull } from '@/modules/organiser/shared/teamModel';
+import { canDecline } from '@/modules/organiser/shared/teamRules';
 import { useTeamContext } from '../../team/useTeamContext';
+import { JoinRequestCard } from '../../flows/fix/JoinRequest';
+import { WaitingSection } from './R4Team';
+import { buildR4Team, type R4Waiting } from './r4TeamModel';
 import { Sheet } from '../screens/Sheet';
 import { P3_PATHS } from '../shell/paths';
 import { R4Chevron } from './R4Shell';
@@ -119,6 +125,26 @@ export function R4TeamR2() {
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [confirm, setConfirm] = useState<R4TeamR2Person | null>(null);
   const [openChanges, setOpenChanges] = useState(false);
+  const editor = ctx.viewerRole === 'owner' || ctx.viewerRole === 'manager';
+  const requests = useQuery({
+    queryKey: incomingAccessRequestsQueryKey(org),
+    queryFn: () => fetchIncomingAccessRequests(org!),
+    enabled: !!org && editor,
+  });
+  const [open, setOpen] = useState<R4Waiting | null>(null);
+  const [said, setSaid] = useState<string | null>(null);
+  const [params, setParams] = useSearchParams();
+  const answer = params.get('answer');
+  const waiting = buildR4Team({ load: 'ready', viewerRole: ctx.viewerRole, members: ctx.members, listed: ctx.listed, requests: requests.data }).waiting;
+  const shown = open ?? (answer ? waiting.find((w) => w.key === answer) ?? null : null);
+  const full = teamIsFull(ctx.members.length, false);
+  const closeShown = () => {
+    setOpen(null);
+    if (!answer) return;
+    const next = new URLSearchParams(params);
+    next.delete('answer');
+    setParams(next, { replace: true });
+  };
 
   const save = useMutation({
     mutationFn: (v: { userId: string; canSignIn: boolean; onPublic: boolean }) => setTeamR2Switches(org!, v.userId, v.canSignIn, v.onPublic),
@@ -167,6 +193,11 @@ export function R4TeamR2() {
     <div className="r4-stack" data-testid="r4-team-r2">
       <h1 className="r4-label r4-h2">Team</h1>
       <Link to={P3_PATHS.youTeamAdd} className="r4-btn r4-btn-42 r4-btn-link" data-testid="r4-team-r2-add">Add someone</Link>
+      {said && <p className="r4-sub" role="status" data-testid="r4-team-said">{said}</p>}
+      {editor && requests.isError && (
+        <p className="r4-err" role="alert" data-testid="r4-team-requests-error">We could not load join requests. <button type="button" className="r4-linkbtn" onClick={() => void requests.refetch()}>Try again</button></p>
+      )}
+      <WaitingSection rows={waiting} onOpen={setOpen} />
       <div className="r4-card r4-list" data-testid="r4-team-r2-list">
         {rows.map((r) => {
           const p = r.person;
@@ -211,6 +242,19 @@ export function R4TeamR2() {
             ? <p className="r4-hint" data-testid="r4-team-r2-nochanges">{R4_TEAM_R2_COPY.noChanges}</p>
             : <ul className="r4-stack">{changes.data.slice(0, 20).map((c, n) => <li key={n} className="r4-sub" data-testid="r4-team-r2-change">{changeSentence(c, now)}</li>)}</ul>)}
         </section>
+      )}
+      {shown && (
+        <Sheet title={shown.name} onClose={closeShown}>
+          <div className="r4-sheet" data-testid="r4-team-request">
+            <JoinRequestCard organiserId={org} request={shown.request} blockedReason={full ? TEAM_FULL_REASON : null}
+              declineGate={canDecline(ctx.viewerRole, ctx.members, full)}
+              onAnswered={(msg) => {
+                closeShown(); setSaid(msg);
+                void qc.invalidateQueries({ queryKey: teamR2PeopleKey(org) });
+                void qc.invalidateQueries({ queryKey: teamR2ChangesKey(org) });
+              }} />
+          </div>
+        </Sheet>
       )}
       {confirm && (
         <Sheet title={`Remove ${confirm.name} from the team?`} onClose={() => setConfirm(null)}>
