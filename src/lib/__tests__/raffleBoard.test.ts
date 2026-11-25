@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
-import { parseRaffleBoard, boardForEvent, thisWeeksWinners, RAFFLE_BOARD_NIGHT_KEYS } from '../raffleBoard';
-import { BOARD_SHAPES } from './raffleBoardFixtures';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { parseRaffleBoard, boardForEvent, thisWeeksWinners, RAFFLE_BOARD_NIGHT_KEYS, nightIsOpen, winnerNamesLabel, winnersListedCount } from '../raffleBoard';
+import { BOARD_SHAPES, MULTI_SHAPES } from './raffleBoardFixtures';
 
 const night = (o: Record<string, unknown> = {}) => ({
   occurrence_id: 'o1', public_event_id: 'e1', title: 'T', start_local: '2026-11-12T20:00:00',
-  venue_name: 'V', winner_first_name: null, ...o,
+  venue_name: 'V', winner_first_name: null, winners_count: 1, seats_left: 1, winners: [], ...o,
 });
 const board = (nights: unknown[], extra = {}) =>
   ({ pool_count: 10, winners_this_month: 2, total_winners: 766, nights, ...extra });
@@ -122,6 +122,52 @@ describe('real RPC keys (start_local UTC wall clock, venue_name)', () => {
   it('a night starting 00:30 London today counts as today', () => {
     const b = parseRaffleBoard(board([{ ...REAL, start_local: '2026-07-13T23:30:00' }])); // 00:30 BST 14 Jul
     expect(boardForEvent(b, 'e1', new Date('2026-07-14T10:00:00Z')).inRaffle).toBe(true);
+  });
+});
+
+describe('multi-winner nights', () => {
+  afterEach(() => vi.unstubAllEnvs());
+  const parse = (i: number) => parseRaffleBoard(MULTI_SHAPES[i].json).nights[0];
+  it('parses winners_count, seats_left, winners', () => {
+    expect(parse(0)).toMatchObject({ winnersCount: 3, seatsLeft: 2, winnerNames: ['Ana'] });
+  });
+  it('count 3 with 1 winner: open AND its winner is listed', () => {
+    const b = parseRaffleBoard(MULTI_SHAPES[0].json);
+    expect(nightIsOpen(b.nights[0])).toBe(true);
+    expect(winnerNamesLabel(b.nights[0])).toBe('Ana');
+    expect(thisWeeksWinners(b, new Date('2026-11-06T12:00:00Z'))).toHaveLength(1);
+  });
+  it('full night is not open; default night behaves as today', () => {
+    expect(nightIsOpen(parse(1))).toBe(false);
+    expect(nightIsOpen(parse(2))).toBe(false);
+    expect(nightIsOpen(parseRaffleBoard(board([night()])).nights[0])).toBe(true);
+  });
+  it('old reply (no new keys) uses the no-winner rule; names fall back to winner_first_name', () => {
+    const old = { occurrence_id: 'o1', public_event_id: 'e1', title: 'T', start_local: '2026-11-12T20:00:00', venue_name: 'V', winner_first_name: 'Ana' };
+    const n = parseRaffleBoard(board([old, { ...old, occurrence_id: 'o2', winner_first_name: null }])).nights;
+    expect(n[0].winnerNames).toEqual(['Ana']);
+    expect(nightIsOpen(n[0])).toBe(false);
+    expect(nightIsOpen(n[1])).toBe(true);
+  });
+  it('label joins names', () => {
+    const l = (names: string[]) => winnerNamesLabel({ ...parse(0), winnerNames: names });
+    expect(l([])).toBeNull();
+    expect(l(['Ana', 'Ben'])).toBe('Ana, Ben');
+    expect(l(['Ana', 'Ben', 'Cleo'])).toBe('Ana, Ben and Cleo');
+    expect(l(['A', 'B', 'C', 'D'])).toBe('A, B, C and D');
+  });
+  it('counter counts people; boardForEvent carries the label', () => {
+    const b = parseRaffleBoard(MULTI_SHAPES[1].json);
+    expect(winnersListedCount(b)).toBe(3);
+    expect(boardForEvent(b, 'evt-1', new Date('2026-11-06T12:00:00Z')).winnerFirstName).toBe('Ana, Ben and Cleo');
+  });
+  it("flag 'false' = today: open by no-winner, one name, counter counts nights", () => {
+    vi.stubEnv('VITE_ENABLE_RAFFLE_MULTI_WINNER', 'false');
+    const b0 = parseRaffleBoard(MULTI_SHAPES[0].json);
+    expect(nightIsOpen(b0.nights[0])).toBe(false);
+    const b1 = parseRaffleBoard(MULTI_SHAPES[1].json);
+    expect(winnerNamesLabel(b1.nights[0])).toBe('Ana');
+    expect(winnersListedCount(b1)).toBe(1);
   });
 });
 

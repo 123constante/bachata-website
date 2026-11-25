@@ -5,9 +5,17 @@
 export const EVENT_ID = 'evt-1';
 const night = (over: Record<string, unknown> = {}) => ({
   occurrence_id: 'occ-1', public_event_id: EVENT_ID, title: 'Friday Social',
-  start_local: '2026-11-06T19:00:00', venue_name: 'The Cellar', winner_first_name: null, ...over,
+  start_local: '2026-11-06T19:00:00', venue_name: 'The Cellar', winner_first_name: null,
+  winners_count: 1, seats_left: 1, winners: [], ...over,
 });
 const base = { pool_count: 12, winners_this_month: 2, total_winners: 7 };
+
+const w = (...names: string[]) => names.map((first_name) => ({ first_name }));
+export const MULTI_SHAPES = [
+  { name: 'count 3, 1 winner (open, name listed)', json: { ...base, nights: [night({ winners_count: 3, seats_left: 2, winner_first_name: 'Ana', winners: w('Ana') })] } },
+  { name: 'count 3, full', json: { ...base, nights: [night({ winners_count: 3, seats_left: 0, winner_first_name: 'Ana', winners: w('Ana', 'Ben', 'Cleo') })] } },
+  { name: 'default count 1, full', json: { ...base, nights: [night({ seats_left: 0, winner_first_name: 'Ana', winners: w('Ana') })] } },
+];
 
 export type Shape = {
   name: string;
@@ -30,9 +38,9 @@ export const BOARD_SHAPES: Shape[] = [
     tileInRaffle: false, tileWinner: null, pagePool: 12, pageWeekWinners: [] },
   { name: 'night open, no winner', json: { ...base, nights: [night()] },
     tileInRaffle: true, seeWho: false, tileWinner: null, pagePool: 12, pageWeekWinners: [] },
-  { name: 'locked winner', json: { ...base, nights: [night({ winner_first_name: 'Ana' })] },
+  { name: 'locked winner', json: { ...base, nights: [night({ winner_first_name: 'Ana', seats_left: 0, winners: w('Ana') })] },
     tileInRaffle: true, seeWho: true, tileWinner: 'Ana', pagePool: 12, pageWeekWinners: ['Ana'] },
-  { name: 'attended winner', json: { ...base, nights: [night({ winner_first_name: 'Ben' })] },
+  { name: 'attended winner', json: { ...base, nights: [night({ winner_first_name: 'Ben', seats_left: 0, winners: w('Ben') })] },
     tileInRaffle: true, seeWho: true, tileWinner: 'Ben', pagePool: 12, pageWeekWinners: ['Ben'] },
   { name: 'board error', json: null,
     tileInRaffle: false, tileNote: 'error', seeWho: false, tileWinner: null, pagePool: null, pageWeekWinners: [] },

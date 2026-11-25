@@ -15,6 +15,9 @@ export const RAFFLE_BOARD_NIGHT_KEYS = [
   'start_local',
   'venue_name',
   'winner_first_name',
+  'winners_count',
+  'seats_left',
+  'winners',
 ] as const;
 
 export type RaffleNight = {
@@ -24,6 +27,12 @@ export type RaffleNight = {
   start: string;
   venue: string | null;
   winnerFirstName: string | null;
+  /** Seats the night draws (1..5); absent on an old reply. */
+  winnersCount?: number;
+  /** Free seats left; absent on an old reply. */
+  seatsLeft?: number;
+  /** Every locked/attended winner, oldest first; empty when none. */
+  winnerNames: string[];
   /** Flyer URL from nights[].poster_url; absent when the board sends none. */
   posterUrl?: string;
 };
@@ -80,13 +89,23 @@ function parseNight(raw: unknown): RaffleNight | null {
   const start = rawStart ? asUtcInstant(rawStart) : null;
   if (!occurrenceId || !publicEventId || !start || Number.isNaN(Date.parse(start))) return null;
   const posterUrl = str(raw.poster_url);
+  const winnerFirstName = str(raw.winner_first_name);
+  const winnersCount = countOrNull(raw.winners_count);
+  const seatsLeft = countOrNull(raw.seats_left);
+  const listed = Array.isArray(raw.winners)
+    ? raw.winners.map((w) => (isObj(w) ? str(w.first_name) : null)).filter((x): x is string => x !== null)
+    : null;
+  const winnerNames = listed ?? (winnerFirstName ? [winnerFirstName] : []);
   return {
     occurrenceId,
     publicEventId,
     title: str(raw.title) ?? '',
     start,
     venue: str(raw.venue_name),
-    winnerFirstName: str(raw.winner_first_name),
+    winnerFirstName,
+    winnerNames,
+    ...(winnersCount !== null ? { winnersCount } : {}),
+    ...(seatsLeft !== null ? { seatsLeft } : {}),
     ...(posterUrl ? { posterUrl } : {}),
   };
 }
@@ -124,6 +143,27 @@ export function parseRaffleBoard(json: unknown): RaffleBoard {
   };
 }
 
+/** VITE_ENABLE_RAFFLE_MULTI_WINNER: anything but 'false' = ON; 'false' = today's single-winner rules. */
+export const multiWinnerOn = (): boolean => import.meta.env.VITE_ENABLE_RAFFLE_MULTI_WINNER !== 'false';
+
+/** Open while a seat is free; an old reply (no seats_left) keeps today's rule (no winner yet). */
+export const nightIsOpen = (n: RaffleNight): boolean =>
+  multiWinnerOn() && n.seatsLeft !== undefined ? n.seatsLeft > 0 : !n.winnerFirstName;
+
+/** `Ana`, `Ana, Ben`, `Ana, Ben and Cleo`; null when nobody has won. */
+export const winnerNamesLabel = (n: RaffleNight): string | null => {
+  const names = multiWinnerOn() ? n.winnerNames : n.winnerFirstName ? [n.winnerFirstName] : [];
+  if (names.length === 0) return null;
+  if (names.length <= 2) return names.join(', ');
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+};
+
+/** Winners (people) across the listed nights; today's night count when the flag is off. */
+export const winnersListedCount = (board: RaffleBoard): number =>
+  multiWinnerOn()
+    ? board.nights.reduce((sum, n) => sum + n.winnerNames.length, 0)
+    : nightsWithWinner(board).length;
+
 export type EventBoardState = {
   inRaffle: boolean;
   winnerFirstName: string | null;
@@ -141,7 +181,7 @@ export function boardForEvent(board: RaffleBoard, publicEventId: string, now: Da
     if (!best || Date.parse(n.start) < Date.parse(best.start)) best = n;
   }
   return best
-    ? { inRaffle: true, winnerFirstName: best.winnerFirstName, night: best }
+    ? { inRaffle: true, winnerFirstName: winnerNamesLabel(best), night: best }
     : { inRaffle: false, winnerFirstName: null, night: null };
 }
 

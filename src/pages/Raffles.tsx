@@ -10,7 +10,7 @@
 import { useCallback, useState } from 'react';
 import { flags } from '@/lib/featureFlags';
 import { useRaffleBoard } from '@/hooks/useRaffleBoard';
-import { nightsWithWinner, thisWeeksWinners } from '@/lib/raffleBoard';
+import { nightIsOpen, thisWeeksWinners, winnerNamesLabel, winnersListedCount } from '@/lib/raffleBoard';
 import { isRafflePoolJoined, markRafflePoolJoined } from '@/lib/raffleSession';
 import { RaffleEntryDialog } from '@/modules/event-page/bento/modals/RaffleEntryDialog';
 import GlobalLayout from '@/components/layout/GlobalLayout';
@@ -68,11 +68,11 @@ const RafflesBoard = () => {
   const onSubmitted = useCallback(() => { markRafflePoolJoined(); setJoined(true); }, []);
 
   const winners = board ? thisWeeksWinners(board, new Date()) : [];
-  const nightsOpen = board ? board.nights.filter((n) => !n.winnerFirstName).length : 0;
+  const nightsOpen = board ? board.nights.filter(nightIsOpen).length : 0;
   // Winners come from the nights the board lists (locked/attended wins), never total_winners,
   // which on prod counts ~766 attendance pairs.
-  const openNights = board ? board.nights.filter((n) => !n.winnerFirstName) : [];
-  const winnersListed = board ? nightsWithWinner(board).length : 0;
+  const openNights = board ? board.nights.filter(nightIsOpen) : [];
+  const winnersListed = board ? winnersListedCount(board) : 0;
 
   return (
     <GlobalLayout breadcrumbs={buildBreadcrumbs('raffles')} showGradientBg={false}>
@@ -112,7 +112,7 @@ const RafflesBoard = () => {
                 <ul className="space-y-1 text-sm" data-testid="raffles-week-list">
                   {winners.map((n) => (
                     <li key={n.occurrenceId} className="rp-brow">
-                      <b>{n.winnerFirstName}</b> &mdash; {n.title} &middot; {fmtNight(n.start)}
+                      <b>{winnerNamesLabel(n)}</b> &mdash; {n.title} &middot; {fmtNight(n.start)}
                       {n.venue ? <> &middot; {n.venue}</> : null}
                     </li>
                   ))}

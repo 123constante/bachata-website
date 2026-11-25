@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useRaffleBoard } from '@/hooks/useRaffleBoard';
-import { nightsWithWinner, nextNightPerEvent } from '@/lib/raffleBoard';
+import { nightIsOpen, nextNightPerEvent, winnersListedCount } from '@/lib/raffleBoard';
 import { isRafflePoolJoined, markRafflePoolJoined } from '@/lib/raffleSession';
 import { ACCOUNT_CONTACT_EMAIL } from '@/lib/accountDeletionCopy';
 import { RaffleEntryDialog } from '@/modules/event-page/bento/modals/RaffleEntryDialog';
@@ -184,9 +184,9 @@ export const RaffleRedesignA = () => {
   const poolNow = board ? board.poolCount : null;
   useEffect(() => { poolRef.current = poolNow; }, [poolNow]);
   const poolShown = board ? (board.entriesEver ?? board.poolCount) + (entryBase !== null && board.poolCount === entryBase ? 1 : 0) : null;
-  const openNights = board ? nextNightPerEvent(board.nights.filter((n) => !n.winnerFirstName)) : [];
+  const openNights = board ? nextNightPerEvent(board.nights.filter(nightIsOpen)) : [];
   // Winners listed from the nights the board lists, never total_winners (counts ~766 attendance pairs on prod).
-  const winnersListed = board ? nightsWithWinner(board).length : 0;
+  const winnersListed = board ? winnersListedCount(board) : 0;
 
   return (
     <GlobalLayout breadcrumbs={buildBreadcrumbs('raffles')} showGradientBg={false}>
