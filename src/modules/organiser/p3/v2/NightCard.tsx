@@ -7,6 +7,9 @@ import { ownerPassesFromStored, upsertCommand } from '../../shared/seriesCommand
 import type { DateDetail, WorkspaceDate } from '../../shared/seriesModel';
 import { useVenueOptions } from '../../shared/publicVenues';
 import { londonTodayKey } from '@/lib/londonDate';
+import { allItems } from '../../events/programmeSeriesModel';
+import { localAsZTime } from '../../shared/homeModel';
+import { seriesTree } from '../data/sessions';
 import { V2 } from './copy';
 import { nightFieldState, type WriteStep } from './editorModel';
 import { Fact, aboutShort, priceLabel } from './Facts';
@@ -98,8 +101,10 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
   const link = dt?.ticketUrl ?? s.default_ticket_url;
   const prices = passes.map((p) => p.price).filter((p): p is number => typeof p === 'number' && p > 0);
   const price = priceLabel({ link, doorPrice: !link && doorPriceOf(dt?.passesOverride ?? s.passes) != null ? String(doorPriceOf(dt?.passesOverride ?? s.passes)) : null, ticketCount: 0, minPrice: prices.length ? Math.min(...prices) : null });
-  const start = hm(dt?.start ?? s.default_local_start_time);
-  const end = hm(dt?.end);
+  // No start time on the event: the night's own time, else its materialised time, else the first session.
+  const firstSession = allItems(seriesTree(ws)).filter((it) => it.start).sort((a, b) => a.start.localeCompare(b.start))[0];
+  const start = hm(dt?.start ?? localAsZTime(date.materialised_start_utc) ?? firstSession?.start);
+  const end = hm(dt?.end ?? (dt?.start || date.materialised_start_utc ? null : firstSession?.end));
   const back = (fact: FactId, part: string) => async () => {
     const d = dt ?? await qc.fetchQuery({ queryKey: dateDetailQueryKey(date.id), queryFn: () => fetchDateDetail(date.id) });
     const b = backToUsualStep(date, fact, d, part);

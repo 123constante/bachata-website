@@ -124,17 +124,11 @@ export function addDayGate(series: HomeSeriesFull, ws: SeriesWorkspace, date: st
   return { kind: 'ok' };
 }
 
-/** HH:MM of the series' usual start, or '' when it has none. */
-export function usualTime(series: HomeSeriesFull, ws: SeriesWorkspace | undefined): string {
-  const raw = ws?.series.default_local_start_time ?? series.default_local_start_time ?? '';
-  return /^\d{2}:\d{2}/.test(raw) ? raw.slice(0, 5) : '';
-}
-
-// The D29 confirmation lines (Done, no Undo: D49).
+// The D29 confirmation lines (Done, no Undo: D49). An event has no start time of its own, so the time shows only when one was typed.
 export const addDoneMessage = (date: string, time: string) => `Added - ${dayLabel(date)}${time ? `, ${time}` : ''}`;
-/** S1: the date was added at the usual time, the typed one did not save; Home's "Change a date" row fixes it. */
-export const timeNotSavedMessage = (date: string, usual: string, typed: string) =>
-  `${addDoneMessage(date, usual)}. ${typed} was not saved: change it from Home, Change a date.`;
+/** S1: the date was added, the typed time did not save; Home's "Change a date" row fixes it. */
+export const timeNotSavedMessage = (date: string, typed: string) =>
+  `${addDoneMessage(date, '')}. ${typed} was not saved: change it from Home, Change a date.`;
 export const cancelDoneMessage = (date: string) => `Cancelled - ${dayLabel(date)}`;
 export const backOnMessage = (date: string) => `Back on - ${dayLabel(date)}`;
 
