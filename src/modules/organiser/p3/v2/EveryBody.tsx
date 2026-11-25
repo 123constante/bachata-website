@@ -5,7 +5,7 @@ import { fetchOrganiserPages } from '../../events/programmeSeriesApi';
 import { fullDate } from '../../shared/dateWords';
 import { useVenueOptions } from '../../shared/publicVenues';
 import { venueOverridePatch } from '../../dates/venueOverride';
-import { durationMinutes } from '../../shared/seriesModel';
+
 import { upsertCommand } from '../../shared/seriesCommands';
 import { V2 } from './copy';
 import { useSeriesTypes, useSummary } from '../tickets/data';
@@ -93,9 +93,10 @@ export function EveryBody({ ws, day, saveNow, busy, onOpenTickets }: { ws: Event
     : <span className={status === 'live' ? 'pill' : 'pill off'}>{status === 'live' ? V2.statusLive : status === 'paused' ? V2.statusPaused : V2.statusEnded}</span>;
   const flyer = s.default_cover_image_url;
   const hm = (t: string | null | undefined) => (t ? t.slice(0, 5) : '');
-  const start = hm(s.default_local_start_time);
-  const mins = durationMinutes(s.default_duration);
-  const endAt = start && mins ? (() => { const t = (Number(start.slice(0, 2)) * 60 + Number(start.slice(3, 5)) + mins) % 1440; return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`; })() : '';
+  // An event has no start time of its own: the time shown is the first session's start and end.
+  const firstSession = allItems(seriesTree(ws)).filter((it) => it.start).sort((a, b) => a.start.localeCompare(b.start))[0];
+  const start = hm(firstSession?.start);
+  const endAt = hm(firstSession?.end);
   const passes = ownerPassesFromStored(s.passes) ?? [];
   const link = s.default_ticket_url;
   const prices = passes.map((p) => p.price).filter((p): p is number => typeof p === 'number' && p > 0);

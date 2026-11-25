@@ -31,7 +31,8 @@ const detail = (extra: Record<string, unknown> = {}) => ({
   start: '19:30', end: '00:00', venueId: 'v1', venueOverride: null, descriptionOverride: null, coverImageOverride: null, ticketUrlOverride: null,
   titleOverride: null, passesOverride: null, coverImageUrl: null, ticketUrl: null, ...extra,
 });
-const ws = (dates: unknown[]) => ({ series: { id: 's1', version: 7, format: 'recurring', name: 'Thursdays', lifecycle_status: 'live', default_venue_id: 'v1', default_description: null, default_cover_image_url: null, default_ticket_url: null, default_local_start_time: '19:30', passes: null }, dates }) as unknown as EventWorkspace;
+const PROGRAM = [{ day: { id: 'd1' }, sections: [{ section: { id: 's1', kind: 'party' }, items: [{ item: { id: 'i1', type: 'party', title: 'Party', start_time: '21:00', end_time: '01:00' } }] }] }];
+const ws = (dates: unknown[]) => ({ series: { id: 's1', version: 7, format: 'recurring', name: 'Thursdays', lifecycle_status: 'live', default_venue_id: 'v1', default_description: null, default_cover_image_url: null, default_ticket_url: null, passes: null }, program: PROGRAM, dates }) as unknown as EventWorkspace;
 function Where() { const l = useLocation(); return <output data-testid="where">{l.search}</output>; }
 const at = (w: EventWorkspace, url = '/e') => render(
   <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
@@ -66,6 +67,14 @@ describe('night card', () => {
     expect(screen.getByText('No flyer')).toBeTruthy();
     fireEvent.click(screen.getByTestId('fact-flyer'));
     expect(screen.getByTestId('where').textContent).toBe('');
+  });
+  it('time falls back to the occurrence time, then to the first session; never a series column', async () => {
+    net.detail.mockResolvedValue(detail({ start: null, end: null }));
+    at(ws([date('o1', '2026-11-26', { materialised_start_utc: '2026-11-26T20:15:00+00:00' })]));
+    await waitFor(() => expect(screen.getByText('20:15 to 20:15')).toBeTruthy());
+    cleanup();
+    at(ws([date('o2', '2026-11-26')]));
+    await waitFor(() => expect(screen.getByText('21:00 to 01:00')).toBeTruthy());
   });
   it('cancelled night shows the red Cancelled pill', () => {
     at(ws([date('o1', '2026-11-26', { lifecycle_status: 'cancelled' })]));

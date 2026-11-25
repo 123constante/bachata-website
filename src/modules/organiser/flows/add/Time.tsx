@@ -9,7 +9,7 @@ import type { SeriesWorkspace } from '@/modules/organiser/shared/seriesModel';
 import { goDone, keepReturnTo, readReturnTo } from '@/modules/organiser/flows/doneState';
 import { FIELD_CLASS, PrimaryButton } from '@/modules/organiser/ui';
 import { cn } from '@/lib/utils';
-import { addDayGate, addDoneMessage, type DayGate, findSeries, seriesLock, timeNotSavedMessage, usualTime } from './addModel';
+import { addDayGate, addDoneMessage, type DayGate, findSeries, seriesLock, timeNotSavedMessage } from './addModel';
 import { useFlowHome, useFlowSend, useSeriesWorkspace } from './useFlow';
 import { ErrorLine, Failed, Loading, Missing, Refusal, Step } from './parts';
 import { EventConflict } from '../event/parts';
@@ -53,20 +53,19 @@ export default function Time() {
 function TimeForm({ series, ws, date, onSend }: { series: HomeSeriesFull; ws: SeriesWorkspace; date: string; onSend: () => void }) {
   const navigate = useNavigate();
   const { search } = useLocation();
-  const usual = usualTime(series, ws);
-  const [value, setValue] = useState(usual);
+  const [value, setValue] = useState('');
   const { send, run, busy, conflict, error } = useFlowSend(series.id);
   if (conflict) return <EventConflict seriesId={series.id} testId="add-conflict" />;
   const ready = value === '' || /^\d{2}:\d{2}$/.test(value);
 
-  // ONE series.add_date. Only a time other than the usual one adds a second
-  // write, occurrence.set_time on the new date (add_date takes the day alone).
+  // ONE series.add_date. A typed time adds a second write, occurrence.set_time
+  // on the new date (add_date takes the day alone); an empty box sends none.
   const save = () => run(async () => {
     onSend();
     const added = await send(series.id, ws.series.version, addDateCommand(date));
     if (!added) return;
-    let message = addDoneMessage(date, usual);
-    if (value && value !== usual) {
+    let message = addDoneMessage(date, '');
+    if (value) {
       const fromReply = added.data?.occurrence_id;
       const occurrenceId = typeof fromReply === 'string'
         ? fromReply
@@ -75,7 +74,7 @@ function TimeForm({ series, ws, date, onSend }: { series: HomeSeriesFull; ws: Se
       // The date exists either way; Done says whether the typed time made it (S1).
       message = occurrenceId && detail && await send(occurrenceId, detail.version, setTimeCommand(value, null))
         ? addDoneMessage(date, value)
-        : timeNotSavedMessage(date, usual, value);
+        : timeNotSavedMessage(date, value);
     }
     goDone(navigate, { title: 'Added', message, seriesId: series.id }, readReturnTo(search));
   });

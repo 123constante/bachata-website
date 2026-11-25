@@ -15,8 +15,8 @@ vi.mock('@/lib/londonDate', async (orig) => ({ ...((await orig()) as object), lo
 import { EveryBody } from '../EveryBody';
 
 const ws = (over: Record<string, unknown> = {}, series: Record<string, unknown> = {}) => ({
-  series: { id: 's1', version: 7, format: 'recurring', name: 'Thursdays', lifecycle_status: 'live', recurrence_rule: { mode: 'weekly', interval: 1, weekdays: [4], end: { kind: 'none' } }, default_venue_id: 'v1', default_city_id: 'c1', default_description: 'Old words', default_cover_image_url: 'https://x.test/f.jpg', default_ticket_url: null, default_local_start_time: '19:30:00', default_duration: '03:30:00', passes: null, ...series },
-  gallery: ['https://x.test/g1.jpg'], musicStyles: ['Sensual', 'Dominican'], organiserIds: ['a', 'b'], endedOn: null, dates: [], ...over,
+  series: { id: 's1', version: 7, format: 'recurring', name: 'Thursdays', lifecycle_status: 'live', recurrence_rule: { mode: 'weekly', interval: 1, weekdays: [4], end: { kind: 'none' } }, default_venue_id: 'v1', default_city_id: 'c1', default_description: 'Old words', default_cover_image_url: 'https://x.test/f.jpg', default_ticket_url: null, passes: null, ...series },
+  program: [{ day: { id: 'd1' }, sections: [{ section: { id: 's1', kind: 'party' }, items: [{ item: { id: 'late', type: 'party', title: 'Party', start_time: '22:00', end_time: '02:00' } }, { item: { id: 'early', type: 'class', title: 'Class', start_time: '19:30', end_time: '23:00' } }] }] }], gallery: ['https://x.test/g1.jpg'], musicStyles: ['Sensual', 'Dominican'], organiserIds: ['a', 'b'], endedOn: null, dates: [], ...over,
 }) as unknown as EventWorkspace;
 type Call = [{ target: string; id: string; version: number; command: { kind: string; payload: Record<string, unknown> } }[], Record<string, unknown>[], string];
 const mount = (w = ws()) => {
@@ -44,6 +44,11 @@ describe('Every tab body', () => {
     expect(screen.queryByText(/Only this night/)).toBeNull();
     expect(screen.queryByText(/Back to usual/i)).toBeNull();
     expect(screen.queryByText(/Cancel this night|Share/i)).toBeNull();
+  });
+  it('shows no time when the event has no sessions (no series start time exists)', () => {
+    mount(ws({ program: [] }));
+    expect(screen.getByTestId('fact-when').textContent).toContain('Every Thursday');
+    expect(screen.getByTestId('fact-when').textContent).not.toMatch(/\d{2}:\d{2}/);
   });
   it('falls back to None yet / No description and shows an end date', () => {
     mount(ws({ musicStyles: [], organiserIds: [], endedOn: '2027-01-14' }, { default_description: null }));

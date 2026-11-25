@@ -181,13 +181,13 @@ describe('C8 which day', () => {
 });
 
 describe('C9 time, then ONE command', () => {
-  it('prefills the usual time; Save sends exactly ONE series.add_date (target the series, its version); Done reads the D29 line', async () => {
+  it('starts with an empty time box; Save sends exactly ONE series.add_date (target the series, its version); Done reads the D29 line', async () => {
     const { container } = mount(ORG_PATHS.addDate(A, day(7)), routes);
     const input = (await screen.findByTestId('add-time-input')) as HTMLInputElement;
-    expect(input.value).toBe('20:00');
+    expect(input.value).toBe('');
     expect(tooSmall(container)).toEqual([]);
     fireEvent.click(screen.getByTestId('add-save'));
-    await waitFor(() => expect(screen.getByTestId('done-probe').textContent).toBe('Added|Added - Tuesday 27 October, 20:00|'));
+    await waitFor(() => expect(screen.getByTestId('done-probe').textContent).toBe('Added|Added - Tuesday 27 October|'));
     const sent = commandsOf(rpc);
     expect(sent).toHaveLength(1);
     expect(sent[0].fn).toBe('series_command_p5');
@@ -229,7 +229,7 @@ describe('C9 time, then ONE command', () => {
     fireEvent.change(await screen.findByTestId('add-time-input'), { target: { value: '19:30' } });
     fireEvent.click(screen.getByTestId('add-save'));
     const done = await screen.findByTestId('done-probe');
-    expect(done.textContent).toContain('Added - Tuesday 27 October, 20:00');
+    expect(done.textContent).toContain('Added - Tuesday 27 October. 19:30 was not saved');
     expect(done.textContent).toContain('19:30 was not saved');
     expect(done.textContent).toContain('Change a date');
     expect(commandsOf(rpc).map((s) => s.env.command.kind)).toEqual(['series.add_date', 'occurrence.set_time']);
