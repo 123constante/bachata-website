@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseMyDancerEdit } from '../../../api/rpc';
 import { SAVE_KEYS } from '../../../api/types';
 import {
-  STEPS_V3, YEAR_BANDS_V3, bandForYearV3, celebratesOnLeave, resumeStep, stepIsSatisfied, stepsFor, yearForBandV3, type DraftV3,
+  PARTNER_HINT, PARTNER_YEARS_V3, STEPS_V3, YEAR_BANDS_V3, bandForYearV3, celebratesOnLeave, partnerContinue, partnerMissing, partnerSaveAdvances, resumeStep, stepIsSatisfied, stepsFor, yearForBandV3, type DraftV3,
 } from '../modelV3';
 import { DANCER_ONBOARDING_V3_ENABLED } from '../onboardingV3Flag';
 
@@ -42,10 +42,10 @@ describe('parser partner keys', () => {
 
 describe('steps', () => {
   it('order', () => expect([...STEPS_V3]).toEqual(['roles', 'styles', 'years', 'partner', 'photo', 'bio']));
-  it('partner only with dancer', () => {
+  it('partner is shown to every role (v8)', () => {
     expect(stepsFor(['dancer', 'dj'])).toHaveLength(6);
-    expect(stepsFor(['organiser'])).toEqual(['roles', 'styles', 'years', 'photo', 'bio']);
-    expect(stepsFor([])).not.toContain('partner');
+    expect(stepsFor(['organiser'])).toEqual([...STEPS_V3]);
+    expect(stepsFor([])).toContain('partner');
   });
 });
 
@@ -74,8 +74,26 @@ describe('required', () => {
     expect(stepIsSatisfied('partner', d)).toBe(false);
     expect(stepIsSatisfied('partner', { ...d, lookingForPartner: false })).toBe(true);
     expect(stepIsSatisfied('partner', { ...d, lookingForPartner: true })).toBe(false);
-    expect(stepIsSatisfied('partner', { ...d, lookingForPartner: true, partnerRole: 'leader' })).toBe(true);
+    expect(stepIsSatisfied('partner', { ...d, lookingForPartner: true, partnerRole: 'leader' })).toBe(false);
   });
+  it('partner yes needs kind + role + years', () => {
+    const y = { ...d, lookingForPartner: true, partnerRole: 'Leader', partnerKinds: ['Practice'], partnerYears: '2-5' };
+    expect(stepIsSatisfied('partner', y)).toBe(true);
+    expect(stepIsSatisfied('partner', { ...y, partnerYears: null })).toBe(false);
+    expect(stepIsSatisfied('partner', { ...y, partnerKinds: [] })).toBe(false);
+    expect(partnerContinue(y)).toBe('advance');
+    expect(partnerContinue({ ...y, partnerRole: null })).toBe('reopen-sheet');
+    expect(partnerContinue({ ...d, lookingForPartner: false })).toBe('advance');
+    expect(partnerContinue(d)).toBe('blocked');
+    expect(partnerSaveAdvances).toBe(true);
+  });
+  it('PARTNER_HINT exact strings', () => {
+    expect(partnerMissing(d)).toEqual(['a kind', 'their role', 'years dancing']);
+    expect(PARTNER_HINT(['a kind', 'their role', 'years dancing'])).toBe('Pick a kind, their role and years dancing to save.');
+    expect(PARTNER_HINT(['their role', 'years dancing'])).toBe('Pick their role and years dancing to save.');
+    expect(PARTNER_HINT(['a kind'])).toBe('Pick a kind to save.');
+  });
+  it('years labels match the sheet', () => expect(PARTNER_YEARS_V3.map((x) => x.label)).toEqual(['0-2', '2-5', '5+', 'Any']));
 });
 
 describe('celebratesOnLeave', () => {
