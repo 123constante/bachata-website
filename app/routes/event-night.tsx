@@ -1,6 +1,14 @@
 import { redirect } from "react-router";
 import { staticShellCacheHeaders } from "../detailLoader";
-import { EVENT_SUBDOMAIN_DOMAIN, parseEventHost, parseNightPath } from "../lib/eventSubdomain";
+import { resolvePublicEventRef } from "@/lib/seo/resolvePublicEventRef";
+import { rootForwardCandidate } from "../lib/eventRootForward";
+import {
+  EVENT_SUBDOMAIN_DOMAIN,
+  eventSubdomainOrigin,
+  isSubdomainLabel,
+  parseEventHost,
+  parseNightPath,
+} from "../lib/eventSubdomain";
 import CatchAll from "./catchall";
 import EventRoute, { headers as eventHeaders, loader as eventLoader, meta as eventMeta } from "./event";
 
@@ -14,11 +22,18 @@ import EventRoute, { headers as eventHeaders, loader as eventLoader, meta as eve
 // route must behave exactly like the catchall: loader returns null, the default
 // export IS the catchall, headers() are the catchall's. clientLoader keeps
 // client-side navigations off an event host from making a .data request.
-export function loader(args: { request: Request; params: { night?: string }; context?: unknown }) {
+export async function loader(args: { request: Request; params: { night?: string }; context?: unknown }) {
   const url = new URL(args.request.url);
   const host = args.request.headers.get("x-forwarded-host") ?? args.request.headers.get("host") ?? url.host;
   const info = parseEventHost(host);
-  if (info.kind === "none") return null;
+  if (info.kind === "none") {
+    // www/<name> -> <name>.<domain> when <name> is a live event (swallow: a DB blip stays a 404).
+    const label = rootForwardCandidate(host, args.params.night ?? "");
+    if (!label) return null;
+    const resolved = await resolvePublicEventRef(label, "swallow");
+    if (isSubdomainLabel(resolved?.slug)) throw redirect(`${eventSubdomainOrigin(resolved!.slug as string)}/${url.search}`, 301);
+    return null;
+  }
   const night = args.params.night ?? "";
   if (!parseNightPath(night)) {
     // Not a night path: same forward as the root loader (it normally fires first).
