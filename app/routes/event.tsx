@@ -14,6 +14,14 @@ import { HEAD_DESCRIPTION_MAX, truncate } from "../truncate";
 import { SITE_ORIGIN } from "@/lib/seo";
 import { resolvePublicEventRef } from "@/lib/seo/resolvePublicEventRef";
 import { hiddenEventResponse } from "../lib/hiddenEventResponse";
+import {
+  EVENT_SUBDOMAIN_WWW_HOME,
+  eventSubdomainLinksEnabled,
+  eventSubdomainOrigin,
+  parseEventHost,
+  parseNightPath,
+  pickNightOccurrenceId,
+} from "../lib/eventSubdomain";
 import { measureWholeFlyerCanvas, resolveOgTallPreview } from "../lib/ogTallPreview.server";
 import { LEGACY_CARD_H, LEGACY_CARD_W, OG_LAYOUT_POLICY, WF_LAYOUT } from "../lib/ogLayout";
 import { buildEventShareDescription } from "@/modules/event-page/endedShareDescription";
@@ -35,6 +43,20 @@ const OG_TALL_BUDGET_MS = 2500;
 const OG_TALL_HEADER = "X-OG-Tall";
 const OG_LAYOUT_HEADER = "X-OG-Layout";
 
+// The snapshot RPC the page mounts (mirrors useEventPageQuery). Shared by the
+// prefetch and the subdomain night lookup so both build the identical entry.
+async function fetchEventSnapshot(eventId: string, occurrenceId: string | null) {
+  const { data, error } = await supabase.rpc("event_view_p5" as never, {
+    p_target: {
+      series_id: eventId,
+      ...(occurrenceId ? { occurrence_id: occurrenceId } : {}),
+    },
+    p_viewer: { role: "anon", shape: "snapshot_compat" },
+  } as never);
+  if (error) throw new Error((error as { message?: string }).message ?? JSON.stringify(error));
+  return parseEventPageSnapshot(data);
+}
+
 // SPIKE — the /event/:id server loader. Folds the client-side slug→uuid resolve
 // (useEntitySlugOrId) + snapshot fetch (useEventPageQuery) onto the server, then
 // dehydrates the React Query cache so the client hydrates without refetching.
@@ -52,6 +74,24 @@ export const loader = withSsrLoaderTimeout("event-loader", async function loader
 }: Route.LoaderArgs) {
   const routeParam = params.id;
   const isUuid = UUID_RE.test(routeParam);
+
+  // Event subdomains (#2147). vercel.json rewrites <label>.bachatacalendar.co.uk
+  // [/<day>-<mon>] onto this route as /event/<label>[?night=<day>-<mon>]; the
+  // flag and host rules live here. www / apex / *.vercel.app hosts parse to
+  // "none" and fall straight through, exactly as before, flag on or off.
+  const hostInfo = parseEventHost(
+    request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? new URL(request.url).host,
+  );
+  if (hostInfo.kind !== "none") {
+    // Flag OFF (default): no subdomain is live, send everyone to the main site.
+    if (!eventSubdomainLinksEnabled()) throw redirect(EVENT_SUBDOMAIN_WWW_HOME, 302);
+    if (hostInfo.kind === "www-event") {
+      const night = new URL(request.url).searchParams.get("night");
+      throw redirect(`${eventSubdomainOrigin(hostInfo.label)}${night ? `/${night}` : ""}`, 301);
+    }
+  }
+  // Only the rewritten shape (/event/<label> on <label>.<domain>) is subdomain mode.
+  const sub = hostInfo.kind === "event" && hostInfo.label === routeParam ? hostInfo : null;
 
   // Malformed-UUID attempt (UUID-shaped prefix, invalid length): can't match a
   // slug either — skip the DB round-trip and 404, mirroring useEntitySlugOrId.
@@ -85,12 +125,30 @@ export const loader = withSsrLoaderTimeout("event-loader", async function loader
 
   if (!eventId) {
     // Not a public page: 410 Gone if taken down (archived), else 404; noindex.
+    // A subdomain that does not resolve goes to the main site (never a soft 200).
+    if (sub) throw redirect(EVENT_SUBDOMAIN_WWW_HOME, 302);
     throw await hiddenEventResponse(routeParam);
   }
 
   const url = new URL(request.url);
   const rawOcc = url.searchParams.get("occurrenceId");
-  const occurrenceId = rawOcc && UUID_RE.test(rawOcc) ? rawOcc : null;
+  let occurrenceId = rawOcc && UUID_RE.test(rawOcc) ? rawOcc : null;
+
+  // Night page (<label>.<domain>/19-dec): map the London calendar date onto one
+  // of the occurrences the event page already loads (event_view_p5 snapshot, no
+  // anon read of the P5 tables). A miss keeps the plain event page.
+  const nightSpec = sub && !occurrenceId ? parseNightPath(url.searchParams.get("night")) : null;
+  if (nightSpec) {
+    const base = await qc.fetchQuery({
+      queryKey: eventPageQueryKey(eventId, null),
+      queryFn: () => fetchEventSnapshot(eventId, null),
+      staleTime: 1000 * 30,
+    });
+    occurrenceId = pickNightOccurrenceId(base?.occurrences ?? [], nightSpec);
+    // The night's own snapshot is fetched below; drop the base entry so the
+    // dehydrated state carries one snapshot, as /event/<slug>?occurrenceId= does.
+    if (occurrenceId) qc.removeQueries({ queryKey: eventPageQueryKey(eventId, null) });
+  }
 
   // UUID→slug 301 (query preserved, incl. ?occurrenceId): collapse the
   // /event/<uuid> and /event/<slug> cache entries into one canonical slug URL.
@@ -107,17 +165,7 @@ export const loader = withSsrLoaderTimeout("event-loader", async function loader
   await Promise.all([
     qc.prefetchQuery({
       queryKey: eventPageQueryKey(eventId, occurrenceId),
-      queryFn: async () => {
-        const { data, error } = await supabase.rpc("event_view_p5" as never, {
-          p_target: {
-            series_id: eventId,
-            ...(occurrenceId ? { occurrence_id: occurrenceId } : {}),
-          },
-          p_viewer: { role: "anon", shape: "snapshot_compat" },
-        } as never);
-        if (error) throw new Error((error as { message?: string }).message ?? JSON.stringify(error));
-        return parseEventPageSnapshot(data);
-      },
+      queryFn: () => fetchEventSnapshot(eventId, occurrenceId),
       staleTime: 1000 * 30,
     }),
     qc.prefetchQuery({
@@ -240,6 +288,8 @@ export const loader = withSsrLoaderTimeout("event-loader", async function loader
       description: truncate(buildEventShareDescription(snap), HEAD_DESCRIPTION_MAX) || null,
       ogImage: ogCard.url,
       slug,
+      // Present only on <label>.<domain> pages: their canonical is the bare subdomain.
+      ...(sub ? { subdomainLabel: sub.label } : {}),
       ...(ogTall ? { ogTall } : {}),
       // Present ONLY when the card is not 1200x630 (a whole-flyer card), so a
       // legacy page's serialized loader data is byte-identical to before.
@@ -299,7 +349,11 @@ export function headers({ loaderHeaders }: Route.HeadersArgs) {
 // Emits a PER-PAGE canonical (root.tsx's static homepage canonical would otherwise
 // self-canonicalize every event to "/").
 export const meta: Route.MetaFunction = ({ data }) => {
-  const canonical = data?.slug ? `${SITE_ORIGIN}/event/${data.slug}` : SITE_ORIGIN;
+  const canonical = data?.subdomainLabel
+    ? eventSubdomainOrigin(data.subdomainLabel)
+    : data?.slug
+      ? `${SITE_ORIGIN}/event/${data.slug}`
+      : SITE_ORIGIN;
   const name = data?.title;
   if (!name) {
     return [

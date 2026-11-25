@@ -3,7 +3,11 @@
     {
       "source": "/",
       "destination": "/city/london-gb",
-      "permanent": false
+      "permanent": false,
+      "missing": [
+        { "type": "host", "value": "(?!(?:www|api|admin|app|mail|cdn|static|assets|status|blog|docs)\\.)[a-z0-9]+\\.bachatacalendar\\.co\\.uk" },
+        { "type": "host", "value": "www\\.[a-z0-9]+\\.bachatacalendar\\.co\\.uk" }
+      ]
     },
     {
       "source": "/:slug([a-z-]+-[a-z]{2})/dancers",
@@ -109,6 +113,28 @@
       "source": "/:slug([a-z-]+-[a-z]{2})/discounts",
       "destination": "/city/:slug/discounts",
       "permanent": true
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/:night(\\d{1,2}-[a-z]{3}(?:-\\d{4})?)",
+      "has": [{ "type": "host", "value": "(?<label>(?!(?:www|api|admin|app|mail|cdn|static|assets|status|blog|docs)\\.)[a-z0-9]+)\\.bachatacalendar\\.co\\.uk" }],
+      "destination": "/event/:label?night=:night"
+    },
+    {
+      "source": "/:night(\\d{1,2}-[a-z]{3}(?:-\\d{4})?)",
+      "has": [{ "type": "host", "value": "www\\.(?<label>[a-z0-9]+)\\.bachatacalendar\\.co\\.uk" }],
+      "destination": "/event/:label?night=:night"
+    },
+    {
+      "source": "/",
+      "has": [{ "type": "host", "value": "(?<label>(?!(?:www|api|admin|app|mail|cdn|static|assets|status|blog|docs)\\.)[a-z0-9]+)\\.bachatacalendar\\.co\\.uk" }],
+      "destination": "/event/:label"
+    },
+    {
+      "source": "/",
+      "has": [{ "type": "host", "value": "www\\.(?<label>[a-z0-9]+)\\.bachatacalendar\\.co\\.uk" }],
+      "destination": "/event/:label"
     }
   ],
   "headers": [
