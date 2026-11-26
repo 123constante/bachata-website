@@ -210,6 +210,7 @@ export const flags = {
   // Organiser Home "<class> has no teacher yet" waiting row (brief #2286). OFF = Home is exactly as before, no extra call.
   organiserNoTeachersCard: import.meta.env.VITE_ENABLE_ORGANISER_NO_TEACHERS_CARD === 'true',
   // Organiser Home "Classes this week" card with each class's teachers (brief #2309). OFF = Home is exactly as before, no extra call.
+  // Also gates the night editor deep link `?open=when` (brief #2310, opens that night's When sheet once).
   organiserHomeClassesWeek: import.meta.env.VITE_ENABLE_ORGANISER_HOME_CLASSES_WEEK === 'true',
   // Raffle data requests (brief #2227): one line in /privacy to a /privacy/raffle-data page with an Email us button,
   // and "You agreed on 24 Nov 2026" on the export page. OFF = every screen exactly as before.
