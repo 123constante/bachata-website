@@ -14,7 +14,7 @@ import {
 // fails when a page is added without being listed.
 const SITE_SEGMENTS = [
   // framework routes (app/routes.ts)
-  "festivals", "parties", "classes", "faq", "london-bachata-guide", "learn-bachata-london",
+  "festivals", "parties", "classes", "faq", "for-organisers", "london-bachata-guide", "learn-bachata-london",
   "bachata-parties-london", "bachata-london-sensual-parties", "bachata-london-dominican-parties",
   "bachata-london-monday", "bachata-london-tuesday", "bachata-london-wednesday",
   "bachata-london-thursday", "bachata-london-friday", "bachata-london-saturday",
