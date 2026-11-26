@@ -15,7 +15,7 @@ export default {
   // distinct URL, so it cannot be cached. "initial" ships the whole route manifest
   // as one immutable /assets file instead. See docs/ops/vercel-html-caching-2026-10-08.md.
   routeDiscovery: { mode: "initial" },
-  // Prerender only the routes that carry NO server-fetched content (/faq), so a
+  // Prerender only the routes that carry NO server-fetched content (none today), so a
   // static shell + meta() is the whole SEO payload and nothing server-rendered
   // can go stale. /city/:slug (the homepage) and /festivals DO dehydrate live
   // content in their loaders, so they moved to on-demand SSR + tagged ISR
@@ -24,8 +24,8 @@ export default {
   // with no revalidation path (stale covers/cancellations until the next deploy);
   // ISR fixes that. Detail routes + the catchall are on-demand SSR too.
   async prerender() {
-    // Everything left here carries NO server-fetched content: /faq renders
-    // hand-written copy and internal links only. (/parties + /classes left this
+    // Everything left here carries NO server-fetched content: hand-written
+    // copy and internal links only. (The FAQ page left in S3b: 301 to the Learn page. /parties + /classes left this
     // list in site structure S2c: they now SSR a "this week" event list.) (The three all-prose
     // party landing pages were retired in site structure S2a: 301 to /parties
     // in vercel.json.) A static
@@ -39,8 +39,6 @@ export default {
     // which build-time prerender either froze at deploy time or -- for the
     // landing pages, whose sections were client-only -- shipped EMPTY as the
     // indexed HTML. ISR + the `seo-landing` cache tag fixes both.
-    return [
-      "/faq",
-    ];
+    return [];
   },
 } satisfies Config;

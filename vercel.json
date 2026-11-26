@@ -134,6 +134,16 @@
       "permanent": true
     },
     {
+      "source": "/faq",
+      "destination": "/learn-bachata-london#faq",
+      "permanent": true
+    },
+    {
+      "source": "/london-bachata-guide",
+      "destination": "/learn-bachata-london",
+      "permanent": true
+    },
+    {
       "source": "/bachata-parties-london",
       "destination": "/parties",
       "permanent": true
