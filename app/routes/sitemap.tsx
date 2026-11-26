@@ -50,6 +50,7 @@ const STATIC_ROUTES: StaticRoute[] = [
   { path: "/videographers",                    changefreq: "weekly",  priority: "0.5" },
   { path: "/vendors",                          changefreq: "weekly",  priority: "0.5" },
   { path: "/learn-bachata-london",             changefreq: "monthly", priority: "0.9" },
+  { path: "/for-organisers", changefreq: "monthly", priority: "0.6" },
   { path: "/bachata-london-monday",            changefreq: "weekly",  priority: "0.8" },
   { path: "/bachata-london-tuesday",           changefreq: "weekly",  priority: "0.8" },
   { path: "/bachata-london-wednesday",         changefreq: "weekly",  priority: "0.8" },
