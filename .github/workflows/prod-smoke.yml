@@ -39,6 +39,10 @@ on:
         description: 'Extra pages to load signed out after a merge or flag flip (comma-separated paths or https://*.bachatacalendar.co.uk URLs)'
         type: string
         default: ''
+      forbid_text:
+        description: 'Words that must NOT appear on the extra pages, separated by | (proves a removal reached production). Needs extra_paths.'
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -93,6 +97,7 @@ jobs:
           SMOKE_BASE_URL: https://www.bachatacalendar.co.uk
           CI_BYPASS_HEADER: ${{ secrets.CI_BYPASS_HEADER }}
           SMOKE_EXTRA_PATHS: ${{ inputs.extra_paths }}
+          SMOKE_FORBID_TEXT: ${{ inputs.forbid_text }}
         run: |
           set -o pipefail
           node scripts/launch-critical-smoke.mjs | tee smoke-report.json
