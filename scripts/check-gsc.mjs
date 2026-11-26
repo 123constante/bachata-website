@@ -97,7 +97,7 @@ const INSPECT_ROUTES = [
   '/bachata-london-thursday', '/bachata-london-friday', '/bachata-london-saturday',
   '/bachata-london-sunday',
   '/parties', '/classes', '/tonight', '/festivals', '/venues', '/teachers',
-  '/djs', '/organisers', '/dancers', '/discounts', '/cities',
+  '/djs', '/organisers', '/dancers', '/discounts',
   '/videographers', '/vendors',
 ];
 
