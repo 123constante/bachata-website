@@ -182,6 +182,9 @@ export const flags = {
   // Site structure S3a: /learn-bachata-london absorbs the London Guide + FAQ (every question once, one FAQPage
   // JSON-LD). OFF = the Learn page exactly as before. Turn on with VITE_ENABLE_LEARN_MERGED=true (Vercel env).
   learnMerged:         import.meta.env.VITE_ENABLE_LEARN_MERGED === 'true',
+  // Site structure S4a: one shared "People & places" chip row on the directory lists. OFF = lists exactly as before.
+  // Turn on with VITE_ENABLE_PEOPLE_CHIPS=true (Vercel env).
+  peopleChips:         import.meta.env.VITE_ENABLE_PEOPLE_CHIPS === 'true',
   // Dashboard switch, Round-4 everywhere (docs/briefs/dashboard-switch-build.md): the Switch profile sheet in the
   // dancer app and organiser area, the organiser Switch page and the Sign out link at the foot of Account settings.
   // OFF = every screen exactly as before. Turn on with VITE_ENABLE_DASHBOARD_SWITCH_R4=true (Vercel env) -- no code change.
