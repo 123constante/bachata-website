@@ -20,14 +20,14 @@ const row = (over: Partial<DraftSession> = {}, orig: Record<string, unknown> | n
 const invite = (canForwardItem = true) => ({ occurrenceId: 'o1', eventName: 'Friday Social', dateLabel: 'Thursday 26 November', canForwardItem });
 let list: ClassInvite[] = [];
 
-function show(r: DraftSession | null, inv_: ReturnType<typeof invite> | undefined = invite()) {
+function show(r: DraftSession | null, inv_: ReturnType<typeof invite> | null = invite()) {
   rpc.mockImplementation(async (fn: string) => {
     if (fn === 'organiser_class_invite_list_v1') return { data: list, error: null };
     if (fn === 'organiser_class_invite_create_v1') return { data: { invite_id: 'n1', token: 'tok1', expires_at: null }, error: null };
     if (fn === 'organiser_class_invite_resend_v1') return { data: { invite_id: 'v1', token: 'tok2', expires_at: null }, error: null };
     return { data: { invite_id: 'v1', revoked: true }, error: null };
   });
-  render(<QueryClientProvider client={new QueryClient()}><SessionSheetV2 row={r} count={2} ctx="night" dayLabel="x" invite={inv_} onDone={vi.fn()} onRemove={vi.fn()} onClose={vi.fn()} /></QueryClientProvider>);
+  render(<QueryClientProvider client={new QueryClient()}><SessionSheetV2 row={r} count={2} ctx="night" dayLabel="x" invite={inv_ ?? undefined} onDone={vi.fn()} onRemove={vi.fn()} onClose={vi.fn()} /></QueryClientProvider>);
 }
 const calls = (fn: string) => rpc.mock.calls.filter((c) => c[0] === fn);
 const OPEN = /Invite a teacher who isn.t on the site/;
@@ -48,7 +48,7 @@ describe('model', () => {
 
 describe('session sheet', () => {
   it('flag off: no invite row and no rpc', () => { flag.on = false; show(row()); expect(screen.queryByText(OPEN)).toBeNull(); expect(rpc).not.toHaveBeenCalled(); });
-  it('no invite prop: nothing new', () => { show(row(), undefined); expect(screen.queryByText(OPEN)).toBeNull(); });
+  it('no invite prop: nothing new', () => { show(row(), null); expect(screen.queryByText(OPEN)).toBeNull(); });
   it('new unsaved session: nothing new', () => { show(null); expect(screen.queryByText(OPEN)).toBeNull(); });
   it('party (DJs only): nothing new', () => { show(row({ type: 'party' })); expect(screen.queryByText(OPEN)).toBeNull(); });
   it('stored class shows the row and only this class\'s pending chips', async () => {
@@ -74,7 +74,7 @@ describe('session sheet', () => {
     expect(msg.value).toContain('/join/class/tok1');
     expect(screen.getByText('Send this to Ana')).toBeTruthy();
     expect((screen.getByTestId('class-invite-whatsapp') as HTMLAnchorElement).href).toContain('https://wa.me/?text=');
-    fireEvent.click(screen.getByText('Done'));
+    fireEvent.click(screen.getByTestId('class-invite-done'));
     expect(screen.queryByTestId('class-invite-message')).toBeNull();
   });
   it('Just this date sends p_forward false', async () => {
@@ -105,7 +105,7 @@ describe('session sheet', () => {
     show(row());
     fireEvent.click(await screen.findByText('Resend'));
     expect(((await screen.findByTestId('class-invite-message')) as HTMLTextAreaElement).value).toContain('/join/class/tok2');
-    fireEvent.click(screen.getByText('Done'));
+    fireEvent.click(screen.getByTestId('class-invite-done'));
     fireEvent.click(screen.getByText('Remove'));
     await waitFor(() => expect(calls('organiser_class_invite_revoke_v1')[0][1]).toEqual({ p_invite_id: 'v1' }));
   });

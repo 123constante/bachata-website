@@ -125,7 +125,7 @@ export function ClassInvites(p: ClassInvitesProps) {
           <textarea readOnly rows={7} className="fld" value={ready.message} aria-label="Invite message" data-testid="class-invite-message" onFocus={(e) => e.currentTarget.select()} />
           <button type="button" className="btn sec" style={{ minHeight: 48 }} onClick={() => void copy()}>{copied ? 'Copied' : 'Copy'}</button>
           <a className="btn sec" style={{ minHeight: 48, display: 'flex', alignItems: 'center', justifyContent: 'center' }} href={shareHref(ready.message)} target="_blank" rel="noopener noreferrer" data-testid="class-invite-whatsapp">WhatsApp</a>
-          <button type="button" className="btn pri" style={{ minHeight: 48 }} onClick={() => { setReady(null); setCopied(false); }}>Done</button>
+          <button type="button" className="btn pri" style={{ minHeight: 48 }} data-testid="class-invite-done" onClick={() => { setReady(null); setCopied(false); }}>Done</button>
         </V2Sheet>
       )}
     </div>
