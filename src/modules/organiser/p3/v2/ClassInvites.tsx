@@ -15,7 +15,14 @@ export interface ClassInvite {
 }
 export interface InviteLink { invite_id: string; token: string; expires_at: string | null }
 
+/** One row of organiser_class_invites_waiting_v1 (admin#2436): open or expired invites the organiser still waits on. */
+export interface WaitingInvite {
+  invite_id: string; display_name: string; series_id: string; event_name: string; class_title: string;
+  next_date: string; last_sent_at: string | null; status: 'open' | 'expired';
+}
+
 export const classInvitesKey = (occurrenceId: string) => ['class-invites', occurrenceId] as const;
+export const waitingInvitesKey = (organiserId: string) => ['class-invites-waiting', organiserId] as const;
 export const MAX_NAME = 80;
 export const CAP_COPY = 'You have 20 invites waiting. Remove one first.';
 export const FAIL_COPY = "Couldn't make the link. Try again.";
@@ -23,6 +30,10 @@ export const FAIL_COPY = "Couldn't make the link. Try again.";
 export async function listClassInvites(occurrenceId: string): Promise<ClassInvite[]> {
   const d = must(await rpc('organiser_class_invite_list_v1', { p_occurrence_id: occurrenceId }));
   return Array.isArray(d) ? (d as ClassInvite[]) : [];
+}
+export async function fetchWaitingInvites(organiserId: string): Promise<WaitingInvite[]> {
+  const d = must(await rpc('organiser_class_invites_waiting_v1', { p_organiser_id: organiserId }));
+  return Array.isArray(d) ? (d as WaitingInvite[]) : [];
 }
 export async function createClassInvite(a: { occurrenceId: string; itemId: string | null; addedId: string | null; name: string; forward: boolean }): Promise<InviteLink> {
   return must(await rpc('organiser_class_invite_create_v1', {
@@ -59,6 +70,21 @@ export interface ClassInvitesProps {
 
 const ROW = { minHeight: 44, display: 'inline-flex', alignItems: 'center' } as const;
 
+/** "Send this to X": the message to copy or send on WhatsApp. Shared by the class screen and Home's waiting list. */
+export function InviteReadySheet({ ready, onClose }: { ready: { name: string; message: string }; onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => { try { await navigator.clipboard.writeText(ready.message); setCopied(true); } catch { setCopied(false); } };
+  const close = () => { setCopied(false); onClose(); };
+  return (
+    <V2Sheet open title={`Send this to ${firstName(ready.name)}`} onClose={close}>
+      <textarea readOnly rows={7} className="fld" value={ready.message} aria-label="Invite message" data-testid="class-invite-message" onFocus={(e) => e.currentTarget.select()} />
+      <button type="button" className="btn sec" style={{ minHeight: 48 }} onClick={() => void copy()}>{copied ? 'Copied' : 'Copy'}</button>
+      <a className="btn sec" style={{ minHeight: 48, display: 'flex', alignItems: 'center', justifyContent: 'center' }} href={shareHref(ready.message)} target="_blank" rel="noopener noreferrer" data-testid="class-invite-whatsapp">WhatsApp</a>
+      <button type="button" className="btn pri" style={{ minHeight: 48 }} data-testid="class-invite-done" onClick={close}>Done</button>
+    </V2Sheet>
+  );
+}
+
 /** Under a class's Teachers group: pending invites and "Invite a teacher who isn't on the site". */
 export function ClassInvites(p: ClassInvitesProps) {
   const qc = useQueryClient();
@@ -67,7 +93,6 @@ export function ClassInvites(p: ClassInvitesProps) {
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState<{ name: string; message: string } | null>(null);
-  const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!p.prefill) return;
     setName(p.prefill.name.slice(0, MAX_NAME)); setError(null); setAsking(true);
@@ -93,7 +118,6 @@ export function ClassInvites(p: ClassInvitesProps) {
 
   const pending = invitesForClass(q.data ?? [], p);
   const trimmed = name.trim();
-  const copy = async () => { try { await navigator.clipboard.writeText(ready?.message ?? ''); setCopied(true); } catch { setCopied(false); } };
 
   return (
     <div className="grp" data-testid="class-invites">
@@ -126,14 +150,7 @@ export function ClassInvites(p: ClassInvitesProps) {
           )}
         </V2Sheet>
       )}
-      {ready && (
-        <V2Sheet open title={`Send this to ${firstName(ready.name)}`} onClose={() => { setReady(null); setCopied(false); }}>
-          <textarea readOnly rows={7} className="fld" value={ready.message} aria-label="Invite message" data-testid="class-invite-message" onFocus={(e) => e.currentTarget.select()} />
-          <button type="button" className="btn sec" style={{ minHeight: 48 }} onClick={() => void copy()}>{copied ? 'Copied' : 'Copy'}</button>
-          <a className="btn sec" style={{ minHeight: 48, display: 'flex', alignItems: 'center', justifyContent: 'center' }} href={shareHref(ready.message)} target="_blank" rel="noopener noreferrer" data-testid="class-invite-whatsapp">WhatsApp</a>
-          <button type="button" className="btn pri" style={{ minHeight: 48 }} data-testid="class-invite-done" onClick={() => { setReady(null); setCopied(false); }}>Done</button>
-        </V2Sheet>
-      )}
+      {ready && <InviteReadySheet ready={ready} onClose={() => setReady(null)} />}
     </div>
   );
 }
