@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useSeo } from '@/lib/seo';
+import { flags } from '@/lib/featureFlags';
 import { PRIVACY_VERSION } from '@/lib/legalVersions';
 import { ACCOUNT_SETTINGS_LABEL, ACCOUNT_SETTINGS_PATH, HIDDEN_STATE_WORD } from '@/lib/accountRouting';
 import { LegalShell, Section } from '@/pages/legal/LegalShell';
@@ -108,6 +109,12 @@ const Privacy = () => {
           You can ask us to see, correct or erase your data, or object to how we use it. Use the settings above or contact us below. You can
           also complain to the Information Commissioner&rsquo;s Office (ico.org.uk).
         </p>
+        {flags.rafflePrivacyLine && (
+          <p data-testid="privacy-raffle-line">
+            Want your raffle data erased or a copy of it?{' '}
+            <Link to="/privacy/raffle-data" className="inline-block min-h-[44px] py-3 underline">Ask us here.</Link>
+          </p>
+        )}
       </Section>
 
       <Section title="How long we keep things">

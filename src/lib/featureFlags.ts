@@ -169,6 +169,10 @@ export const flags = {
   // Organiser Team R3 W1 (brief #2179): Undo button on the owner's Recent changes rows.
   // OFF = the R2 screen exactly as before. Turn on with VITE_ENABLE_ORGANISER_TEAM_R3=true (Vercel env).
   organiserTeamR3:     import.meta.env.VITE_ENABLE_ORGANISER_TEAM_R3 === 'true',
+  // Raffle data requests (brief #2227): one line in /privacy to a /privacy/raffle-data page with an Email us button,
+  // and "You agreed on 24 Nov 2026" on the export page. OFF = every screen exactly as before.
+  // Turn on with VITE_ENABLE_RAFFLE_PRIVACY_LINE=true (Vercel env) -- no code change.
+  rafflePrivacyLine:   import.meta.env.VITE_ENABLE_RAFFLE_PRIVACY_LINE === 'true',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the
