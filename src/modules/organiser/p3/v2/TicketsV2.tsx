@@ -21,6 +21,8 @@ import { P3_PATHS } from '../shell/paths';
 import { upcomingOf } from './editorModel';
 import { payModeOf, doorPriceOf, type PayMode } from './payMode';
 import { TicketSheetV2 } from './TicketSheetV2';
+import { earlyBirdOf, type EarlyBirdView } from '../tickets/earlyBird';
+import { flags } from '@/lib/featureFlags';
 import './v2.css';
 
 export interface TicketRow {
@@ -34,6 +36,8 @@ export interface TicketRow {
   qty: number;
   /** sold per coming date, in date order (weekly only) */
   perDate: number[];
+  /** open early bird tier (flag ticketEarlyBird): pill + "£E now, £R after"; absent = row as today */
+  early?: EarlyBirdView | null;
 }
 
 export interface TicketsViewProps {
@@ -93,8 +97,8 @@ export function TicketsView(p: TicketsViewProps) {
           <div className="sub" data-testid="tk-hint">{p.tickets.length ? 'Tap a ticket to change it.' : 'No tickets yet. Add your first ticket.'}</div>
           {p.tickets.map((t) => (
             <Btn key={t.id} cls="tcard" id="ticket" ticketId={t.id} onTap={on.ticket}>
-              <b>{t.name}</b>
-              <span className="s">{t.line}</span>
+              <b>{t.name}{t.early ? <> <span className="v2-tag" data-testid="tk-early-pill">{t.early.pill}</span></> : null}</b>
+              <span className="s">{t.early ? t.early.price : t.line}</span>
               <span className="s">{t.sold} sold across all dates, {formatPence(t.pence)}</span>
               {!p.oneOff ? (
                 <span className="plist">
@@ -187,6 +191,7 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
     return {
       id: t.id, name: t.name, qty: t.capacity, sold,
       line: ticketLine(t.pricePence, managed.data?.types.find((m) => m.id === t.id)),
+      early: earlyBirdOf(managed.data?.types.find((m) => m.id === t.id), flags.ticketEarlyBird),
       pence: sales.get(t.id)?.grossPence ?? 0,
       // night-bound: its own night; series-wide: that type's per-night count from the summary, else 0 (never invented)
       perDate: coming.map((d) => (t.occurrenceId
@@ -386,7 +391,7 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
       {sheet === 'link' && <LinkSheet link={oldUrl ?? ''} busy={busy} error={sheetError} onDone={(u) => { void saveLink(u); }} onClose={() => setSheet(null)} />}
       {sheet === 'how' && <HowPaySheet busy={busy} door={mode === 'door'} hasLink={!!oldUrl} onDoor={() => { void payDoor(); }} onLink={openLink} onClose={() => setSheet(null)} />}
       {ticketOpen && orgId && (ticketOpen === 'new' || (sheetType && sheetManaged)) && (
-        <TicketSheetV2 organiserId={orgId} seriesId={s.id} type={ticketOpen === 'new' ? null : sheetType} basePence={sheetManaged?.basePricePence ?? 0} steps={sheetManaged?.steps ?? []}
+        <TicketSheetV2 organiserId={orgId} seriesId={s.id} type={ticketOpen === 'new' ? null : sheetType} basePence={sheetManaged?.basePricePence ?? 0} steps={sheetManaged?.steps ?? []} managed={sheetManaged}
           soldKnown={!!summary.data?.ok} oneOff={oneOff} soldMax={sheetType && !sheetType.occurrenceId ? Math.min(sheetSold, sheetType.capacity) : sheetSold} soldAll={sheetSold} pence={sheetSales?.grossPence ?? 0}
           onClose={() => setTicketOpen(null)} onFail={() => refresh()}
           onDone={(text, undo) => {
