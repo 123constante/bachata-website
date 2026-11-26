@@ -14,7 +14,7 @@ vi.mock('../../../tickets/ticketsApi', async (orig) => ({
   setEarlyBird: (c: unknown) => h.early(c),
   fetchManagedTypes: async () => ({ ok: true, types: [] }),
 }));
-import { TicketSheetV2 } from '../TicketSheetV2';
+import { EARLY_OFF_FIRST, TicketSheetV2 } from '../TicketSheetV2';
 import { earlyBirdOf } from '../../tickets/earlyBird';
 import type { ManagedType } from '../../../tickets/priceSteps';
 
@@ -59,6 +59,14 @@ describe('switch visibility', () => {
 });
 
 describe('saving', () => {
+  it('saved early ticket made free: refused before any write', async () => {
+    const { onFail } = sheet({ managed: earlyRow });
+    fireEvent.click(screen.getByTestId('t-free'));
+    done();
+    await waitFor(() => expect(screen.getByTestId('t-err').textContent).toBe(EARLY_OFF_FIRST));
+    expect(h.upsert).not.toHaveBeenCalled(); expect(h.early).not.toHaveBeenCalled(); expect(onFail).not.toHaveBeenCalled();
+  });
+
   it('new ticket on: create, then setEarlyBird with the new id', async () => {
     const { onDone } = sheet({ type: null, managed: undefined, basePence: 0 });
     set('t-name', 'Class'); set('t-price', '15');
