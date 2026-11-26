@@ -34,7 +34,8 @@ import { Trophy } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { flags } from '@/lib/featureFlags';
 import { useRaffleBoard } from '@/hooks/useRaffleBoard';
-import { boardForEvent, nightsWithWinner } from '@/lib/raffleBoard';
+import { boardForEvent, multiWinnerOn, nightsWithWinner } from '@/lib/raffleBoard';
+import { PersonAvatar } from '@/components/account/profiles/PersonAvatar';
 
 const GOLD = 'hsl(var(--bento-accent))';
 const pad = (n: number) => (n < 10 ? '0' : '') + n;
@@ -455,6 +456,7 @@ const RaffleBoardTile = ({ eventId }: { eventId: string | null }) => {
   const elsewhere = loaded && !boardEmpty && !state?.inRaffle;
   const anyWinner = loaded && nightsWithWinner(board).length > 0;
   const winnerName = state?.winnerFirstName ?? null;
+  const chips = state?.night?.winnerChips ?? [];
 
   return (
     <>
@@ -507,12 +509,32 @@ const RaffleBoardTile = ({ eventId }: { eventId: string | null }) => {
             )}
           </div>
 
-          {winnerName && (
+          {multiWinnerOn() && chips.length > 0 && (
+            <div className="rsb-winner-strip" data-testid="raffle-winner-strip">
+              <span className="rsb-winner-chips">
+                {chips.map((c, i) => {
+                  const inner = (
+                    <>
+                      <PersonAvatar photoUrl={c.avatarUrl} name={c.firstName} size={32} imgTestId="raffle-winner-photo" />
+                      <b>{c.firstName}</b>
+                    </>
+                  );
+                  return c.profileSlug ? (
+                    <Link key={i} to={`/dancers/${c.profileSlug}`} className="rsb-winner-chip" data-testid="raffle-winner-chip">{inner}</Link>
+                  ) : (
+                    <span key={i} className="rsb-winner-chip" data-testid="raffle-winner-chip">{inner}</span>
+                  );
+                })}
+              </span>
+              <span className="rsb-winner-won">won this night</span>
+            </div>
+          )}
+          {!multiWinnerOn() && winnerName && (
             <p className="rsb-winner-strip" data-testid="raffle-winner-strip">
               {'\u{1F389}'} <b>{winnerName}</b> won this night
             </p>
           )}
-          {anyWinner && (
+          {!multiWinnerOn() && anyWinner && (
             <Link to="/raffles" className="rsb-see-who-won" data-testid="raffle-see-who-won">
               See who won &rarr;
             </Link>

@@ -461,3 +461,7 @@
 .rsb-see-who-won { display: block; margin-top: 8px; min-height: 44px; line-height: 44px; text-align: center; font-size: 13px; font-weight: 700; color: hsl(var(--bento-accent)); text-decoration: underline; text-underline-offset: 2px; }
 .rsb-board-note { margin: 4px 0; font-size: 13px; text-align: center; }
 .rsb-board-note button { min-height: 44px; font-weight: 700; text-decoration: underline; }
+.rsb-winner-strip:has(.rsb-winner-chips) { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 8px; }
+.rsb-winner-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 8px; }
+.rsb-winner-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-size: 13px; color: hsl(var(--bento-fg)); }
+a.rsb-winner-chip { text-decoration: underline; text-underline-offset: 2px; }

@@ -20,6 +20,8 @@ export const RAFFLE_BOARD_NIGHT_KEYS = [
   'winners',
 ] as const;
 
+export type RaffleWinnerChip = { firstName: string; avatarUrl: string | null; profileSlug: string | null };
+
 export type RaffleNight = {
   occurrenceId: string;
   publicEventId: string;
@@ -33,6 +35,8 @@ export type RaffleNight = {
   seatsLeft?: number;
   /** Every locked/attended winner, oldest first; empty when none. */
   winnerNames: string[];
+  /** One per listed winner with a first name, same order as winners[]; the extra keys are optional on the wire. */
+  winnerChips: RaffleWinnerChip[];
   /** Flyer URL from nights[].poster_url; absent when the board sends none. */
   posterUrl?: string;
 };
@@ -96,6 +100,14 @@ function parseNight(raw: unknown): RaffleNight | null {
     ? raw.winners.map((w) => (isObj(w) ? str(w.first_name) : null)).filter((x): x is string => x !== null)
     : null;
   const winnerNames = listed ?? (winnerFirstName ? [winnerFirstName] : []);
+  const winnerChips: RaffleWinnerChip[] = Array.isArray(raw.winners)
+    ? raw.winners.flatMap((w) => {
+        const firstName = isObj(w) ? str(w.first_name) : null;
+        return isObj(w) && firstName
+          ? [{ firstName, avatarUrl: str(w.avatar_url), profileSlug: str(w.profile_slug) }]
+          : [];
+      })
+    : [];
   return {
     occurrenceId,
     publicEventId,
@@ -104,6 +116,7 @@ function parseNight(raw: unknown): RaffleNight | null {
     venue: str(raw.venue_name),
     winnerFirstName,
     winnerNames,
+    winnerChips,
     ...(winnersCount !== null ? { winnersCount } : {}),
     ...(seatsLeft !== null ? { seatsLeft } : {}),
     ...(posterUrl ? { posterUrl } : {}),
