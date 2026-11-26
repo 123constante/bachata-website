@@ -1,6 +1,7 @@
 import type { DancerPublicViewModel } from '@/modules/profile/dancerPublicProfile';
 import { buildSignInHref } from '@/lib/authRouting';
 import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
+import { LEVEL_RETIRED_ENABLED } from '@/lib/levelRetiredFlag';
 import { nightLine } from '@/modules/going/goingCopy';
 import type { GoingNextNight } from '@/modules/going/goingRpc';
 import { linkText } from '@/modules/person-page/worlds/dj/model';
@@ -341,7 +342,8 @@ export const buildPublicDancerPage = (
     city: cityOnly(view.city),
     facts: {
       dancing: Number.isFinite(years) && years >= 0 ? `${years} ${years === 1 ? 'year' : 'years'}` : null,
-      level: Number.isFinite(years) && years >= 0 ? experienceLevel(years) : null,
+      // Dancer level retired (owner 2026-11-24): flag ON = no Level fact on the card; years dancing stays.
+      level: !LEVEL_RETIRED_ENABLED && Number.isFinite(years) && years >= 0 ? experienceLevel(years) : null,
       style: clean(view.favoriteStyles).join(', ') || null,
     },
     stamp: view.lookingForPartner ? { goal: practiceGoalText(clean(view.partnerPracticeGoals)) } : null,
