@@ -107,7 +107,6 @@ const PAIRS: [string, string, string | null][] = [
   ['/faq', `/organisers/${ORG_SLUG}`, null],
   [`/organisers/${ORG2_SLUG}`, `/organisers/${ORG_SLUG}`, null],
   ['/learn-bachata-london', '/faq', '#main-content a[href="/faq"]'],
-  ['/bachata-parties-london', '/organisers', '#main-content a[href="/organisers"]'],
 ];
 
 for (const [from, to, link] of PAIRS) {

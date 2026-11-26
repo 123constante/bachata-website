@@ -155,9 +155,8 @@ export const AnimatedRoutes = () => {
             <Route path="/city/:slug/tonight" element={<PageTransition><Tonight /></PageTransition>} />
             {/* /event/:id is a framework route (app/routes/event.tsx). */}
             {/* /festivals is a framework route (app/routes/festivals.tsx). */}
-            {/* /faq, /london-bachata-guide, /learn-bachata-london,
-                /bachata-parties-london, the two /bachata-london-*-parties style
-                pages and the seven /bachata-london-{weekday} pages are framework
+            {/* /faq, /london-bachata-guide, /learn-bachata-london and
+                the seven /bachata-london-{weekday} pages are framework
                 routes (app/routes.ts) -- prerendered with real head tags, so
                 their catchall duplicates were removed. */}
             {/* /festival/:id is a framework route (app/routes/festival.tsx). */}

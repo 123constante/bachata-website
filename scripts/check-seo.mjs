@@ -135,9 +135,8 @@ const PREFIX_SAMPLE = { '/event/': 4, '/dancers/': 1, '/organisers/': 1 };
 // red build -- the failure they exist to catch is the section regressing to
 // EMPTY, not a thin one. Monday is the quietest weekday in the data, hence 1.
 //
-// The three all-prose landing pages (/bachata-parties-london + the two style
-// pages) stay prerendered and carry no event list, so they check 0 links and are
-// listed only for their h1/canonical/title/description assertions.
+// The three all-prose party landing pages were retired in site structure S2a
+// (301 to /parties in vercel.json), so they are no longer listed here.
 //
 // A third `requiresEventNode` element used to sit in the middle of every row,
 // read by nothing (isEvent is derived from the path). Dropped: a dead
@@ -157,10 +156,6 @@ const STATIC_PAGES = [
   ['/bachata-london-friday', 1],
   ['/bachata-london-saturday', 1],
   ['/bachata-london-sunday', 1],
-  // Prerendered prose, no event list
-  ['/bachata-parties-london', 0],
-  ['/bachata-london-sensual-parties', 0],
-  ['/bachata-london-dominican-parties', 0],
 ];
 
 // Floor values, ABSOLUTE promises rather than fractions of the run: a floor

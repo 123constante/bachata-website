@@ -12,7 +12,7 @@
  *   - title: "Bachata in London on {Day}s - Classes & Socials"
  *   - canonical uses SITE_ORIGIN (www)
  *   - ItemList JSON-LD for the live event list
- *   - closing links to guide, bachata-parties-london, classes
+ *   - closing links to guide, parties, classes
  */
 import { useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
@@ -289,7 +289,7 @@ const BachataWeekday = ({ serverTodayKey }: { serverTodayKey?: string }) => {
               London Bachata Guide
             </Link>
             {' '}&middot;{' '}
-            <Link to="/bachata-parties-london" className="text-primary underline">
+            <Link to="/parties" className="text-primary underline">
               Bachata parties in London
             </Link>
             {' '}&middot;{' '}
