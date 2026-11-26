@@ -90,18 +90,18 @@ export function meta(args: { data?: unknown }) {
 }
 
 // useParams() in the organiser page reads :id from the route match; "/" has none, so
-// hand it the label through a synthetic match (same as /organisers/<label>).
-function OrganiserOnSubdomain(props: { loaderData: { organiserLabel: string } }) {
+// hand it the label by REPLACING the last match with a copy carrying params.id. Do NOT
+// append a match with a new route id: the framework plugin wraps every route default
+// export in withComponentProps, which ignores props and reads useLoaderData() as
+// state.loaderData[<route id of the LAST match>]; a new id has no loader data, so the
+// organiser page got undefined and rendered "Organiser not found".
+export function OrganiserOnSubdomain(props: { loaderData: { organiserLabel: string } }) {
   const ctx = useContext(UNSAFE_RouteContext);
   const label = props.loaderData.organiserLabel;
-  const match = {
-    params: { id: label },
-    pathname: "/",
-    pathnameBase: "/",
-    route: { id: "organiser-subdomain", path: "/" },
-  };
+  const last = ctx.matches[ctx.matches.length - 1];
+  const match = { ...last, params: { ...last.params, id: label } };
   return (
-    <UNSAFE_RouteContext.Provider value={{ ...ctx, matches: [...ctx.matches, match as never] }}>
+    <UNSAFE_RouteContext.Provider value={{ ...ctx, matches: [...ctx.matches.slice(0, -1), match as never] }}>
       <OrganiserRoute
         {...(props as unknown as Parameters<typeof OrganiserRoute>[0])}
         params={{ id: label } as never}
