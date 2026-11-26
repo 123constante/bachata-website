@@ -9,7 +9,7 @@
 // the string and never converted through Date.
 
 import { dateLabel, localAsZTime } from './homeModel';
-import { MAX_OWNER_PASSES, PRICE_RE, ownerPassesFromStored } from './seriesCommands';
+import { MAX_OWNER_PASSES, PRICE_RE } from './seriesCommands';
 import type { BasicsDraft, OwnerCurrency } from './seriesCommands';
 
 export { dateLabel, localAsZTime };
@@ -202,23 +202,7 @@ export function parseDateDetail(raw: unknown): DateDetail {
 
 // ---- times -------------------------------------------------------------------
 
-/** "02:00:00" → 120. Only the HH:MM:SS interval form the column holds; else null. */
-export function durationMinutes(interval: string | null | undefined): number | null {
-  const m = interval?.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
-  if (!m) return null;
-  const minutes = Number(m[1]) * 60 + Number(m[2]);
-  return minutes > 0 ? minutes : null;
-}
-
 const toMinutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
-const pad = (n: number) => String(n).padStart(2, '0');
-
-/** Wall-clock end from a HH:MM start and a duration, wrapping past midnight. */
-export function endTime(start: string | null, minutes: number | null): string | null {
-  if (!start || !/^\d{2}:\d{2}/.test(start) || !minutes) return null;
-  const total = (toMinutes(start) + minutes) % 1440;
-  return `${pad(Math.floor(total / 60))}:${pad(total % 60)}`;
-}
 
 /** Minutes from start to end; an end before the start crosses midnight. Equal → null. */
 export function minutesBetween(start: string, end: string): number | null {
@@ -319,8 +303,6 @@ const weekdayOf = (date: string) => {
   return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
 };
 
-const WEEKDAY_PLURAL = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'];
-
 /**
  * Whether the series' own weekly rule generates this date. Only such a date
  * can be a break (series.skip_date): the server's unskip refuses a tombstone
@@ -336,22 +318,6 @@ export function isRuleDate(date: string, series: Pick<WorkspaceSeries, 'recurren
   if (anchor && date < anchor) return false;
   if (rule.until && date > rule.until) return false;
   return true;
-}
-
-/** "Weekly · Sundays · 19:30–21:30" (or "One-off · 19:30"). */
-export function scheduleSummary(series: WorkspaceSeries): string {
-  const rule = weeklyRule(series.recurrence_rule);
-  const start = series.default_local_start_time?.slice(0, 5) ?? null;
-  const end = endTime(start, durationMinutes(series.default_duration));
-  const parts: string[] = [];
-  if (rule && rule.weekdays.length > 0) {
-    parts.push(rule.interval === 1 ? 'Weekly' : `Every ${rule.interval} weeks`);
-    parts.push(rule.weekdays.map((d) => WEEKDAY_PLURAL[d]).join(', '));
-  } else {
-    parts.push(series.format === 'recurring' ? 'Repeating' : 'One-off');
-  }
-  if (start) parts.push(end ? `${start}–${end}` : start);
-  return parts.join(' · ');
 }
 
 /** Future tombstones the organiser can put back. */
@@ -430,21 +396,6 @@ export function passRowsProblem(rows: PassRow[] | null | undefined): string | nu
 /** An Instagram link the server takes from an owner: blank, or http(s) instagram.com with a path. */
 export const instagramUrlOk = (value: string) =>
   !value.trim() || /^https?:\/\/(www\.)?instagram\.com\/\S*$/i.test(value.trim());
-
-export function basicsFormFromSeries(s: WorkspaceSeries): BasicsForm {
-  const start = s.default_local_start_time?.slice(0, 5) ?? '';
-  return {
-    name: s.name,
-    description: s.default_description ?? '',
-    venueId: s.default_venue_id,
-    startTime: start,
-    endTime: endTime(start || null, durationMinutes(s.default_duration)) ?? '',
-    ticketUrl: s.default_ticket_url ?? '',
-    coverImageUrl: s.default_cover_image_url ?? '',
-    instagramUrl: s.instagram_url ?? '',
-    passes: ownerPassesFromStored(s.passes)?.map((p) => ({ ...p, price: p.price == null ? '' : String(p.price) })) ?? null,
-  };
-}
 
 export function formToDraft(f: BasicsForm): BasicsDraft {
   return {

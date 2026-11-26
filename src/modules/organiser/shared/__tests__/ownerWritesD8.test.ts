@@ -6,11 +6,9 @@ import {
   type BasicsDraft,
 } from '../seriesCommands';
 import {
-  basicsFormFromSeries,
   formToDraft,
   instagramUrlOk,
   passRowsProblem,
-  type WorkspaceSeries,
 } from '../seriesModel';
 import { commandErrorMessage } from '../selfServeErrors';
 import { isDateTimeSession, parseProgramItems, type RpcItem } from '../../../event-page/sections/EventScheduleGrid';
@@ -37,13 +35,6 @@ const base: BasicsDraft = {
   passes: [],
 };
 
-const series = (over: Partial<WorkspaceSeries> = {}): WorkspaceSeries => ({
-  id: 'ser-1', name: 'Friday Party', slug: null, format: 'recurring', category: 'party',
-  lifecycle_status: 'live', version: 3, default_venue_id: 'venue-1', default_local_start_time: '21:00:00',
-  default_duration: '04:00:00', default_ticket_url: null, default_description: null,
-  default_cover_image_url: null, default_start_date: '2026-10-09', instagram_url: null, passes: null,
-  created_at: null, recurrence_rule: null, removed_dates: [], ...over,
-});
 
 describe('D8: the two new owner keys', () => {
   it('the mirror carries default_passes and instagram_url', () => {
@@ -69,9 +60,6 @@ describe('D8: ownerPassesFromStored', () => {
     expect(ownerPassesFromStored({ entry: 1 })).toBeNull();
   });
 
-  it('a team-shaped list reads as not editable', () => {
-    expect(basicsFormFromSeries(series({ passes: [{ id: ID_A, name: 'Full', price: 1, tier: 'x' }] })).passes).toBeNull();
-  });
 });
 
 describe('D8: form checks match the server rules', () => {
