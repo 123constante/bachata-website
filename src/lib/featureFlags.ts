@@ -166,6 +166,9 @@ export const flags = {
   // Organiser Team R2 (brief #2161): one list with two switches (Can sign in / On public page) + Recent changes.
   // OFF = the R4Team screen exactly as before. Turn on with VITE_ENABLE_ORGANISER_TEAM_R2=true (Vercel env).
   organiserTeamR2:     import.meta.env.VITE_ENABLE_ORGANISER_TEAM_R2 === 'true',
+  // Organiser Team R3 W1 (brief #2179): Undo button on the owner's Recent changes rows.
+  // OFF = the R2 screen exactly as before. Turn on with VITE_ENABLE_ORGANISER_TEAM_R3=true (Vercel env).
+  organiserTeamR3:     import.meta.env.VITE_ENABLE_ORGANISER_TEAM_R3 === 'true',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the

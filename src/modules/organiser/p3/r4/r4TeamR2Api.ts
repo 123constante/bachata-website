@@ -14,7 +14,7 @@ export interface R4TeamR2Person {
 }
 export interface R4TeamR2Invite { role: string; expiresAt: string | null; createdAt: string | null }
 export interface R4TeamR2People { people: R4TeamR2Person[]; invites: R4TeamR2Invite[] }
-export interface R4TeamR2Change { at: string; actor: string; person: string; action: string; fromRole: string | null; toRole: string | null }
+export interface R4TeamR2Change { at: string; actor: string; person: string; action: string; fromRole: string | null; toRole: string | null; id: string | null; canUndo: boolean }
 
 export const teamR2PeopleKey = (org?: string) => ['organiser-team-r2-people', org] as const;
 export const teamR2ChangesKey = (org?: string) => ['organiser-team-r2-changes', org] as const;
@@ -50,7 +50,7 @@ export function parseChanges(raw: unknown): R4TeamR2Change[] {
     const at = str(r.at);
     const action = str(r.action);
     if (!at || !action) return [];
-    return [{ at, actor: str(r.actor_name) ?? 'Someone', person: str(r.person_name) ?? 'someone', action, fromRole: str(r.from_role), toRole: str(r.to_role) }];
+    return [{ at, actor: str(r.actor_name) ?? 'Someone', person: str(r.person_name) ?? 'someone', action, fromRole: str(r.from_role), toRole: str(r.to_role), id: str(r.id), canUndo: r.can_undo === true }];
   });
 }
 
@@ -72,6 +72,14 @@ export async function fetchTeamR2Changes(org: string, limit = 20): Promise<R4Tea
   const { data, error } = await rpc().rpc('organiser_team_recent_changes_v1', { p_org: org, p_limit: limit });
   if (error) return null;
   return parseChanges(data);
+}
+
+/** organiser_team_undo_v1 (owner only). Throws an Error whose message is the refusal code. */
+export async function undoTeamChange(org: string, changeId: string): Promise<void> {
+  const { data, error } = await rpc().rpc('organiser_team_undo_v1', { p_org: org, p_change_id: changeId });
+  if (error) throw new Error(error.message);
+  const o = obj(data);
+  if (o.ok === false) throw new Error(str(o.reason) ?? 'not_undoable');
 }
 
 /** organiser_team_invite_link_v1 (owner only): a fresh invite token. */

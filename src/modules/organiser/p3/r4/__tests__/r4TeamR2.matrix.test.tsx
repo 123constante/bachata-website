@@ -62,11 +62,12 @@ describe('R4 Team R2 model', () => {
     ['door_added', 'Ana added Leo to the door - 2h ago', {}],
     ['door_removed', 'Ana removed Leo from the door - 2h ago', {}],
     ['owner_handed_over', 'Ana handed the page over to Leo - 2h ago', {}],
+    ['undone', 'Ana undid a change for Leo - 2h ago', {}],
   ])('sentence for %s', (action, want, extra) => {
-    expect(changeSentence({ at: '2026-11-25T10:00:00Z', actor: 'Ana', person: 'Leo', action, fromRole: null, toRole: null, ...extra }, now)).toBe(want);
+    expect(changeSentence({ at: '2026-11-25T10:00:00Z', actor: 'Ana', person: 'Leo', action, fromRole: null, toRole: null, id: null, canUndo: false, ...extra }, now)).toBe(want);
   });
   it('says yesterday', () => {
-    expect(changeSentence({ at: '2026-11-24T10:00:00Z', actor: 'Ana', person: 'Leo', action: 'hidden', fromRole: null, toRole: null }, now)).toBe('Ana hid Leo from the public page - yesterday');
+    expect(changeSentence({ at: '2026-11-24T10:00:00Z', actor: 'Ana', person: 'Leo', action: 'hidden', fromRole: null, toRole: null, id: null, canUndo: false }, now)).toBe('Ana hid Leo from the public page - yesterday');
   });
 });
 

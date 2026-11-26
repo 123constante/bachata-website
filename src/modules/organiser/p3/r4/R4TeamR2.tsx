@@ -11,8 +11,9 @@ import { buildR4Team, type R4Waiting } from './r4TeamModel';
 import { Sheet } from '../screens/Sheet';
 import { P3_PATHS } from '../shell/paths';
 import { R4Chevron } from './R4Shell';
+import { flags } from '@/lib/featureFlags';
 import {
-  fetchTeamR2Changes, fetchTeamR2People, setTeamR2Switches, teamR2ChangesKey, teamR2PeopleKey,
+  fetchTeamR2Changes, fetchTeamR2People, setTeamR2Switches, teamR2ChangesKey, teamR2PeopleKey, undoTeamChange,
   type R4TeamR2Change, type R4TeamR2Person,
 } from './r4TeamR2Api';
 
@@ -24,7 +25,24 @@ export const R4_TEAM_R2_COPY = {
   generic: 'Could not save. Try again.',
   noChanges: 'No changes yet.',
   invite: 'Invite link sent - waiting',
+  undo: 'Undo',
+  undoing: 'Undoing...',
+  undone: 'Undone.',
+  undoMoved: "This changed again since, so it can't be undone.",
+  undoAlready: 'Already undone.',
+  undoOwner: "The owner's access can't be undone here.",
+  undoGeneric: 'Could not undo. Try again.',
 } as const;
+
+/** One plain line under the row for a refused undo (message = refusal code). */
+export function undoErrorLine(err: unknown): string {
+  const msg = String((err as { message?: unknown } | null)?.message ?? err ?? '').toLowerCase();
+  if (msg.includes('state_moved_on')) return R4_TEAM_R2_COPY.undoMoved;
+  if (msg.includes('already_undone')) return R4_TEAM_R2_COPY.undoAlready;
+  if (msg.includes('touches_owner')) return R4_TEAM_R2_COPY.undoOwner;
+  if (msg.includes('not_authorised') || msg.includes('not_authorized')) return R4_TEAM_R2_COPY.ownerOnly;
+  return R4_TEAM_R2_COPY.undoGeneric;
+}
 
 const ROLE_WORD: Record<R4TeamR2Person['role'], string> = { owner: 'Owner', manager: 'Manager', contributor: 'Contributor', door: 'Door' };
 const roleWord = (r: string | null) => (r && r in ROLE_WORD ? ROLE_WORD[r as R4TeamR2Person['role']] : r ? r.charAt(0).toUpperCase() + r.slice(1) : 'a role');
@@ -81,6 +99,7 @@ export function changeSentence(c: R4TeamR2Change, now: Date): string {
     case 'door_added': s = `${a} added ${p} to the door`; break;
     case 'door_removed': s = `${a} removed ${p} from the door`; break;
     case 'owner_handed_over': s = `${a} handed the page over to ${p}`; break;
+    case 'undone': s = `${a} undid a change for ${p}`; break;
     default: s = `${a} changed ${p}`;
   }
   return `${s} - ${agoWords(c.at, now)}`;
@@ -149,6 +168,20 @@ export function R4TeamR2() {
   const save = useMutation({
     mutationFn: (v: { userId: string; canSignIn: boolean; onPublic: boolean }) => setTeamR2Switches(org!, v.userId, v.canSignIn, v.onPublic),
   });
+  const [undoing, setUndoing] = useState<Set<string>>(new Set());
+  const [undoErrs, setUndoErrs] = useState<Record<string, string>>({});
+  const refreshTeam = () => Promise.all([
+    qc.invalidateQueries({ queryKey: teamR2PeopleKey(org) }),
+    qc.invalidateQueries({ queryKey: teamR2ChangesKey(org) }),
+  ]);
+  const undo = (id: string) => {
+    setUndoErrs((e) => { const { [id]: _drop, ...rest } = e; return rest; });
+    setUndoing((s) => new Set(s).add(id));
+    undoTeamChange(org!, id).then(
+      () => { setSaid(R4_TEAM_R2_COPY.undone); },
+      (err) => { setUndoErrs((e) => ({ ...e, [id]: undoErrorLine(err) })); },
+    ).then(() => refreshTeam()).finally(() => setUndoing((s) => { const n = new Set(s); n.delete(id); return n; }));
+  };
   const run = (p: R4TeamR2Person, next: { canSignIn: boolean; onPublic: boolean }, removing: boolean) => {
     setErrs((e) => { const { [p.userId]: _drop, ...rest } = e; return rest; });
     setOver((o) => ({ ...o, [p.userId]: next }));
@@ -240,7 +273,24 @@ export function R4TeamR2() {
           </button>
           {openChanges && (changes.data.length === 0
             ? <p className="r4-hint" data-testid="r4-team-r2-nochanges">{R4_TEAM_R2_COPY.noChanges}</p>
-            : <ul className="r4-stack">{changes.data.slice(0, 20).map((c, n) => <li key={n} className="r4-sub" data-testid="r4-team-r2-change">{changeSentence(c, now)}</li>)}</ul>)}
+            : <ul className="r4-stack">{changes.data.slice(0, 20).map((c, n) => {
+              const sentence = changeSentence(c, now);
+              const canUndo = flags.organiserTeamR3 && ctx.viewerRole === 'owner' && c.canUndo && !!c.id;
+              if (!canUndo) return <li key={n} className="r4-sub" data-testid="r4-team-r2-change">{sentence}</li>;
+              const id = c.id!;
+              const busy = undoing.has(id);
+              return (
+                <li key={n} className="r4-sub" data-testid="r4-team-r2-change">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span className="r4-grow">{sentence}</span>
+                    <button type="button" className="r4-linkbtn" data-testid="r4-team-r2-undo" aria-label={`Undo: ${sentence}`} disabled={busy} onClick={() => undo(id)} style={{ minHeight: 44 }}>
+                      {busy ? R4_TEAM_R2_COPY.undoing : R4_TEAM_R2_COPY.undo}
+                    </button>
+                  </div>
+                  {undoErrs[id] && <p className="r4-err" role="alert" data-testid="r4-team-r2-undoerr">{undoErrs[id]}</p>}
+                </li>
+              );
+            })}</ul>)}
         </section>
       )}
       {shown && (
