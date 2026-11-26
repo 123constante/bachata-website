@@ -3605,9 +3605,7 @@ export type Database = {
           default_city_id: string | null
           default_cover_image_url: string | null
           default_description: string | null
-          default_duration: string | null
           default_level: string | null
-          default_local_start_time: string | null
           default_music_styles: string[] | null
           default_start_date: string | null
           default_ticket_url: string | null
@@ -3665,9 +3663,7 @@ export type Database = {
           default_city_id?: string | null
           default_cover_image_url?: string | null
           default_description?: string | null
-          default_duration?: string | null
           default_level?: string | null
-          default_local_start_time?: string | null
           default_music_styles?: string[] | null
           default_start_date?: string | null
           default_ticket_url?: string | null
@@ -3725,9 +3721,7 @@ export type Database = {
           default_city_id?: string | null
           default_cover_image_url?: string | null
           default_description?: string | null
-          default_duration?: string | null
           default_level?: string | null
-          default_local_start_time?: string | null
           default_music_styles?: string[] | null
           default_start_date?: string | null
           default_ticket_url?: string | null

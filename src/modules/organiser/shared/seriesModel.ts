@@ -25,9 +25,6 @@ export interface WorkspaceSeries {
   lifecycle_status: string;
   version: number;
   default_venue_id: string | null;
-  default_local_start_time: string | null;
-  /** Postgres interval text, e.g. "02:00:00". */
-  default_duration: string | null;
   default_ticket_url: string | null;
   default_description: string | null;
   default_cover_image_url: string | null;
@@ -116,8 +113,6 @@ export function parseWorkspace(raw: unknown): SeriesWorkspace {
     lifecycle_status: String(s.lifecycle_status ?? ''),
     version: num(s.version),
     default_venue_id: str(s.default_venue_id),
-    default_local_start_time: str(s.default_local_start_time),
-    default_duration: str(s.default_duration),
     default_ticket_url: str(s.default_ticket_url),
     default_description: str(s.default_description),
     default_cover_image_url: str(s.default_cover_image_url),

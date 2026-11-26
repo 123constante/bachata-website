@@ -27,7 +27,6 @@ export interface HomeSeriesFull {
   format: string | null;
   category: string | null;
   lifecycle_status: string;
-  default_local_start_time: string | null;
   /** The event's cover; null drives the D6 `no_cover` row. */
   default_cover_image_url: string | null;
   /** When the series was created (timestamptz); a draft older than 7 days is a D6 row. */
