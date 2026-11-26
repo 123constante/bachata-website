@@ -15,7 +15,7 @@ Hard facts:
 |---|---|---|---|
 | S1 fixes + removals | DONE 2026-11-26 (#2279, #2281, cleanup #2282; Istanbul + Sueño data fixed in prod) | `/choreography` and `/practice-partners` 301 to `/` (bare) or `/city/:slug` (city forms); out of sitemap, breadcrumbs IA, SEO table, catchall client list, Dancers page link. Wrong-city festival data (Sueño Winter Weekender shown in London, is Nottingham; Istanbul congress shown in "Turku"). Beginner list must not include a monthly party. | prod-smoke with `forbid_text`; GSC 1 week |
 | S2 What's on | NEXT | One filter row on home (drop the second row, "All" once). `/classes /parties /tonight` + 7 weekday pages + style pages + `/bachata-parties-london` render What's on with a preset filter, list server-rendered. `/city/<slug>` server-rendered per city. `/city/<slug>/map` = city page with Map on (List/Map toggle). `/city/<slug>/calendar`, `/cities` merge into the city picker. Visible phone menu: city switch + sign in. | GSC clicks on `/classes`, weekday pages; home "seen in lists" |
-| S3 New here? + For organisers | NOT STARTED | `/learn-bachata-london` absorbs Guide + FAQ (one copy of each question); `/london-bachata-guide` and `/faq` 301 to it. For organisers page: list an event, tickets, sign in, raffles; `/start-organiser` (404 today) forwards to it. Raffles leaves the top menu. `/festivals` drops the Hub tiles. | GSC on `/learn-bachata-london` |
+| S3 New here? + For organisers | NEARLY DONE (S3a #2334, S3b #2343, S3b-2 #2349, S3c-1 #2360, S3c-2 #2359 live; S3c-3a/3b menu, header, footer, sitemap in flight #2357/#2358; S3b-3 route-file deletes parked as cleanup) | `/learn-bachata-london` absorbs Guide + FAQ (one copy of each question); `/london-bachata-guide` and `/faq` 301 to it. For organisers page: list an event, tickets, sign in, raffles; `/start-organiser` (404 today) forwards to it. Raffles leaves the top menu. `/festivals` drops the Hub tiles. | GSC on `/learn-bachata-london` |
 | S4 People & places | NOT STARTED, waits for bd person-page URL shape | ONE directory page, chips All/Dancers/DJs/Teachers/Organisers/Venues/Vendors/Video. `/dancers /djs /teachers /organisers /venues /vendors /videographers /all-profiles` + city forms open it pre-filtered, server-rendered. Every person row links to the bd person page. Venue/vendor detail pages and organiser subdomains server-render. Footer: ~45 organiser links leave the footer. | profile views from shared links, distinct sharers |
 
 Every slice ships behind a flag in `src/lib/featureFlags` (one flag per slice, `siteStructureS1`..`S4`), server routes read the same flag.
@@ -60,8 +60,8 @@ Every slice ships behind a flag in `src/lib/featureFlags` (one flag per slice, `
 |---|---|---|---|
 | `/learn-bachata-london` | 200, Learn + Guide + FAQ, each question once, FAQ JSON-LD | in | smoke, unit (no duplicate question) |
 | `/london-bachata-guide`, `/faq` | 301 `/learn-bachata-london` | out | smoke |
-| For organisers address (picked in S3) | 200 server-rendered | in | smoke |
-| `/start-organiser` | 301 to For organisers | out | smoke |
+| `/for-organisers` (picked in S3) | 200 server-rendered | in | smoke |
+| `/start-organiser` | NOT forwarded: it is the onboarding arc's organiser self-signup (DB flag organiser_onboarding_v2), decision 2026-11-26 | in | n/a |
 | `/raffles` | 200, server-rendered title, reached from For organisers, not top menu | in | smoke |
 
 ### Removed (S1)
