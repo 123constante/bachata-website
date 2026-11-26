@@ -7,7 +7,7 @@ const RECOVERY_LINKS = [
   { to: "/", label: "Home" },
   { to: "/tonight", label: "Bachata tonight" },
   { to: "/parties", label: "Bachata parties" },
-  { to: "/london-bachata-guide", label: "London bachata guide" },
+  { to: "/learn-bachata-london", label: "New to bachata?" },
 ];
 
 const NotFound = () => {
