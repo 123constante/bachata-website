@@ -67,6 +67,14 @@ import { Link } from 'react-router-dom';
 import { flags } from '@/lib/featureFlags';
 import { buildCityPath } from '@/lib/cityPath';
 import { feedEndRows } from '@/modules/home-polish/menuModel';
+// The shell's own look (chips, poster rows, cards: the .hm-* rules) lives in
+// homeMap.css. It is imported HERE, statically, so it ships as a route
+// stylesheet: server-rendered <link>, pinned to its deployment, covered by the
+// stylesheet reload script. Imported only from the lazy EventMap, it arrived
+// with the map chunk, and when that CSS failed (a stale deploy 404 after the
+// once-per-session reload was spent) Vite marks it seen and never retries, so
+// the whole homepage showed unstyled while the map tiles still drew.
+import './homeMap.css';
 
 // Leaflet + every viewport-branched map control. Lazy AND mapMounted-gated, so
 // the module is never even imported on the server.
