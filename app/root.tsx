@@ -29,6 +29,7 @@ import { shouldReloadOnRouteError, sessionStorageOrNull } from "./lib/routeError
 
 import { NavigationSplash } from "./NavigationSplash";
 import { useNonce } from "./nonce";
+import { STYLESHEET_RELOAD_SCRIPT } from "./lib/skewAssetUrl";
 import "@/index.css";
 import "@fontsource-variable/inter";
 
@@ -75,6 +76,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <html lang="en">
       <head>
         <meta charSet="UTF-8" />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: STYLESHEET_RELOAD_SCRIPT }} />
         {/* interactive-widget: on Android the keyboard shrinks the page, so fixed
             bottoms and dvh sit above it; src/lib/keyboard/keyboardSafe.ts covers
             the browsers that overlay it instead (iOS Safari, in-app tabs). */}

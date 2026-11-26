@@ -12,6 +12,7 @@ import { isSsrLoaderTimeoutError } from "./lib/ssrLoaderTimeout";
 import { resolveCatchallOutcome, type CatchallOutcome } from "./catchallGate";
 import { staticShellCacheHeaders } from "./detailLoader";
 import { isRealCitySlug } from "@/lib/cityValidity";
+import { pinManifest } from "./lib/skewAssetUrl";
 
 // Custom streaming server entry. Faithful to @vercel/react-router/entry.server
 // (isbot onAllReady, skew-protection cookie, streamTimeout abort) with the CSP
@@ -128,6 +129,11 @@ export default async function handleRequest(
     if (gated.status === 404) edge404 = gated.edge404;
     if (gated.status === 503) responseHeaders.set("Retry-After", "30");
   }
+  // First-visit skew pin: ?dpl= on every built asset URL (see ./lib/skewAssetUrl).
+  routerContext.manifest = pinManifest(routerContext.manifest as never, {
+    enabled: vercelSkewProtectionEnabled,
+    deploymentId: vercelDeploymentId,
+  }) as unknown as typeof routerContext.manifest;
   return new Promise((resolve, reject) => {
     let shellRendered = false;
     const nonce = randomBytes(16).toString("base64");
