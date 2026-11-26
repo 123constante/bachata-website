@@ -32,7 +32,7 @@ export type HubAppearance = { event_id: string | null; event_start_time: string 
 /** eventId null = the wall said there is a gig on dateLabel, the timeline has not arrived yet (no link yet). */
 export type NextGig = { eventId: string | null; dateLabel: string };
 
-export type RoleCardModel = { role: PersonRole; label: string; href: string; line: string };
+export type RoleCardModel = { role: PersonRole | 'organiser'; label: string; href: string; line: string };
 
 export type HubModel = {
   /** The role whose accent colours the face and decides the name (linkRoleFor, like the wall tile). */
@@ -128,6 +128,14 @@ export function hubModel(input: {
       label: roleTagsFor(badge, opts).find((t) => t.role === role)?.label ?? role,
       line: cardLine(role, gig, { years: view?.yearsDancing ?? null }),
     }));
+  // One card per organiser page (snapshot.organisers exists only with flags.hubOrganiserCard), after the role cards.
+  const organiserCards: RoleCardModel[] = (person.organisers ?? []).map((o) => ({
+    role: 'organiser',
+    label: 'Organiser',
+    href: `/organisers/${encodeURIComponent(o.slug || o.id)}`,
+    line: o.name,
+  }));
+  const allCards: RoleCardModel[] = [...cards, ...organiserCards];
   return {
     lead,
     heading,
@@ -142,8 +150,8 @@ export function hubModel(input: {
     tags: roleTagsFor({ ...badge, roles: person.heldRoles ?? person.roles }, opts),
     facts: factsOf(view?.yearsDancing ?? null, dj?.languages),
     nextGig: gig ? { eventId: gig.eventId, dateLabel: gig.dateLabel } : null,
-    cards,
+    cards: allCards,
     // No real name: never split the placeholder ("What Bachata does", critique #2).
-    cardsHeading: cards.length < 2 ? 'Their page' : person.name ? `What ${person.name.split(/\s+/)[0]} does` : 'What they do',
+    cardsHeading: allCards.length < 2 ? 'Their page' : person.name ? `What ${person.name.split(/\s+/)[0]} does` : 'What they do',
   };
 }

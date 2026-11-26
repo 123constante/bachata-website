@@ -122,7 +122,7 @@ export default function PersonHub({ person }: { person: PersonSnapshot }) {
             {m.cardsHeading}
           </h2>
           <div className="grid gap-3">
-            {m.cards.map((c) => <RoleCard key={c.role} card={c} personId={person.id} />)}
+            {m.cards.map((c) => <RoleCard key={c.role === 'organiser' ? c.href : c.role} card={c} personId={person.id} />)}
           </div>
         </div>
       </div>

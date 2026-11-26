@@ -61,6 +61,10 @@ export const flags = {
   // card per role page; wall tiles open it. OFF = the tabbed /people/:id page and the wall links
   // exactly as before. Turn on with VITE_ENABLE_PERSON_HUB=true (Vercel env) -- no code change.
   personHub:           import.meta.env.VITE_ENABLE_PERSON_HUB === 'true',
+  // An Organiser card on the person hub for each organiser page the person is on the public team
+  // of (get_public_person_organisers_v1). OFF = the hub and its loader snapshot exactly as before.
+  // Turn on with VITE_ENABLE_HUB_ORGANISER_CARD=true (Vercel env) -- no code change.
+  hubOrganiserCard:    import.meta.env.VITE_ENABLE_HUB_ORGANISER_CARD === 'true',
   // The three people worlds (teacher timetable, DJ sleeve, dancer card) built on
   // src/modules/person-page/{facts,frame,worlds}. OFF = every role page exactly as before.
   // Turn on with VITE_ENABLE_PERSON_WORLDS=true (Vercel env) -- no code change.

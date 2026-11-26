@@ -33,7 +33,38 @@ export type PersonSnapshot = {
    * still renders; the loaders bound its edge TTL and the seed marks it stale.
    */
   partial?: true;
+  /**
+   * Organiser pages this person is on the public team of. Present ONLY when flags.hubOrganiserCard is
+   * on (flag off = the same snapshot shape as before); a failed or missing read is [].
+   */
+  organisers?: PersonOrganiser[];
 };
+
+export type PersonOrganiser = { id: string; slug: string | null; name: string };
+
+type OrganisersRpc = (
+  fn: 'get_public_person_organisers_v1',
+  args: { p_person_id: string },
+) => Promise<{ data: unknown; error: { code?: string; message?: string } | null }>;
+
+/** get_public_person_organisers_v1 rows -> organisers; any failure (or a missing function) is []. */
+async function fetchPersonOrganisers(id: string): Promise<PersonOrganiser[]> {
+  try {
+    const rpc = supabase.rpc.bind(supabase) as unknown as OrganisersRpc;
+    const { data, error } = await rpc('get_public_person_organisers_v1', { p_person_id: id });
+    if (error || !Array.isArray(data)) return [];
+    const out: PersonOrganiser[] = [];
+    for (const r of data as Array<Record<string, unknown>>) {
+      const oid = typeof r?.organiser_id === 'string' ? r.organiser_id : null;
+      const name = typeof r?.name === 'string' ? r.name.trim() : '';
+      if (!oid || !name || out.some((o) => o.id === oid)) continue;
+      out.push({ id: oid, slug: typeof r.slug === 'string' && r.slug ? r.slug : null, name });
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
 
 type RolesRpc = (
   fn: 'get_public_person_roles_v1',
@@ -110,7 +141,10 @@ export async function loadPersonSnapshot(qc: QueryClient, id: string): Promise<P
         })
     : Promise.resolve(false);
 
+  const organisersP = flags.hubOrganiserCard ? fetchPersonOrganisers(id) : null;
+
   const [dancer, dj, isTeacher, publicRoles] = await Promise.all([dancerP, djP, teacherP, rolesP]);
+  const organisers = organisersP ? await organisersP : null;
   if (!dancer) return null;
 
   const view = mapDancerPublicProfile(dancer as never);
@@ -134,6 +168,7 @@ export async function loadPersonSnapshot(qc: QueryClient, id: string): Promise<P
     roles,
     heldRoles: publicRoles ?? roles,
     djPhoto: ((Array.isArray(djPhoto) ? djPhoto[0] : djPhoto) as string | null | undefined) ?? null,
+    ...(organisers ? { organisers } : {}),
     // A failed DJ read loses something only when it could show: the DJ tab (inferred roles, or the DB
     // says dj) or the DJ photo standing in for a missing avatar.
     ...((djFailed && (publicRoles === null || publicRoles.includes('dj') || !view.avatarUrl)) ||
