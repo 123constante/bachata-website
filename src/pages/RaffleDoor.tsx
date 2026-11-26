@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { rpcLoose } from '@/integrations/supabase/rpcLoose';
+import { flags } from '@/lib/featureFlags';
+import { londonDateKey, londonDaysBetweenKeys, parseUtcIso } from '@/lib/londonDate';
 import { useSeo } from '@/lib/seo';
 import { parseMyWinTokens } from '@/modules/dancer-app/screens/home/raffleWinModel';
 
@@ -32,6 +34,33 @@ export function formatDoorDate(raw: string | null | undefined): string {
   const d = Number(m[3]);
   const dow = new Date(Date.UTC(y, mo - 1, d)).getUTCDay();
   return `${DAYS[dow]} ${d} ${MONTHS[mo - 1]}`;
+}
+
+const ISO_PARTS = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})/;
+
+/**
+ * Raw admitted-at value -> "Used today at 20:00" / "Used yesterday at 20:00" /
+ * "Used Sun 29 Nov at 20:00". No zone = already London wall time; a zone is
+ * converted to London. Anything else (e.g. '21:40') -> "Used at 21:40".
+ */
+export function formatUsedAt(raw: string, now: Date = new Date()): string {
+  const text = (raw ?? '').trim();
+  const m = ISO_PARTS.exec(text);
+  if (!m) return text ? `Used at ${text}` : 'Used already';
+  let dateKey = m[1];
+  let hh = m[2];
+  let mm = m[3];
+  if (/([zZ]|[+-]\d{2}(:?\d{2})?)$/.test(text)) {
+    const d = parseUtcIso(text);
+    if (!d) return `Used at ${text}`;
+    dateKey = londonDateKey(d);
+    const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(d);
+    hh = parts.find((p) => p.type === 'hour')?.value ?? hh;
+    mm = parts.find((p) => p.type === 'minute')?.value ?? mm;
+  }
+  const ago = londonDaysBetweenKeys(dateKey, londonDateKey(now));
+  const day = ago === 0 ? 'today' : ago === 1 ? 'yesterday' : formatDoorDate(dateKey);
+  return `Used ${day} at ${hh}:${mm}`;
 }
 
 /** Parse an RPC reply; anything unrecognised is treated as not valid. */
@@ -162,7 +191,9 @@ export function DoorScreen(props: { view: View; busy: boolean; onAdmit: () => vo
         <>
           {card}
           <p className="mt-3 text-sm text-muted-foreground" data-testid="door-used-at">
-            This prize was used at {result.admittedAtLocal}.
+            {flags.raffleDoorTime
+              ? `${formatUsedAt(result.admittedAtLocal)}.`
+              : `This prize was used at ${result.admittedAtLocal}.`}
           </p>
           <p className="mt-2 text-sm font-semibold" data-testid="door-photo-rule">
             {result.photoUrl
