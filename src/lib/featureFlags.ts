@@ -191,6 +191,8 @@ export const flags = {
   // Organiser class invites (brief #2247): invite a named teacher who is not on the site, from a stored class's Teachers group.
   // OFF = the session sheet is exactly as before. Stays OFF in production until /join/class/:token ships. VITE_ENABLE_ORGANISER_CLASS_INVITES=true.
   organiserClassInvites: import.meta.env.VITE_ENABLE_ORGANISER_CLASS_INVITES === 'true',
+  // Organiser Home "<class> has no teacher yet" waiting row (brief #2286). OFF = Home is exactly as before, no extra call.
+  organiserNoTeachersCard: import.meta.env.VITE_ENABLE_ORGANISER_NO_TEACHERS_CARD === 'true',
   // Raffle data requests (brief #2227): one line in /privacy to a /privacy/raffle-data page with an Email us button,
   // and "You agreed on 24 Nov 2026" on the export page. OFF = every screen exactly as before.
   // Turn on with VITE_ENABLE_RAFFLE_PRIVACY_LINE=true (Vercel env) -- no code change.

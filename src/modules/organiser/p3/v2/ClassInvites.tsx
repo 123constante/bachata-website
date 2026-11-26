@@ -21,6 +21,13 @@ export interface WaitingInvite {
   next_date: string; last_sent_at: string | null; status: 'open' | 'expired';
 }
 
+/** One row of organiser_classes_without_teachers_v1 (admin#2449): a class in the next 7 days with no teachers. */
+export interface NoTeacherClass {
+  series_id: string; event_name: string; occurrence_id: string; date: string; session_id: string | null;
+  added_only: boolean; class_title: string; start_time: string | null;
+}
+export const noTeachersKey = (organiserId: string) => ['classes-without-teachers', organiserId] as const;
+
 export const classInvitesKey = (occurrenceId: string) => ['class-invites', occurrenceId] as const;
 export const waitingInvitesKey = (organiserId: string) => ['class-invites-waiting', organiserId] as const;
 export const MAX_NAME = 80;
@@ -34,6 +41,13 @@ export async function listClassInvites(occurrenceId: string): Promise<ClassInvit
 export async function fetchWaitingInvites(organiserId: string): Promise<WaitingInvite[]> {
   const d = must(await rpc('organiser_class_invites_waiting_v1', { p_organiser_id: organiserId }));
   return Array.isArray(d) ? (d as WaitingInvite[]) : [];
+}
+/** organiser_classes_without_teachers_v1 may not be on prod yet: ANY error or non-array is "no rows". */
+export async function classesWithoutTeachers(organiserId: string): Promise<NoTeacherClass[]> {
+  try {
+    const r = await rpc('organiser_classes_without_teachers_v1', { p_organiser_id: organiserId });
+    return !r.error && Array.isArray(r.data) ? (r.data as NoTeacherClass[]) : [];
+  } catch { return []; }
 }
 export async function createClassInvite(a: { occurrenceId: string; itemId: string | null; addedId: string | null; name: string; forward: boolean }): Promise<InviteLink> {
   return must(await rpc('organiser_class_invite_create_v1', {

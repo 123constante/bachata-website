@@ -4,7 +4,7 @@
  */
 import type { HomeClock, PastNight } from '../dash/dashModel';
 import { moneyTileOf, type R4NightMoney } from './r4MoneyModel';
-import type { WaitingInvite } from '../v2/ClassInvites';
+import type { NoTeacherClass, WaitingInvite } from '../v2/ClassInvites';
 
 export const R4_TABS = ['home', 'events', 'tickets', 'team'] as const;
 export type R4Tab = (typeof R4_TABS)[number];
@@ -124,7 +124,16 @@ export function inviteDateLabel(iso: string): string {
   return `${get('weekday')} ${get('day')} ${get('month')}`;
 }
 
-export type R4WaitGo = 'place' | 'event' | 'dates' | 'photo' | 'answer' | 'resend';
+/** "19:30" or "19:30:00" -> "7:30pm"; null when absent or unreadable. */
+export function classTimeLabel(t: string | null | undefined): string | null {
+  const m = /^(\d{1,2}):(\d{2})/.exec(t ?? '');
+  if (!m) return null;
+  const h = Number(m[1]);
+  if (h > 23) return null;
+  return `${h % 12 || 12}:${m[2]}${h < 12 ? 'am' : 'pm'}`;
+}
+
+export type R4WaitGo = 'place' | 'event' | 'dates' | 'photo' | 'answer' | 'resend' | 'teachers';
 export interface R4WaitItem { key: string; title: string; detail: string; action: string; go: R4WaitGo; id: string }
 export interface R4WaitModel { heading: string; items: R4WaitItem[]; more: number }
 
@@ -139,7 +148,7 @@ export const R4_WAIT_CAP = 5;
  * Then join requests (owners and managers only). Refunds are not here: no refund-request read
  * exists (every refund is the owner's own move on an order).
  */
-export function r4WaitingOf(i: { rows: readonly R4WaitRow[]; todoIds: ReadonlySet<string>; requests: readonly R4WaitRequest[] | null; editor: boolean; invites?: readonly WaitingInvite[] | null }): R4WaitModel {
+export function r4WaitingOf(i: { rows: readonly R4WaitRow[]; todoIds: ReadonlySet<string>; requests: readonly R4WaitRequest[] | null; editor: boolean; invites?: readonly WaitingInvite[] | null; noTeachers?: readonly NoTeacherClass[] | null }): R4WaitModel {
   const items: R4WaitItem[] = [];
   for (const r of i.rows) {
     if (!i.todoIds.has(r.id)) continue;
@@ -154,6 +163,14 @@ export function r4WaitingOf(i: { rows: readonly R4WaitRow[]; todoIds: ReadonlySe
       key: `i-${v.invite_id}`, title: `${v.display_name} hasn't joined yet`,
       detail: `Teaching ${v.class_title} at ${v.event_name} on ${inviteDateLabel(v.next_date)}.${v.status === 'expired' ? ' Their link has expired.' : ''}`,
       action: 'Resend', go: 'resend', id: v.invite_id,
+    });
+  }
+  for (const c of i.noTeachers ?? []) {
+    const at = classTimeLabel(c.start_time);
+    items.push({
+      key: `t-${c.occurrence_id}-${c.session_id}`, title: `${c.class_title} has no teacher yet`,
+      detail: `At ${c.event_name} on ${inviteDateLabel(c.date)}${at ? `, ${at}` : ''}.`,
+      action: 'Add teacher', go: 'teachers', id: c.occurrence_id,
     });
   }
   if (i.editor) {
