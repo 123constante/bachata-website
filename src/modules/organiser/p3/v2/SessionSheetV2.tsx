@@ -7,6 +7,8 @@ import { addRoleFor, onSessionIds, pickPerson, typeLabel } from '../../dates/dat
 import { PeopleGroup, type GroupPerson } from './PeopleGroup';
 import { V2Sheet } from './V2Sheet';
 import { V2 } from './copy';
+import { ClassInvites } from './ClassInvites';
+import { flags } from '@/lib/featureFlags';
 
 const LEVELS = LEVEL_KEYS.filter((k) => k !== 'open_level');
 const GROUP_LABEL: Record<PeopleRole, string> = { teaching: 'Teachers', djing: 'DJs' };
@@ -19,6 +21,8 @@ export interface SessionSheetProps {
   ctx: 'night' | 'usual';
   /** "Thursday 26 November" for a night, "Thursday" for the usual week. */
   dayLabel: string;
+  /** Night sheet only: lets a stored class invite a teacher who is not on the site (flagged). */
+  invite?: { occurrenceId: string; eventName: string; dateLabel: string; canForwardItem: boolean };
   onDone: (row: DraftSession) => void;
   onRemove: (row: DraftSession) => void;
   onClose: () => void;
@@ -64,7 +68,7 @@ export function timesProblem(start: string, end: string): boolean {
 }
 
 /** SH-SES: add, change or remove one class or party. Controlled: it hands the finished row back and saves nothing. */
-export function SessionSheetV2({ row, count, ctx: _ctx, dayLabel: _dayLabel, onDone, onRemove, onClose }: SessionSheetProps) {
+export function SessionSheetV2({ row, count, ctx: _ctx, dayLabel: _dayLabel, invite, onDone, onRemove, onClose }: SessionSheetProps) {
   const [d, setD] = useState<DraftSession>(() => row ?? { key: 'new', original: null, type: 'class', title: '', start: '', end: '', levels: [], removed: false, people: [] });
   const [tried, setTried] = useState(false);
   const isNew = !row;
@@ -127,7 +131,10 @@ export function SessionSheetV2({ row, count, ctx: _ctx, dayLabel: _dayLabel, onD
           idx.set(p.id, i);
           shown.push({ id: p.id, name: p.name, canRemove: g.editable && isEditableRole(p.role) });
         });
-        return (
+        const item = d.original && typeof d.original.series_item_id === 'string' ? d.original.series_item_id : null;
+        const added = d.original && typeof d.original.added_session_id === 'string' ? d.original.added_session_id : null;
+        const showInvites = flags.organiserClassInvites && !!invite && !!d.original && g.role === 'teaching' && (item !== null || added !== null);
+        const group = (
           <PeopleGroup
             key={g.label}
             label={g.label}
@@ -138,6 +145,14 @@ export function SessionSheetV2({ row, count, ctx: _ctx, dayLabel: _dayLabel, onD
             onAdd={(p) => setD((r) => pickPerson(r, p))}
             onRemove={(id) => setD((r) => { const i = (r.people ?? []).findIndex((p) => p.id === id); return i < 0 ? r : removePerson(r, i); })}
           />
+        );
+        if (!showInvites || !invite) return group;
+        return (
+          <div key={g.label}>
+            {group}
+            <ClassInvites occurrenceId={invite.occurrenceId} itemId={item} addedId={added} classTitle={d.title.trim() || typeLabel(d.type)}
+              eventName={invite.eventName} dateLabel={invite.dateLabel} canForward={invite.canForwardItem && item !== null} />
+          </div>
         );
       })}
       {lost.length > 0 && <p className="warn">{V2.session.willRemove(lost.join(', '))}</p>}

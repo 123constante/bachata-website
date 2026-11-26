@@ -208,7 +208,7 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
           onBack={back('price', V2.price)} onGoTickets={() => { setSheet(null); onOpenTickets?.(); }}
           onLink={() => { setSheet(null); onChangeLink?.(); }} onClose={() => setSheet(null)} />
       )}
-      {whenOpen && onSave && <WhenSheet date={date} laterDates={ws.dates} oneOff={s.format === 'one_off'} today={today} onSave={onSave} onClose={() => setWhenOpen(false)} />}
+      {whenOpen && onSave && <WhenSheet date={date} laterDates={ws.dates} eventName={s.name ?? undefined} oneOff={s.format === 'one_off'} today={today} onSave={onSave} onClose={() => setWhenOpen(false)} />}
     </div>
   );
 }

@@ -48,8 +48,10 @@ export function SessionRows({ rows, onOpen }: { rows: DraftSession[]; onOpen: (r
 }
 
 /** SH-WHEN: this night's date (one-off only) and its classes and party. Saves at once through onSave. */
-export function WhenSheet({ date, oneOff, today, onSave, onClose, laterDates }: {
+export function WhenSheet({ date, oneOff, today, onSave, onClose, laterDates, eventName }: {
   date: WorkspaceDate; laterDates?: WorkspaceDate[]; oneOff: boolean; today: string; onSave: OnSave; onClose: () => void;
+  /** The series name the night editor shows; used in the class invite message. */
+  eventName?: string;
 }) {
   const why = nightSessionsOff(date, today, false);
   const prog = useDateProgramme(why ? null : date.id);
@@ -133,6 +135,7 @@ export function WhenSheet({ date, oneOff, today, onSave, onClose, laterDates }: 
       {problem && <p className="err" role="alert" data-testid="when-problem">{problem}</p>}
       {editing && (
         <SessionSheetV2 row={editing.row} count={shown.length} ctx="night" dayLabel={long}
+          invite={{ occurrenceId: date.id, eventName: eventName ?? 'the event', dateLabel: long, canForwardItem: !oneOff && laterNights(laterDates ?? [], date, today).length > 0 }}
           onDone={onDone} onRemove={onRemove} onClose={() => setEditing(null)} />
       )}
       {ask && (
