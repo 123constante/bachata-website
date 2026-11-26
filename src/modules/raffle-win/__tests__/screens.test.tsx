@@ -1,12 +1,15 @@
+// @vitest-environment jsdom
 // W4a keep-list: every prototype element of the winner screens, asserted.
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { cleanup, render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import GateScreen, { FROM_AUTH_KEY } from '../screens/GateScreen';
 import WonScreen from '../screens/WonScreen';
 import HonestySheet from '../screens/HonestySheet';
 import StatusScreen from '../screens/StatusScreen';
 import { winAuthHref } from '../model';
+
+afterEach(cleanup);
 
 const wrap = (ui: React.ReactElement) => render(<MemoryRouter>{ui}</MemoryRouter>);
 const night = { title: 'Friday Bachata', startLocal: '2026-12-04T20:00:00', venueName: 'Bar Luna' };

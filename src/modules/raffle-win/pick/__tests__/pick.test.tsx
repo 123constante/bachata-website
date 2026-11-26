@@ -1,10 +1,13 @@
-import { describe, it, expect, vi } from 'vitest';
+// @vitest-environment jsdom
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { useState } from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { OpenNight } from '../../model';
 import { PickScreen } from '../PickScreen';
 import { REFUSAL_LINES, type PickRefusal } from '../pickCopy';
 import { applyRefusal, formatPickDate, groupNights, type PickSelection } from '../pickModel';
+
+afterEach(cleanup);
 
 const n = (id: string, ev: string | null, title: string, start: string, venue = 'Bar Luna', poster: string | null = null): OpenNight => ({
   occurrenceId: id, title, startLocal: start, venueName: venue, posterUrl: poster, publicEventId: ev,
