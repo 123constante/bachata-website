@@ -25,6 +25,9 @@ export const flags = {
   // /raffles redesign part A (look C v6: hero, orbs, steps, footer, sticky bar). Only read when raffleV2 is on.
   // OFF = today's board page, unchanged. Turn on with VITE_ENABLE_RAFFLE_REDESIGN=true.
   raffleRedesign:      import.meta.env.VITE_ENABLE_RAFFLE_REDESIGN === 'true',
+  // Event-page raffle tile opens the same black + orange /raffles entry sheet, with plainer copy and an in-sheet
+  // "closed" note. Only read when raffleV2 is on. OFF = today's tile and dialog. VITE_ENABLE_RAFFLE_TILE_SHEET=true.
+  raffleTileSheet:     import.meta.env.VITE_ENABLE_RAFFLE_TILE_SHEET === 'true',
   // Federated search v5 (Cmd+K / mobile full-screen overlay + search_public_v5).
   // When false the existing HeaderSearch omnibox (search_public_v4) renders
   // unchanged, so prod is untouched until this flips per-environment.

@@ -129,6 +129,9 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
   const [neutralVariant, setNeutralVariant] = useState<'sent_unconfirmed' | 'no_claim'>('no_claim');
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [shaking, setShaking] = useState(false);
+  // Tile-sheet flag: a closed raffle is said inside the sheet, not as a passing toast.
+  const sheetOn = !!flags.raffleTileSheet;
+  const [closedNote, setClosedNote] = useState(false);
   const [ackState, setAckState] = useState<{ title: string; body: string; emoji: string; testId?: string } | null>(null);
 
   // Invalidates in-flight confirmation work when the dialog closes/reopens —
@@ -153,14 +156,15 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
         setNeutralVariant('no_claim');
         setAckState(null);
         setPhoneError(null);
+        setClosedNote(false);
       }, 200);
       return () => window.clearTimeout(t);
     }
   }, [open]);
 
   const canSubmit = useMemo(
-    () => phase === 'form' && (redesign || phoneValid) && (flags.raffleV2 || consent),
-    [phase, phoneValid, consent, redesign],
+    () => phase === 'form' && !closedNote && (redesign || phoneValid) && (flags.raffleV2 || consent),
+    [phase, phoneValid, consent, redesign, closedNote],
   );
 
   const redesignDone = redesign && (phase === 'success_verified' || phase === 'success_neutral');
@@ -211,7 +215,9 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
       if (generation !== generationRef.current) return;
       if (res.error) {
         setPhase('form');
-        toast.error('Network error. Please check your connection and try again.');
+        toast.error(sheetOn
+          ? 'No internet. Check your connection and try again.'
+          : 'Network error. Please check your connection and try again.');
         return;
       }
       const joined = res.data as PoolJoinResponse;
@@ -230,6 +236,7 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
         }
         setPhase('form');
         if (poolReason === 'cutoff_passed' || poolReason === 'raffle_closed') {
+          if (sheetOn) { setClosedNote(true); return; }
           toast.error('This raffle has closed.');
           return;
         }
@@ -429,7 +436,7 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
               <svg viewBox="0 0 24 24" width="46" height="46"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </div>
             <DialogTitle className="rd-sheet__done-h" data-testid="raffle-done-heading">You&rsquo;re in!</DialogTitle>
-            <DialogDescription className="rd-sheet__done-p" data-testid="raffle-done-text">Your number is in the draw for every night. Winners are announced weekly.</DialogDescription>
+            <DialogDescription className="rd-sheet__done-p" data-testid="raffle-done-text">{sheetOn ? 'Your number is in the draw for every night. We’ll WhatsApp you if you win.' : 'Your number is in the draw for every night. Winners are announced weekly.'}</DialogDescription>
             <Button type="button" onClick={() => onOpenChange(false)} className="rd-sheet-go w-full">Done</Button>
           </div>
         ) : phase === 'success_verified' ? (
@@ -533,6 +540,9 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
 
             {flags.raffleV2 ? (
               <div className="space-y-2 pt-1">
+                {closedNote && (
+                  <p role="alert" className="rd-sheet__err" data-testid="raffle-closed-note">This raffle has closed.</p>
+                )}
                 <Button
                   type="submit"
                   disabled={!canSubmit}
