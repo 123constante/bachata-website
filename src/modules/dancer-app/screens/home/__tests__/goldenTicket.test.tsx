@@ -103,6 +103,36 @@ describe('golden ticket states', () => {
     expect(screen.getByText('Your free night is tonight')).toBeTruthy();
   });
 
+  it('no emoji or entity glyphs in any flag-on state; both perforation notches render', async () => {
+    const GLYPHS = ['\u{1F4C5}', '\u{1F4CD}', '\u{1F512}', '\u{1F6E1}', '\u2922', '\u2197', '\u2713', '\u2600', '\uFE0F'];
+    const bare = (el: HTMLElement) => GLYPHS.forEach((g) => expect(el.textContent).not.toContain(g));
+    sessionStorage.setItem(RAFFLE_FRESH_KEY, '1');
+    rpc.mockResolvedValue({ data: WIN(NIGHT), error: null });
+    let r = shell();
+    await screen.findByText('You won, Maya!');
+    bare(r.container);
+    expect(screen.getByTestId('gt-notch-l')).toBeTruthy();
+    expect(screen.getByTestId('gt-notch-r')).toBeTruthy();
+    expect(r.container.querySelectorAll('svg[aria-hidden="true"]').length).toBeGreaterThanOrEqual(5);
+    cleanup(); sessionStorage.clear();
+    r = shell();
+    await screen.findByText('Your free night is in 3 days');
+    fireEvent.click(screen.getByTestId('raffle-win-qr'));
+    await screen.findByText('Show this at the door');
+    bare(r.container);
+    cleanup();
+    rpc.mockResolvedValue({ data: WIN(null), error: null });
+    r = shell();
+    await screen.findByText('Your night is locked');
+    bare(r.container);
+    cleanup();
+    rpc.mockResolvedValue({ data: WIN(NIGHT, { state: 'attended', attended: true }), error: null });
+    r = shell();
+    await screen.findByTestId('gt-stamp');
+    bare(r.container);
+    expect(screen.getByTestId('gt-notch-l')).toBeTruthy();
+  });
+
   it('flag off: today’s card, none of the golden parts', async () => {
     flag.on = false;
     rpc.mockResolvedValue({ data: WIN(NIGHT), error: null });
