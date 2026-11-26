@@ -11,7 +11,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, ChevronRight, Moon, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { flags } from '@/lib/featureFlags';
 import { useAuth } from '@/hooks/useAuth';
 import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
@@ -166,7 +165,6 @@ function MenuView({ onClose, onSearch, onSupport }: { onClose: () => void; onSea
     signInHref: buildSignInHref(`${pathname}${search}`),
     venuesHref: buildCityPath(citySlug, 'venues'),
     communityHref: WHATSAPP_GROUP_URL,
-    rafflesOn: flags.rafflesPage,
     accountHref: ACCOUNT_HOME_PATH,
     organiserHomeHref: ORGANISER_AREA_HOME_PATH,
     sellTicketsHref: p3 ? `${ORGANISER_AREA_HOME_PATH}/events` : ORGANISER_AREA_HOME_PATH,

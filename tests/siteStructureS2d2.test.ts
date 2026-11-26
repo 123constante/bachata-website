@@ -26,7 +26,7 @@ describe('S2d-2: /cities forwards to the London city page', () => {
 
   it.each(['signedOut', 'signedIn', 'organiser'] as const)('menu city row (%s) goes to /city/london-gb', (role) => {
     const { browse } = menuRows({
-      role, signInHref: '/auth', venuesHref: '/venues', communityHref: 'https://x', rafflesOn: true,
+      role, signInHref: '/auth', venuesHref: '/venues', communityHref: 'https://x',
       accountHref: '/account', organiserHomeHref: '/o', sellTicketsHref: '/s',
     });
     const city = browse.find((r) => r.id === 'cities');
