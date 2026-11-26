@@ -28,6 +28,9 @@ export const flags = {
   // Event-page raffle tile opens the same black + orange /raffles entry sheet, with plainer copy and an in-sheet
   // "closed" note. Only read when raffleV2 is on. OFF = today's tile and dialog. VITE_ENABLE_RAFFLE_TILE_SHEET=true.
   raffleTileSheet:     import.meta.env.VITE_ENABLE_RAFFLE_TILE_SHEET === 'true',
+  // Door page "Already admitted": friendly London time ("Used today at 20:00") instead of the raw value.
+  // OFF = today's door screen, unchanged. Turn on with VITE_ENABLE_RAFFLE_DOOR_TIME=true.
+  raffleDoorTime:      import.meta.env.VITE_ENABLE_RAFFLE_DOOR_TIME === 'true',
   // Federated search v5 (Cmd+K / mobile full-screen overlay + search_public_v5).
   // When false the existing HeaderSearch omnibox (search_public_v4) renders
   // unchanged, so prod is untouched until this flips per-environment.
