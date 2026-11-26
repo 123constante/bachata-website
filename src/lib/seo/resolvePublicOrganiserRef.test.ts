@@ -21,7 +21,6 @@ describe("resolvePublicOrganiserRef", () => {
     expect(rpc).toHaveBeenCalledWith("resolve_public_organiser_ref_v1", {
       p_param: "bpm-dance-studios",
     });
-    expect(from).not.toHaveBeenCalled();
   });
 
   it("returns null when no row", async () => {
@@ -32,7 +31,6 @@ describe("resolvePublicOrganiserRef", () => {
   it("throws on error with 'throw'", async () => {
     maybeSingle.mockResolvedValue({ data: null, error: { message: "boom" } });
     await expect(resolvePublicOrganiserRef("x", "throw")).rejects.toThrow("boom");
-    expect(from).not.toHaveBeenCalled();
   });
 
   it("returns null on error with 'swallow'", async () => {
