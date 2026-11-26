@@ -11,13 +11,13 @@ import { SITE_ORIGIN, type SeoInput } from '@/lib/seo';
 import { serialiseJsonLd } from '@/lib/serialiseJsonLd';
 import { INSTAGRAM_URL } from '@/lib/contactLinks';
 
-interface Faq {
+export interface Faq {
   q: string;
   a: string;
   body: React.ReactNode;
 }
 
-const FAQS: Faq[] = [
+export const FAQS: Faq[] = [
   {
     q: 'Where can I dance bachata in London tonight?',
     a: "Bachata Calendar lists every bachata social, class and party in London tonight - filter by night and venue. The Tonight page shows what's on within the next few hours so you can pick a venue, time and style without trawling a dozen pages.",
@@ -161,19 +161,6 @@ const FAQS: Faq[] = [
         Dominican guitar music. Many London nights play both - the music policy is on
         each listing on the{' '}
         <Link to="/parties" className="text-primary underline">Parties page</Link>.
-      </>
-    ),
-  },
-  {
-    q: 'Is bachata hard to learn?',
-    a: 'No - bachata is widely considered the easiest Latin partner dance to begin. The basic step is a side-to-side weight shift on a 1-2-3-tap count, and you can dance it to music in your first hour. Looking polished takes months, but having fun takes one class.',
-    body: (
-      <>
-        No. The basic step is a side-to-side weight shift (1-2-3-tap) you can do to music
-        in your first hour - bachata is the easiest Latin partner dance to start. Polish
-        takes months; fun takes one class. Our{' '}
-        <Link to="/learn-bachata-london" className="text-primary underline">beginner&rsquo;s guide</Link>{' '}
-        walks you through it.
       </>
     ),
   },
