@@ -183,6 +183,10 @@ export const flags = {
   // and "You agreed on 24 Nov 2026" on the export page. OFF = every screen exactly as before.
   // Turn on with VITE_ENABLE_RAFFLE_PRIVACY_LINE=true (Vercel env) -- no code change.
   rafflePrivacyLine:   import.meta.env.VITE_ENABLE_RAFFLE_PRIVACY_LINE === 'true',
+  // Raffle waiting (brief #2233): once the visitor is in, the event-page raffle tile shows "Recent winners"
+  // (up to 6) and "The more draws you're in, the more chances you get." OFF = today's tile, unchanged.
+  // Turn on with VITE_ENABLE_RAFFLE_WINNERS_WALL=true (Vercel env) -- no code change.
+  raffleWinnersWall:   import.meta.env.VITE_ENABLE_RAFFLE_WINNERS_WALL === 'true',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the

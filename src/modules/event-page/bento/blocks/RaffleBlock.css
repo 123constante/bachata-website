@@ -465,3 +465,6 @@
 .rsb-winner-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 8px; }
 .rsb-winner-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-size: 13px; color: hsl(var(--bento-fg)); }
 a.rsb-winner-chip { text-decoration: underline; text-underline-offset: 2px; }
+.rsb-wall { margin: 10px 0 0; text-align: center; }
+.rsb-wall-title { margin: 0 0 4px; font-size: 13px; font-weight: 700; color: hsl(var(--bento-fg)); }
+.rsb-wall .rsb-winner-chip { min-height: 44px; }
