@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import type { MapEvent, MapTab, MapCategory } from './mapTypes';
-import { isRemoteRow } from './mapTypes';
+import { isRemoteRow, rowHref } from './mapTypes';
 import { isDesktopViewport } from './viewport';
 import {
   dedupePins,
@@ -15,6 +15,20 @@ import {
 } from './mapListDerivations';
 import type { HomeStats } from './mapListDerivations';
 import type { MapApi } from './EventMap';
+
+export const isAbsoluteHref = (href: string): boolean => /^https?:\/\//i.test(href);
+
+/**
+ * Open an event link. An event on its own sub-address (an absolute href) is a
+ * plain page change. Routing it through /event/:id runs a loader whose answer
+ * is a redirect to another host, so the page leaves while the router is still
+ * 'loading'; Back then restores it mid-navigation and NavigationSplash reloads
+ * it -- the old page flashes, then the fresh one (owner phone, 2026-11-26).
+ */
+export function goToEvent(href: string, navigate: (to: string) => void): void {
+  if (isAbsoluteHref(href)) window.location.assign(href);
+  else navigate(href);
+}
 
 export interface UseMapListOptions {
   /** The page's city slug. Pins are scoped to it so a feed-wide festival in
@@ -186,9 +200,10 @@ export function useMapList(
       if (!e) return;
       if (isRemoteRow(e)) {
         navigate(`/festival/${e.event_id}`);
-      } else {
-        navigate(`/event/${e.event_id}?occurrenceId=${e.occurrence_id}`);
+        return;
       }
+      const href = rowHref(e);
+      goToEvent(isAbsoluteHref(href) ? href : `/event/${e.event_id}?occurrenceId=${e.occurrence_id}`, navigate);
     },
     [byOcc, navigate],
   );
@@ -206,7 +221,7 @@ export function useMapList(
   // Map popup "View event" CTA -> client-side route. Leaflet cancels the raw
   // anchor's default navigation on touch, so the href alone is a dead tap on
   // mobile; EventMap intercepts the click and calls this instead.
-  const openEvent = useCallback((href: string) => navigate(href), [navigate]);
+  const openEvent = useCallback((href: string) => goToEvent(href, navigate), [navigate]);
 
   // After a pin click, scroll the feed to the matching card. The feed (.hm-feed)
   // is now the ONE scroller at every viewport -- the desktop rail no longer
