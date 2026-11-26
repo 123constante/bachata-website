@@ -196,7 +196,9 @@ export const mapDancerPublicProfile = (record: DancerPublicRecord | DancerPublic
       : null;
 
   return {
-    id: canonicalRecord.id,
+    // The dancer_profiles id, not canonicalRecord.id: the dancing_role_details spread above
+    // overwrites `id` with the role-details row id (profile views were logged under it).
+    id: queryRecord.id,
     displayName,
     avatarUrl: getPhotoUrl(canonicalRecord.avatar_url),
     city: canonicalRecord.cities?.name || null,
