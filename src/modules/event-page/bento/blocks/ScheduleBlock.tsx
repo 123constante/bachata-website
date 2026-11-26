@@ -1093,7 +1093,7 @@ const isPersonKind = (t: string | null): boolean => t === 'dj' || t === 'dancer'
  *  teacher has none, so nothing ever points at /teachers/ while those pages are closed; once
  *  the read answered, no badge row means no link. `feedFallback` = loading or errored. */
 export const mapPersonFromBadges = (p: Person, badge: PersonBadge | undefined, feedFallback: boolean): Person => {
-  if (!isPersonKind(p.profileType)) return p;
+  if (p.pending || !isPersonKind(p.profileType)) return p;
   const opts = { teacherPagesOpen: flags.teacherDetail };
   const feedHref = p.profileType !== 'teacher' && !p.href?.startsWith('/teachers/') ? p.href : null;
   const href = badge ? linkFor(badge, opts) : feedFallback ? feedHref : null;
@@ -1140,7 +1140,7 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled, fall
   // none (a teacher-only person is plain while the teacher pages are closed); a DJ slot shows
   // the stage name. Vendors and other non-person kinds keep the feed's own link.
   const { badges: peopleBadges, isLoading: badgesLoading, isError: badgesError } = usePeopleBadges(
-    useMemo(() => normalized.flatMap((s) => s.people.filter((p) => isPersonKind(p.profileType)).map((p) => p.id)), [normalized]),
+    useMemo(() => normalized.flatMap((s) => s.people.filter((p) => !p.pending && isPersonKind(p.profileType)).map((p) => p.id)), [normalized]),
   );
   const badgesFeedFallback = badgesLoading || badgesError;
   const sessions = useMemo(() => normalized.map((s) => ({

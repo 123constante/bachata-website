@@ -149,6 +149,12 @@ export const profileTypeForLink = (href: string, fallback: string | null | undef
 const initialFor = (name: string): string =>
   ((name ?? '').trim() || '?').charAt(0).toUpperCase();
 
+/** Invited (pending) teacher: first letters of the first two words ("Anna Lopez" -> "AL"). */
+const initialsFor = (name: string): string => {
+  const words = (name ?? '').trim().split(/\s+/).filter(Boolean);
+  return (words.slice(0, 2).map((w) => w.charAt(0)).join('') || '?').toUpperCase();
+};
+
 /** The visible avatar circle. All sizes use the same anatomy - only the
  *  pixel knobs differ. The outer wrapper handles hit-area, not this.
  *
@@ -194,7 +200,7 @@ const AvatarCircle = ({
           onError={() => setErrored(true)}
         />
       ) : (
-        <span>{initialFor(person.name)}</span>
+        <span>{person.pending ? initialsFor(person.name) : initialFor(person.name)}</span>
       )}
     </div>
     {person.nationalityCode ? (
