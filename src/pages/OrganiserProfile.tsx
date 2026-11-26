@@ -527,7 +527,8 @@ const OrganiserProfile = () => {
   const resolved = useEntitySlugOrId(routeParam, 'organiser_profiles');
   const id = resolved.id ?? undefined;
   useCanonicalReplaceState({
-    arrivedViaUuid: resolved.arrivedViaUuid,
+    arrivedViaUuid:
+      resolved.arrivedViaUuid || (Boolean(resolved.slug) && routeParam !== resolved.slug),
     slug: resolved.slug,
     buildPath: (s) => `/organisers/${s}`,
   });

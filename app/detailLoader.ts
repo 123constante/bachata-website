@@ -3,6 +3,7 @@ import { data, redirect } from "react-router";
 import { getSupabase } from "@/integrations/supabase/getSupabase";
 import { SITE_ORIGIN, type EntityTable } from "@/lib/seo";
 import { resolvePublicEventRef } from "@/lib/seo/resolvePublicEventRef";
+import { resolvePublicOrganiserRef } from "@/lib/seo/resolvePublicOrganiserRef";
 // edgeCacheControl + EDGE_STORE_MARGIN_SECONDS live in the dependency-free
 // leaf module app/edgeCacheControl.ts, NOT here -- middleware.ts (Edge
 // runtime) imports the leaf directly, because this file pulls in
@@ -59,6 +60,11 @@ export async function resolveEntityInLoader(
       // Other tables (venue/organiser/dancer) have no P5 resolver.
       if (table === "events") {
         return resolvePublicEventRef(param, "throw");
+      }
+      // Organisers resolve through resolve_public_organiser_ref_v1: uuid, current
+      // slug or OLD slug -> {id, current slug}; empty when not public.
+      if (table === "organiser_profiles") {
+        return resolvePublicOrganiserRef(param, "throw");
       }
       const whereCol = arrivedViaUuid ? idColumn : "slug";
       const { data: row, error } = await supabase
@@ -273,6 +279,20 @@ export function taggedData<T>(
  *  a non-null ref.slug means the entity exists. */
 export function redirectUuidToSlug(ref: ResolvedRef, request: Request, basePath: string): void {
   if (ref.arrivedViaUuid && ref.slug) {
+    throw redirect(`${basePath}/${ref.slug}${new URL(request.url).search}`, 301);
+  }
+}
+
+/** 301 to `${basePath}/<current slug>` when the URL param is anything other than
+ *  the entity's current slug -- a uuid OR an old slug (organiser slug history).
+ *  Query string preserved. Call after resolving + the not-found check. */
+export function redirectToCanonicalSlug(
+  ref: ResolvedRef,
+  param: string,
+  request: Request,
+  basePath: string,
+): void {
+  if (ref.slug && param !== ref.slug) {
     throw redirect(`${basePath}/${ref.slug}${new URL(request.url).search}`, 301);
   }
 }
