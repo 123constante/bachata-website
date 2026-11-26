@@ -96,9 +96,7 @@ const SECTIONS: FooterSection[] = [
       { label: 'Festivals', to: '/festivals' },
       { label: 'Tonight', to: '/tonight' },
       { label: 'Venues', to: '/venues' },
-      { label: 'London Bachata Guide', to: '/london-bachata-guide' },
       { label: 'Beginners', to: '/learn-bachata-london' },
-      { label: 'FAQ', to: '/faq' },
     ],
   },
   {
