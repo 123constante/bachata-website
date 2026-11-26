@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { rowOf, type HomeSeriesRow } from '../../data/home';
 import { todoSeriesIdsOf } from '../../model/strip';
 import type { OrganiserHome } from '@/modules/organiser/shared/selfServeApi';
-import { R4_EMPTY_HOME, R4_WAIT_CAP, r4AloneOf, r4WaitingOf } from '../r4Model';
+import { R4_EMPTY_HOME, R4_WAIT_CAP, inviteDateLabel, r4AloneOf, r4WaitingOf } from '../r4Model';
+import type { WaitingInvite } from '../../v2/ClassInvites';
 
 const TODAY = '2026-11-18';
 type Shape = { lifecycle: string; venue: string | null; cover: boolean; dates: readonly string[]; cancelledUp?: number; format?: string };
@@ -105,5 +106,48 @@ describe('R4 EmptyHome (no events at all): board words and the "Only you so far"
     ['contributor viewer', { teamReady: true, members: 1, editor: false }, false],
   ] as const)('%s', (_c, i, shown) => {
     expect(r4AloneOf(i)).toBe(shown);
+  });
+});
+
+describe('R4 Home waiting list: invited class teachers who have not joined', () => {
+  const inv = (id: string, over: Partial<WaitingInvite> = {}): WaitingInvite => ({
+    invite_id: id, display_name: 'Anna Lopez', series_id: 's1', event_name: 'Friday Social', class_title: 'Salsa basics',
+    next_date: '2026-12-04', last_sent_at: '2026-11-20T10:00:00Z', status: 'open', ...over,
+  });
+  const todo = () => page({ a: { lifecycle: 'draft', venue: null, cover: false, dates: [] } });
+
+  it('date label is the full weekday, day and month (Europe/London, no year)', () => {
+    expect(inviteDateLabel('2026-12-04')).toBe('Friday 4 December');
+    expect(inviteDateLabel('2026-12-03')).toBe('Thursday 3 December');
+    expect(inviteDateLabel('2026-07-01')).toBe('Wednesday 1 July');
+  });
+  it('one row per invite with the board words', () => {
+    const m = r4WaitingOf({ rows: [], todoIds: new Set(), requests: null, editor: true, invites: [inv('v1')] });
+    expect(m.items).toEqual([{
+      key: 'i-v1', title: "Anna Lopez hasn't joined yet", detail: 'Teaching Salsa basics at Friday Social on Friday 4 December.',
+      action: 'Resend', go: 'resend', id: 'v1',
+    }]);
+    expect(m.heading).toBe('1 thing waiting for you');
+  });
+  it('an expired invite says so', () => {
+    const m = r4WaitingOf({ rows: [], todoIds: new Set(), requests: null, editor: true, invites: [inv('v1', { status: 'expired' })] });
+    expect(m.items[0].detail).toBe('Teaching Salsa basics at Friday Social on Friday 4 December. Their link has expired.');
+  });
+  it('order: event to-dos, then invites, then join requests', () => {
+    const m = r4WaitingOf({ ...todo(), requests: [{ requestId: 'q1', requesterEmail: 'x@y.z' }], editor: true, invites: [inv('v1'), inv('v2')] });
+    expect(m.items.map((i) => i.go)).toEqual(['place', 'resend', 'resend', 'answer']);
+    expect(m.heading).toBe('4 things waiting for you');
+  });
+  it('invites count in the cap and the "more" number', () => {
+    const invites = Array.from({ length: 7 }, (_, k) => inv(`v${k}`));
+    const m = r4WaitingOf({ rows: [], todoIds: new Set(), requests: null, editor: true, invites });
+    expect(m.heading).toBe('7 things waiting for you');
+    expect(m.items).toHaveLength(R4_WAIT_CAP);
+    expect(m.more).toBe(7 - R4_WAIT_CAP);
+  });
+  it('null or missing invites change nothing', () => {
+    const a = r4WaitingOf({ ...todo(), requests: null, editor: true });
+    expect(r4WaitingOf({ ...todo(), requests: null, editor: true, invites: null })).toEqual(a);
+    expect(r4WaitingOf({ ...todo(), requests: null, editor: true, invites: [] })).toEqual(a);
   });
 });

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { flags } from '@/lib/featureFlags';
 import { fetchIncomingAccessRequests, incomingAccessRequestsQueryKey } from '@/modules/organiser/shared/selfServeApi';
@@ -23,7 +23,8 @@ import { R4Chevron } from './R4Shell';
 import { StripeStatusCard } from './StripeStatusCard';
 import { fetchNightMoney, nightMoneyQueryKey } from './r4MoneyApi';
 import { moneyQuietOf, nightMoneyOf, R4_MONEY_COPY } from './r4MoneyModel';
-import { R4_EMPTY_HOME, r4AloneOf, r4HomeOf, r4WaitingOf, type R4Door, type R4NextNight, type R4WaitItem } from './r4Model';
+import { FAIL_COPY, InviteReadySheet, fetchWaitingInvites, inviteMessage, joinLink, resendClassInvite, waitingInvitesKey } from '../v2/ClassInvites';
+import { R4_EMPTY_HOME, inviteDateLabel, r4AloneOf, r4HomeOf, r4WaitingOf, type R4Door, type R4NextNight, type R4WaitItem } from './r4Model';
 
 function Row({ to, label, end, testId }: { to: string; label: string; end?: string; testId: string }) {
   return (
@@ -83,17 +84,36 @@ function EmptyHome({ pageId, role }: { pageId: string | null; role: string | nul
 }
 
 /** Board R4HomeBefore's "N things waiting for you": events that need something (the To do facts) and join requests. */
-function WaitingList({ rows, pageId }: { rows: readonly P3Row[]; pageId: string }) {
+export function WaitingList({ rows, pageId }: { rows: readonly P3Row[]; pageId: string }) {
   const home = useP3Home();
   const navigate = useNavigate();
   const requests = useQuery({
     queryKey: incomingAccessRequestsQueryKey(pageId),
     queryFn: () => fetchIncomingAccessRequests(pageId),
   });
+  const qc = useQueryClient();
+  // Flag off = no call, no rows. A failed read shows nothing extra.
+  const invites = useQuery({
+    queryKey: waitingInvitesKey(pageId),
+    queryFn: () => fetchWaitingInvites(pageId),
+    enabled: flags.organiserClassInvites,
+  });
+  const [ready, setReady] = useState<{ name: string; message: string } | null>(null);
+  const [resendError, setResendError] = useState<{ id: string; text: string } | null>(null);
+  const resend = useMutation({
+    mutationFn: (id: string) => resendClassInvite(id),
+    onSuccess: (l, id) => {
+      const v = (invites.data ?? []).find((x) => x.invite_id === id);
+      setResendError(null);
+      if (v) setReady({ name: v.display_name, message: inviteMessage({ name: v.display_name, classTitle: v.class_title, eventName: v.event_name, dateLabel: inviteDateLabel(v.next_date), link: joinLink(l.token) }) });
+    },
+    onError: (_e, id) => setResendError({ id, text: FAIL_COPY }),
+  });
   const todoIds = useMemo(() => todoSeriesIdsOf(home.data, pageId), [home.data, pageId]);
   // HomeOrganiser.role is owner | manager: every Home viewer may answer a join request.
-  const m = r4WaitingOf({ rows, todoIds, requests: requests.data ?? null, editor: true });
+  const m = r4WaitingOf({ rows, todoIds, requests: requests.data ?? null, editor: true, invites: flags.organiserClassInvites && !invites.isError ? invites.data ?? null : null });
   const go = (it: R4WaitItem) => {
+    if (it.go === 'resend') { setResendError(null); resend.mutate(it.id); return; }
     if (it.go === 'answer') navigate(`${P3_PATHS.youTeam}?answer=${encodeURIComponent(it.id)}`);
     else if (it.go === 'place') navigate(P3_PATHS.eventEdit(it.id));
     else if (it.go === 'dates') navigate(P3_PATHS.eventAll(it.id));
@@ -112,7 +132,8 @@ function WaitingList({ rows, pageId }: { rows: readonly P3Row[]; pageId: string 
                 <div className="r4-row-t">{it.title}</div>
                 <div className="r4-row-line">{it.detail}</div>
               </div>
-              <button type="button" className="r4-btn r4-btn-34 r4-btn-quiet r4-btn-fit" onClick={() => go(it)} data-testid="r4-wait-go">{it.action}</button>
+              <button type="button" className="r4-btn r4-btn-34 r4-btn-quiet r4-btn-fit" onClick={() => go(it)} disabled={it.go === 'resend' && resend.isPending} data-testid="r4-wait-go">{it.action}</button>
+              {resendError?.id === it.id && <p className="r4-err" role="alert" data-testid="r4-wait-resend-error">{resendError.text}</p>}
             </div>
           ))}
         </div>
@@ -121,6 +142,7 @@ function WaitingList({ rows, pageId }: { rows: readonly P3Row[]; pageId: string 
       {requests.isError && (
         <p className="r4-err" role="alert" data-testid="r4-wait-error">We could not load join requests. <button type="button" className="r4-linkbtn" onClick={() => void requests.refetch()}>Try again</button></p>
       )}
+      {ready && <InviteReadySheet ready={ready} onClose={() => { setReady(null); void qc.invalidateQueries({ queryKey: waitingInvitesKey(pageId) }); }} />}
     </section>
   );
 }

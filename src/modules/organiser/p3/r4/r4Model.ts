@@ -4,6 +4,7 @@
  */
 import type { HomeClock, PastNight } from '../dash/dashModel';
 import { moneyTileOf, type R4NightMoney } from './r4MoneyModel';
+import type { WaitingInvite } from '../v2/ClassInvites';
 
 export const R4_TABS = ['home', 'events', 'tickets', 'team'] as const;
 export type R4Tab = (typeof R4_TABS)[number];
@@ -113,7 +114,17 @@ export interface R4WaitRow {
 /** A join request (list_organiser_access_requests_v1). */
 export interface R4WaitRequest { requestId: string; requesterEmail: string | null }
 
-export type R4WaitGo = 'place' | 'event' | 'dates' | 'photo' | 'answer';
+
+/** "Thursday 4 December": full weekday, day, full month, Europe/London, no year. */
+export function inviteDateLabel(iso: string): string {
+  const d = new Date(`${iso}T12:00:00Z`);
+  if (Number.isNaN(d.getTime())) return iso;
+  const parts = new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/London' }).formatToParts(d);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
+  return `${get('weekday')} ${get('day')} ${get('month')}`;
+}
+
+export type R4WaitGo = 'place' | 'event' | 'dates' | 'photo' | 'answer' | 'resend';
 export interface R4WaitItem { key: string; title: string; detail: string; action: string; go: R4WaitGo; id: string }
 export interface R4WaitModel { heading: string; items: R4WaitItem[]; more: number }
 
@@ -128,7 +139,7 @@ export const R4_WAIT_CAP = 5;
  * Then join requests (owners and managers only). Refunds are not here: no refund-request read
  * exists (every refund is the owner's own move on an order).
  */
-export function r4WaitingOf(i: { rows: readonly R4WaitRow[]; todoIds: ReadonlySet<string>; requests: readonly R4WaitRequest[] | null; editor: boolean }): R4WaitModel {
+export function r4WaitingOf(i: { rows: readonly R4WaitRow[]; todoIds: ReadonlySet<string>; requests: readonly R4WaitRequest[] | null; editor: boolean; invites?: readonly WaitingInvite[] | null }): R4WaitModel {
   const items: R4WaitItem[] = [];
   for (const r of i.rows) {
     if (!i.todoIds.has(r.id)) continue;
@@ -137,6 +148,13 @@ export function r4WaitingOf(i: { rows: readonly R4WaitRow[]; todoIds: ReadonlySe
     else if (r.lifecycle === 'draft') items.push({ ...base, detail: 'Still a draft. Dancers cannot see it yet.', action: 'Open', go: 'event' });
     else if (r.status.key === 'warn') items.push({ ...base, detail: 'Live, but no dates coming up.', action: 'Add dates', go: 'dates' });
     else if (!r.cover && !r.status.past) items.push({ ...base, detail: 'No photo yet. It is the first thing dancers see.', action: 'Add photo', go: 'photo' });
+  }
+  for (const v of i.invites ?? []) {
+    items.push({
+      key: `i-${v.invite_id}`, title: `${v.display_name} hasn't joined yet`,
+      detail: `Teaching ${v.class_title} at ${v.event_name} on ${inviteDateLabel(v.next_date)}.${v.status === 'expired' ? ' Their link has expired.' : ''}`,
+      action: 'Resend', go: 'resend', id: v.invite_id,
+    });
   }
   if (i.editor) {
     for (const q of i.requests ?? []) {
