@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarDays, ChevronRight, Eye, Share2 } from 'lucide-react';
+import { CalendarDays, ChevronRight, Eye, Share2, UserRound } from 'lucide-react';
 import { Card } from '@/modules/organiser/ui';
+import { flags } from '@/lib/featureFlags';
+import { useHasRaffleWin } from './homeRaffleWin';
 import { DANCER_TABS } from '../../shell/routes';
 import { buttonStyle } from '../nights/nightsStyles';
 import type { MyDancerEdit } from '../../api/types';
@@ -9,10 +11,10 @@ import { PROFILE_HELP_MESSAGE } from '../../api/messageUs';
 import { MessageUsLink } from '../me/ui';
 import { LINK_GHOST_SM } from '../blocks';
 import { DANCER_ONBOARDING_V3_ENABLED } from '../onboarding/onboardingV3Flag';
-import ShineCard from './ShineCard';
+import ShineCard, { SHINE_ADD_PATH } from './ShineCard';
 import ProgressRingCard from './ProgressRingCard';
 import { linkPrefill } from '../onboarding/bioModel';
-import { profileProgress } from '../onboarding/profileProgress';
+import { NEXT_LABEL, profileProgress } from '../onboarding/profileProgress';
 import { PAGE_PATH, attendedLabel, homeBView, homeCView, morePlansLabel, type HomeFocus, type ShareRow } from './homeFocus';
 import type { HeroNight } from './homeParts';
 
@@ -179,7 +181,7 @@ const Head = ({ children, testId }: { children: ReactNode; testId: string }) => 
  * tappable). Be found = Share my page, Preview my page. Same mapping as Option B (homeCView).
  * `rate` / `ticket` are null when their switch is off; `alerts` = the paused banner + linked notice.
  */
-export const HomeCView = ({ profile, went, night, goingCount, focusLoading, alerts, rate, ticket }: {
+type HomeCProps = {
   profile: MyDancerEdit;
   went: number | null;
   night: HeroNight | null;
@@ -188,7 +190,12 @@ export const HomeCView = ({ profile, went, night, goingCount, focusLoading, aler
   alerts: ReactNode;
   rate: ReactNode;
   ticket: ReactNode;
-}) => {
+};
+
+/** Flag `homeGoldenLook` off = today's view untouched; on = the prototype A look (below). */
+export const HomeCView = (props: HomeCProps) => (flags.homeGoldenLook ? <HomeCGolden {...props} /> : <HomeCClassic {...props} />);
+
+const HomeCClassic = ({ profile, went, night, goingCount, focusLoading, alerts, rate, ticket }: HomeCProps) => {
   const v = homeCView(profile, { went, night, goingCount });
   const complete = v.base.kind === 'complete';
   const goOutLoading = focusLoading && complete;
@@ -269,6 +276,99 @@ export const HomeCView = ({ profile, went, night, goingCount, focusLoading, aler
           </Link>
         </div>
       </Card>
+    </div>
+  );
+};
+
+/* ---- Golden look (flag homeGoldenLook): prototype A rows and headings, same items and taps ---- */
+const HGL_CSS = `
+.hgl{--card:#27201c;--ink:#f7eee7;--muted:#bba99e;--line:#3d322c;--brand:#ff6f5e;--brand-ink:#2a0f0a;--gold:#f2b544;--ok:#62d39d;--ok-soft:#173326;--shadow:0 10px 30px rgba(0,0,0,.45);--bg:var(--da-bg);color:var(--ink)}
+.hgl-box,.hgl-ticket>section,.hgl [data-testid="rate-nudge"],.hgl [data-testid="home-shine"]>div{background:var(--card)!important;border:1px solid var(--line)!important;border-radius:16px!important;box-shadow:none!important;padding:10px 12px;min-height:60px;margin-bottom:8px;color:var(--ink)}
+.hgl [data-testid="home-shine-add"]{background:var(--brand)!important;color:var(--brand-ink)!important;border-radius:14px!important;font-weight:800;min-height:44px}`;
+const TONES = ['linear-gradient(135deg,#4b2a6b,#dc4433)', 'linear-gradient(135deg,#0f5d6b,#f2b544)'];
+const ROW_BOX = { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', minHeight: 60, marginBottom: 8, color: 'var(--ink)', textDecoration: 'none', background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16 } as const;
+
+const Sec = ({ children, testId }: { children: ReactNode; testId: string }) => (
+  <h2 data-testid={testId} style={{ fontSize: 13, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.08em', margin: '26px 2px 8px' }}>{children}</h2>
+);
+
+/** A `.row`: tone square + icon, title over line, optional coral go word. A link when `to` is set. */
+const GRow = ({ testId, to, state, tone, icon, title, line, go }: {
+  testId: string; to?: string; state?: unknown; tone: 0 | 1; icon: ReactNode; title: string; line?: string; go?: string;
+}) => {
+  const inner = (
+    <>
+      <span aria-hidden="true" style={{ width: 40, height: 40, borderRadius: 10, display: 'grid', placeItems: 'center', flex: 'none', color: '#fff', background: TONES[tone] }}>{icon}</span>
+      <span style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+        <b style={{ fontSize: 14 }}>{title}</b>
+        {line && <span style={{ fontSize: 13, color: 'var(--muted)' }}>{line}</span>}
+      </span>
+      {go && <span style={{ marginLeft: 'auto', fontWeight: 800, color: 'var(--brand)', fontSize: 13 }}>{go}</span>}
+    </>
+  );
+  return to ? <Link to={to} state={state} className="da-tap" style={ROW_BOX} data-testid={testId}>{inner}</Link> : <div style={ROW_BOX} data-testid={testId}>{inner}</div>;
+};
+
+const HomeCGolden = ({ profile, went, night, goingCount, focusLoading, alerts, rate, ticket }: HomeCProps) => {
+  const hasWin = useHasRaffleWin();
+  const v = homeCView(profile, { went, night, goingCount });
+  const complete = v.base.kind === 'complete';
+  const goOutLoading = focusLoading && complete;
+  const rows = v.morePlans !== null || v.attended.kind !== 'hidden';
+  const goCard = v.goOut && !(DANCER_ONBOARDING_V3_ENABLED && v.goOut.kind === 'find') ? v.goOut : null;
+  const goOut = Boolean(rate) || Boolean(ticket) || goOutLoading || goCard !== null || rows;
+  const progress = DANCER_ONBOARDING_V3_ENABLED
+    ? profileProgress({ photo: Boolean(profile.avatar_url), startedYear: profile.dance_started_year, styles: profile.favorite_styles, partnerAnswered: profile.looking_for_partner != null, bio: profile.bio ?? '', link: linkPrefill(profile) })
+    : null;
+  const requiredPath = v.ready?.cta.path ?? '/app/welcome';
+  const nextPath = progress?.next && (progress.next === 'bio' || progress.next === 'link') ? SHINE_ADD_PATH : requiredPath;
+  const nightIcon = <CalendarDays aria-hidden="true" className="h-[20px] w-[20px]" />;
+  return (
+    <div className="hgl" data-testid={`home-c-${v.base.kind}`}>
+      <style>{HGL_CSS}</style>
+      {!hasWin && <h1 data-testid="home-c-title" style={{ fontFamily: 'Fraunces, Georgia, serif', fontSize: 26, fontWeight: 800, margin: '0 0 8px', overflowWrap: 'anywhere' }}>{v.base.title}</h1>}
+      {alerts}
+
+      {progress && (
+        <>
+          <Sec testId="home-c-head-ready">Get ready</Sec>
+          {progress.pct === 100
+            ? <GRow testId="home-ring-win" tone={0} icon={<UserRound aria-hidden="true" className="h-[20px] w-[20px]" />} title="Profile complete" line="You are fully visible to dancers and organisers." />
+            : <GRow testId="home-ring" to={nextPath} tone={0} icon={<UserRound aria-hidden="true" className="h-[20px] w-[20px]" />} title="Your profile" line={`${progress.pct}%${progress.next ? ` \u00b7 Next: ${NEXT_LABEL[progress.next]}` : ''}`} go="Finish" />}
+        </>
+      )}
+      {!progress && v.ready && (
+        <>
+          <Sec testId="home-c-head-ready">Get ready</Sec>
+          <div className="hgl-box" data-testid="home-b-focus"><FocusBody f={v.ready} /></div>
+        </>
+      )}
+
+      {goOut && <Sec testId="home-c-head-go">Go out</Sec>}
+      {rate}
+      {ticket && <div className="hgl-ticket">{ticket}</div>}
+      {goOutLoading ? (
+        <HomeBLoading />
+      ) : (
+        goCard && <div className="hgl-box" data-testid="home-c-go-card"><FocusBody f={goCard} /></div>
+      )}
+      {rows && (
+        <div data-testid="home-c-go-rows">
+          {v.morePlans !== null && <GRow testId="home-b-more-plans" to={nightsPath} tone={1} icon={nightIcon} title={morePlansLabel(v.morePlans)} go="View" />}
+          {v.attended.kind === 'count' && <GRow testId="home-b-attended" tone={0} icon={nightIcon} title={attendedLabel(v.attended.n)} line="Nights you went to." />}
+          {v.attended.kind === 'first' && <GRow testId="home-b-first-night" tone={0} icon={nightIcon} title="Your first night out" line="Nights you attend are counted here." />}
+        </div>
+      )}
+
+      {DANCER_ONBOARDING_V3_ENABLED && <ShineCard profile={profile} />}
+
+      <Sec testId="home-c-head-found">Be found</Sec>
+      <div data-testid="home-c-found">
+        {v.share.enabled
+          ? <GRow testId="home-b-share" to={PAGE_PATH} tone={0} icon={<Share2 aria-hidden="true" className="h-[20px] w-[20px]" />} title="Share my page" line="Send your page to a dance partner." go="Share" />
+          : <div aria-disabled="true" style={{ ...ROW_BOX, opacity: 0.7 }} data-testid="home-b-share-off"><b style={{ fontSize: 14 }}>Share my page</b><span style={{ fontSize: 13, color: 'var(--muted)' }}>{v.share.reason ?? ''}</span></div>}
+        <GRow testId="home-c-preview" to={PAGE_PATH} tone={1} icon={<Eye aria-hidden="true" className="h-[20px] w-[20px]" />} title="Preview my page" line="How it looks and who visited." go="View" />
+      </div>
     </div>
   );
 };
