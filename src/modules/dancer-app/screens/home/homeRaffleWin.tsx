@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { Calendar, Check, Lock, MapPin, Maximize2, Share2, ShieldCheck } from 'lucide-react';
 
 import { Card } from '@/modules/organiser/ui';
 import { useAuth } from '@/hooks/useAuth';
@@ -33,6 +34,7 @@ const GT_CSS = `
 @media (prefers-reduced-motion:reduce){.gt-cf{display:none}.gt-drop,.gt-stamp{animation:none}}`;
 const CONFETTI = ['#f2b544', '#dc4433', '#ffffff', '#62d39d', '#ff9d8f'];
 const gtBtn = (primary: boolean) => ({ minHeight: 48, width: '100%', borderRadius: 14, fontWeight: 800, fontSize: 15, border: primary ? 0 : '1px solid var(--da-border)', background: primary ? 'var(--da-accent)' : 'none', color: primary ? 'var(--da-on-accent, #fff)' : 'var(--da-text)' });
+const NOTCH = { position: 'absolute' as const, top: -12, width: 22, height: 22, borderRadius: '50%', background: 'var(--da-bg)', border: '1px solid var(--da-border)' };
 const NO_STUB = { display: 'flex', alignItems: 'center', gap: 14, width: '100%', padding: '14px 16px', minHeight: 124, textAlign: 'left' as const };
 
 /** Golden Ticket (VITE_ENABLE_RAFFLE_GOLDEN_TICKET): the five win states on the dancer home. */
@@ -60,7 +62,7 @@ const GoldenWin = ({ card, fresh, onRetry, onShare }: { card: RaffleWinCard; fre
   const won = fresh && !card.attended && !!n;
   const heading = won ? `You won, ${first}!` : card.attended ? 'You\u2019re in. Enjoy the night!' : n ? `Your free night ${when}` : 'Your free night';
   const meta = { margin: '2px 0 0', fontSize: 14, display: 'flex', gap: 6, alignItems: 'center' };
-  const shareBtn = <button type="button" className="da-tap" data-testid="gt-share" style={gtBtn(won)} onClick={() => void share()}>&#8599; Tell a friend</button>;
+  const shareBtn = <button type="button" className="da-tap" data-testid="gt-share" style={{ ...gtBtn(won), display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }} onClick={() => void share()}><Share2 size={16} aria-hidden="true" /> Tell a friend</button>;
   return (
     <section data-testid="raffle-win-card" style={{ display: 'grid', gap: 12, position: 'relative' }}>
       <style>{GT_CSS}</style>
@@ -84,22 +86,25 @@ const GoldenWin = ({ card, fresh, onRetry, onShare }: { card: RaffleWinCard; fre
             </div>
             <div style={{ padding: '14px 16px 12px' }}>
               <b data-testid="raffle-win-title" style={{ fontSize: 18 }}>{n.title}</b>
-              <p data-testid="raffle-win-date" style={meta}>&#128197; {n.dateLine}{n.timeLine ? `, ${n.timeLine}` : ''}</p>
-              {n.venue && <p data-testid="raffle-win-venue" style={meta}>&#128205; {n.venue}</p>}
+              <p data-testid="raffle-win-date" style={meta}><Calendar size={16} aria-hidden="true" /> <span>{n.dateLine}{n.timeLine ? `, ${n.timeLine}` : ''}</span></p>
+              {n.venue && <p data-testid="raffle-win-venue" style={meta}><MapPin size={16} aria-hidden="true" /> <span>{n.venue}</span></p>}
             </div>
           </>
         ) : (
           <div data-testid="gt-lockbox" style={{ padding: '18px 16px', display: 'grid', gap: 8, justifyItems: 'center', textAlign: 'center' }}>
-            <span aria-hidden="true" style={{ fontSize: 26 }}>&#128274;</span>
+            <Lock size={26} aria-hidden="true" />
             <b style={{ fontSize: 18 }}>Your night is locked</b>
             <p style={{ margin: 0, fontSize: 14 }}>We can&rsquo;t show the details right now. Your free entry is safe and your code still works.</p>
             <button type="button" className="da-tap" data-testid="gt-retry" style={gtBtn(false)} onClick={onRetry}>Try again</button>
           </div>
         )}
-        <div style={{ position: 'relative', borderTop: '2px dashed var(--da-border)', margin: '0 14px' }} data-testid="gt-perf" />
+        <div style={{ position: 'relative', borderTop: '2px dashed var(--da-border)', margin: '0 14px' }} data-testid="gt-perf">
+          <span aria-hidden="true" data-testid="gt-notch-l" style={{ ...NOTCH, left: -26 }} />
+          <span aria-hidden="true" data-testid="gt-notch-r" style={{ ...NOTCH, right: -26 }} />
+        </div>
         {card.attended ? (
           <div data-testid="raffle-win-attended" style={NO_STUB}>
-            <span aria-hidden="true" style={{ width: 92, height: 92, borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: 48, background: 'rgba(98,211,157,.2)', color: '#2a9d6a', flex: 'none' }}>&#10003;</span>
+            <span aria-hidden="true" style={{ width: 92, height: 92, borderRadius: '50%', display: 'grid', placeItems: 'center', background: 'rgba(98,211,157,.2)', color: '#2a9d6a', flex: 'none' }}><Check size={48} aria-hidden="true" /></span>
             <span><b style={{ display: 'block', fontSize: 17 }}>The door has scanned you</b><span style={{ fontSize: 13 }}>Nothing more to show. Go and dance.</span></span>
           </div>
         ) : (
@@ -108,13 +113,13 @@ const GoldenWin = ({ card, fresh, onRetry, onShare }: { card: RaffleWinCard; fre
             <span>
               <b style={{ display: 'block', fontSize: 17, lineHeight: 1.2 }}>Tap to show at the door</b>
               <span style={{ fontSize: 13 }}>Opens big and bright</span><br />
-              <span style={{ display: 'inline-block', marginTop: 8, background: 'var(--da-accent)', color: 'var(--da-on-accent, #fff)', fontWeight: 800, fontSize: 13, padding: '8px 12px', borderRadius: 14 }}>&#10530; Make it big</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, background: 'var(--da-accent)', color: 'var(--da-on-accent, #fff)', fontWeight: 800, fontSize: 13, padding: '8px 12px', borderRadius: 14 }}><Maximize2 size={16} aria-hidden="true" /> Make it big</span>
             </span>
           </button>
         )}
       </div>
       {(won || card.attended || !!n) && shareBtn}
-      {!card.attended && <p data-testid="gt-safe" style={{ margin: 0, fontSize: 13, display: 'flex', gap: 8 }}>&#128737;&#65039; <span>Your code never runs out. Only the organiser can cancel it.</span></p>}
+      {!card.attended && <p data-testid="gt-safe" style={{ margin: 0, fontSize: 13, display: 'flex', gap: 8, alignItems: 'center' }}><ShieldCheck size={18} aria-hidden="true" style={{ flex: 'none' }} /> <span>Your code never runs out. Only the organiser can cancel it.</span></p>}
       {toast && <div role="status" data-testid="gt-toast" style={{ fontSize: 14, fontWeight: 600 }}>{toast}</div>}
     </section>
   );

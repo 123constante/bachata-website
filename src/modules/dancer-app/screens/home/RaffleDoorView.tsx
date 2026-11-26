@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef } from 'react';
+import { Sun } from 'lucide-react';
 
 import { doorUrl } from '../../../raffle-win/model';
 
@@ -32,7 +33,7 @@ const GoldenDoor = ({ token, onBack, who }: { token: string; onBack: () => void;
           : <span aria-label="Your photo" style={{ width: 48, height: 48, borderRadius: '50%', display: 'grid', placeItems: 'center', background: 'var(--da-border)', fontWeight: 800 }}>{who.name.slice(0, 1)}</span>}
         <div><b style={{ display: 'block' }}>{who.name}</b><span style={{ fontSize: 14 }}>Free entry, {who.event}</span></div>
       </div>
-      <p style={{ margin: 0, fontSize: 14 }}>&#9728;&#65039; Turn your screen brightness all the way up</p>
+      <p style={{ margin: 0, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><Sun size={16} aria-hidden="true" /> <span>Turn your screen brightness all the way up</span></p>
     </section>
   );
 };
