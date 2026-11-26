@@ -179,7 +179,7 @@ export const stripeNudgeV2On = (): boolean => import.meta.env.VITE_ENABLE_STRIPE
 export const HUB_COPY = {
   label: 'Set up in 3 steps',
   connected: 'Stripe is connected. Dancers can buy tickets.',
-  note: 'No commission from Bachata Calendar. Stripe card fees apply.',
+  note: 'No commission from Bachata Calendar.',
   connect: 'Connect Stripe',
   finish: 'Finish setting up',
 } as const;
