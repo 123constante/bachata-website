@@ -22,11 +22,9 @@ const Classes = lazyWithRetry(() => import("../pages/Classes"));
 const Discounts = lazyWithRetry(() => import("../pages/Discounts"));
 const Tonight = lazyWithRetry(() => import("../pages/Tonight"));
 const CityMap = lazyWithRetry(() => import("../pages/CityMap"));
-const PracticePartners = lazyWithRetry(() => import("../pages/PracticePartners"));
 // EventPage + FestivalHub are framework routes now (app/routes/event.tsx,
 // festivals.tsx) — no longer referenced from the catchall tree.
 const Videographers = lazyWithRetry(() => import("../pages/Videographers"));
-const Choreography = lazyWithRetry(() => import("../pages/Choreography"));
 const Dancers = lazyWithRetry(() => import("../pages/Dancers"));
 const Teachers = lazyWithRetry(() => import("../pages/Teachers"));
 // Lazy, not static: the app shell's first-load graph (perf-budgets.json) has no room for it.
@@ -155,8 +153,6 @@ export const AnimatedRoutes = () => {
             <Route path="/tonight" element={<PageTransition><Tonight /></PageTransition>} />
             <Route path="/city/:slug/tonight" element={<PageTransition><Tonight /></PageTransition>} />
             {/* /event/:id is a framework route (app/routes/event.tsx). */}
-            <Route path="/practice-partners" element={<PageTransition><PracticePartners /></PageTransition>} />
-            <Route path="/city/:slug/practice-partners" element={<PageTransition><PracticePartners /></PageTransition>} />
             {/* /festivals is a framework route (app/routes/festivals.tsx). */}
             {/* /faq, /london-bachata-guide, /learn-bachata-london,
                 /bachata-parties-london, the two /bachata-london-*-parties style
@@ -178,7 +174,6 @@ export const AnimatedRoutes = () => {
             <Route path="/raffle/win/:token" element={<PageTransition><RaffleWin /></PageTransition>} />
             {flags.organiserClassInvites && <Route path="/join/class/:token" element={<PageTransition><ClassJoinPage /></PageTransition>} />}
             <Route path="/videographers" element={<PageTransition><Videographers /></PageTransition>} />
-            <Route path="/choreography" element={<PageTransition><Choreography /></PageTransition>} />
             <Route path="/dancers" element={<PageTransition><Dancers /></PageTransition>} />
             {/* /dancers/:id is a framework route (app/routes/dancers.tsx). */}
             {/* Phase 5 listing-request gate: 5 routes wrapped. Flags default true

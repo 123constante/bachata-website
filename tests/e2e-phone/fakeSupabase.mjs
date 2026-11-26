@@ -244,7 +244,7 @@ export const TABLES = {
   dancer_profiles: FLAG_PEOPLE.slice(0, 30).map((p) => ({
     id: p.id, first_name: p.first_name, surname: p.surname, display_name: fullName(p), avatar_url: p.photo_url, nationality: p.nationality,
     is_active: true, dance_role: 'both', based_city_id: CITY_ID, cities: { name: 'London' }, city: { name: 'London' },
-    // /practice-partners filters on the embedded table (dancing_role_details!inner); the fake matches the dotted key.
+    // Embedded-table filter shape (dancing_role_details!inner); the fake matches the dotted key.
     dancing_role_details: { favorite_styles: ['Bachata'], looking_for_partner: true, dance_started_year: 2020 },
     'dancing_role_details.looking_for_partner': true,
   })),

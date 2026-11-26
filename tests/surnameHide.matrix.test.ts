@@ -113,13 +113,6 @@ describe("no public read can bypass the mask", () => {
     });
   }
 
-  it("PracticePartners' public list does not select surname (its own-row read may)", () => {
-    const src = readFileSync("src/pages/PracticePartners.tsx", "utf8");
-    const listSelect = [...src.matchAll(/\.select\(\s*'([^']*)'\s*\)\s*\.eq\('dancing_role_details/g)].map((m) => m[1]);
-    expect(listSelect.length).toBe(1);
-    expect(listSelect[0]).not.toMatch(/\bsurname\b/);
-  });
-
   it("an id the RPC did not return fails closed (no raw surname, no display_name)", () => {
     const out = mergePublicNames([{ id: "zzz", first_name: "Ana" }], new Map())[0];
     expect(out.surname).toBeNull();

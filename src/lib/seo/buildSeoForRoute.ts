@@ -107,12 +107,6 @@ const SPECS: Record<string, Spec> = {
     description: (c) => `Bachata organisers with events coming up in ${city(c)} - no membership or discount programme exists yet.`,
     path: () => '/discounts',
   },
-  practicePartners: {
-    title: (c) => `Bachata Practice Partners in ${city(c)}`,
-    description: (c) => `Find a bachata practice partner in ${city(c)} - between classes, between socials, between levels.`,
-    path: () => '/practice-partners',
-    noindex: true,
-  },
   raffles: {
     title: () => `Win Your Next Night Free - Bachata Raffles`,
     description: () => `Enter our raffles for a chance to win free bachata tickets and event passes. See who's entered, what's at stake, and when draws happen.`,
@@ -127,11 +121,6 @@ const SPECS: Record<string, Spec> = {
     title: () => `Bachata Vendors`,
     description: () => `Vendors serving the bachata community - shoes, clothing, accessories, services.`,
     path: () => '/vendors',
-  },
-  choreography: {
-    title: (c) => `Bachata Choreography in ${city(c)}`,
-    description: (c) => `Bachata choreography teams, performances and choreographers in ${city(c)}.`,
-    path: () => '/choreography',
   },
   cities: {
     title: () => `Cities`,

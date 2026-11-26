@@ -15,8 +15,8 @@
 // (/city/:slug/<listing>) canonicalise onto these so equity consolidates on the
 // prerendered clean pages instead of splitting across the /city/* variants.
 export const CLEAN_LISTINGS = new Set([
-  'parties', 'classes', 'tonight', 'venues', 'discounts', 'practice-partners',
-  'choreography', 'dancers', 'festivals', 'djs', 'organisers',
+  'parties', 'classes', 'tonight', 'venues', 'discounts',
+  'dancers', 'festivals', 'djs', 'organisers',
   'cities', 'videographers', 'vendors', 'search',
 ]);
 

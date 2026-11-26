@@ -47,7 +47,6 @@ const KNOWN_UNROUTABLE = new Set([
   'src/pages/Dancers.tsx -> /photographers',
   'src/pages/EditProfile.tsx -> /create-dancers-profile',
   'src/pages/EditProfile.tsx -> /profile',
-  'src/pages/PracticePartners.tsx -> /create-dancers-profile',
   'src/pages/Profile.tsx -> /profile?role=x',
   'src/pages/VendorDashboardPage.tsx -> /profile?role=vendor',
   // Found when links joined the scan (2026-10-11); out of the dancer-home PR's

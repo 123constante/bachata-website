@@ -87,7 +87,7 @@ const WWW_SITEMAP = CANONICAL_SITEMAP.replace('://', '://www.');
 // redirect is a regression and fails.
 const INTENTIONAL_REDIRECTS = new Set([
   '/', '/parties', '/classes', '/tonight', '/venues',
-  '/discounts', '/practice-partners', '/cities', '/videographers',
+  '/discounts', '/cities', '/videographers',
 ]);
 
 // Indexable routes we spot-check every run (the full prerender set).
@@ -98,7 +98,7 @@ const INSPECT_ROUTES = [
   '/bachata-london-sunday',
   '/parties', '/classes', '/tonight', '/festivals', '/venues', '/teachers',
   '/djs', '/organisers', '/dancers', '/discounts', '/cities',
-  '/practice-partners', '/videographers', '/vendors', '/choreography',
+  '/videographers', '/vendors',
 ];
 
 // One or two entity URLs per detail-page type, sampled from the live sitemap.

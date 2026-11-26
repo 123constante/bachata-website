@@ -5,7 +5,7 @@ import { rpcLoose } from "@/integrations/supabase/rpcLoose";
 /**
  * "Which dancer profile is MINE?" -- the ONE client answer, read by every
  * "my profile" screen (AuthGuard, useUserIds, EditProfile, DancerDashboard,
- * PracticePartners, DancerProfile's isSelfView, the completion hook and the
+ * DancerProfile's isSelfView, the completion hook and the
  * sign-in callback). Two copies of this would drift into one screen showing the
  * linked admin profile and the next one the empty sign-up stub.
  *

@@ -142,7 +142,6 @@ vi.mock('@/components/profile/DancerProfileGrid', () => ({ DancerProfileGrid: ()
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { useUserIds } from '@/hooks/useUserIds';
 import EditProfile from '@/pages/EditProfile';
-import PracticePartners from '@/pages/PracticePartners';
 import DancerProfile from '@/pages/DancerProfile';
 import { DancerDashboard } from '@/components/profile/DancerDashboard';
 import { isMyProfile, personaIdForReads } from '@/lib/myPersona';
@@ -156,7 +155,6 @@ const wrap = (ui: ReactNode, path = '/') => (
         <Route path="/" element={<p>home</p>} />
         <Route path="/profile" element={ui} />
         <Route path="/edit-profile" element={ui} />
-        <Route path="/practice-partners" element={ui} />
         <Route path="/dancers/:id" element={ui} />
       </Routes>
     </MemoryRouter>
@@ -245,10 +243,6 @@ describe.each(SHAPES)('persona shape: $name', ({ persona, reads }) => {
     await expectReads();
   });
 
-  it('PracticePartners: "my profile" for matching is the persona', async () => {
-    render(wrap(<PracticePartners />, '/practice-partners'));
-    await expectReads();
-  });
 });
 
 // The owner-only "Your plans" block (and its read of the retired interested/going
