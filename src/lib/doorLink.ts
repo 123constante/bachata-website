@@ -18,8 +18,12 @@ export const DOOR_PATHS = {
 /** The full link an organiser sends. */
 export const doorInviteUrl = (origin: string, token: string) => `${origin}${DOOR_PATHS.join(token)}`;
 
+/** The raffle door screen a QR opens: /raffle/door/<token>, no query, no extra path. */
+const RAFFLE_DOOR_RE = /^\/raffle\/door\/[A-Za-z0-9_-]{20,100}$/;
+
 /** A door link or a seat-only door screen: a sign-in or sign-up comes back to it whatever the organiser flags. */
 export function isDoorReturnTo(returnTo: string): boolean {
+  if (RAFFLE_DOOR_RE.test(returnTo)) return true;
   const m = /^\/door\/(?:join\/([^/?#]+)|([^/?#]+))$/.exec(returnTo);
   if (!m) return false;
   return m[1] !== undefined ? DOOR_TOKEN_RE.test(m[1]) : UUID_RE.test(m[2]) ;

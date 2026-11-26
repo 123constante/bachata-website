@@ -14,6 +14,10 @@ export interface DoorResult {
   admittedAtLocal: string;
   /** Optional (the DB ships later): absent or null = no photo. */
   photoUrl: string | null;
+  /** The night is locked to the organiser's team. Absent (old DB) = false. */
+  needsTeam: boolean;
+  /** This viewer may admit. Absent (old DB) = true. */
+  viewerCanAdmit: boolean;
 }
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -42,6 +46,8 @@ export function parseDoorResult(data: unknown): DoorResult {
     date: str(o.date),
     admittedAtLocal: str(o.admitted_at_local),
     photoUrl: typeof o.photo_url === 'string' && o.photo_url.trim() !== '' ? o.photo_url : null,
+    needsTeam: o.needs_team === true,
+    viewerCanAdmit: o.viewer_can_admit !== false,
   };
 }
 
@@ -50,8 +56,8 @@ type View =
   | { kind: 'error' }
   | { kind: 'result'; result: DoorResult; admittedByUs: boolean };
 
-export function DoorScreen(props: { view: View; busy: boolean; onAdmit: () => void; onRetry: () => void; viewerIsWinner?: boolean }) {
-  const { view, busy, onAdmit, onRetry, viewerIsWinner = false } = props;
+export function DoorScreen(props: { view: View; busy: boolean; onAdmit: () => void; onRetry: () => void; viewerIsWinner?: boolean; signedIn?: boolean; token?: string }) {
+  const { view, busy, onAdmit, onRetry, viewerIsWinner = false, signedIn = false, token = '' } = props;
   let hero = '';
   let title = '';
   let body: React.ReactNode = null;
@@ -87,7 +93,7 @@ export function DoorScreen(props: { view: View; busy: boolean; onAdmit: () => vo
         </p>
       </div>
     );
-    if (result.status === 'admitted' || (result.status === 'valid' && admittedByUs)) {
+    if (result.status === 'admitted' || (result.status === 'valid' && admittedByUs && result.viewerCanAdmit)) {
       hero = '🎉';
       title = 'Admitted';
       body = (
@@ -117,6 +123,25 @@ export function DoorScreen(props: { view: View; busy: boolean; onAdmit: () => vo
           {card}
           <p className="mt-3 text-base font-bold" data-testid="door-show-this">Show this to the door</p>
         </>
+      ) : !result.viewerCanAdmit ? (
+        signedIn ? (
+          <>
+            {card}
+            <p className="mt-3 text-base font-bold" data-testid="door-show-organiser">Show this to the organiser</p>
+          </>
+        ) : (
+          <>
+            {card}
+            <a
+              data-testid="door-sign-in"
+              href={`/auth?mode=signin&returnTo=${encodeURIComponent('/raffle/door/' + token)}`}
+              className="mt-3 flex h-[48px] w-full items-center justify-center rounded-xl bg-primary px-4 text-base font-semibold text-primary-foreground"
+            >
+              Sign in to admit
+            </a>
+            <p className="mt-2 text-sm text-muted-foreground">Only the organiser&rsquo;s team can admit tonight.</p>
+          </>
+        )
       ) : (
         <>
           {card}
@@ -206,7 +231,8 @@ export default function RaffleDoor() {
     setView(result ? { kind: 'result', result, admittedByUs: false } : { kind: 'error' });
   }, [call]);
 
-  useEffect(() => { void check(); }, [check]);
+  // The reply depends on who is signed in, so a sign-in change re-runs the check.
+  useEffect(() => { void check(); }, [check, userId]);
 
   const admit = useCallback(async () => {
     setBusy(true);
@@ -218,7 +244,7 @@ export default function RaffleDoor() {
 
   return (
     <main className="mx-auto flex min-h-[70vh] max-w-sm flex-col justify-center px-4 py-6">
-      <DoorScreen view={view} busy={busy} onAdmit={() => void admit()} onRetry={() => void check()} viewerIsWinner={viewerIsWinner} />
+      <DoorScreen view={view} busy={busy} onAdmit={() => void admit()} onRetry={() => void check()} viewerIsWinner={viewerIsWinner} signedIn={signedIn} token={token} />
     </main>
   );
 }
