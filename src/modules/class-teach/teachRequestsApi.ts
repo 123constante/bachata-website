@@ -36,6 +36,34 @@ export async function requestTeach(a: { occurrenceId: string; itemId: string | n
   return r.data as RequestTeachResult;
 }
 
+export interface OrganiserTeachRequest {
+  request_id: string;
+  occurrence_id: string;
+  night_date: string;
+  event_name: string;
+  class_title: string;
+  teacher_profile_id: string;
+  teacher_name: string;
+  teacher_photo_url: string | null;
+  created_at: string;
+}
+export const organiserTeachRequestsKey = (organiserId: string) => ['organiser-teach-requests', organiserId] as const;
+
+/** organiser_teach_requests_v1: ANY error or non-array is "no rows". */
+export async function organiserTeachRequests(organiserId: string): Promise<OrganiserTeachRequest[]> {
+  try {
+    const r = await rpc('organiser_teach_requests_v1', { p_organiser_id: organiserId });
+    return !r.error && Array.isArray(r.data) ? (r.data as OrganiserTeachRequest[]) : [];
+  } catch { return []; }
+}
+
+/** decide_teach_request_v1: throws on error (message carries permission_denied: class_closed etc.). */
+export async function decideTeachRequest(requestId: string, accept: boolean): Promise<{ request_id: string; status: string; attached: boolean }> {
+  const r = await rpc('decide_teach_request_v1', { p_request_id: requestId, p_accept: accept });
+  if (r.error) throw new Error(r.error.message);
+  return r.data as { request_id: string; status: string; attached: boolean };
+}
+
 export async function withdrawTeach(requestId: string): Promise<void> {
   const r = await rpc('withdraw_teach_request_v1', { p_request_id: requestId });
   if (r.error) throw new Error(r.error.message);
