@@ -437,6 +437,9 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
             </div>
             <DialogTitle className="rd-sheet__done-h" data-testid="raffle-done-heading">You&rsquo;re in!</DialogTitle>
             <DialogDescription className="rd-sheet__done-p" data-testid="raffle-done-text">{sheetOn ? 'Your number is in the draw for every night. We’ll WhatsApp you if you win.' : 'Your number is in the draw for every night. Winners are announced weekly.'}</DialogDescription>
+            {flags.raffleWinnerHeadsup && (
+              <p className="text-center text-[12px] leading-snug text-[#A59474] mt-1" data-testid="raffle-winner-headsup">Winners get a WhatsApp from Ricky at Bachata Calendar. Keep an eye out!</p>
+            )}
             <Button type="button" onClick={() => onOpenChange(false)} className="rd-sheet-go w-full">Done</Button>
           </div>
         ) : phase === 'success_verified' ? (
@@ -446,6 +449,9 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
             <div className="text-xs text-[#A59474] mt-1">
               We've sent your entry confirmation. Winners are messaged on WhatsApp after the draw.
             </div>
+            {flags.raffleWinnerHeadsup && (
+              <div className="text-center text-[12px] leading-snug text-[#A59474] mt-1" data-testid="raffle-winner-headsup">Winners get a WhatsApp from Ricky at Bachata Calendar. Keep an eye out!</div>
+            )}
           </div>
         ) : phase === 'success_neutral' ? (
           <div className="px-4 pb-5 pt-2 text-center">
@@ -458,6 +464,9 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
                   ? "We'll message you on WhatsApp if you win. Good luck!"
                   : 'Winners are messaged on WhatsApp after the draw.'}
             </div>
+            {flags.raffleWinnerHeadsup && (
+              <div className="text-center text-[12px] leading-snug text-[#A59474] mt-1" data-testid="raffle-winner-headsup">Winners get a WhatsApp from Ricky at Bachata Calendar. Keep an eye out!</div>
+            )}
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="px-4 pb-4 pt-2 space-y-3">
@@ -543,6 +552,9 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
                 {closedNote && (
                   <p role="alert" className="rd-sheet__err" data-testid="raffle-closed-note">This raffle has closed.</p>
                 )}
+                {flags.raffleWinnerHeadsup && (
+                  <p className="text-left text-[12px] leading-snug text-[#A59474]" data-testid="raffle-winner-headsup">Winners get a WhatsApp from Ricky at Bachata Calendar. Keep an eye out!</p>
+                )}
                 <Button
                   type="submit"
                   disabled={!canSubmit}
@@ -596,6 +608,9 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
               <span>Message me on WhatsApp about future prizes and events.</span>
             </label>
 
+            {flags.raffleWinnerHeadsup && (
+              <p className="text-left text-[12px] leading-snug text-[#A59474]" data-testid="raffle-winner-headsup">Winners get a WhatsApp from Ricky at Bachata Calendar. Keep an eye out!</p>
+            )}
             <div className="flex items-center justify-end gap-2 pt-1">
               <Button
                 type="button"

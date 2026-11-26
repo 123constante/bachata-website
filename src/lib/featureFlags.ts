@@ -39,6 +39,8 @@ export const flags = {
   raffleGoldenTicket:  import.meta.env.VITE_ENABLE_RAFFLE_GOLDEN_TICKET === 'true',
   // Dancer home drawn in prototype A's look (Golden Ticket + rest of home). OFF = today's screen, unchanged.
   homeGoldenLook:      import.meta.env.VITE_ENABLE_HOME_GOLDEN_LOOK === 'true',
+  // Raffle entry: one-line "Winners get a WhatsApp from Ricky" heads-up. OFF = today's screens, unchanged.
+  raffleWinnerHeadsup: import.meta.env.VITE_ENABLE_RAFFLE_WINNER_HEADSUP === 'true',
   // Federated search v5 (Cmd+K / mobile full-screen overlay + search_public_v5).
   // When false the existing HeaderSearch omnibox (search_public_v4) renders
   // unchanged, so prod is untouched until this flips per-environment.
