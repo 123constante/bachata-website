@@ -37,7 +37,6 @@ const Organisers = lazyWithRetry(() => import("../pages/Organisers"));
 // OrganiserProfile is a framework route now (app/routes/organiser.tsx).
 const AllProfiles = lazyWithRetry(() => import("../pages/AllProfiles"));
 const SearchResults = lazyWithRetry(() => import("../pages/SearchResults"));
-const Cities = lazyWithRetry(() => import("../pages/Cities"));
 const Vendors = lazyWithRetry(() => import("../pages/Vendors"));
 const VendorDetail = lazyWithRetry(() => import("../pages/VendorDetail"));
 const Raffles = lazyWithRetry(() => import("../pages/Raffles"));
@@ -206,7 +205,7 @@ export const AnimatedRoutes = () => {
                 which owns the ComingSoonGate + noindex-when-locked meta. */}
             {/* /venue-entity/:id is a framework route (app/routes/venue-entity.tsx),
                 which owns the ComingSoonGate + noindex-when-locked meta. */}
-            <Route path="/cities" element={<PageTransition><Cities /></PageTransition>} />
+            {/* /cities is a vercel.json redirect to /city/london-gb (S2d-2); the page is gone. */}
 
             {/* Phase 8 preview routes removed -- winning variants (bento palette
                 Vibe F, compact density, strong-button treatment, RaffleBlock B,

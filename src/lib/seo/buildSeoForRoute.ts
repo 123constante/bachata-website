@@ -122,11 +122,6 @@ const SPECS: Record<string, Spec> = {
     description: () => `Vendors serving the bachata community - shoes, clothing, accessories, services.`,
     path: () => '/vendors',
   },
-  cities: {
-    title: () => `Cities`,
-    description: () => `Bachata Calendar coverage by city - pick yours.`,
-    path: () => '/cities',
-  },
   allProfiles: {
     title: () => `All Bachata Profiles`,
     description: () => `Browse bachata dancers, teachers, DJs, organisers, vendors and videographers.`,

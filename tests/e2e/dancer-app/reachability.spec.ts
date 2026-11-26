@@ -111,7 +111,7 @@ test.describe('dancer app 390x844', () => {
   test('signed out on today\'s /account and a public page: zero gate requests', async ({ page }) => {
     const { gateHits } = await open(page, '/account', { signedOut: true });
     await expect(page).toHaveURL(/\/auth\?/);
-    await page.goto('/cities');
+    await page.goto('/faq');
     await page.waitForTimeout(500);
     expect(gateHits).toEqual([]);
   });

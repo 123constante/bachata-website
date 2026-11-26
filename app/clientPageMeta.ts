@@ -19,7 +19,6 @@ const TOP_LEVEL: Record<string, string> = {
   "/tonight": "tonight",
   "/discounts": "discounts",
   "/search": "search",
-  "/cities": "cities",
 };
 
 const CITY_TAB: Record<string, string> = {
