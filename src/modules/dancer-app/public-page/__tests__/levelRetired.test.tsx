@@ -26,7 +26,7 @@ describe('public dancer page V2: level retired', () => {
     expect(facts.style).toBe('Sensual, Dominican');
   });
 
-  it('flag OFF: today's Level fact unchanged', () => {
+  it("flag OFF: today's Level fact unchanged", () => {
     f.on = false;
     expect(build().facts.level).not.toBeNull();
   });
