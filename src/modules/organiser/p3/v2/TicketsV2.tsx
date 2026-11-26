@@ -80,7 +80,7 @@ export function TicketsView(p: TicketsViewProps) {
       ) : !p.stripe ? (
         <div className="grp">
           <Btn cls="btn pri big" id="stripe" onTap={on.stripe} disabled={p.stripeBusy}>Sell tickets here</Btn>
-          <p className="sent">Connect Stripe and get paid in seconds. No commission from Bachata Calendar. Stripe card fees apply.</p>
+          <p className="sent">Connect Stripe and get paid in seconds. No commission from Bachata Calendar.</p>
           {p.stripeOff ? <p className="warn" role="status" data-testid="tk-stripe-off">{NOT_SWITCHED_ON}</p> : null}
           {p.stripeNote ? <p className="err" role="alert" data-testid="tk-stripe-note">{p.stripeNote}</p> : null}
           {p.stripeWarn ? <p className="warn" data-testid="tk-warn">Dancers can&rsquo;t buy yet. Connect Stripe or choose pay at the door.</p> : null}
