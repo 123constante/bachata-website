@@ -16,7 +16,6 @@ describe("site structure S2b: server meta for client pages", () => {
     ["/tonight", "Bachata Tonight in London", `${O}/tonight`, null],
     ["/discounts", "Bachata Organisers With Upcoming Events in London", `${O}/discounts`, null],
     ["/search", "Search", `${O}/search`, "noindex,nofollow"],
-    ["/cities", "Cities", `${O}/cities`, null],
     ["/city/bristol-gb/tonight", "Bachata Tonight in Bristol", `${O}/tonight`, null],
     ["/city/bristol-gb/parties", "Bachata Socials & Parties in Bristol", `${O}/parties`, null],
     ["/city/london-gb/classes", "Bachata Classes in London", `${O}/classes`, null],
@@ -34,7 +33,7 @@ describe("site structure S2b: server meta for client pages", () => {
     expect(pick(clientPageMeta("/tonight/")).canonical).toBe(`${O}/tonight`);
   });
 
-  it.each(["/", "/teachers", "/city/london-gb/nope", "/city/london-gb", "/profile", "/City/london-gb/map"])(
+  it.each(["/", "/teachers", "/city/london-gb/nope", "/city/london-gb", "/profile", "/City/london-gb/map", "/cities"])(
     "returns null for %s",
     (path) => expect(clientPageMeta(path)).toBeNull(),
   );

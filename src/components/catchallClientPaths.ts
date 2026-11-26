@@ -30,7 +30,6 @@ export const CATCHALL_CLIENT_PATHS: readonly string[] = [
   '/venues',
   '/city/:slug/venues',
   '/organisers',
-  '/cities',
   '/account',
   '/account/dancer',
   '/account/continue',

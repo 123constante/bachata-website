@@ -9,8 +9,9 @@ type CityBlockProps = {
 
 // Top-right 1-col tile that shows the event's city + country flag. Renders
 // only when PromoBlock is hidden (they share the same grid slot and are
-// mutually exclusive — wired in BentoPage). Tapping it navigates to the
-// /cities picker (a lightweight world-map page added separately in 8c-2).
+// mutually exclusive — wired in BentoPage). Tapping it opens the London city
+// page: London is the only live city page (S2d-3; /cities, the old world-map
+// picker, was deleted). Link per city once a second city goes live.
 //
 // The flag is a real SVG image served from flagcdn.com (allowlisted in our
 // CSP under img-src). This replaces the previous regional-indicator emoji
@@ -29,7 +30,7 @@ export const CityBlock = ({ cityId, cityName }: CityBlockProps) => {
   const displayName = (cityName ?? '').trim().toUpperCase() || 'CITY';
 
   return (
-    <BentoTile title={BLOCK_TITLES.city} color={BLOCK_COLORS.city} href="/cities">
+    <BentoTile title={BLOCK_TITLES.city} color={BLOCK_COLORS.city} href="/city/london-gb">
       <div className="flex flex-1 flex-col items-center justify-center gap-[6px]">
         {hasFlag && (
           <img

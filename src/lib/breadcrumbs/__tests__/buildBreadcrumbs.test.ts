@@ -36,9 +36,6 @@ describe('buildBreadcrumbs — top-level listings', () => {
   it('venues → [Venues]', () => {
     expect(buildBreadcrumbs('venues')).toEqual([{ label: 'Venues' }]);
   });
-  it('cities → [Cities]', () => {
-    expect(buildBreadcrumbs('cities')).toEqual([{ label: 'Cities' }]);
-  });
   it('profile → [Profile]', () => {
     expect(buildBreadcrumbs('profile')).toEqual([{ label: 'Profile' }]);
   });
@@ -258,7 +255,7 @@ describe('buildBreadcrumbs — admin front door (#1033 critique)', () => {
 describe('buildBreadcrumbs — invariants', () => {
   it('every output array has at least 1 item', () => {
     const sampleRoutes = [
-      'parties', 'djs', 'profile', 'cities',
+      'parties', 'djs', 'profile', 'venues',
     ] as const;
     for (const r of sampleRoutes) {
       expect(buildBreadcrumbs(r).length).toBeGreaterThanOrEqual(1);

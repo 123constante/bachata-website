@@ -49,7 +49,6 @@ export const SITE_IA = {
   dancers:          { label: 'Dancers',           path: '/dancers' },
   videographers:    { label: 'Videographers',     path: '/videographers' },
   vendors:          { label: 'Vendors',           path: '/vendors' },
-  cities:           { label: 'Cities',            path: '/cities' },
   discounts:        { label: 'Active Organisers', path: '/discounts' },
   raffles:          { label: 'Raffles',           path: '/raffles' },
   allProfiles:      { label: 'All Profiles',      path: '/all-profiles' },
