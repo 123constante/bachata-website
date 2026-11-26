@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { UNSAVED_MESSAGE, canConfirm, confirmCopy, leaveGuardEnabled, publicEventPath, type ConfirmKind } from '../editorGuards';
-import { basicsFormFromSeries, formToDraft, lifecycleActions, type WorkspaceSeries } from '../seriesModel';
+import { formToDraft, lifecycleActions, type BasicsForm } from '../seriesModel';
 import { emptyCreateForm, previewModel } from '../createModel';
 
 describe('leaveGuardEnabled (unsaved-changes warning)', () => {
@@ -82,16 +82,12 @@ describe('pause and archive both ask again; resume does not', () => {
 });
 
 describe('Level is no longer set by organisers and never wiped', () => {
-  const series = {
-    id: 's1', name: 'Thursday Class', slug: 'thursday-class', format: 'recurring', category: 'class',
-    lifecycle_status: 'live', version: 3, default_venue_id: 'v1', default_local_start_time: '20:00:00',
-    default_duration: '02:00:00', default_level: 'improver', default_ticket_url: null, default_description: null,
-    default_cover_image_url: null, default_start_date: null, instagram_url: null, passes: null, created_at: null,
-    recurrence_rule: null, removed_dates: [],
-  } as WorkspaceSeries;
+  const form: BasicsForm = {
+    name: 'Thursday Class', description: '', venueId: 'v1', startTime: '20:00', endTime: '22:00',
+    ticketUrl: '', coverImageUrl: '', instagramUrl: '', passes: null,
+  };
 
   it('the form and draft carry no level', () => {
-    const form = basicsFormFromSeries(series);
     expect('level' in form).toBe(false);
     expect('level' in formToDraft(form)).toBe(false);
   });

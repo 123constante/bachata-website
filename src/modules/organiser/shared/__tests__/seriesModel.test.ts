@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  basicsFormFromSeries,
-  durationMinutes,
-  endTime,
-  formToDraft,
   isRuleDate,
   keepsOwnChanges,
   LIFECYCLE_NOTE,
@@ -12,7 +8,6 @@ import {
   parseDateDetail,
   parseWorkspace,
   removedUpcoming,
-  scheduleSummary,
   scopeNote,
   timeSpanWarning,
   upcomingDates,
@@ -91,22 +86,10 @@ describe('parseDateDetail', () => {
 });
 
 describe('times stay wall-clock', () => {
-  it('reads the interval, adds it and wraps past midnight', () => {
-    expect(durationMinutes('02:00:00')).toBe(120);
-    expect(durationMinutes('1 day')).toBeNull();
-    expect(endTime('19:30', 120)).toBe('21:30');
-    expect(endTime('23:00', 180)).toBe('02:00');
+  it('measures the span between two times and wraps past midnight', () => {
     expect(minutesBetween('19:30', '21:30')).toBe(120);
     expect(minutesBetween('23:00', '02:00')).toBe(180);
     expect(minutesBetween('19:30', '19:30')).toBeNull();
-  });
-
-  it('the basics form shows start and end from the series, and the draft carries minutes', () => {
-    const ws = parseWorkspace(workspaceRaw);
-    const form = basicsFormFromSeries(ws.series);
-    expect(form).toMatchObject({ startTime: '19:30', endTime: '21:30', venueId: 'ven-1', description: 'Weekly' });
-    expect(formToDraft({ ...form, endTime: '22:00' }).durationMinutes).toBe(150);
-    expect(formToDraft({ ...form, endTime: '' }).durationMinutes).toBeNull();
   });
 });
 
@@ -146,11 +129,6 @@ describe('dates and scope', () => {
 
   it('only future dates taken off can be put back', () => {
     expect(removedUpcoming(ws.series, TODAY)).toEqual(['2026-10-18']);
-  });
-
-  it('summarises the schedule', () => {
-    expect(scheduleSummary(ws.series)).toBe('Weekly · Sundays · 19:30–21:30');
-    expect(scheduleSummary({ ...ws.series, format: 'one_off', recurrence_rule: null, default_duration: null })).toBe('One-off · 19:30');
   });
 });
 
