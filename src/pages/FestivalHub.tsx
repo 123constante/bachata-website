@@ -107,13 +107,6 @@ const FestivalHubInner = () => {
   // The clock for "night ended", read after mount (see `mounted`).
   const now = mounted ? new Date() : null;
 
-  const heroWidgets = [
-    { emoji: "🎪", title: "Festivals", desc: "Upcoming events", sectionId: "festivals" },
-    { emoji: "🏠", title: "Roommates", desc: "Share costs", sectionId: "festivals" },
-    { emoji: "🚕", title: "Travel", desc: "Taxi buddies", sectionId: "festivals" },
-    { emoji: "💃", title: "Partners", desc: "Pre-plan dances", sectionId: "festivals" },
-  ];
-
   const floatingIcons = [Plane, Music, Heart, Star, Home, Users];
 
   return (
@@ -125,7 +118,6 @@ const FestivalHubInner = () => {
         titleWhite: 'Festival',
         titleOrange: 'Hub',
         subtitle: '',
-        widgets: heroWidgets,
         floatingIcons: floatingIcons,
         largeTitle: true,
       }}
