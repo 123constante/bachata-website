@@ -42,6 +42,7 @@ export const CATCHALL_CLIENT_PATHS: readonly string[] = [
   '/account/settings/delete',
   '/account/deleted',
   '/privacy',
+  '/privacy/raffle-data', // raffle privacy line (#2231); missing here = HTTP 404 on direct load
   '/tickets/thanks', // flags.publicTicketing; while off the client renders its NotFound
   '/terms',
   '/account/restore',
