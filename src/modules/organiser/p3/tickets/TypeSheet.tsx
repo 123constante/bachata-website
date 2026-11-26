@@ -224,6 +224,12 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
       return;
     }
     setEarlyError(null);
+    // A ticket being made free in this save cannot keep an early price: refuse before anything is written.
+    if (earlyShown && early.on && (pence ?? 0) <= 0) {
+      setEarlyError('A free ticket cannot have an early bird price. Turn the early bird price off first.');
+      patch({ step: 1 });
+      return;
+    }
     const earlyBad = earlyShown ? earlyInvalid(early) : null;
     if (earlyBad) {
       setEarlyError(earlyReasonMessage(earlyBad));
@@ -237,6 +243,8 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
       return;
     }
     setSaving(sell ? 'sell' : 'save');
+    // Set once the main fields are written: a later early-bird throw must not say "not saved".
+    let mainSaved = false;
     try {
       if (upsert) {
         const out = await upsertTicketType(upsert);
@@ -244,6 +252,7 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
           refuse(out.reason === 'has_price_steps' ? FREE_WITH_STEPS : reasonMessage(out.reason));
           return;
         }
+        mainSaved = true;
         if (type && !earlyCmd) return landed('Ticket saved.');
         if (!type) return await afterNew(out, sell, thenConnect);
       }
@@ -258,6 +267,12 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
         return landed('Ticket saved.');
       }
     } catch (e) {
+      if (mainSaved && earlyCmd) {
+        void queryClient.invalidateQueries({ queryKey: managedKey(seriesId) });
+        if (alive.current) { setEarlyError(earlyReasonMessage(null)); setServerError('The rest of the ticket was saved, but the early bird price was not.'); }
+        else onLate(named(`early bird price not saved. ${earlyReasonMessage(null)}`), false, type?.id);
+        return;
+      }
       const words = gated(e, () => reasonMessage(null));
       if (words !== null) refuse(words);
       else if (!alive.current) onLate(named(`not saved. ${GATE_LATE}`), false);
@@ -492,7 +507,7 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
               <span className="p3-row-s">Buyer pays</span>
               {total === null ? (
                 <span className="p3-row-t" data-testid="tix-buyer-total">Enter a price to see it</span>
-              ) : earlyOn && earlyPence !== null && !total.free ? (
+              ) : earlyOn && earlyPence !== null && earlyPence > 0 && !total.free ? (
                 <span className="p3-stat-n" data-testid="tix-buyer-total">{formatPence(buyerTotal(earlyPence).totalPence)} now, {formatPence(total.totalPence)} after</span>
               ) : (
                 <>
