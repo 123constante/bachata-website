@@ -10,8 +10,13 @@ import { fetchPublicTicketTypes, postTicketCheckout, previewPromo, publicTicketK
 import { PROMO_MAX_LENGTH, isCodeReason, normaliseCode, promoView, type PromoState } from './promo';
 import { NO_PAID_LINES, REPRICE_DEBOUNCE_MS, discountedTotal, pickerPromoKey, previewBasketPromo, promoLines } from './pickerPromo';
 import {
-  CANCELLED_PARAM, MAX_PER_ORDER, PREVIEW_ORIGIN_REASON, THANKS_PATH, availability, checkoutOriginOk, formatPence, maxQuantity, reasonCopy, typesForNight,
+  CANCELLED_PARAM, MAX_PER_ORDER, PREVIEW_ORIGIN_REASON, THANKS_PATH, availability, checkoutOriginOk, earlySavingPence, formatPence, isEarlyOpen, maxQuantity, reasonCopy, typesForNight,
 } from './ticketCheckoutModel';
+import { flags } from '@/lib/featureFlags';
+
+/** Early bird (flag ticketEarlyBird, needs ticketPriceSteps): the refusal when the early tickets ran out. */
+export const EARLY_BIRD_RAN_OUT = 'Early bird tickets just ran out. Check the new price and tap Continue again.';
+const EARLY = '#c2410c';
 import { PRICE_CONFIRM_LABEL, parsePriceChanged, priceChangedText, stepReasonCopy } from './priceSteps';
 import { PRIVACY_PARAGRAPH, PRIVACY_POLICY_LINE, TERMS_OF_SALE } from './legalCopy';
 import { saveOrderId } from './orderStorage';
@@ -36,6 +41,8 @@ export interface TicketPickerB1Props {
   venueLine?: string | null;
   onClose: () => void;
   now?: Date;
+  /** Early-bird rows, save line and early_bird_limit copy. Defaults to flags.ticketEarlyBird && flags.ticketPriceSteps; tests pass it. */
+  earlyBird?: boolean;
 }
 
 // confirm = signed in (no email step): who the tickets go to, terms, Continue to Stripe.
@@ -60,7 +67,7 @@ function Trust({ compact = false }: { compact?: boolean }) {
 
 const NOT_YOU_FAILED = 'We could not sign you out. Try again.';
 
-export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueLine, onClose, now: nowProp }: TicketPickerB1Props) {
+export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueLine, onClose, now: nowProp, earlyBird = flags.ticketEarlyBird && flags.ticketPriceSteps }: TicketPickerB1Props) {
   const location = useLocation();
   const { user, signOut } = useAuth();
   const queryClient = useQueryClient();
@@ -116,6 +123,8 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
   // the label also reads free on an all-free event at 0 tickets (the greyed button)
   const freeTotal = freeOnly || (sum.count === 0 && types.length > 0 && types.every((t) => t.pricePence <= 0));
   const summaryLines = basketSummaryLines(clean, types);
+  // The early saving only (a promo does not change it).
+  const earlySave = earlyBird ? earlySavingPence(types.map((t) => ({ type: t, quantity: clean[t.id] ?? 0 }))) : 0;
   const atCap = sum.count >= MAX_PER_ORDER;
   // Before any field: a preview can never complete checkout (same guard as the classic page).
   // The terms box lives in the email card and gates its pay button, not the bar's Continue.
@@ -258,6 +267,8 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
       buzz([40, 60, 40]);
       return;
     }
+    // Early tickets ran out: re-read the types (the basket cleans down to the new max by itself).
+    if (earlyBird && r.reason === 'early_bird_limit') { setRefusal(EARLY_BIRD_RAN_OUT); reread(); return; }
     const copy = stepReasonCopy(r.reason, null) ?? reasonCopy(r.reason, r.message);
     // The picker has no night list: a night refusal points at the Back control that IS on screen.
     setRefusal(copy.way === 'pick_night' ? 'Tickets for this night cannot be booked now. Go Back to pick another night.' : copy.text);
@@ -362,15 +373,20 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
             const room = roomFor(t, clean, now);
             const a = availability(t, now);
             const per = perLine(t);
+            const earlyOpen = earlyBird && isEarlyOpen(t);
+            const earlySold = earlyBird && t.earlyState === 'sold_out';
             return (
               <div key={t.id} data-testid="picker-row" className="flex items-start justify-between gap-3 py-[14px]" style={{ borderTop: `1px solid ${LINE}`, ...(ix === types.length - 1 ? { borderBottom: `1px solid ${LINE}` } : {}) }}>
                 <div className="min-w-0">
                   <div className="break-words text-[14px] font-semibold">{t.name}</div>
+                  {earlyOpen && <div data-testid="picker-early-line" className="mt-[2px] text-[11px] font-bold" style={{ color: EARLY }}>Early bird price</div>}
+                  {earlySold && <div data-testid="picker-early-soldout" className="mt-[2px] text-[12px]" style={{ color: SUB }}>Early bird sold out</div>}
                   {max === 0 && <div className="mt-[2px] text-[12px]" style={{ color: SUB }}>{a.label}</div>}
                   {per && <div className="mt-1 text-[12px]" style={{ color: BRAND }}>{per}</div>}
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-2">
-                  <div data-testid={t.pricePence <= 0 ? 'picker-free-price' : undefined} className="text-[16px] font-semibold leading-[1.2] tabular-nums">{formatPence(t.pricePence)}</div>
+                  {earlyOpen && <s data-testid="picker-regular-price" className="-mb-[6px] text-[12px] tabular-nums" style={{ color: SUB }}>{formatPence(t.regularPricePence ?? 0)}</s>}
+                  <div data-testid={t.pricePence <= 0 ? 'picker-free-price' : undefined} className="text-[16px] font-semibold leading-[1.2] tabular-nums" style={earlyOpen ? { color: EARLY } : undefined}>{formatPence(t.pricePence)}</div>
                   {max > 0 && (
                     // 36x36 is the prototype value, accepted by the owner over the 44px tap rule (2026-11-18).
                     <div className="flex items-center gap-[2px]">
@@ -438,6 +454,7 @@ export function TicketPickerB1({ seriesId, occurrenceId, title, dateLine, venueL
               <b data-testid="picker-total" className="text-[16px] font-semibold tabular-nums" style={{ color: INK }}>{formatPence(payPence)}</b>
             </span>
           </div>
+          {earlySave > 0 && <p data-testid="picker-early-save" className="mb-[6px] text-right text-[12px]" style={{ color: EARLY }}>You save &pound;{(earlySave / 100).toFixed(2)}</p>}
           {blocked && <p data-testid="picker-blocked" className="mb-[6px] text-[12px]" style={{ color: SUB }}>{blocked}</p>}
           {knownEmail && (
             <p data-testid={BUYER_ONBOARDING_ENABLED ? 'picker-not-you' : 'picker-sends-to'} className="mb-[4px] flex flex-wrap items-center gap-x-1 break-words text-[13px]" style={{ color: SUB }}>
