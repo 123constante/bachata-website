@@ -6,11 +6,19 @@ import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { EventCalendar } from '@/components/EventCalendar';
 import ListingIntro from '@/components/listing/ListingIntro';
 import { resolvePageCity } from '@/lib/pageCity';
+import LiveEventsSection from '@/components/seo/LiveEventsSection';
 import { buildCityPath } from '@/lib/cityPath';
 
-const Parties = () => {
-  // Only a /city/:slug URL names the city: bare /parties is prerendered and stays
-  // London, and its static HTML never meets a stored city at hydration.
+/**
+ * `serverTodayKey` comes only from the framework route for bare /parties, whose
+ * loader dehydrates the London "this week" list (site structure S2c). Its
+ * presence is what renders the server list below the calendar: the catchall
+ * also renders this page for /city/:slug/parties with NO loader, so there the
+ * section is left out rather than fetched client-side.
+ */
+const Parties = ({ serverTodayKey }: { serverTodayKey?: string }) => {
+  // Only a /city/:slug URL names the city: bare /parties stays London (its
+  // server HTML never meets a stored city at hydration).
   const { slug } = useParams<{ slug?: string }>();
   const city = resolvePageCity(slug);
   useSeo(buildSeoForRoute('parties', { cityDisplay: city.name }));
@@ -53,6 +61,18 @@ const Parties = () => {
       <section id="calendar" className="px-4 mb-8">
         <EventCalendar defaultCategory="parties" />
       </section>
+
+      {serverTodayKey !== undefined && city.isLondon ? (
+        <div className="px-4 mb-8">
+          <LiveEventsSection
+            id="this-week"
+            heading="Bachata parties in London this week"
+            partiesOnly
+            serverTodayKey={serverTodayKey}
+            emptyText="Nothing listed in the next seven days yet &mdash; the calendar above shows every date."
+          />
+        </div>
+      ) : null}
     </GlobalLayout>
   );
 };
