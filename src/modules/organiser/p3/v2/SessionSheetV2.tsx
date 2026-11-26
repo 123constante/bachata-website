@@ -71,6 +71,7 @@ export function timesProblem(start: string, end: string): boolean {
 export function SessionSheetV2({ row, count, ctx: _ctx, dayLabel: _dayLabel, invite, onDone, onRemove, onClose }: SessionSheetProps) {
   const [d, setD] = useState<DraftSession>(() => row ?? { key: 'new', original: null, type: 'class', title: '', start: '', end: '', levels: [], removed: false, people: [] });
   const [tried, setTried] = useState(false);
+  const [prefill, setPrefill] = useState<{ name: string; n: number } | null>(null);
   const isNew = !row;
   const locked = !!d.original; // a stored session keeps its stored type (setSessionType rule)
   const title = isNew ? V2.session.addTitle : d.title || typeLabel(d.type);
@@ -144,6 +145,7 @@ export function SessionSheetV2({ row, count, ctx: _ctx, dayLabel: _dayLabel, inv
             onIds={onSessionIds(d)}
             onAdd={(p) => setD((r) => pickPerson(r, p))}
             onRemove={(id) => setD((r) => { const i = (r.people ?? []).findIndex((p) => p.id === id); return i < 0 ? r : removePerson(r, i); })}
+            onInvite={showInvites ? (name) => setPrefill((c) => ({ name, n: (c?.n ?? 0) + 1 })) : undefined}
           />
         );
         if (!showInvites || !invite) return group;
@@ -151,7 +153,7 @@ export function SessionSheetV2({ row, count, ctx: _ctx, dayLabel: _dayLabel, inv
           <div key={g.label}>
             {group}
             <ClassInvites occurrenceId={invite.occurrenceId} itemId={item} addedId={added} classTitle={d.title.trim() || typeLabel(d.type)}
-              eventName={invite.eventName} dateLabel={invite.dateLabel} canForward={invite.canForwardItem && item !== null} />
+              eventName={invite.eventName} dateLabel={invite.dateLabel} canForward={invite.canForwardItem && item !== null} prefill={prefill} />
           </div>
         );
       })}
