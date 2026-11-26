@@ -30,7 +30,8 @@ export interface ManagedType {
   earlyPricePence?: number | null;
   earlyCapacity?: number | null;
   earlyTaken?: number;
-  earlyOpen?: boolean;
+  earlyLeft?: number | null;
+  earlyOpen?: boolean | null;
   regularPricePence?: number | null;
 }
 
@@ -39,6 +40,8 @@ export interface ManageResult {
   reason: string | null;
   types: ManagedType[];
 }
+
+const numOrNull = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
 export const parseManage = (data: unknown): ManageResult => {
   const d = (data ?? {}) as { ok?: unknown; reason?: unknown; ticket_types?: unknown };
@@ -59,11 +62,12 @@ export const parseManage = (data: unknown): ManageResult => {
         hasOrders: r.has_orders === true,
         hasPriceSteps: r.has_price_steps === true || steps.length > 0,
         steps,
-        earlyPricePence: typeof r.early_price_pence === 'number' ? r.early_price_pence : null,
-        earlyCapacity: typeof r.early_capacity === 'number' ? r.early_capacity : null,
+        earlyPricePence: numOrNull(r.early_price_pence),
+        earlyCapacity: numOrNull(r.early_capacity),
         earlyTaken: num(r.early_taken),
-        earlyOpen: r.early_open === true,
-        regularPricePence: typeof r.regular_price_pence === 'number' ? r.regular_price_pence : null,
+        earlyLeft: numOrNull(r.early_left),
+        earlyOpen: typeof r.early_open === 'boolean' ? r.early_open : null,
+        regularPricePence: numOrNull(r.regular_price_pence),
       };
     }),
   };
