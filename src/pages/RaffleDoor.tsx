@@ -135,9 +135,16 @@ export function DoorScreen(props: { view: View; busy: boolean; onAdmit: () => vo
       title = 'Already admitted';
       body = (
         <>
-          {photo}
-          <p className="text-sm text-muted-foreground">
-            This prize was used at {result.admittedAtLocal}. Do not admit again.
+          {card}
+          <p className="mt-3 text-sm text-muted-foreground" data-testid="door-used-at">
+            This prize was used at {result.admittedAtLocal}.
+          </p>
+          <p className="mt-2 text-sm font-semibold" data-testid="door-photo-rule">
+            {result.photoUrl
+              ? 'If this is the person in the photo, let them in.'
+              : result.name
+                ? `If this is ${result.name}, let them in.`
+                : 'Ask the organiser for help.'}
           </p>
         </>
       );
