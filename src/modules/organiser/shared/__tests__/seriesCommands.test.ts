@@ -44,8 +44,8 @@ const SERVER_OWNER_KINDS = [
   'series.resume_run',
 ];
 const SERVER_UPSERT_KEYS = [
-  'name', 'slug', 'default_venue_id', 'default_city_id', 'default_local_start_time',
-  'default_duration_minutes', 'default_start_date', 'default_level', 'default_ticket_url',
+  'name', 'slug', 'default_venue_id', 'default_city_id',
+  'default_start_date', 'default_level', 'default_ticket_url',
   'default_description', 'default_cover_image_url', 'default_music_styles', 'default_gallery',
   'default_video_urls', 'timezone', 'category', 'default_passes', 'instagram_url',
   // ER AD1 (20261129880000): How to pay, on prod's v_owner_upsert_keys (2026-10-24).

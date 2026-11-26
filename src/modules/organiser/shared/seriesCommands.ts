@@ -35,8 +35,8 @@ export const OWNER_COMMAND_KINDS = [
  * (20261109180000_p5_owner_writes_time_price_instagram_v1.sql).
  */
 export const OWNER_UPSERT_KEYS = [
-  'name', 'slug', 'default_venue_id', 'default_city_id', 'default_local_start_time',
-  'default_duration_minutes', 'default_start_date', 'default_level', 'default_ticket_url',
+  'name', 'slug', 'default_venue_id', 'default_city_id',
+  'default_start_date', 'default_level', 'default_ticket_url',
   'default_description', 'default_cover_image_url', 'default_music_styles', 'default_gallery',
   'default_video_urls', 'timezone', 'category', 'default_passes', 'instagram_url', 'payment_methods',
 ] as const;

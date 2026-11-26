@@ -246,7 +246,6 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string | ((hit: RegEx
   { match: /must be blank or an http\(s\) URL|must be null or an array of http\(s\) URLs/, message: 'Enter a full link starting with https://.' },
   { match: /description is longer than/, message: 'Keep the note under 4,000 characters.' },
   { match: /must name an existing venue/, message: 'That venue is not on Bachata Calendar yet.' },
-  { match: /default_duration_minutes/, message: 'The end time must be after the start, and within 20 hours.' },
   { match: /must be a HH:MM time|must be blank or a HH:MM time/, message: 'Enter the time as hours and minutes, like 19:30.' },
   { match: /date must be a YYYY-MM-DD date/, message: 'Choose a date.' },
   { match: /is not an owner transition|^lifecycle_transition_denied/, message: 'That status change is not available for this event right now.' },
