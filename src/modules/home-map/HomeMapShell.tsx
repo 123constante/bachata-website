@@ -279,13 +279,17 @@ export default function HomeMapShell({
   // citySlug is required, not optional: the card's entire purpose is to open
   // /city/:citySlug/map, and a card that cannot say where it goes should not be
   // on screen. No city, no card -- the still and the dark box below still render.
-  const showMapCard = !!citySlug && (state.tab === 'all' || state.tab === 'tonight');
+  // homeOneRow (site structure S2d-1): no folder tabs; home is always the list with the ONE filter row
+  // (Today / Weekend live in that row now). A /calendar or ?tab deep link lands on the list too.
+  const oneRow = flags.homeOneRow;
+  const tab = oneRow ? 'all' : state.tab;
+  const showMapCard = !!citySlug && (tab === 'all' || tab === 'tonight');
 
   const placeholder = citySlug ? MAP_PLACEHOLDERS[citySlug] : undefined;
 
   return (
     <div
-      className={cn('home-map-fill home-map relative isolate w-full overflow-hidden', flags.homePolish && 'hm-polish', flags.homeFeedLook && 'hm-look')}
+      className={cn('home-map-fill home-map relative isolate w-full overflow-hidden', flags.homePolish && 'hm-polish', flags.homeFeedLook && 'hm-look', oneRow && 'hm-one')}
     >
       {/* The skip link only has something to skip when the card is on screen.
           On What's New and Calendar the map is not rendered at all, so a link
@@ -356,7 +360,7 @@ export default function HomeMapShell({
           `display:none` would leave Leaflet mounted at zero size, which is the
           worst of both -- it still costs a live map and still moves the tab row. */}
       {/* homeFeedLook: the folder tabs sit ABOVE the map and join it (one panel). Same TabBar. */}
-      {flags.homeFeedLook && (
+      {flags.homeFeedLook && !oneRow && (
         <div className="hm-dock hm-look-dock shrink-0 px-3 pt-3">
           <TabBar tab={state.tab} setTab={state.setTab} />
         </div>
@@ -479,9 +483,10 @@ export default function HomeMapShell({
         <div
           ref={state.listRef}
           id={RAIL_PANEL_ID}
-          role="tabpanel"
+          role={oneRow ? 'region' : 'tabpanel'}
           tabIndex={0}
-          aria-labelledby={railTabId(state.tab)}
+          aria-label={oneRow ? 'Events' : undefined}
+          aria-labelledby={oneRow ? undefined : railTabId(state.tab)}
           // An INSET focus ring: the shell is overflow:hidden, so the shared focusRing's
           // offset ring would be clipped and this -- the skip link's destination -- would
           // have no visible focus indicator at all.
@@ -496,10 +501,10 @@ export default function HomeMapShell({
             <RetryNotice onRetry={onRetry} />
           ) : (
             <>
-              {state.tab === 'all' && <AllBody state={state} />}
-              {state.tab === 'tonight' && <TonightBody state={state} />}
-              {state.tab === 'news' && <NewsBody state={state} />}
-              {state.tab === 'cal' && (
+              {tab === 'all' && <AllBody state={state} />}
+              {tab === 'tonight' && <TonightBody state={state} />}
+              {tab === 'news' && <NewsBody state={state} />}
+              {tab === 'cal' && (
                 <Suspense fallback={<ListSkeleton />}>
                   <CalendarPanel state={state} />
                 </Suspense>

@@ -164,6 +164,10 @@ export const flags = {
   // (Near me inside it), poster-thumb feed rows. Needs homePolish ON (it builds on that chip row + Today tab).
   // OFF = every screen exactly as before. Turn on with VITE_ENABLE_HOME_FEED_LOOK=true (Vercel env) -- no code change.
   homeFeedLook:        import.meta.env.VITE_ENABLE_HOME_FEED_LOOK === 'true' && import.meta.env.VITE_ENABLE_HOME_POLISH === 'true',
+  // Home one filter row (site structure S2d-1, docs/arcs/site-structure.md): the folder tabs go, the poster row
+  // becomes Today / Weekend / Near me / Party / Class / Festival (one at a time; tap again = everything).
+  // Needs homeFeedLook ON. OFF = home exactly as before. Turn on with VITE_ENABLE_HOME_ONE_ROW=true (Vercel env).
+  homeOneRow:          import.meta.env.VITE_ENABLE_HOME_ONE_ROW === 'true' && import.meta.env.VITE_ENABLE_HOME_FEED_LOOK === 'true' && import.meta.env.VITE_ENABLE_HOME_POLISH === 'true',
   // Dashboard switch, Round-4 everywhere (docs/briefs/dashboard-switch-build.md): the Switch profile sheet in the
   // dancer app and organiser area, the organiser Switch page and the Sign out link at the foot of Account settings.
   // OFF = every screen exactly as before. Turn on with VITE_ENABLE_DASHBOARD_SWITCH_R4=true (Vercel env) -- no code change.
