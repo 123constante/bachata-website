@@ -288,6 +288,13 @@ export async function setPriceStep(cmd: StepCommand): Promise<WriteResult> {
   return writeResult(data);
 }
 
+/** Early bird (flag ticketEarlyBird): set (price + count) or remove (both null) a paid ticket's early tier. */
+export async function setEarlyBird(cmd: { p_ticket_type_id: string; p_price_pence: number | null; p_capacity: number | null }): Promise<WriteResult> {
+  const { data, error } = await db().rpc('ticket_early_bird_set_v1', { ...cmd });
+  if (error) throw error;
+  return writeResult(data);
+}
+
 export async function removePriceStep(stepId: string): Promise<WriteResult> {
   const { data, error } = await db().rpc('ticket_price_step_remove_v1', { p_step_id: stepId });
   if (error) throw error;

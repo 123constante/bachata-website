@@ -26,6 +26,12 @@ export interface ManagedType {
   hasOrders: boolean;
   hasPriceSteps: boolean;
   steps: PriceStep[];
+  /** Early bird (flag ticketEarlyBird): absent / null = no early tier. */
+  earlyPricePence?: number | null;
+  earlyCapacity?: number | null;
+  earlyTaken?: number;
+  earlyOpen?: boolean;
+  regularPricePence?: number | null;
 }
 
 export interface ManageResult {
@@ -53,6 +59,11 @@ export const parseManage = (data: unknown): ManageResult => {
         hasOrders: r.has_orders === true,
         hasPriceSteps: r.has_price_steps === true || steps.length > 0,
         steps,
+        earlyPricePence: typeof r.early_price_pence === 'number' ? r.early_price_pence : null,
+        earlyCapacity: typeof r.early_capacity === 'number' ? r.early_capacity : null,
+        earlyTaken: num(r.early_taken),
+        earlyOpen: r.early_open === true,
+        regularPricePence: typeof r.regular_price_pence === 'number' ? r.regular_price_pence : null,
       };
     }),
   };
@@ -91,6 +102,64 @@ const STEP_REASON: Record<string, string> = {
 /** The words for a step writer's refusal; anything unknown is the shared "try again". */
 export const stepReasonMessage = (reason: string | null | undefined): string =>
   (reason && STEP_REASON[reason]) || 'That did not work. Try again in a moment.';
+
+// ---- Early bird (flag ticketEarlyBird): switch + price + count on a saved paid ticket ----
+
+export const EARLY_SWITCH_LABEL = 'Early bird price';
+export const EARLY_PRICE_LABEL = 'Early bird price (£)';
+export const EARLY_COUNT_LABEL = 'How many at this price';
+export const EARLY_STEPS_NOTE = 'Turn off the early bird price to add price changes.';
+
+/** "When these 20 sell, the price goes to £15 by itself." N and P are live from the inputs. */
+export const earlyNote = (count: string, regularPence: number | null): string => {
+  const n = count.trim() === '' ? '…' : count.trim();
+  const p = regularPence === null ? '…' : formatPence(regularPence);
+  return `When these ${n} sell, the price goes to ${p} by itself.`;
+};
+
+const EARLY_REASON: Record<string, string> = {
+  invalid_payload: 'Enter a price and how many tickets sell at that price.',
+  not_paid_ticket: 'Early bird prices are for paid tickets. Give this ticket a price and save it first.',
+  has_price_steps: 'Remove the price changes first; a ticket with price changes cannot have an early bird price.',
+  has_night_prices: 'Some nights have their own price, so this ticket cannot have an early bird price.',
+  invalid_price: 'Enter an early bird price from £0.01 to £10,000.',
+  invalid_count: 'Enter how many tickets sell at this price, a whole number of 1 or more.',
+  count_below_taken: 'That many have already sold at this price. Enter at least the number already sold.',
+  not_owner_or_admin: 'Only the owner or an admin of this organiser can change prices.',
+  not_found: 'This ticket is no longer there. Reload the page.',
+};
+export const earlyReasonMessage = (reason: string | null | undefined): string =>
+  (reason && EARLY_REASON[reason]) || 'That did not work. Try again in a moment.';
+
+export interface EarlyForm { on: boolean; price: string; count: string }
+export const earlyFormOf = (r: ManagedType | undefined): EarlyForm =>
+  r && r.earlyPricePence != null
+    ? { on: true, price: poundsText(r.earlyPricePence), count: String(r.earlyCapacity ?? '') }
+    : { on: false, price: '', count: '' };
+
+/** A failed field's reason key, or null. */
+export const earlyInvalid = (f: EarlyForm): string | null => {
+  if (!f.on) return null;
+  const p = penceOf(f.price);
+  if (p === null || p <= 0) return 'invalid_price';
+  if (!/^\d{1,6}$/.test(f.count.trim()) || Number(f.count) < 1) return 'invalid_count';
+  return null;
+};
+
+/** The one command, or null when nothing changed (an untouched sheet sends nothing). Off on a saved tier sends nulls. */
+export const earlyCommand = (
+  f: EarlyForm,
+  row: ManagedType | undefined,
+): { p_ticket_type_id: string; p_price_pence: number | null; p_capacity: number | null } | null => {
+  if (!row) return null;
+  const had = row.earlyPricePence != null;
+  if (!f.on) return had ? { p_ticket_type_id: row.id, p_price_pence: null, p_capacity: null } : null;
+  const p = penceOf(f.price);
+  const c = Number(f.count);
+  if (p === null || !Number.isInteger(c)) return null;
+  if (had && p === row.earlyPricePence && c === row.earlyCapacity) return null;
+  return { p_ticket_type_id: row.id, p_price_pence: p, p_capacity: c };
+};
 
 // ---- Time (s.2c): London wall clock in the field, true instants on the wire --------------
 

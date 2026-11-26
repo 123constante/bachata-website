@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { setTicketStatus, upsertTicketType } from '../../tickets/ticketsApi';
+import { useQueryClient } from '@tanstack/react-query';
+import { setEarlyBird, setTicketStatus, upsertTicketType } from '../../tickets/ticketsApi';
 import {
   EDITOR_STEPS,
   EVERY_DATE_NOTE,
@@ -23,6 +24,7 @@ import {
   isoToLondonInput,
   moveBlock,
   paidOf,
+  penceOf,
   priceLock,
   reasonMessage,
   reviewRows,
@@ -41,8 +43,22 @@ import { StackSheet } from './StackSheet';
 import { useGatedCopy } from '../onboarding/gate';
 import { GATE_LATE, SELL_HELD } from './gateCopy';
 import { flags } from '@/lib/featureFlags';
-import { FREE_WITH_STEPS, STEPS_UNSAVED } from '../../tickets/priceSteps';
-import { useCourseDates, useManagedTypes } from './data';
+import {
+  EARLY_COUNT_LABEL,
+  EARLY_PRICE_LABEL,
+  EARLY_STEPS_NOTE,
+  EARLY_SWITCH_LABEL,
+  FREE_WITH_STEPS,
+  STEPS_TITLE,
+  STEPS_UNSAVED,
+  earlyCommand,
+  earlyFormOf,
+  earlyInvalid,
+  earlyNote,
+  earlyReasonMessage,
+  type EarlyForm,
+} from '../../tickets/priceSteps';
+import { managedKey, useCourseDates, useManagedTypes } from './data';
 import {
   COURSE_END_LABEL,
   COURSE_HELP,
@@ -143,9 +159,19 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
 
   // T3: the price steps of this type (flag ticketPriceStepsEditor), read only for an existing type someone can change.
   const stepsOn = flags.ticketPriceStepsEditor && !!type && !locked;
-  const managed = useManagedTypes(seriesId, stepsOn);
+  // Early bird (flag ticketEarlyBird): the manage read is also needed for the switch.
+  const earlyFlag = flags.ticketEarlyBird && !!type && !locked;
+  const managed = useManagedTypes(seriesId, stepsOn || earlyFlag);
   const managedRow = type ? managed.data?.types.find((r) => r.id === type.id) : undefined;
   const hasSteps = !!managedRow?.hasPriceSteps;
+  const queryClient = useQueryClient();
+  const [earlyEdit, setEarlyEdit] = useState<EarlyForm | null>(null);
+  const [earlyError, setEarlyError] = useState<string | null>(null);
+  // The switch: a saved paid ticket with NO price steps; with steps it is not shown at all.
+  const earlyShown = earlyFlag && !!managedRow && !hasSteps && (type?.pricePence ?? 0) > 0;
+  const early = earlyEdit ?? earlyFormOf(managedRow);
+  const earlyOn = earlyShown && early.on;
+  const setEarly = (p: Partial<EarlyForm>) => { setEarlyError(null); setEarlyEdit({ ...early, ...p }); };
   // T5 (flag ticketCoursePresets): a new ticket may be a course; a saved course offers early-bird presets.
   const coursesOn = flags.ticketCoursePresets && flags.ticketPriceStepsEditor;
   const newCourse = coursesOn && !type && form.kind === 'course';
@@ -197,19 +223,67 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
       patch({ step: Object.keys(stepErrors(errs, 1)).length > 0 ? 1 : 2 });
       return;
     }
+    setEarlyError(null);
+    // A ticket being made free in this save cannot keep an early price: refuse before anything is written.
+    if (earlyShown && early.on && (pence ?? 0) <= 0) {
+      setEarlyError('A free ticket cannot have an early bird price. Turn the early bird price off first.');
+      patch({ step: 1 });
+      return;
+    }
+    const earlyBad = earlyShown ? earlyInvalid(early) : null;
+    if (earlyBad) {
+      setEarlyError(earlyReasonMessage(earlyBad));
+      patch({ step: 1 });
+      return;
+    }
+    const earlyCmd = earlyShown ? earlyCommand(early, managedRow) : null;
     const upsert = buildUpsert(form, type, { organiserId, seriesId });
-    if (!upsert) {
+    if (!upsert && !earlyCmd) {
       onSaved('Nothing changed, so nothing was saved.', false);
       return;
     }
     setSaving(sell ? 'sell' : 'save');
+    // Set once the main fields are written: a later early-bird throw must not say "not saved".
+    let mainSaved = false;
     try {
-      const out = await upsertTicketType(upsert);
-      if (!out.ok) {
-        refuse(out.reason === 'has_price_steps' ? FREE_WITH_STEPS : reasonMessage(out.reason));
+      if (upsert) {
+        const out = await upsertTicketType(upsert);
+        if (!out.ok) {
+          refuse(out.reason === 'has_price_steps' ? FREE_WITH_STEPS : reasonMessage(out.reason));
+          return;
+        }
+        mainSaved = true;
+        if (type && !earlyCmd) return landed('Ticket saved.');
+        if (!type) return await afterNew(out, sell, thenConnect);
+      }
+      if (earlyCmd) {
+        const e = await setEarlyBird(earlyCmd);
+        void queryClient.invalidateQueries({ queryKey: managedKey(seriesId) });
+        if (!e.ok) {
+          if (alive.current) { setEarlyError(earlyReasonMessage(e.reason)); if (upsert) setServerError('The rest of the ticket was saved, but the early bird price was not.'); }
+          else onLate(named(`early bird price not saved. ${earlyReasonMessage(e.reason)}`), false, type?.id);
+          return;
+        }
+        return landed('Ticket saved.');
+      }
+    } catch (e) {
+      if (mainSaved && earlyCmd) {
+        void queryClient.invalidateQueries({ queryKey: managedKey(seriesId) });
+        if (alive.current) { setEarlyError(earlyReasonMessage(null)); setServerError('The rest of the ticket was saved, but the early bird price was not.'); }
+        else onLate(named(`early bird price not saved. ${earlyReasonMessage(null)}`), false, type?.id);
         return;
       }
-      if (type) return landed('Ticket saved.');
+      const words = gated(e, () => reasonMessage(null));
+      if (words !== null) refuse(words);
+      else if (!alive.current) onLate(named(`not saved. ${GATE_LATE}`), false);
+    } finally {
+      if (alive.current) setSaving(null);
+    }
+  };
+
+  /** A new ticket's saved answer: connect, draft, or put on sale (unchanged behaviour). */
+  const afterNew = async (out: Awaited<ReturnType<typeof upsertTicketType>>, sell: boolean, thenConnect: boolean) => {
+    try {
       if (thenConnect && onboard) {
         landed('Ticket saved as a draft. Connecting payments\u2026');
         void onboard.go();
@@ -260,6 +334,7 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
     errors[k] ? <p id={`${id}-${k}-err`} className="p3-note p3-danger-t" data-testid={`tix-err-${k}`}>{errors[k]}</p> : null;
 
   const total = pence === null ? null : buyerTotal(pence);
+  const earlyPence = penceOf(early.price);
   const canClose = !!type && !locked && NEXT_STATUS[type.status].includes('closed');
   const busy = saving !== null;
 
@@ -410,10 +485,30 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
             {err('price')}
             {pence !== null && pence > 0 && !type && <p className="p3-note" data-testid="tix-stripe-hint">{STRIPE_AT_PRICE_HINT}</p>}
             <p id={`${id}-price-help`} className="p3-note" data-testid="tix-price-help">{lockedPrice ?? (checking ? 'Checking sales\u2026' : 'Leave empty or 0 for a free ticket.')}</p>
+            {earlyShown && (
+              <div className="p3-stack-s" data-testid="tix-early">
+                <label className="p3-row" style={{ minHeight: 44 }} htmlFor={`${id}-early-on`}>
+                  <span className="p3-grow p3-row-t">{EARLY_SWITCH_LABEL}</span>
+                  <input id={`${id}-early-on`} type="checkbox" role="switch" checked={early.on} disabled={busy} onChange={(e) => setEarly({ on: e.target.checked })} data-testid="tix-early-switch" />
+                </label>
+                {early.on && (
+                  <>
+                    <label className="p3-field" htmlFor={`${id}-early-price`}>{EARLY_PRICE_LABEL}</label>
+                    <input id={`${id}-early-price`} className="p3-in" inputMode="decimal" placeholder="0.00" value={early.price} onChange={(e) => setEarly({ price: e.target.value })} aria-invalid={earlyError ? true : undefined} data-testid="tix-early-price" />
+                    <label className="p3-field" htmlFor={`${id}-early-count`}>{EARLY_COUNT_LABEL}</label>
+                    <input id={`${id}-early-count`} className="p3-in" inputMode="numeric" value={early.count} onChange={(e) => setEarly({ count: e.target.value })} aria-invalid={earlyError ? true : undefined} data-testid="tix-early-count" />
+                    <p className="p3-note" data-testid="tix-early-note">{earlyNote(early.count, pence)}</p>
+                  </>
+                )}
+                {earlyError && <p role="alert" className="p3-note p3-danger-t" data-testid="tix-early-error">{earlyError}</p>}
+              </div>
+            )}
             <div className="p3-buyer" data-testid="tix-buyer-pays" aria-live="polite">
               <span className="p3-row-s">Buyer pays</span>
               {total === null ? (
                 <span className="p3-row-t" data-testid="tix-buyer-total">Enter a price to see it</span>
+              ) : earlyOn && earlyPence !== null && earlyPence > 0 && !total.free ? (
+                <span className="p3-stat-n" data-testid="tix-buyer-total">{formatPence(buyerTotal(earlyPence).totalPence)} now, {formatPence(total.totalPence)} after</span>
               ) : (
                 <>
                   <span className="p3-stat-n" data-testid="tix-buyer-total">{total.free ? 'Free' : formatPence(total.totalPence)}</span>
@@ -421,7 +516,13 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
                 </>
               )}
             </div>
-            {stepsOn && (
+            {stepsOn && earlyOn && (
+              <section data-testid="tix-steps">
+                <strong>{STEPS_TITLE}</strong>
+                <p className="p3-note" data-testid="tix-steps-early-note">{EARLY_STEPS_NOTE}</p>
+              </section>
+            )}
+            {stepsOn && !earlyOn && (
               <PriceSteps
                 seriesId={seriesId}
                 row={managedRow}
