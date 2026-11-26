@@ -13,17 +13,17 @@ vi.mock('@/integrations/supabase/rpcLoose', () => ({ rpcLoose: (...a: unknown[])
 vi.mock('canvas-confetti', () => ({ default: () => undefined }));
 vi.mock('../../../../tickets/TicketQrCode', () => ({ default: () => <svg data-testid="ticket-qr" /> }));
 vi.mock('../../../api/useMyDancerEdit', () => ({ useMyDancerEdit: () => ({ data: { first_name: 'Maya', avatar_url: null } }) }));
-const flag = vi.hoisted(() => ({ on: true }));
-vi.mock('@/lib/featureFlags', () => ({ flags: { get raffleGoldenTicket() { return flag.on; } } }));
+const flag = vi.hoisted(() => ({ on: true, look: false }));
+vi.mock('@/lib/featureFlags', () => ({ flags: { get raffleGoldenTicket() { return flag.on; }, get homeGoldenLook() { return flag.look; } } }));
 vi.mock('@/lib/londonDate', () => ({ londonTodayKey: () => '2026-11-26' }));
 
-import HomeRaffleWin from '../homeRaffleWin';
+import HomeRaffleWin, { useHasRaffleWin } from '../homeRaffleWin';
 
 const NIGHT = { title: 'Noche Dominicana', start_local: '2026-11-29T20:00', venue_name: 'The Copper Room', poster_url: 'https://x/f.jpg' };
 const WIN = (night: unknown, extra = {}) => [{ win: { id: 'w1', state: 'locked', qr_token: 'a'.repeat(64), night, ...extra } }];
 const shell = () => render(<QueryClientProvider client={new QueryClient()}><HomeRaffleWin /></QueryClientProvider>);
 
-beforeEach(() => { flag.on = true; setTestUser({ id: 'u1' }); sessionStorage.clear(); rpc.mockReset(); });
+beforeEach(() => { flag.on = true; flag.look = false; setTestUser({ id: 'u1' }); sessionStorage.clear(); rpc.mockReset(); });
 afterEach(cleanup);
 
 describe('model helpers', () => {
@@ -140,5 +140,29 @@ describe('golden ticket states', () => {
     expect(await screen.findByText('Your dashboard')).toBeTruthy();
     expect(screen.queryByTestId('gt-share')).toBeNull();
     expect(screen.getByText('Show this at the door.')).toBeTruthy();
+  });
+});
+
+describe('homeGoldenLook (prototype A)', () => {
+  const Probe = () => <i data-testid="probe">{String(useHasRaffleWin())}</i>;
+  it('gradient even with a poster, gold chip, Fraunces heading, win store true', async () => {
+    flag.look = true;
+    rpc.mockResolvedValue({ data: WIN(NIGHT), error: null });
+    render(<QueryClientProvider client={new QueryClient()}><Probe /><HomeRaffleWin /></QueryClientProvider>);
+    const title = await screen.findByTestId('gt-flyer-title');
+    expect((title.parentElement as HTMLElement).style.background).toContain('linear-gradient');
+    expect(screen.queryByTestId('raffle-win-flyer')).toBeNull();
+    expect((screen.getByTestId('gt-chip') as HTMLElement).style.background).toBe('rgb(242, 181, 68)');
+    expect((screen.getByTestId('gt-heading') as HTMLElement).style.fontFamily).toContain('Fraunces');
+    expect(screen.getByTestId('probe').textContent).toBe('true');
+    expect(screen.getByText(/Tell a friend/)).toBeTruthy();
+    expect(screen.getByTestId('gt-safe')).toBeTruthy();
+    expect(screen.getByText(/Make it big/)).toBeTruthy();
+  });
+  it('flag off keeps the poster and the old chip', async () => {
+    rpc.mockResolvedValue({ data: WIN(NIGHT), error: null });
+    shell();
+    expect(await screen.findByTestId('raffle-win-flyer')).toBeTruthy();
+    expect((screen.getByTestId('gt-heading') as HTMLElement).style.fontFamily).not.toContain('Fraunces');
   });
 });
