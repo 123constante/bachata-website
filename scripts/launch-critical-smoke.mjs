@@ -355,7 +355,12 @@ const run = async () => {
       if (href) {
         selectedOrganiserPath = href;
         await page.goto(`${baseUrl}${href}`, { waitUntil: 'networkidle' });
-        if (!page.url().includes('/organisers/')) throw new Error(`Expected organiser detail URL, got ${page.url()}`);
+        // ORGANISER_SUBDOMAIN_LINKS (on since 2026-11-26) 301s a one-label slug to
+        // https://<slug>.bachatacalendar.co.uk/ -- that IS the organiser detail page.
+        const landed = new URL(page.url());
+        const onSubdomain = /^[a-z0-9-]+\.bachatacalendar\.co\.uk$/.test(landed.hostname)
+          && !/^(www|admin)\./.test(landed.hostname);
+        if (!landed.pathname.includes('/organisers/') && !onSubdomain) throw new Error(`Expected organiser detail URL, got ${page.url()}`);
       }
     } else if (selectedOrganiserPath) {
       await page.goto(`${baseUrl}${selectedOrganiserPath}`, { waitUntil: 'networkidle' });
