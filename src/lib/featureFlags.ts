@@ -31,6 +31,8 @@ export const flags = {
   // Door page "Already admitted": friendly London time ("Used today at 20:00") instead of the raw value.
   // OFF = today's door screen, unchanged. Turn on with VITE_ENABLE_RAFFLE_DOOR_TIME=true.
   raffleDoorTime:      import.meta.env.VITE_ENABLE_RAFFLE_DOOR_TIME === 'true',
+  // Raffle winner photo: face-guide + in-browser background removal. OFF = today's photo step.
+  raffleCutout:        import.meta.env.VITE_ENABLE_RAFFLE_PHOTO_CUTOUT === 'true',
   // Federated search v5 (Cmd+K / mobile full-screen overlay + search_public_v5).
   // When false the existing HeaderSearch omnibox (search_public_v4) renders
   // unchanged, so prod is untouched until this flips per-environment.
