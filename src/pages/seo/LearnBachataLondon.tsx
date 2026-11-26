@@ -177,7 +177,7 @@ const LearnBachataLondon = ({ serverTodayKey }: { serverTodayKey?: string }) => 
 
         {flags.learnMerged ? (
           <>
-            <GuideSections omitFirstClass serverTodayKey={serverTodayKey} />
+            <GuideSections omitFirstClass omitLiveEvents serverTodayKey={serverTodayKey} />
 
             <section className="space-y-3" id="faq">
               <h2 className="text-2xl font-bold">Common questions</h2>

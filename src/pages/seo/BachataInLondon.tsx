@@ -127,9 +127,14 @@ export const SEO_INPUT: SeoInput = {
   ogType: "article",
 };
 
-export function GuideSections({ omitFirstClass = false, serverTodayKey }: { omitFirstClass?: boolean; serverTodayKey?: string }) {
+// omitLiveEvents: the merged Learn page (flags.learnMerged) already shows its own
+// server-preloaded "Beginner classes this month" list; a second list here would
+// duplicate events and fetch the guide window client-side (its route loader only
+// preloads the learn window).
+export function GuideSections({ omitFirstClass = false, omitLiveEvents = false, serverTodayKey }: { omitFirstClass?: boolean; omitLiveEvents?: boolean; serverTodayKey?: string }) {
   return (
     <>
+        {!omitLiveEvents && (
         <LiveEventsSection
           id="this-week"
           heading="Bachata events in London this week"
@@ -148,6 +153,7 @@ export function GuideSections({ omitFirstClass = false, serverTodayKey }: { omit
             </>
           }
         />
+        )}
 
         <section className="space-y-3" id="overview">
           <h2 className="text-2xl font-bold">London bachata, in one paragraph</h2>

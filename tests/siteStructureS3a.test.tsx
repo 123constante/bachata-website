@@ -76,6 +76,14 @@ describe('LearnBachataLondon, learnMerged ON', () => {
     const { container } = renderPage();
     expect(visibleText(container)).not.toContain('Is bachata hard to learn?');
   });
+
+  it('shows one live events list (the beginner classes one), not the guide week list too', () => {
+    flagState.learnMerged = true;
+    const { container } = renderPage();
+    const text = visibleText(container);
+    expect(text).toContain('Beginner classes this month');
+    expect(text).not.toContain('Bachata events in London this week');
+  });
 });
 
 describe('LearnBachataLondon, learnMerged OFF', () => {
