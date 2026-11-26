@@ -17,6 +17,7 @@ import { useGeolocation } from '@/hooks/useGeolocation';
 import { haversineKm } from '@/lib/geo/haversineKm';
 import NearMeCta from '@/components/tonight/NearMeCta';
 import GlobalLayout from '@/components/layout/GlobalLayout';
+import LiveEventsSection from '@/components/seo/LiveEventsSection';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { CancelledRedStrip } from '@/modules/event-page/bento/blocks/CancelledRedStrip';
 import { londonDayRangeUtc } from '@/lib/londonDate';
@@ -98,7 +99,13 @@ const computeCountdown = (
   return null;
 };
 
-const Tonight = () => {
+/**
+ * `serverTodayKey` comes only from the framework route for bare /tonight, whose
+ * loader dehydrates the London "this week" list (site structure S2c-2). Its
+ * presence renders that list below tonight's cards; the catchall renders this
+ * page for /city/:slug/tonight with NO loader, so there it is left out.
+ */
+const Tonight = ({ serverTodayKey }: { serverTodayKey?: string }) => {
   const trackImpression = useListImpressions('tonight');
   const navigate = useNavigate();
   // The page's city: the /city/:slug URL, else the visitor's stored city.
@@ -506,6 +513,16 @@ const Tonight = () => {
           </div>
         </div>
       </div>
+
+      {serverTodayKey !== undefined && city.isLondon ? (
+        <div className="px-4 mb-8">
+          <LiveEventsSection
+            id="this-week"
+            heading="Bachata in London this week"
+            serverTodayKey={serverTodayKey}
+          />
+        </div>
+      ) : null}
     </GlobalLayout>
   );
 };

@@ -147,6 +147,8 @@ const STATIC_PAGES = [
   // SSR + ISR since site structure S2c (2026-11-26): a this-week list.
   ['/parties', 1],
   ['/classes', 1],
+  // SSR + ISR since site structure S2c-2: server list, client page after mount.
+  ['/tonight', 1],
   ['/faq', 0],
   // SSR + ISR, real event lists
   ['/london-bachata-guide', 3],

@@ -17,6 +17,8 @@ export default [
   route("festivals", "routes/festivals.tsx"),
   route("parties", "routes/parties.tsx"),
   route("classes", "routes/classes.tsx"),
+  // /tonight: SSR this-week list on the server, client page after hydration (site structure S2c-2).
+  route("tonight", "routes/tonight.tsx"),
   route("city/:slug", "routes/home.tsx"),
   // Detail routes — on-demand SSR loaders (not prerendered; dynamic entities).
   route("dancers/:id", "routes/dancers.tsx"),
