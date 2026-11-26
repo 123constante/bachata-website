@@ -301,4 +301,26 @@ describe("NavigationSplash", () => {
     expect(visible()).toBe(true);
     expect(root().className).toContain("pointer-events-none");
   });
+
+  it("reloads when Back restores a frozen page with a navigation still pending", () => {
+    const reload = vi.fn();
+    const orig = window.location;
+    Object.defineProperty(window, "location", { configurable: true, value: { ...orig, reload } });
+    try {
+      const show = (persisted: boolean) =>
+        act(() => {
+          window.dispatchEvent(Object.assign(new Event("pageshow"), { persisted }));
+        });
+      show(true);
+      expect(reload).not.toHaveBeenCalled();
+      setNavState("loading");
+      tick(SHOW_DELAY_MS);
+      show(false);
+      expect(reload).not.toHaveBeenCalled();
+      show(true);
+      expect(reload).toHaveBeenCalledTimes(1);
+    } finally {
+      Object.defineProperty(window, "location", { configurable: true, value: orig });
+    }
+  });
 });
