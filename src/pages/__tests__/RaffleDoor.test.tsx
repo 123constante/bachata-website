@@ -129,6 +129,42 @@ describe('RaffleDoor status -> screen', () => {
     expect(screen.queryByText('Show this to the door')).toBeNull();
   });
 
+  it('cancelled: hero, Not valid, card, cancelled line, no Admit / Show this (photo present and absent)', async () => {
+    for (const photo of [null, 'https://x/p.jpg']) {
+      h.rpc.mockReset();
+      h.rpc.mockResolvedValueOnce(reply('cancelled', { date: '2026-12-06', photo_url: photo }));
+      const { container, unmount } = mount();
+      expect(await screen.findByText('Not valid')).toBeTruthy();
+      expect(container.textContent).toContain('❌');
+      expect(screen.getByText('Aisha K.')).toBeTruthy();
+      expect(screen.getByText(/Friday Social/).textContent).toContain('Sun 6 Dec');
+      expect(screen.getByText('This night was cancelled. Do not admit.')).toBeTruthy();
+      expect(screen.queryByText('Admit')).toBeNull();
+      expect(screen.queryByText('Show this to the door')).toBeNull();
+      expect(!!screen.queryByTestId('door-photo')).toBe(photo !== null);
+      unmount();
+    }
+  });
+
+  it('cancelled with winner viewer: still no Admit and no Show this to the door', async () => {
+    setTestUser({ id: 'u1' });
+    h.rpc.mockImplementation(async (fn: string) =>
+      fn === 'raffle_my_wins_v1' ? { data: [{ win: { state: 'locked', qr_token: 'tok' } }], error: null } : reply('cancelled'));
+    mount();
+    expect(await screen.findByText('This night was cancelled. Do not admit.')).toBeTruthy();
+    expect(screen.queryByText('Admit')).toBeNull();
+    expect(screen.queryByText('Show this to the door')).toBeNull();
+  });
+
+  it('admit tap answered cancelled shows the cancelled screen, never Admitted', async () => {
+    h.rpc.mockResolvedValueOnce(reply('valid')).mockResolvedValueOnce(reply('cancelled'));
+    mount();
+    fireEvent.click(await screen.findByText('Admit'));
+    expect(await screen.findByText('This night was cancelled. Do not admit.')).toBeTruthy();
+    expect(screen.queryByText('Admitted')).toBeNull();
+    expect(screen.queryByText('Admit')).toBeNull();
+  });
+
   it('network error offers Retry', async () => {
     h.rpc.mockRejectedValueOnce(new Error('x')).mockResolvedValueOnce(reply('valid'));
     mount();

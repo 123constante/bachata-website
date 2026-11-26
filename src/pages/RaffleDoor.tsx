@@ -5,7 +5,7 @@ import { rpcLoose } from '@/integrations/supabase/rpcLoose';
 import { useSeo } from '@/lib/seo';
 import { parseMyWinTokens } from '@/modules/dancer-app/screens/home/raffleWinModel';
 
-export type DoorStatus = 'valid' | 'too_early' | 'already_admitted' | 'admitted' | 'not_valid';
+export type DoorStatus = 'valid' | 'too_early' | 'already_admitted' | 'admitted' | 'not_valid' | 'cancelled';
 export interface DoorResult {
   status: DoorStatus;
   name: string;
@@ -36,7 +36,7 @@ export function parseDoorResult(data: unknown): DoorResult {
   const s = o.status;
   const str = (v: unknown) => (typeof v === 'string' ? v : '');
   return {
-    status: s === 'valid' || s === 'too_early' || s === 'already_admitted' || s === 'admitted' ? s : 'not_valid',
+    status: s === 'valid' || s === 'too_early' || s === 'already_admitted' || s === 'admitted' || s === 'cancelled' ? s : 'not_valid',
     name: str(o.name),
     event: str(o.event),
     date: str(o.date),
@@ -94,6 +94,15 @@ export function DoorScreen(props: { view: View; busy: boolean; onAdmit: () => vo
         <>
           {photo}
           <p className="text-sm text-muted-foreground">{result.name} is in. Marked as attended.</p>
+        </>
+      );
+    } else if (result.status === 'cancelled') {
+      hero = '❌';
+      title = 'Not valid';
+      body = (
+        <>
+          {card}
+          <p className="mt-3 text-sm font-semibold" data-testid="door-cancelled">This night was cancelled. Do not admit.</p>
         </>
       );
     } else if (result.status === 'too_early') {
