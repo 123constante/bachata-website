@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/modules/organiser/ui';
 import { flags } from '@/lib/featureFlags';
 import { answerMatch, fetchMatchCandidates, type MatchAnswer, type MatchCandidate } from '@/lib/profileMatch';
@@ -19,26 +19,23 @@ const Photo = ({ c }: { c: MatchCandidate }) =>
     </div>
   );
 
-const OneCandidate = ({ c, onDone }: { c: MatchCandidate; onDone: () => void }) => {
+const OneCandidate = ({ c, onHide }: { c: MatchCandidate; onHide: () => void }) => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
   const [thanks, setThanks] = useState(false);
-  const [hidden, setHidden] = useState(false);
   const send = async (answer: MatchAnswer) => {
     setBusy(true);
     setError(false);
     try {
       await answerMatch(c.id, answer);
       if (answer === 'me') setThanks(true);
-      else setHidden(true);
-      onDone();
+      else onHide();
     } catch {
       setError(true);
     } finally {
       setBusy(false);
     }
   };
-  if (hidden) return null;
   return (
     <Card variant="padded" testId={`match-ask-card-${c.id}`}>
       {thanks ? (
@@ -67,9 +64,10 @@ const OneCandidate = ({ c, onDone }: { c: MatchCandidate; onDone: () => void }) 
 
 /** Top of the signed-in dancer home. Flag off, or no candidates: renders nothing. */
 export const MatchAskCard = () => {
-  const qc = useQueryClient();
   const q = useQuery({ queryKey: MATCH_CANDIDATES_KEY, queryFn: fetchMatchCandidates, enabled: flags.profileMatchAsk, staleTime: 60_000 });
-  const list = flags.profileMatchAsk ? q.data ?? [] : [];
+  // "No, not me" hides that card here, so the heading goes with the last one.
+  const [gone, setGone] = useState<string[]>([]);
+  const list = (flags.profileMatchAsk ? q.data ?? [] : []).filter((c) => !gone.includes(c.id));
   if (list.length === 0) return null;
   return (
     <div style={{ display: 'grid', gap: 12, marginBottom: 12 }} data-testid="match-ask">
@@ -78,7 +76,8 @@ export const MatchAskCard = () => {
         <p className="da-muted" style={{ margin: '4px 0 0', fontSize: 15 }}>The Bachata Calendar team may have made a page for you already.</p>
       </div>
       {list.map((c) => (
-        <OneCandidate key={c.id} c={c} onDone={() => void qc.invalidateQueries({ queryKey: MATCH_CANDIDATES_KEY })} />
+        // No refetch after an answer: the card thanks or hides locally; the next visit reads fresh.
+        <OneCandidate key={c.id} c={c} onHide={() => setGone((g) => [...g, c.id])} />
       ))}
     </div>
   );

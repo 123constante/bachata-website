@@ -44,12 +44,15 @@ describe('MatchAskCard', () => {
   });
 
   it('Yes answers me and shows the thanks line', async () => {
-    h.fetch.mockResolvedValue([cand]); h.answer.mockResolvedValue('recorded');
+    // A later read would no longer list the answered page: the thanks line must not depend on it.
+    h.fetch.mockResolvedValueOnce([cand]).mockResolvedValue([]); h.answer.mockResolvedValue('recorded');
     renderCard();
     fireEvent.click(await screen.findByTestId('match-ask-yes'));
     await waitFor(() => expect(h.answer).toHaveBeenCalledWith('p1', 'me'));
     expect(await screen.findByTestId('match-ask-thanks')).toBeTruthy();
     expect(screen.queryByTestId('match-ask-yes')).toBeNull();
+    await new Promise((r) => setTimeout(r, 30));
+    expect(screen.getByTestId('match-ask-thanks')).toBeTruthy();
   });
 
   it('No answers not_me and hides the card', async () => {
@@ -58,6 +61,7 @@ describe('MatchAskCard', () => {
     fireEvent.click(await screen.findByTestId('match-ask-no'));
     await waitFor(() => expect(h.answer).toHaveBeenCalledWith('p1', 'not_me'));
     await waitFor(() => expect(screen.queryByTestId('match-ask-card-p1')).toBeNull());
+    expect(screen.queryByText('Is this you?')).toBeNull();
   });
 
   it('error keeps the buttons and shows the error line', async () => {
