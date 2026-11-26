@@ -26,6 +26,10 @@ export default defineConfig(({ isSsrBuild }) => ({
     "import.meta.env.VITE_VERCEL_ENV": JSON.stringify(process.env.VERCEL_ENV ?? ""),
     "import.meta.env.VITE_ENABLE_GOING_PREVIEW": JSON.stringify(process.env.VITE_ENABLE_GOING_PREVIEW ?? ""),
     "import.meta.env.VITE_TICKET_PREVIEW_ORIGIN": JSON.stringify(process.env.VITE_TICKET_PREVIEW_ORIGIN ?? ""),
+    // Client skew cookie (app/lib/clientSkewCookie.ts): Vercel sets these at build time.
+    "import.meta.env.VITE_VERCEL_DEPLOYMENT_ID": JSON.stringify(process.env.VERCEL_DEPLOYMENT_ID ?? ""),
+    "import.meta.env.VITE_VERCEL_SKEW_PROTECTION_ENABLED": JSON.stringify(process.env.VERCEL_SKEW_PROTECTION_ENABLED === "1" ? "1" : ""),
+    "import.meta.env.VITE_ENABLE_CLIENT_SKEW_COOKIE": JSON.stringify(process.env.VITE_ENABLE_CLIENT_SKEW_COOKIE ?? ""),
   },
   server: {
     host: "::",
