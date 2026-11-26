@@ -133,6 +133,10 @@ export const flags = {
   // and preset price changes on a saved paid course. Needs organiserTicketing and ticketPriceStepsEditor.
   // OFF = the editor is exactly as before. Turn on with VITE_ENABLE_TICKET_COURSE_PRESETS=true (Vercel env).
   ticketCoursePresets: import.meta.env.VITE_ENABLE_TICKET_COURSE_PRESETS === 'true',
+  // Early bird price on a saved paid ticket: a switch + price + count under Price in the Edit ticket sheet
+  // (ticket_early_bird_set_v1, admin repo). OFF = the sheet is exactly as before.
+  // Turn on with VITE_ENABLE_TICKET_EARLY_BIRD=true (Vercel env) -- no code change.
+  ticketEarlyBird: import.meta.env.VITE_ENABLE_TICKET_EARLY_BIRD === 'true',
   // Gallery sheet: choose photo order and the cover (tap a photo, then Move left/right, Make cover).
   // OFF = the sheet is exactly as before. Turn on with VITE_ENABLE_ORGANISER_PHOTO_ORDER=true (Vercel env).
   organiserPhotoOrder: import.meta.env.VITE_ENABLE_ORGANISER_PHOTO_ORDER === 'true',
