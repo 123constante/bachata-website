@@ -17,6 +17,9 @@ import { buildOrganizationJsonLd } from "@/lib/buildOrganizationJsonLd";
 import LiveEventsSection from "@/components/seo/LiveEventsSection";
 import { SEO_LANDING_WINDOWS } from "@/lib/seoLandingEvents";
 import { serialiseJsonLd } from "@/lib/serialiseJsonLd";
+import { flags } from "@/lib/featureFlags";
+import { GuideSections } from "@/pages/seo/BachataInLondon";
+import { FAQS as MERGED_FAQS } from "@/pages/seo/Faq";
 
 const CANONICAL = `${SITE_ORIGIN}/learn-bachata-london`;
 
@@ -40,11 +43,11 @@ const FAQS: { q: string; a: string }[] = [
   },
 ];
 
-const FaqJsonLd = () => {
+const FaqJsonLd = ({ items = FAQS }: { items?: { q: string; a: string }[] }) => {
   const payload = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    mainEntity: FAQS.map(({ q, a }) => ({
+    mainEntity: items.map(({ q, a }) => ({
       "@type": "Question",
       name: q,
       acceptedAnswer: { "@type": "Answer", text: a },
@@ -112,7 +115,7 @@ const LearnBachataLondon = ({ serverTodayKey }: { serverTodayKey?: string }) => 
   return (
     <GlobalLayout showSubheader={false}>
       <ArticleJsonLd />
-      <FaqJsonLd />
+      <FaqJsonLd items={flags.learnMerged ? MERGED_FAQS : FAQS} />
       <article className="mx-auto max-w-3xl px-4 py-8 space-y-8">
         <header className="space-y-3">
           <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-[1.05]">
@@ -172,36 +175,66 @@ const LearnBachataLondon = ({ serverTodayKey }: { serverTodayKey?: string }) => 
           </p>
         </section>
 
-        <section className="space-y-3">
-          <h2 className="text-2xl font-bold">Sensual or Dominican &mdash; which should a beginner pick?</h2>
-          <p className="leading-relaxed">
-            Bachata splits into two broad styles. <em>Dominican</em> is the original style &mdash; faster footwork, free improvisation, less torso movement. <em>Sensual</em> is the modern European style &mdash; slower, with body waves, dips and choreographed turn patterns. As a beginner you don&rsquo;t have to choose: most London rooms play both, and a general beginners&rsquo; course will expose you to each so you can specialise later. Start with whatever class is nearest and friendliest; you&rsquo;ll quickly work out which one you enjoy. The{' '}
-            <Link to="/london-bachata-guide" className="text-primary underline">London bachata guide</Link>{' '}explains the styles and the venues in more depth.
-          </p>
-        </section>
+        {flags.learnMerged ? (
+          <>
+            <GuideSections omitFirstClass serverTodayKey={serverTodayKey} />
 
-        <section className="space-y-3">
-          <h2 className="text-2xl font-bold">Common questions from beginners</h2>
-          <dl className="space-y-4">
-            {FAQS.map(({ q, a }) => (
-              <div key={q}>
-                <dt className="font-semibold">{q}</dt>
-                <dd className="leading-relaxed text-muted-foreground mt-1">{a}</dd>
+            <section className="space-y-3" id="faq">
+              <h2 className="text-2xl font-bold">Common questions</h2>
+              <div className="space-y-5">
+                {MERGED_FAQS.map(({ q, body }) => (
+                  <section key={q} className="rounded-lg border border-border/60 p-4 bg-card/30">
+                    <h3 className="text-lg font-bold mb-2">{q}</h3>
+                    <div className="text-sm leading-relaxed text-muted-foreground">{body}</div>
+                  </section>
+                ))}
               </div>
-            ))}
-          </dl>
-        </section>
+            </section>
 
-        <section className="space-y-3">
-          <h2 className="text-2xl font-bold">Where to go next</h2>
-          <p className="leading-relaxed">
-            Ready to pick a night? Browse beginner-friendly options on the{' '}
-            <Link to="/classes" className="text-primary underline">Classes page</Link>, see what&rsquo;s on this evening on the{' '}
-            <Link to="/tonight" className="text-primary underline">Tonight page</Link>, read the full{' '}
-            <Link to="/london-bachata-guide" className="text-primary underline">London bachata guide</Link>{' '}for the styles, venues and weekly rhythm, or check the{' '}
-            <Link to="/faq" className="text-primary underline">FAQ</Link>{' '}for everything else first-timers ask.
-          </p>
-        </section>
+
+            <section className="space-y-3">
+              <h2 className="text-2xl font-bold">Where to go next</h2>
+              <p className="leading-relaxed">
+                Ready to pick a night? Browse beginner-friendly options on the{' '}
+                <Link to="/classes" className="text-primary underline">Classes page</Link>{' '}or see what&rsquo;s on this evening on the{' '}
+                <Link to="/tonight" className="text-primary underline">Tonight page</Link>.
+              </p>
+            </section>
+          </>
+        ) : (
+          <>
+            <section className="space-y-3">
+              <h2 className="text-2xl font-bold">Sensual or Dominican &mdash; which should a beginner pick?</h2>
+              <p className="leading-relaxed">
+                Bachata splits into two broad styles. <em>Dominican</em> is the original style &mdash; faster footwork, free improvisation, less torso movement. <em>Sensual</em> is the modern European style &mdash; slower, with body waves, dips and choreographed turn patterns. As a beginner you don&rsquo;t have to choose: most London rooms play both, and a general beginners&rsquo; course will expose you to each so you can specialise later. Start with whatever class is nearest and friendliest; you&rsquo;ll quickly work out which one you enjoy. The{' '}
+                <Link to="/london-bachata-guide" className="text-primary underline">London bachata guide</Link>{' '}explains the styles and the venues in more depth.
+              </p>
+            </section>
+
+            <section className="space-y-3">
+              <h2 className="text-2xl font-bold">Common questions from beginners</h2>
+              <dl className="space-y-4">
+                {FAQS.map(({ q, a }) => (
+                  <div key={q}>
+                    <dt className="font-semibold">{q}</dt>
+                    <dd className="leading-relaxed text-muted-foreground mt-1">{a}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+
+            <section className="space-y-3">
+              <h2 className="text-2xl font-bold">Where to go next</h2>
+              <p className="leading-relaxed">
+                Ready to pick a night? Browse beginner-friendly options on the{' '}
+                <Link to="/classes" className="text-primary underline">Classes page</Link>, see what&rsquo;s on this evening on the{' '}
+                <Link to="/tonight" className="text-primary underline">Tonight page</Link>, read the full{' '}
+                <Link to="/london-bachata-guide" className="text-primary underline">London bachata guide</Link>{' '}for the styles, venues and weekly rhythm, or check the{' '}
+                <Link to="/faq" className="text-primary underline">FAQ</Link>{' '}for everything else first-timers ask.
+              </p>
+            </section>
+          </>
+        )}
       </article>
     </GlobalLayout>
   );

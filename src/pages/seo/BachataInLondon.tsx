@@ -127,44 +127,9 @@ export const SEO_INPUT: SeoInput = {
   ogType: "article",
 };
 
-/**
- * `serverTodayKey` is the London date key the route loader rendered on. Load-
- * bearing: the live-events window -- and so the query key of the dehydrated
- * list -- derives from it, and this document is edge-cached for an hour and
- * served stale for a day. See LiveEventsSectionProps.serverTodayKey.
- */
-const BachataInLondon = ({ serverTodayKey }: { serverTodayKey?: string }) => {
-  // No useSeo() here: this page renders only under app/routes/london-bachata-guide.tsx,
-  // which wraps in InitialVisiblePageTransition and so sets RouteOwnsHeadContext --
-  // useSeo returns before touching the head. That route's meta() owns it, from
-  // SEO_INPUT above. Which useSeo calls are inert and which are live is a census,
-  // not a rule of thumb -- see BentoPage.tsx before deleting another (arc W22).
-
+export function GuideSections({ omitFirstClass = false, serverTodayKey }: { omitFirstClass?: boolean; serverTodayKey?: string }) {
   return (
-    <GlobalLayout showSubheader={false}>
-      <ArticleJsonLd />
-      <FaqJsonLd />
-      <article className="mx-auto max-w-3xl px-4 py-8 space-y-8">
-        <header className="space-y-3">
-          <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-[1.05]">
-            The London Bachata Guide
-          </h1>
-          <p className="text-base text-muted-foreground">
-            The styles, the venues, the weekly nights and the festivals &mdash; a working map of London&rsquo;s bachata scene, updated as the calendar moves.
-          </p>
-        </header>
-
-        <nav aria-label="On this page" className="rounded-lg border border-border/60 p-4 bg-card/30">
-          <h2 className="text-sm font-bold mb-2 text-muted-foreground">On this page</h2>
-          <ul className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1 text-sm">
-            {TOC.map(({ id, label }) => (
-              <li key={id}>
-                <a href={`#${id}`} className="text-primary hover:underline">{label}</a>
-              </li>
-            ))}
-          </ul>
-        </nav>
-
+    <>
         <LiveEventsSection
           id="this-week"
           heading="Bachata events in London this week"
@@ -246,15 +211,17 @@ const BachataInLondon = ({ serverTodayKey }: { serverTodayKey?: string }) => {
           </p>
         </section>
 
-        <section className="space-y-3" id="first-class">
-          <h2 className="text-2xl font-bold">What a first class is actually like</h2>
-          <p className="leading-relaxed">
-            A typical London beginner class runs for an hour. You arrive a few minutes early, pay at the door, and join two facing lines &mdash; leaders on one side, followers on the other. The teacher walks everyone through the footwork first, then adds a simple turn or two, then puts it to music. Almost every school rotates partners every couple of minutes, so you are never stuck with one person and you meet most of the room inside the hour. If the idea of dancing with strangers feels daunting, the rotation is actually what makes it easy &mdash; everyone is a beginner together, and nobody expects you to be good yet. You don&rsquo;t need a partner, you don&rsquo;t need experience, and you don&rsquo;t need special clothes; comfortable shoes you can pivot in are enough for your first night.
-          </p>
-          <p className="leading-relaxed">
-            Many beginner classes are followed by a social: the floor opens up, a DJ takes over, and people dance freely for the rest of the night. You are never obliged to stay, but staying for even half an hour is the fastest way to turn what you just learned into something that sticks. At Rogue Bachata, for instance, the one-hour class is followed by a social &mdash; you pay for the lesson and the dancing afterwards costs nothing.
-          </p>
-        </section>
+        {!omitFirstClass && (
+          <section className="space-y-3" id="first-class">
+            <h2 className="text-2xl font-bold">What a first class is actually like</h2>
+            <p className="leading-relaxed">
+              A typical London beginner class runs for an hour. You arrive a few minutes early, pay at the door, and join two facing lines &mdash; leaders on one side, followers on the other. The teacher walks everyone through the footwork first, then adds a simple turn or two, then puts it to music. Almost every school rotates partners every couple of minutes, so you are never stuck with one person and you meet most of the room inside the hour. If the idea of dancing with strangers feels daunting, the rotation is actually what makes it easy &mdash; everyone is a beginner together, and nobody expects you to be good yet. You don&rsquo;t need a partner, you don&rsquo;t need experience, and you don&rsquo;t need special clothes; comfortable shoes you can pivot in are enough for your first night.
+            </p>
+            <p className="leading-relaxed">
+              Many beginner classes are followed by a social: the floor opens up, a DJ takes over, and people dance freely for the rest of the night. You are never obliged to stay, but staying for even half an hour is the fastest way to turn what you just learned into something that sticks. At Rogue Bachata, for instance, the one-hour class is followed by a social &mdash; you pay for the lesson and the dancing afterwards costs nothing.
+            </p>
+          </section>
+        )}
 
         <section className="space-y-3" id="weekly">
           <h2 className="text-2xl font-bold">The weekly rhythm</h2>
@@ -308,6 +275,49 @@ const BachataInLondon = ({ serverTodayKey }: { serverTodayKey?: string }) => {
             <Link to="/djs" className="text-primary underline">DJs page</Link>.
           </p>
         </section>
+    </>
+  );
+}
+
+/**
+ * `serverTodayKey` is the London date key the route loader rendered on. Load-
+ * bearing: the live-events window -- and so the query key of the dehydrated
+ * list -- derives from it, and this document is edge-cached for an hour and
+ * served stale for a day. See LiveEventsSectionProps.serverTodayKey.
+ */
+const BachataInLondon = ({ serverTodayKey }: { serverTodayKey?: string }) => {
+  // No useSeo() here: this page renders only under app/routes/london-bachata-guide.tsx,
+  // which wraps in InitialVisiblePageTransition and so sets RouteOwnsHeadContext --
+  // useSeo returns before touching the head. That route's meta() owns it, from
+  // SEO_INPUT above. Which useSeo calls are inert and which are live is a census,
+  // not a rule of thumb -- see BentoPage.tsx before deleting another (arc W22).
+
+  return (
+    <GlobalLayout showSubheader={false}>
+      <ArticleJsonLd />
+      <FaqJsonLd />
+      <article className="mx-auto max-w-3xl px-4 py-8 space-y-8">
+        <header className="space-y-3">
+          <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-[1.05]">
+            The London Bachata Guide
+          </h1>
+          <p className="text-base text-muted-foreground">
+            The styles, the venues, the weekly nights and the festivals &mdash; a working map of London&rsquo;s bachata scene, updated as the calendar moves.
+          </p>
+        </header>
+
+        <nav aria-label="On this page" className="rounded-lg border border-border/60 p-4 bg-card/30">
+          <h2 className="text-sm font-bold mb-2 text-muted-foreground">On this page</h2>
+          <ul className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1 text-sm">
+            {TOC.map(({ id, label }) => (
+              <li key={id}>
+                <a href={`#${id}`} className="text-primary hover:underline">{label}</a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <GuideSections serverTodayKey={serverTodayKey} />
 
         <section className="space-y-3" id="faq">
           <h2 className="text-2xl font-bold">Before your first night &mdash; quick answers</h2>
