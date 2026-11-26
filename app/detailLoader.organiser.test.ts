@@ -66,9 +66,12 @@ describe("organiser loader: canonical slug redirect", () => {
   });
 
   it("resolver error is rethrown, not a 404", async () => {
-    resolvePublicOrganiserRef.mockRejectedValue(new Error("db blip"));
-    const { thrown } = await run("bpm-dance-studios");
-    expect(thrown).toBeInstanceOf(Error);
-    expect((thrown as Error).message).toBe("db blip");
+    resolvePublicOrganiserRef.mockImplementation(async () => {
+      throw new Error("db blip");
+    });
+    const { resolveEntityInLoader } = await import("./detailLoader");
+    await expect(
+      resolveEntityInLoader(new QueryClient(), "organiser_profiles", "bpm-dance-studios"),
+    ).rejects.toThrow("db blip");
   });
 });
