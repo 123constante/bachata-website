@@ -56,10 +56,6 @@ function cityDisplayFromSlug(slug: string | null | undefined): string | null {
  * -- but they CAN be pinned at test time, and cityCanonical.test.ts asserts this
  * table's output equals buildSeoForRoute('city.map', ...) field by field. Edit
  * one side and that spec names the other.
- *
- * /city/:slug/calendar is deliberately NOT here. It renders <Index/>, i.e. the
- * homepage with the Calendar tab open, so '/' is the correct canonical for it
- * and it stays on the fallback arm below.
  */
 interface SelfCanonicalSubpage {
   /**
@@ -210,11 +206,11 @@ export function citySubpageSeo(
  * cityCanonical.test.ts asserts that disjointness rather than trusting it.
  */
 export function cityCanonicalPath(segments: string[]): string {
-  // Bare /city/:slug (and its Calendar tab) is the city's homepage and is its OWN
+  // Bare /city/:slug is the city's homepage and is its OWN
   // canonical. It used to say '/', but '/' 307s to /city/london-gb, so Google
   // followed the redirect, met a canonical pointing back, and reported
   // "Redirect error": the homepage was never indexed (GSC, 2026-11-26).
-  if (segments.length === 2 || (segments.length === 3 && segments[2] === 'calendar')) {
+  if (segments.length === 2) {
     return `/city/${segments[1]}`;
   }
 

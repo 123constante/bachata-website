@@ -46,14 +46,6 @@ describe('cityCanonicalPath', () => {
     expect(cityCanonicalPath(seg('/city/london-gb/search'))).toBe('/search');
   });
 
-  it('keeps /city/:slug/calendar on the city homepage canonical', () => {
-    // It renders <Index/>, i.e. the city homepage with the Calendar tab open, so
-    // /city/:slug is correct for it. It is in NEITHER set, and this pins that.
-    expect(CITY_SELF_CANONICAL.has('calendar')).toBe(false);
-    expect(CLEAN_LISTINGS.has('calendar')).toBe(false);
-    expect(cityCanonicalPath(seg('/city/london-gb/calendar'))).toBe('/city/london-gb');
-  });
-
   it('does not mint an alias for a deeper path that is not a route', () => {
     // /city/london-gb/map/anything 404s in the browser. Canonicalising it onto
     // the real map page would hand a crawler an indexable alias for a dead URL.
