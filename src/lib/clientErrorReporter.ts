@@ -224,10 +224,15 @@ function sendReport(report: ClientErrorReport): Promise<unknown> | void {
   });
 }
 
+/** Route string reported: path only on the prod host, host-prefixed elsewhere (previews, vercel.app). */
+export function reportRoute(loc: { host: string; pathname: string }): string {
+  return !loc.host || loc.host === 'www.bachatacalendar.co.uk' ? loc.pathname : loc.host + loc.pathname;
+}
+
 const defaultReporter = createReporter({
   send: sendReport,
   enabled: browserEnabled,
-  pathname: () => (typeof location !== 'undefined' ? location.pathname : ''),
+  pathname: () => (typeof location !== 'undefined' ? reportRoute(location) : ''),
   release: import.meta.env.VITE_VERCEL_GIT_COMMIT_SHA?.trim() || 'unknown',
 });
 

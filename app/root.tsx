@@ -24,6 +24,7 @@ import { reportClientErrorLazy } from "@/lib/reportClientErrorLazy";
 import { eventHostForwardUrl } from "./lib/eventHostForward";
 import { installEventHostLinkForward } from "./lib/eventHostClientNav";
 import { parseEventHost } from "./lib/eventSubdomain";
+import { shouldReloadOnRouteError, sessionStorageOrNull } from "./lib/routeErrorReload";
 
 import { NavigationSplash } from "./NavigationSplash";
 import { useNonce } from "./nonce";
@@ -157,6 +158,11 @@ export function ErrorBoundary() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // Reload once on a transient 502/503/504 (guard: ./lib/routeErrorReload.ts).
+    if (isRouteErrorResponse(error) && shouldReloadOnRouteError(error.status, window.location.pathname, sessionStorageOrNull())) {
+      window.location.reload();
+      return;
+    }
     // 404-style route responses are expected, not errors worth reporting.
     if (isRouteErrorResponse(error) && error.status < 500) return;
     // Raw, not wrapped: the reporter describes a 5xx route response itself.

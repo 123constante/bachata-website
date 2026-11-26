@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   createReporter,
+  reportRoute,
   describeError,
   shouldIgnore,
   MAX_REPORTS_PER_LOAD,
@@ -203,4 +204,11 @@ describe('never throws', () => {
     handlers.unhandledrejection[0]({ reason: new Error('async boom') });
     expect(sent.map((r) => r.p_kind)).toEqual(['error', 'unhandledrejection']);
   });
+});
+
+describe('reportRoute', () => {
+  it('www host -> path only', () => expect(reportRoute({ host: 'www.bachatacalendar.co.uk', pathname: '/x' })).toBe('/x'));
+  it('empty host -> path only', () => expect(reportRoute({ host: '', pathname: '/x' })).toBe('/x'));
+  it('vercel.app host is prefixed', () => expect(reportRoute({ host: 'foo.vercel.app', pathname: '/x' })).toBe('foo.vercel.app/x'));
+  it('other prod domain is prefixed', () => expect(reportRoute({ host: 'bachatacalendar.com', pathname: '/x' })).toBe('bachatacalendar.com/x'));
 });
