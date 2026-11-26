@@ -1,7 +1,11 @@
 import { useRef, useState } from 'react';
-import { fetchManagedTypes, removePriceStep, setPriceStep, setTicketStatus, upsertTicketType, type WriteResult } from '../../tickets/ticketsApi';
-import { formatPence, isoToLondonInput, reasonMessage, type TicketType } from '../../tickets/ticketModel';
-import { stepReasonMessage, type PriceStep } from '../../tickets/priceSteps';
+import { fetchManagedTypes, removePriceStep, setEarlyBird, setPriceStep, setTicketStatus, upsertTicketType, type WriteResult } from '../../tickets/ticketsApi';
+import { formatPence, isoToLondonInput, penceOf, reasonMessage, type TicketType } from '../../tickets/ticketModel';
+import {
+  EARLY_COUNT_LABEL, EARLY_PRICE_LABEL, earlyCommand, earlyFormOf, earlyInvalid, earlyNote, earlyReasonMessage, stepReasonMessage,
+  type EarlyForm, type ManagedType, type PriceStep,
+} from '../../tickets/priceSteps';
+import { flags } from '@/lib/featureFlags';
 import { V2 } from './copy';
 import { V2Sheet } from './V2Sheet';
 import { EarlyBirds, formOfStored, wantedOf, type Bird } from './EarlyBirds';
@@ -73,6 +77,8 @@ export async function writeTicket(a: { organiserId: string; seriesId: string; ty
 export const formOfType = (t: Pick<TicketType, 'name' | 'pricePence' | 'capacity'>, steps: readonly PriceStep[], base = t.pricePence): TicketForm =>
   ({ name: t.name, free: base === 0 && !steps.length, qty: t.capacity, ...formOfStored(base, steps) });
 
+export const EARLY_OFF_FIRST = 'A free ticket cannot have an early bird price. Turn Free off, turn Cheaper first tickets off, then save.';
+
 export interface TicketSheetProps {
   organiserId: string;
   seriesId: string;
@@ -80,6 +86,8 @@ export interface TicketSheetProps {
   type: (Existing & Pick<TicketType, 'pricePence' | 'status'>) | null;
   basePence: number;
   steps: readonly PriceStep[];
+  /** the managed row (early tier fields); read only behind flag ticketEarlyBird */
+  managed?: ManagedType;
   oneOff: boolean;
   /** tickets sold (busiest-night count) and across all dates, with the pence taken */
   soldMax: number;
@@ -105,6 +113,13 @@ export function TicketSheetV2(p: TicketSheetProps) {
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
+  // Early bird count tier (flag ticketEarlyBird): not with date early birds, not on a free ticket.
+  const [early, setEarlyForm] = useState<EarlyForm>(() => earlyFormOf(p.managed));
+  const earlyShown = flags.ticketEarlyBird && !free && birds.length === 0;
+  const earlyOn = earlyShown && early.on;
+  const setEarly = (x: Partial<EarlyForm>) => { setErr(''); setEarlyForm({ ...early, ...x }); };
+  /** a new ticket whose early write was refused: the ticket exists, a retry must not make a second one */
+  const savedId = useRef<string | null>(null);
   const sold = p.soldAll;
   const current = (): TicketForm => ({ name, free, price, qty: Math.round(Number(qty)), birds });
 
@@ -127,8 +142,14 @@ export function TicketSheetV2(p: TicketSheetProps) {
     if (!Number.isFinite(f.qty) || f.qty < 0) { setErr(T.qtyBad); return; }
     if (f.qty < p.soldMax) { setErr(T.qtyLow(p.soldMax)); return; }
     const back = p.type ? formOfType(p.type, p.steps, p.basePence) : null;
-    const out: Out = await writeTicket({ organiserId: p.organiserId, seriesId: p.seriesId, type: p.type, basePence: p.basePence, steps: p.steps, form: f })
-      .catch((): Out => ({ ok: false, error: T.notSaved, wrote: true }));
+    const earlyBad = earlyShown ? earlyInvalid(early) : null;
+    if (earlyBad) { setErr(earlyReasonMessage(earlyBad)); return; }
+    // A saved early tier cannot ride on a free ticket (the early price would still be charged): refuse before any write.
+    if (flags.ticketEarlyBird && f.free && p.managed?.earlyPricePence != null) { setErr(EARLY_OFF_FIRST); return; }
+    const out: Out = savedId.current
+      ? { ok: true, id: savedId.current, changed: false }
+      : await writeTicket({ organiserId: p.organiserId, seriesId: p.seriesId, type: p.type, basePence: p.basePence, steps: p.steps, form: f })
+        .catch((): Out => ({ ok: false, error: T.notSaved, wrote: true }));
     if ('error' in out) {
       // a write may have landed before the failure: put the old ticket back, best effort
       if (p.type && back && out.wrote === true) { try { await restore(back, p.type); } catch { /* the refresh shows the truth */ } }
@@ -137,11 +158,22 @@ export function TicketSheetV2(p: TicketSheetProps) {
       setErr(out.error); p.onFail(out.error);
       return;
     }
-    if (!out.changed) { p.onClose(); return; }
     const type = p.type;
     const id = out.id;
+    const row = earlyShown && id ? (p.managed && p.managed.id === id ? p.managed : ({ id, earlyPricePence: null, earlyCapacity: null } as unknown as ManagedType)) : undefined;
+    const cmd = row ? earlyCommand(early, row) : null;
+    if (cmd) {
+      let refusal: string | null = null;
+      try { const e = await setEarlyBird(cmd); if (!e.ok) refusal = earlyReasonMessage(e.reason); } catch { refusal = earlyReasonMessage(null); }
+      if (refusal) {
+        if (!type) savedId.current = id;
+        setErr(refusal); p.onFail(refusal);
+        return;
+      }
+    }
+    if (!out.changed && !cmd) { p.onClose(); return; }
     p.onClose();
-    p.onDone(T.saved, type && back ? () => restore(back, type) : id ? async () => { const r = await setTicketStatus(id, 'closed'); if (!r.ok) throw new Error('undo'); } : undefined);
+    p.onDone(T.saved, cmd && type ? undefined : type && back ? () => restore(back, type) : id ? async () => { const r = await setTicketStatus(id, 'closed'); if (!r.ok) throw new Error('undo'); } : undefined);
   });
 
   const remove = () => run(async () => {
@@ -166,13 +198,29 @@ export function TicketSheetV2(p: TicketSheetProps) {
           <>
             <label className="flab" htmlFor="t-price">{birds.length ? T.priceAfterBird : T.priceLabel}</label>
             <input id="t-price" data-testid="t-price" className="fld" type="number" min="0" step="0.5" inputMode="decimal" placeholder={T.pricePlaceholder} value={price} onChange={(e) => setPrice(e.target.value)} />
+            {earlyShown ? (
+              <>
+                <button type="button" className="swrow" data-testid="t-early" role="switch" aria-checked={early.on} disabled={busy} onClick={() => setEarly({ on: !early.on })}>
+                  <span>Cheaper first tickets</span><span className={`sw${early.on ? ' on' : ''}`} />
+                </button>
+                {early.on ? (
+                  <>
+                    <label className="flab" htmlFor="t-early-price">{EARLY_PRICE_LABEL}</label>
+                    <input id="t-early-price" data-testid="t-early-price" className="fld" type="text" inputMode="decimal" placeholder="0.00" value={early.price} onChange={(e) => setEarly({ price: e.target.value })} />
+                    <label className="flab" htmlFor="t-early-count">{EARLY_COUNT_LABEL}</label>
+                    <input id="t-early-count" data-testid="t-early-count" className="fld" type="text" inputMode="numeric" value={early.count} onChange={(e) => setEarly({ count: e.target.value })} />
+                    <p className="hint" data-testid="t-early-note">{earlyNote(early.count, penceOf(price))}</p>
+                  </>
+                ) : null}
+              </>
+            ) : null}
           </>
         )}
         <label className="flab" htmlFor="t-qty">{T.qtyLabel}</label>
         <input id="t-qty" data-testid="t-qty" className="fld" type="number" min="0" step="1" inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value)} />
         {p.soldMax ? <p className="hint" data-testid="t-busiest">{T.soldBusiest(p.soldMax)}</p> : null}
         {err ? <p className="err" role="alert" data-testid="t-err">{err}</p> : null}
-        {free ? null : <EarlyBirds price={price} birds={birds} oneOff={p.oneOff} disabled={busy} onChange={setBirds} />}
+        {free || earlyOn ? null : <EarlyBirds price={price} birds={birds} oneOff={p.oneOff} disabled={busy} onChange={setBirds} />}
         {isNew ? null : <p className="txt" data-testid="t-sold">{T.soldLine(sold, formatPence(p.pence))}</p>}
         <button type="button" className="btn pri" data-testid="t-done" disabled={busy} aria-busy={busy} onClick={() => { void done(); }}>{T.done}</button>
         {isNew ? null : (
