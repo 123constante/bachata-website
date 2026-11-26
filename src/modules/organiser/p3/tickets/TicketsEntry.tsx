@@ -47,7 +47,8 @@ import {
 } from '../../tickets/ticketModel';
 import type { HomeOrganiser } from '../../shared/selfServeApi';
 import type { HomeSeriesFull } from '../../shared/homeModel';
-import { organiserOfSeries, useP3Home, useSeriesGoing, useSeriesOrders, useSeriesTicketLink, useSeriesTypes, useStartOnboarding, useStripe, useSummary } from './data';
+import { organiserOfSeries, useManagedTypes, useP3Home, useSeriesGoing, useSeriesOrders, useSeriesTicketLink, useSeriesTypes, useStartOnboarding, useStripe, useSummary } from './data';
+import { earlyBirdOf, ticketEarlyBird, type EarlyBirdView } from './earlyBird';
 import { CONNECT_RETURN_EVERY_MS, CONNECT_RETURN_FOR_MS, useConnectReturn } from './connectReturn';
 import { P3_TICKET_PATHS } from './paths';
 import {
@@ -171,6 +172,7 @@ function Entry({ org, series, startOn, onOrdersClose }: { org: HomeOrganiser; se
   // Slice 2 (T4 / Q16, X5): Going taps of a free event, and the event's own ticket link. Counts and words only.
   const goingNights = useSeriesGoing(series.id, open);
   const ticketLink = useSeriesTicketLink(series.id);
+  const managed = useManagedTypes(series.id, ticketEarlyBird);
   // Review 1520-r1 F3: a non-owner's summary parse keeps no pence (only ticketsSold is read for them).
   const summary = useSummary(org.id, canRefund(org.role));
   // Fail closed: money needs the owner role AND the server's money_visible === true. Missing flag or a summary
@@ -401,6 +403,7 @@ function Entry({ org, series, startOn, onOrdersClose }: { org: HomeOrganiser; se
                 key={t.id}
                 type={t}
                 sales={sales.get(t.id) ?? null}
+                early={earlyBirdOf(managed.data?.types.find((m) => m.id === t.id))}
                 ctx={ctx}
                 onboard={onboard}
                 onCheck={() => void stripeQuery.refetch()}
@@ -622,6 +625,7 @@ function TicketToast({ text, alert, onClose }: { text: string; alert: boolean; o
 function TypeRow({
   type: t,
   sales,
+  early,
   ctx,
   onboard,
   onCheck,
@@ -632,6 +636,7 @@ function TypeRow({
 }: {
   type: TicketType;
   sales: TypeSales | null;
+  early?: EarlyBirdView | null;
   ctx: MoveContext;
   onboard: { go: () => Promise<void>; busy: boolean; note: string | null; switchedOff: boolean };
   onCheck: () => void;
@@ -652,9 +657,12 @@ function TypeRow({
       <div className="p3-type">
         <button type="button" className="p3-date-btn p3-grow" onClick={onEdit} data-testid="tix-edit">
           <span className="p3-grow">
-            <span className="p3-row-t p3-block">{t.name}</span>
+            <span className="p3-row-t p3-block">
+              {t.name}
+              {early && <> <span className="p3-tag p3-tag-live" data-testid="tix-early-pill">{early.pill}</span></>}
+            </span>
             <span className="p3-row-s" data-testid="tix-type-line">
-              {priceLabel(t.pricePence)} &middot; {countsLine(sales ? sales.ticketsSold : null, leftOf(sales ? { capacity: t.capacity, reserved: Math.max(t.reserved, sales.ticketsSold) } : t))}
+              {early ? early.price : priceLabel(t.pricePence)} &middot; {countsLine(sales ? sales.ticketsSold : null, leftOf(sales ? { capacity: t.capacity, reserved: Math.max(t.reserved, sales.ticketsSold) } : t))}
             </span>
           </span>
         </button>
