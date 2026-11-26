@@ -14,6 +14,7 @@ import { MusicSheet } from './MusicSheet';
 import { OrgSheet } from './OrgSheet';
 import { EndCard, type LifeState } from './EndCard';
 import { GoLiveBar, isDraftEvent } from './GoLiveBar';
+import { goLiveFixOn, type V2FixTarget } from './goLiveFixV2';
 import { StatusSheet } from './StatusSheets';
 import { V2Sheet } from './V2Sheet';
 
@@ -49,6 +50,12 @@ export function OneOffBody({ ws, saveNow, busy, onOpenTickets }: { ws: EventWork
   const orgs = orgIds.length === 0 ? E.noneYet : pages.data?.length ? pages.data.map((p) => p.name).join(', ') : E.organisersN(orgIds.length);
   const life: LifeState = s.lifecycle_status === 'archived' ? 'Archived' : s.lifecycle_status === 'rejected' ? 'Rejected' : s.lifecycle_status === 'cancelled' ? 'Cancelled' : s.lifecycle_status === 'paused' ? 'Paused' : s.lifecycle_status === 'ended' ? 'Ended' : 'Live';
 
+  // Go-live blocker taps: only the sheets this body owns; the rest (where/about/flyer/dates/prog live on NightHub) use the old fix screen.
+  const openFix = (t: V2FixTarget): boolean => {
+    if (t === 'name' || t === 'orgs') { setSheet(t); return true; }
+    if (t === 'tickets') { onOpenTickets?.(); return true; }
+    return false;
+  };
   const send = async (part: string, payload: Record<string, unknown>, before: Record<string, unknown>) => {
     const step: WriteStep = { part, target: 'series', id: s.id, version: s.version, command: upsertCommand({ name: s.name ?? '', ...payload }), order: 1 };
     const r = await saveNow([step], [{ name: s.name ?? '', ...before }], label);
@@ -83,7 +90,7 @@ export function OneOffBody({ ws, saveNow, busy, onOpenTickets }: { ws: EventWork
           <Line id="organisers" label={E.organisers} value={orgs} onOpen={() => setSheet('orgs')} />
         </div></div>
       </div>
-      {isDraftEvent(ws) && <GoLiveBar ws={ws} />}
+      {isDraftEvent(ws) && <GoLiveBar ws={ws} onFix={goLiveFixOn() ? openFix : undefined} />}
       {!isDraftEvent(ws) && <EndCard oneOff status={life} endDate={null} reason={null}
         onLive={() => void setLife('live', E.toastLive)} onPause={() => { setError(null); setSheet('pause'); }} onEnd={() => { setError(null); setSheet('end'); }} />}
       {sheet === 'pause' && <StatusSheet to="Paused" from={life} lastNight="" tonight={false} error={error} onDo={() => setLife('paused', E.toastPaused)} onClose={() => setSheet(null)} />}

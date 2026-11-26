@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { useInRouterContext, useSearchParams } from 'react-router-dom';
 import type { EventWorkspace } from '../../events/eventModel';
 import { fetchOrganiserPages } from '../../events/programmeSeriesApi';
 import { fullDate } from '../../shared/dateWords';
@@ -34,7 +35,8 @@ import { ownerPassesFromStored, lifecycleCommand } from '../../shared/seriesComm
 import { endRunCommand, tonightDate } from '../../events/eventModel';
 import { EndCard, offStatusWord, type LifeState } from './EndCard';
 import { REPEAT_SHAPE_COPY, repeatShape } from '../model/repeat';
-import { DRAFT_PILL, DraftNote, GoLiveBar, isDraftEvent } from './GoLiveBar';
+import { DRAFT_PILL, DraftNote, GoLiveBar, goLiveFixParam, isDraftEvent } from './GoLiveBar';
+import { goLiveFixOn, type V2FixTarget } from './goLiveFixV2';
 import { StatusSheet, CancelEventSheetV2, type TodayAnswer } from './StatusSheets';
 import { cancelCommand, uncancelCommand } from '../../shared/seriesCommands';
 import { upcomingOf, organisersPayload } from './editorModel';
@@ -61,8 +63,22 @@ type SeriesBits = { default_city_id?: string | null; default_cover_image_url: st
  * The "Every <day>" tab (flag organiserEditorV2): what dancers see every <day>, then the About group. Every write is
  * a series.upsert carrying `name`. Music / Organisers / Repeats / When / Price taps are PENDING later slices.
  */
-export function EveryBody({ ws, day, saveNow, busy, onOpenTickets }: { ws: EventWorkspace; day: string; saveNow: OnSave; busy?: boolean; onOpenTickets?: () => void }) {
+/** Reads `?fix=<target>` once (Router only): opens that sheet, then drops the param and keeps the rest. */
+function FixParamOpener({ open }: { open: (t: string) => void }) {
+  const [params, setParams] = useSearchParams();
+  const fix = params.get(goLiveFixParam);
+  useEffect(() => {
+    if (!fix) return;
+    open(fix);
+    setParams((p) => { const n = new URLSearchParams(p); n.delete(goLiveFixParam); return n; }, { replace: true, preventScrollReset: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fix]);
+  return null;
+}
+
+export function EveryBody({ ws, day, saveNow, busy, onOpenTickets, onOpenDates }: { ws: EventWorkspace; day: string; saveNow: OnSave; busy?: boolean; onOpenTickets?: () => void; onOpenDates?: () => void }) {
   const s = ws.series;
+  const inRouter = useInRouterContext();
   const [sheet, setSheet] = useState<'where' | 'about' | 'flyer' | 'name' | 'music' | 'orgs' | 'repeats' | 'pause' | 'end' | 'cancel' | 'prog' | null>(null);
   const [editing, setEditing] = useState<{ row: DraftSession | null } | null>(null);
   const [progProblem, setProgProblem] = useState<string | null>(null);
@@ -88,6 +104,17 @@ export function EveryBody({ ws, day, saveNow, busy, onOpenTickets }: { ws: Event
   const reasonQ = useQuery({ queryKey: dateDetailQueryKey(firstCancelled?.id ?? ''), queryFn: () => fetchDateDetail(firstCancelled!.id), enabled: !!firstCancelled });
   const status = s.lifecycle_status === 'paused' ? 'paused' : s.lifecycle_status === 'ended' ? 'ended' : 'live';
   const draft = isDraftEvent(ws);
+  /** The six sheets this tab owns, by go-live target. Returns false for any other target. */
+  const openLocalFix = (t: string): boolean => {
+    if (t === 'where' || t === 'about' || t === 'flyer' || t === 'name' || t === 'orgs') { setSheet(t); return true; }
+    if (t === 'prog') { setProgProblem(null); setSheet('prog'); return true; }
+    return false;
+  };
+  const openFix = (t: V2FixTarget): boolean => {
+    if (t === 'tickets') { onOpenTickets?.(); return true; }
+    if (t === 'dates') { if (!onOpenDates) return false; onOpenDates(); return true; }
+    return openLocalFix(t);
+  };
   const offWord = offStatusWord(s.lifecycle_status);
   const pill = draft ? <span className="pill off" data-testid="draft-pill">{DRAFT_PILL}</span> : offWord ? <span className="pill off" data-testid="status-pill">{offWord}</span> : cancelled ? <span className="pill x">{V2.tagCancelled}</span>
     : <span className={status === 'live' ? 'pill' : 'pill off'}>{status === 'live' ? V2.statusLive : status === 'paused' ? V2.statusPaused : V2.statusEnded}</span>;
@@ -262,7 +289,8 @@ export function EveryBody({ ws, day, saveNow, busy, onOpenTickets }: { ws: Event
           <Line id="organisers" label={E.organisers} value={orgs} onOpen={() => setSheet('orgs')} />
         </div></div>
       </div>
-      {draft && <GoLiveBar ws={ws} />}
+      {goLiveFixOn() && inRouter && <FixParamOpener open={(t) => { openLocalFix(t); }} />}
+      {draft && <GoLiveBar ws={ws} onFix={goLiveFixOn() ? openFix : undefined} />}
       {!draft && <EndCard status={life} endDate={ws.endedOn ? fullDate(ws.endedOn, londonTodayKey()) : null} reason={cancelled ? (reasonQ.data?.cancellationReason ?? null) : null}
         onLive={() => void liveAgain()} onCancel={() => { setStatusError(null); setSheet('cancel'); }} onPause={() => { setStatusError(null); setSheet('pause'); }} onEnd={() => { setStatusError(null); setSheet('end'); }} />}
       {sheet === 'prog' && (
