@@ -1,5 +1,7 @@
 import { lazy, Suspense } from 'react';
 
+import { doorUrl } from '../../../raffle-win/model';
+
 // The generator rides with this lazy file only.
 const TicketQrCode = lazy(() => import('../../../tickets/TicketQrCode'));
 
@@ -7,7 +9,7 @@ const TicketQrCode = lazy(() => import('../../../tickets/TicketQrCode'));
 const RaffleDoorView = ({ token, onBack }: { token: string; onBack: () => void }) => (
   <section data-testid="raffle-door-view" style={{ display: 'grid', gap: 12, justifyItems: 'center', textAlign: 'center' }}>
     <div style={{ width: '100%', maxWidth: 320 }}>
-      <Suspense fallback={null}><TicketQrCode token={`r:${token}`} /></Suspense>
+      <Suspense fallback={null}><TicketQrCode token={doorUrl(window.location.origin, token)} /></Suspense>
     </div>
     <b style={{ fontSize: 20 }}>Show this at the door.</b>
     <p style={{ margin: 0, fontSize: 14 }}>This code does not expire. Your organiser can cancel it.</p>

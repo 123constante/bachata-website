@@ -4,6 +4,7 @@ import { Card } from '@/modules/organiser/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { rpcLoose } from '@/integrations/supabase/rpcLoose';
 
+import { doorUrl } from '../../../raffle-win/model';
 import { parseMyWins, takeFreshFlag, type RaffleWinCard } from './raffleWinModel';
 import RaffleDoorView from './RaffleDoorView';
 
@@ -78,10 +79,13 @@ const HomeRaffleWin = ({ onShare }: { onShare?: () => void }) => {
           ) : (
             <b data-testid="raffle-win-locked">Your night is locked.</b>
           )}
+          {card.attended ? (
+            <b data-testid="raffle-win-attended" style={{ fontSize: 15 }}>You&rsquo;re in. Enjoy the night</b>
+          ) : (
           <div ref={qrRef} style={{ display: 'grid', justifyItems: 'center', gap: 6 }}>
             <button type="button" className="da-tap" data-testid="raffle-win-qr" aria-label="Enlarge the QR for the door"
               onClick={() => setDoor(true)} style={{ ...plainButton, width: 168, lineHeight: 0 }}>
-              <Suspense fallback={null}><TicketQrCode token={`r:${card.qrToken}`} /></Suspense>
+              <Suspense fallback={null}><TicketQrCode token={doorUrl(window.location.origin, card.qrToken)} /></Suspense>
             </button>
             <b style={{ fontSize: 15 }}>Show this at the door.</b>
             {fresh && n && (
@@ -90,6 +94,7 @@ const HomeRaffleWin = ({ onShare }: { onShare?: () => void }) => {
               </button>
             )}
           </div>
+          )}
         </div>
       </Card>
     </section>

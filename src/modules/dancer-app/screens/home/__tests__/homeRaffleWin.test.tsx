@@ -12,7 +12,7 @@ const rpc = vi.fn();
 vi.mock('@/integrations/supabase/rpcLoose', () => ({ rpcLoose: (...a: unknown[]) => rpc(...a) }));
 const confetti = vi.fn();
 vi.mock('canvas-confetti', () => ({ default: () => confetti() }));
-vi.mock('../../../../tickets/TicketQrCode', () => ({ default: () => <svg data-testid="ticket-qr" /> }));
+vi.mock('../../../../tickets/TicketQrCode', () => ({ default: ({ token }: { token: string }) => <svg data-testid="ticket-qr" data-token={token} /> }));
 
 import HomeRaffleWin from '../homeRaffleWin';
 
@@ -86,6 +86,28 @@ describe('ticket card', () => {
     expect(screen.getByText('This code does not expire. Your organiser can cancel it.')).toBeTruthy();
     fireEvent.click(screen.getByText('Back to my dashboard'));
     expect(await screen.findByTestId('raffle-win-card')).toBeTruthy();
+  });
+
+  it('QR encodes the door URL, on the card and in the full-screen view', async () => {
+    rpc.mockResolvedValue({ data: WIN(NIGHT), error: null });
+    shell();
+    const want = `${window.location.origin}/raffle/door/${'a'.repeat(64)}`;
+    await screen.findByTestId('raffle-win-qr');
+    expect((await screen.findByTestId('ticket-qr')).getAttribute('data-token')).toBe(want);
+    fireEvent.click(screen.getByTestId('raffle-win-qr'));
+    await screen.findByTestId('raffle-door-view');
+    expect((await screen.findByTestId('ticket-qr')).getAttribute('data-token')).toBe(want);
+  });
+
+  it('attended win: You\'re in, no QR, no enlarge, keeps title/date/venue', async () => {
+    rpc.mockResolvedValue({ data: [{ win: { id: 'w1', state: 'attended', attended: true, qr_token: 'a'.repeat(64), night: NIGHT } }], error: null });
+    shell();
+    expect(await screen.findByText('You\u2019re in. Enjoy the night')).toBeTruthy();
+    expect(screen.queryByTestId('raffle-win-qr')).toBeNull();
+    expect(screen.queryByTestId('ticket-qr')).toBeNull();
+    expect(screen.queryByText('Show this at the door.')).toBeNull();
+    expect(screen.getByText('Noche Dominicana')).toBeTruthy();
+    expect(screen.getByText('The Copper Room')).toBeTruthy();
   });
 
   it.each([[[]], [{ ok: false }]])('no win (%j): no card at all', async (data) => {
