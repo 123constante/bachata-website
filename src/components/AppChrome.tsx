@@ -41,9 +41,9 @@ const AnimatedRoutesFallback = () => (
   </div>
 );
 
-// The two Festival Map home routes (/city/:slug and /city/:slug/calendar). On
-// these the footer is suppressed (full-bleed map).
-const HOME_RE = /^\/city\/[^/]+(\/calendar)?\/?$/i;
+// The Festival Map home route (/city/:slug). On this the footer is suppressed
+// (full-bleed map).
+const HOME_RE = /^\/city\/[^/]+\/?$/i;
 
 // The dancer area (/app, /app/*) draws its own header and tab bar
 // (modules/dancer-app/shell), so the site's header, bottom nav, footer and their

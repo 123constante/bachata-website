@@ -16,7 +16,6 @@ import { lazyWithRetry } from "@/lib/lazyWithRetry";
 import { RedirectIfAllowed } from "@/modules/dancer-app/gate/RedirectIfAllowed";
 
 // --- Landing page: lazy-loaded here (along with all other pages) ---
-const Index = lazyWithRetry(() => import("../pages/Index"));
 const Parties = lazyWithRetry(() => import("../pages/Parties"));
 const Classes = lazyWithRetry(() => import("../pages/Classes"));
 const Discounts = lazyWithRetry(() => import("../pages/Discounts"));
@@ -135,15 +134,13 @@ export const AnimatedRoutes = () => {
             {/* /city/:slug, /parties, /classes are now framework routes
                 (app/routes.ts) — prerendered, so their catchall duplicates were
                 removed. The /city/:slug/* variants below stay client-rendered. */}
-            <Route path="/city/:slug/calendar" element={<Index />} />
             {/* The full map the homepage teaser opens. Client-rendered through
                 the catchall: `city/:slug` in app/routes.ts is a ONE-segment
                 framework route, so this two-segment path falls through to here.
                 No PageTransition -- the transition wrapper animates opacity on
                 mount, and Leaflet measures a container mid-fade as zero-height,
                 which is the black-map state the shell's ResizeObserver exists
-                to recover from. /city/:slug/calendar skips it for its own
-                reasons and is the precedent. */}
+                to recover from. */}
             <Route path="/city/:slug/map" element={<CityMap />} />
             <Route path="/city/:slug/parties" element={<PageTransition><Parties /></PageTransition>} />
             <Route path="/city/:slug/classes" element={<PageTransition><Classes /></PageTransition>} />
