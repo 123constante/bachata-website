@@ -181,9 +181,13 @@ describe("/event loader on subdomain hosts (rows 1-6)", () => {
 
   it("row 2: no such night -> plain event page, not a 404", async () => {
     process.env.EVENT_SUBDOMAIN_LINKS = "true";
+    snapshotMock.mockImplementation(async (name: string, a: Record<string, unknown> & { p_target?: { occurrence_id?: string } }) => {
+      if (name === "get_calendar_events_v2") return { data: [], error: null };
+      return { data: { event: { name: "Lounge" }, occurrences: OCCS, seenOcc: a.p_target?.occurrence_id ?? null }, error: null };
+    });
     const r = await run("lounge.bachatacalendar.co.uk", "lounge", "?night=1-jun");
     expect(r.thrown).toBeUndefined();
-    expect(snapshotMock.mock.calls.every(([, a]) => !a.p_target.occurrence_id)).toBe(true);
+    expect(snapshotMock.mock.calls.every(([, a]) => !a.p_target?.occurrence_id)).toBe(true);
   });
 
   it("row 2: a past night outside the 52-row snapshot window comes from the calendar", async () => {
