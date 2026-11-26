@@ -35,6 +35,8 @@ export const flags = {
   raffleCutout:        import.meta.env.VITE_ENABLE_RAFFLE_PHOTO_CUTOUT === 'true',
   // /raffle/win/:token polish (shorter gate, door-photo wording, flyers, contact buttons). OFF = today's screens.
   raffleWinPolish:     import.meta.env.VITE_ENABLE_RAFFLE_WIN_POLISH === 'true',
+  // Dancer home raffle-win card: Golden Ticket layout. OFF = today's card, unchanged.
+  raffleGoldenTicket:  import.meta.env.VITE_ENABLE_RAFFLE_GOLDEN_TICKET === 'true',
   // Federated search v5 (Cmd+K / mobile full-screen overlay + search_public_v5).
   // When false the existing HeaderSearch omnibox (search_public_v4) renders
   // unchanged, so prod is untouched until this flips per-environment.

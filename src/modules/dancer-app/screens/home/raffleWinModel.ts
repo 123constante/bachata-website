@@ -10,7 +10,7 @@ export type RaffleWinCard = {
   /** The door has already admitted this win: the card says "You're in" and hides the QR. */
   attended: boolean;
   /** null = the night is not known: "Your night is locked." */
-  night: { title: string; dateLine: string; venue: string | null; posterUrl: string | null } | null;
+  night: { title: string; dateLine: string; venue: string | null; posterUrl: string | null; startLocal: string; timeLine: string; dateKey: string } | null;
 };
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -27,12 +27,27 @@ export function winDateLine(startLocal: string): string {
   return `${DAYS[dow]} ${+m[3]} ${MONTHS[+m[2] - 1]}`;
 }
 
+/** 'YYYY-MM-DDTHH:MM' -> '8:00 pm' ('' when there is no time part). */
+export function winTimeLine(startLocal: string): string {
+  const m = /T(\d{2}):(\d{2})/.exec(startLocal);
+  if (!m) return '';
+  const h = +m[1];
+  return `${h % 12 === 0 ? 12 : h % 12}:${m[2]} ${h < 12 ? 'am' : 'pm'}`;
+}
+
+/** Whole days from today's London key to the night's date key (>= 0 once the night is known). */
+export function daysUntilKey(todayKey: string, dateKey: string): number {
+  const t = (k: string) => Date.UTC(+k.slice(0, 4), +k.slice(5, 7) - 1, +k.slice(8, 10));
+  return Math.round((t(dateKey) - t(todayKey)) / 86400000);
+}
+
 function parseNight(raw: unknown): RaffleWinCard['night'] {
   if (!isObj(raw)) return null;
   const startLocal = str(raw.start_local);
   const dateLine = startLocal ? winDateLine(startLocal) : '';
   if (!dateLine) return null;
-  return { title: str(raw.title) ?? 'Bachata night', dateLine, venue: str(raw.venue_name), posterUrl: str(raw.poster_url) };
+  const timeLine = winTimeLine(startLocal ?? '');
+  return { title: str(raw.title) ?? 'Bachata night', dateLine, venue: str(raw.venue_name), posterUrl: str(raw.poster_url), startLocal: startLocal ?? '', timeLine, dateKey: (startLocal ?? '').slice(0, 10) };
 }
 
 /** The win to show: a locked win with a QR token. Anything else (no wins, error shape) = no card. */
