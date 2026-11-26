@@ -26,9 +26,10 @@ export default {
   // ISR fixes that. Detail routes + the catchall are on-demand SSR too.
   async prerender() {
     // Everything left here carries NO server-fetched content: /parties +
-    // /classes (their EventCalendar is client-only/mount-gated), /faq, and the
-    // three all-prose landing pages (/bachata-parties-london + the two style
-    // pages), which render hand-written copy and internal links only. A static
+    // /classes (their EventCalendar is client-only/mount-gated) and /faq, which
+    // renders hand-written copy and internal links only. (The three all-prose
+    // party landing pages were retired in site structure S2a: 301 to /parties
+    // in vercel.json.) A static
     // shell plus per-page meta()/JSON-LD is their whole SEO payload and nothing
     // server-rendered can go stale.
     //
@@ -43,9 +44,6 @@ export default {
       "/parties",
       "/classes",
       "/faq",
-      "/bachata-parties-london",
-      "/bachata-london-sensual-parties",
-      "/bachata-london-dominican-parties",
     ];
   },
 } satisfies Config;
