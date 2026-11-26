@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { isDoorReturnTo } from "@/lib/doorLink";
 import {
   callbackErrorCopy,
   isOtpSignupDisabledError,
@@ -163,6 +164,16 @@ describe("shouldHonorReturnTo: a door invite link (organiser R4 slice a)", () =>
   it("only a real link shape is honoured by that rule", () => {
     expect(shouldHonorReturnTo({ returnTo: "/door/join/nope", isSignupFlow: true, organiserSelfServe: false })).toBe(false);
     expect(shouldHonorReturnTo({ returnTo: "/door/not-a-uuid", isSignupFlow: true, organiserSelfServe: false })).toBe(false);
+  });
+  it("a raffle door link comes back to itself, and only that exact shape", () => {
+    const tok = "a".repeat(24);
+    const ok = (r: string) => shouldHonorReturnTo({ returnTo: r, isSignupFlow: true, organiserSelfServe: false });
+    expect(ok(`/raffle/door/${tok}`)).toBe(true);
+    expect(isDoorReturnTo(`/raffle/door/${tok}`)).toBe(true);
+    for (const bad of ["/raffle/door/x", `/raffle/door/${tok}/more`, `/raffle/door/${tok}?a=1`]) {
+      expect(isDoorReturnTo(bad)).toBe(false);
+      expect(ok(bad)).toBe(false);
+    }
   });
   it("the seat-only door screen comes back too (its AuthGuard sends people to sign in)", () => {
     expect(shouldHonorReturnTo({ returnTo: "/door/11111111-1111-4111-8111-111111111111", isSignupFlow: true, organiserSelfServe: false })).toBe(true);

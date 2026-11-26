@@ -191,6 +191,61 @@ describe('RaffleDoor status -> screen', () => {
     expect(screen.queryByText('Admit')).toBeNull();
   });
 
+  describe('team-locked nights', () => {
+    const locked = { needs_team: true, viewer_can_admit: false };
+    it('open night: card and Admit', async () => {
+      h.rpc.mockResolvedValueOnce(reply('valid', { needs_team: false, viewer_can_admit: true }));
+      mount();
+      expect(await screen.findByText('Admit')).toBeTruthy();
+      expect(screen.getByText('Aisha K.')).toBeTruthy();
+      expect(screen.queryByTestId('door-show-organiser')).toBeNull();
+      expect(screen.queryByTestId('door-sign-in')).toBeNull();
+    });
+    it('keys absent: today behaviour, Admit shown', async () => {
+      h.rpc.mockResolvedValueOnce(reply('valid'));
+      mount();
+      expect(await screen.findByText('Admit')).toBeTruthy();
+      expect(screen.queryByTestId('door-sign-in')).toBeNull();
+    });
+    it('winner viewer on a locked night: Show this to the door', async () => {
+      setTestUser({ id: 'u1' });
+      h.rpc.mockImplementation(async (fn: string) =>
+        fn === 'raffle_my_wins_v1' ? { data: [{ win: { state: 'locked', qr_token: 'tok' } }], error: null } : reply('valid', locked));
+      mount();
+      expect(await screen.findByTestId('door-show-this')).toBeTruthy();
+      expect(screen.queryByText('Admit')).toBeNull();
+      expect(screen.queryByTestId('door-show-organiser')).toBeNull();
+    });
+    it('locked, signed in: Show this to the organiser, no Admit', async () => {
+      setTestUser({ id: 'u2' });
+      h.rpc.mockImplementation(async (fn: string) =>
+        fn === 'raffle_my_wins_v1' ? { data: [], error: null } : reply('valid', locked));
+      mount();
+      expect((await screen.findByTestId('door-show-organiser')).textContent).toBe('Show this to the organiser');
+      expect(screen.getByText('Aisha K.')).toBeTruthy();
+      expect(screen.queryByText('Admit')).toBeNull();
+      expect(screen.queryByTestId('door-sign-in')).toBeNull();
+    });
+    it('locked, signed out: Sign in to admit link and note, no Admit', async () => {
+      h.rpc.mockResolvedValueOnce(reply('valid', locked));
+      mount();
+      const a = await screen.findByTestId('door-sign-in');
+      expect(a.textContent).toBe('Sign in to admit');
+      expect(a.getAttribute('href')).toBe('/auth?mode=signin&returnTo=' + encodeURIComponent('/raffle/door/tok'));
+      expect(screen.getByText('Only the organiser’s team can admit tonight.')).toBeTruthy();
+      expect(screen.getByText('Aisha K.')).toBeTruthy();
+      expect(screen.queryByText('Admit')).toBeNull();
+      expect(screen.queryByTestId('door-show-organiser')).toBeNull();
+    });
+    it('admit tap answered valid but locked: locked screen, never Admitted', async () => {
+      h.rpc.mockResolvedValueOnce(reply('valid')).mockResolvedValueOnce(reply('valid', locked));
+      mount();
+      fireEvent.click(await screen.findByText('Admit'));
+      expect(await screen.findByTestId('door-sign-in')).toBeTruthy();
+      expect(screen.queryByText('Admitted')).toBeNull();
+    });
+  });
+
   it('network error offers Retry', async () => {
     h.rpc.mockRejectedValueOnce(new Error('x')).mockResolvedValueOnce(reply('valid'));
     mount();
