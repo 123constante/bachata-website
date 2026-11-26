@@ -101,6 +101,22 @@ export function NavigationSplash() {
   // and costs no visual artefact at all. This is an SPA: root.tsx is not
   // remounted by client-side navigation, so "once per session" is literal.
   const [armed, setArmed] = useState(false);
+
+  // BACK-BUTTON RESTORE (bfcache). A tap whose loader answers with a redirect
+  // to another host (an organiser's own sub-address) leaves by a document
+  // navigation while the router is still 'loading'. On a slow phone the splash
+  // is already up by then; the browser freezes the page in that state and Back
+  // restores it with the splash on and a navigation that never finishes (owner
+  // phone, 2026-11-26). A restored page with a pending navigation reloads.
+  const loadingRef = useRef(isLoading);
+  loadingRef.current = isLoading;
+  useEffect(() => {
+    const onShow = (e: PageTransitionEvent) => {
+      if (e.persisted && loadingRef.current) window.location.reload();
+    };
+    window.addEventListener("pageshow", onShow);
+    return () => window.removeEventListener("pageshow", onShow);
+  }, []);
   useEffect(() => {
     if (isLoading && !armed) setArmed(true);
   }, [isLoading, armed]);
