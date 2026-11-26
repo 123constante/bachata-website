@@ -44,6 +44,7 @@ describe('WonScreen', () => {
     expect(screen.getByText('Night')).toBeTruthy();
     expect(screen.getByText('your pick goes here')).toBeTruthy();
     expect(screen.getByText('You are signed in, so no WhatsApp needed.')).toBeTruthy();
+    expect(screen.getByText('By claiming this prize you agree to your photo and first name being shown publicly as a winner.')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Choose my night' }));
     expect(onChoose).toHaveBeenCalledTimes(1);
   });
