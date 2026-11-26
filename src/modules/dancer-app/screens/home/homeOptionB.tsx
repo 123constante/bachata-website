@@ -293,8 +293,8 @@ const Sec = ({ children, testId }: { children: ReactNode; testId: string }) => (
 );
 
 /** A `.row`: tone square + icon, title over line, optional coral go word. A link when `to` is set. */
-const GRow = ({ testId, to, state, tone, icon, title, line, go }: {
-  testId: string; to?: string; state?: unknown; tone: 0 | 1; icon: ReactNode; title: string; line?: string; go?: string;
+export const GRow = ({ testId, to, state, tone, icon, title, line, go, onClick }: {
+  testId: string; to?: string; state?: unknown; tone: 0 | 1; icon: ReactNode; title: string; line?: string; go?: string; onClick?: () => void;
 }) => {
   const inner = (
     <>
@@ -306,6 +306,7 @@ const GRow = ({ testId, to, state, tone, icon, title, line, go }: {
       {go && <span style={{ marginLeft: 'auto', fontWeight: 800, color: 'var(--brand)', fontSize: 13 }}>{go}</span>}
     </>
   );
+  if (onClick && !to) return <button type="button" onClick={onClick} className="da-tap" style={{ ...ROW_BOX, width: '100%', textAlign: 'left', font: 'inherit' }} data-testid={testId}>{inner}</button>;
   return to ? <Link to={to} state={state} className="da-tap" style={ROW_BOX} data-testid={testId}>{inner}</Link> : <div style={ROW_BOX} data-testid={testId}>{inner}</div>;
 };
 
