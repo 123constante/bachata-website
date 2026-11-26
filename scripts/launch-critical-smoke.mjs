@@ -481,7 +481,8 @@ const run = async () => {
 
 if (process.argv.includes('--self-test')) {
   selfTest();
-} else if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+} else {
+  // No "is main module" guard: a path mismatch there would skip run() and exit 0 (false green).
   run().catch((error) => {
     console.error('SMOKE_RUN_FAILED', error);
     process.exit(1);
