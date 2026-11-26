@@ -1,18 +1,44 @@
 // homeFeedLook category row: big poster words, ONE selected at a time (All, Near me, Party, Class, Fest).
 // Replaces the homePolish chip row when the flag is ON. Near me asks for location ONLY when tapped.
 // Tap areas are 44px (min-height in px; the phone root font is ~13.5px). Styles: .hm-poster-* in homeMap.css.
+// homeOneRow (site structure S2d-1): the ONE filter row on home -- Today, Weekend, Near me, Party, Class,
+// Festival. No "All" word: nothing selected = everything, and tapping the selected word clears it.
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import { CHIP_CATS, type ChipCat } from './chips';
 import type { ChipGeo } from './HomeChipRow';
 import { denialCopy, isIOSUserAgent, isStandaloneDisplay } from '@/lib/geo/denialCopy';
 import { isRoughFix } from '@/lib/geo/nearMeFix';
+import { addDaysToKey, weekdayOfKey } from '@/lib/londonDate';
+import { flags } from '@/lib/featureFlags';
 
-export type PosterSel = 'all' | 'near' | ChipCat;
+export type PosterWhen = 'today' | 'weekend';
+export type PosterSel = 'all' | 'near' | PosterWhen | ChipCat;
 
 /** The pure rule: tapping the selected word returns to All; any other word selects it alone. */
 export function nextPosterSel(current: PosterSel, tapped: PosterSel): PosterSel {
   return tapped === 'all' || tapped === current ? 'all' : tapped;
+}
+
+/** The London date keys a time word keeps. Weekend = Fri, Sat, Sun of THIS week; from Saturday on it is
+ *  the rest of this weekend (Sat + Sun, then Sun only), never next week's -- people tap it to go out now. */
+export function whenKeys(when: PosterWhen, today: string): ReadonlySet<string> {
+  if (when === 'today') return new Set([today]);
+  const dow = weekdayOfKey(today); // 0 = Sun .. 6 = Sat
+  const start = dow === 0 || dow >= 5 ? 0 : 5 - dow;
+  const end = dow === 0 ? 0 : 7 - dow;
+  const keys = new Set<string>();
+  for (let i = start; i <= end; i++) keys.add(addDaysToKey(today, i));
+  return keys;
+}
+
+/** The words in the row, in order. homeOneRow: Today, Weekend, Near me, Party, Class, Festival. */
+export function posterWords(oneRow: boolean, nearLabel: string): { id: PosterSel; label: string }[] {
+  // Ticket tear shows the category in full: FESTIVAL, never Fest (chips.ts keeps 'Fest' for the old chip row).
+  const cats = CHIP_CATS.map((c) => ({ id: c.id as PosterSel, label: c.id === 'fest' ? 'Festival' : c.label }));
+  const near = { id: 'near' as PosterSel, label: nearLabel };
+  if (oneRow) return [{ id: 'today', label: 'Today' }, { id: 'weekend', label: 'Weekend' }, near, ...cats];
+  return [{ id: 'all', label: 'All' }, near, ...cats];
 }
 
 export function PosterRow({
@@ -50,15 +76,11 @@ export function PosterRow({
             ? 'Still looking for you. Tap Near me again to cancel.'
             : null;
 
-  const words: { id: PosterSel; label: string }[] = [
-    { id: 'all', label: 'All' },
-    { id: 'near', label: nearLabel },
-    // Ticket tear shows the category in full: FESTIVAL, never Fest (chips.ts keeps 'Fest' for the old chip row).
-    ...CHIP_CATS.map((c) => ({ id: c.id as PosterSel, label: c.id === 'fest' ? 'Festival' : c.label })),
-  ];
+  const oneRow = flags.homeOneRow;
+  const words = posterWords(oneRow, nearLabel);
   return (
     <>
-      <div role="group" aria-label="Filter and sort events" className="hm-poster-row">
+      <div role="group" aria-label="Filter and sort events" className={oneRow ? 'hm-poster-row is-six' : 'hm-poster-row'}>
         {words.map((w) => (
           <button
             key={w.id}

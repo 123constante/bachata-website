@@ -33,7 +33,7 @@ import { resolvePageCity } from '@/lib/pageCity';
 import EmptyCityNote from '@/components/listing/LazyEmptyCityNote';
 import { flags } from '@/lib/featureFlags';
 import { HomeChipRow } from '@/modules/home-polish/HomeChipRow';
-import { PosterRow, type PosterSel } from '@/modules/home-polish/PosterRow';
+import { PosterRow, whenKeys, type PosterSel, type PosterWhen } from '@/modules/home-polish/PosterRow';
 import {
   FAR_MI,
   matchesCats,
@@ -204,6 +204,8 @@ export function AllEventsList({
   // homeFeedLook: the poster-word row replaces the chip row (single category; Near me inside it).
   const look = polish && flags.homeFeedLook;
   const [cats, setCats] = useState<ReadonlySet<ChipCat>>(() => new Set());
+  // homeOneRow: Today / Weekend narrow the feed to those London days (one word at a time, like the rest).
+  const [when, setWhen] = useState<PosterWhen | null>(null);
   const toggleCat = (c: ChipCat) =>
     setCats((prev) => {
       const next = new Set(prev);
@@ -248,7 +250,12 @@ export function AllEventsList({
     if (!polish || cats.size === 0) return parts;
     return { local: parts.local.filter((e) => matchesCats(e, cats)), remote: parts.remote.filter((e) => matchesCats(e, cats)) };
   }, [state.listEvents, citySlug, polish, cats]);
-  const groups = useMemo(() => localFeedGroups(local), [local]);
+  const allGroups = useMemo(() => localFeedGroups(local), [local]);
+  const groups = useMemo(() => {
+    if (!when) return allGroups;
+    const keep = whenKeys(when, today);
+    return allGroups.filter((g) => keep.has(g.key));
+  }, [allGroups, when, today]);
 
   // Windowed SSR (see mapListDerivations.INITIAL_FEED_DAYS). The server and the
   // client's FIRST render must agree exactly or React #421 blanks the page, so the
@@ -365,7 +372,7 @@ export function AllEventsList({
   const cityNote = !city.isLondon && groups.length === 0 && !state.q ? (
     <EmptyCityNote cityName={city.name} citySlug={city.slug} />
   ) : null;
-  const posterSel: PosterSel = nearest ? 'near' : (([...cats][0] as ChipCat | undefined) ?? 'all');
+  const posterSel: PosterSel = when ?? (nearest ? 'near' : (([...cats][0] as ChipCat | undefined) ?? 'all'));
   // Shuffle (homeFeedLook): rows slide out (~0.2s), the filter applies, rows slide in staggered (CSS, keyed on posterSel).
   // Skipped under prefers-reduced-motion. The location request is never delayed.
   const [leaving, setLeaving] = useState(false);
@@ -389,6 +396,7 @@ export function AllEventsList({
       // Location is asked for ONLY on this tap (a no-op if already granted / in flight).
       if (state.geo.status !== 'granted' && state.geo.status !== 'loading') state.geo.request();
       applyAfterOut(() => {
+        setWhen(null);
         setCats(new Set());
         setNearest(true);
       });
@@ -397,6 +405,12 @@ export function AllEventsList({
     if (nearest && state.geo.status === 'loading') state.geo.clear();
     applyAfterOut(() => {
       setNearest(false);
+      if (next === 'today' || next === 'weekend') {
+        setWhen(next);
+        setCats(new Set());
+        return;
+      }
+      setWhen(null);
       setCats(next === 'all' ? new Set() : new Set<ChipCat>([next]));
     });
   };
@@ -405,14 +419,23 @@ export function AllEventsList({
   ) : polish ? (
     <HomeChipRow geo={state.geo} nearest={nearest} onNearest={setNearest} cats={cats} onToggleCat={toggleCat} />
   ) : null;
-  if (polish && cats.size > 0 && groups.length === 0 && remote.length === 0) {
+  // A time word hides the festivals further afield too: they are dated outside today / this weekend.
+  const shownRemote = when ? [] : remote;
+  if (polish && (cats.size > 0 || when) && groups.length === 0 && shownRemote.length === 0) {
     return (
       <div className="space-y-3">
         {chipRow}
         <EmptyState>
-          No events match these filters.{' '}
-          <button type="button" onClick={() => setCats(new Set())} className={cn('inline-flex min-h-[44px] items-center font-bold text-primary underline', focusRing)}>
-            Clear filters
+          {when === 'today' ? 'Nothing on today.' : when === 'weekend' ? 'Nothing on this weekend yet.' : 'No events match these filters.'}{' '}
+          <button
+            type="button"
+            onClick={() => {
+              setWhen(null);
+              setCats(new Set());
+            }}
+            className={cn('inline-flex min-h-[44px] items-center font-bold text-primary underline', focusRing)}
+          >
+            {when ? 'Show all events' : 'Clear filters'}
           </button>
         </EmptyState>
       </div>
@@ -493,7 +516,7 @@ export function AllEventsList({
       {hasMore && <div ref={sentinelRef} aria-hidden="true" className="h-px w-full" />}
       {/* AFTER the sentinel deliberately: growing the window appends day-groups
           above this point, so the section never moves under the reader. */}
-      <FurtherAfield remote={remote} label={city.isLondon ? 'Festivals further afield' : 'Festivals elsewhere'} />
+      <FurtherAfield remote={shownRemote} label={city.isLondon ? 'Festivals further afield' : 'Festivals elsewhere'} />
     </div>
   );
 }
