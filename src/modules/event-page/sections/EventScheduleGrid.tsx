@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ROLE_LABEL } from '@/lib/searchEntities';
 import { optimizedImageUrl } from '@/lib/imageCdn';
 import { cn } from '@/lib/utils';
+import { flags } from '@/lib/featureFlags';
 import { formatWallClockTime, wallClockDateKey, wallClockExactDateKey } from '@/lib/time/wallClock';
 import type { EventPageModel, FestivalScheduleItem } from '@/modules/event-page/types';
 
@@ -32,6 +33,9 @@ export type Person = {
    *  when it renders, so this route's first load does not carry that module
    *  (perf-budgets.json). */
   nationalityCode?: string | null;
+  /** Invited teacher with no profile yet (flags.organiserClassInvites): name in
+   *  an initials circle, never a link, never looked up in the badges read. */
+  pending?: boolean;
 };
 
 export type SessionLevel = 'beginner' | 'improver' | 'intermediate' | 'advanced' | 'open_level';
@@ -304,6 +308,9 @@ export type RpcItem = {
   levels: string[] | null;
   room: string | null;
   people: RpcPerson[] | null;
+  /** get_occurrence_program_v1 only (admin #2426): open/expired class invites.
+   *  Absent, null or [] = none. Ignored unless flags.organiserClassInvites. */
+  pending_teachers?: { display_name: string | null }[] | null;
   // Phase 2B step 2d — additive section context (Phase 2B step 2e
   // surfaces these into ScheduleSession so the renderer can group by
   // database section instead of inferring from item type).
@@ -334,7 +341,40 @@ export const isRenderableTimelessItem = (item: RpcItem): boolean => {
   const hasTitle = title.length > 0 && title !== 'untitled';
   const hasPeople = Array.isArray(item.people) && item.people.some((p) => p && p.profile_id);
   const hasLevels = Array.isArray(item.levels) && item.levels.length > 0;
-  return hasTitle || hasPeople || hasLevels;
+  const hasPending = flags.organiserClassInvites && pendingNames(item).length > 0;
+  return hasTitle || hasPeople || hasLevels || hasPending;
+};
+
+const pendingNames = (item: RpcItem): string[] =>
+  Array.isArray(item.pending_teachers)
+    ? item.pending_teachers
+        .map((t) => (t && typeof t.display_name === 'string' ? t.display_name.trim() : ''))
+        .filter((n) => n.length > 0)
+    : [];
+
+/** Invited teachers as people, after the real ones, RPC order. A name equal
+ *  (case-insensitive) to a real person on the item is skipped. Flag off = none. */
+export const pendingPeopleFor = (item: RpcItem, idx: number, real: Person[]): Person[] => {
+  if (!flags.organiserClassInvites) return [];
+  const taken = new Set(real.map((p) => p.name.trim().toLowerCase()));
+  const out: Person[] = [];
+  pendingNames(item).forEach((name, i) => {
+    const key = name.toLowerCase();
+    if (taken.has(key)) return;
+    taken.add(key);
+    out.push({
+      id: 'pending:' + (item.id ?? idx) + ':' + i,
+      name,
+      href: null,
+      avatarUrl: null,
+      role: roleLabel('teacher'),
+      profileType: 'teacher',
+      level: null,
+      nationalityCode: null,
+      pending: true,
+    });
+  });
+  return out;
 };
 
 /** A DATE-TIME session (admin D8): on a series with no programme times, an
@@ -361,7 +401,7 @@ export function parseProgramItems(data: unknown): ScheduleSession[] {
       const startMins = toMins(item.start_time);
       const endMins = toMins(item.end_time) ?? (startMins !== null ? startMins + 60 : null);
 
-      const people: Person[] = (item.people ?? [])
+      const realPeople: Person[] = (item.people ?? [])
         .slice()
         .sort((a, b) => {
           const ao = a.sort_order ?? Number.MAX_SAFE_INTEGER;
@@ -384,6 +424,7 @@ export function parseProgramItems(data: unknown): ScheduleSession[] {
           };
         })
         .filter((x): x is Person => x !== null);
+      const people: Person[] = [...realPeople, ...pendingPeopleFor(item, idx, realPeople)];
 
       // Extract local-wall-clock date prefix. The RPC stores times as naive
       // local (see toMins, which ignores any offset); the YYYY-MM-DD prefix
