@@ -157,6 +157,8 @@ describe('golden door sheet and icons (prototype A)', () => {
     expect(sheet.style.background).toMatch(/#fff|rgb\(255, 255, 255\)/);
     expect((await screen.findByText('Show this at the door')).style.fontFamily).toMatch(/Fraunces/);
     expect(screen.getByTestId('golden-door-avatar').style.background).toMatch(/linear-gradient/);
+    const heading = screen.getByTestId('golden-door-heading');
+    expect(heading.style.color).toMatch(/#111|rgb\(17, 17, 17\)/);
     expect(document.body.style.overflow).toBe('hidden');
     fireEvent.click(screen.getByTestId('raffle-door-back'));
     expect(await screen.findByTestId('raffle-win-card')).toBeTruthy();
