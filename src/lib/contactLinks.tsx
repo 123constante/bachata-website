@@ -106,11 +106,11 @@ const SECTIONS: FooterSection[] = [
   {
     heading: 'Organisers',
     links: [
+      { label: 'For organisers', to: '/for-organisers' },
       { label: 'Get listed', href: WHATSAPP_GET_LISTED_URL },
       // Both routes are flag-gated (coming-soon gate / redirect home while
       // off) -- never link a page that is not live.
       ...(flags.organisersDirectory ? [{ label: 'Organisers', to: '/organisers' }] : []),
-      ...(flags.rafflesPage ? [{ label: 'Raffles', to: '/raffles' }] : []),
     ],
   },
   {

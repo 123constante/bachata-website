@@ -3,7 +3,6 @@ import { Link, useLocation } from 'react-router-dom';
 import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
 import { cn } from '@/lib/utils';
-import { flags } from '@/lib/featureFlags';
 import { WHATSAPP_GROUP_URL } from '@/lib/contactLinks';
 
 // NO framer-motion here (perf, Pillar A): BottomNav mounts on every page, so a
@@ -27,12 +26,6 @@ const BASE_NAV_LINKS: Array<{
 }> = [
   { segment: 'organisers', label: 'Organisers', emoji: '\u{1F3AA}', fixedPath: '/organisers' },
   { segment: 'venues',     label: 'Venues',     emoji: '\u{1F3DB}\u{FE0F}' },
-  // /raffles is NOT city-scoped (no /city/:slug/raffles route), so fixedPath
-  // is required. Flag-gated: the route redirects home when rafflesPage is
-  // off, so the nav entry must disappear with it (prod flag is false for now).
-  ...(flags.rafflesPage
-    ? [{ segment: 'raffles', label: 'Raffles', emoji: '\u{1F381}', fixedPath: '/raffles' }]
-    : []),
 ];
 
 // Per-emoji bob duration (was the framer transition duration), fed to
@@ -40,7 +33,6 @@ const BASE_NAV_LINKS: Array<{
 const EMOJI_BOB_DURATION: Record<string, string> = {
   '\u{1F3AA}': '1.6s',
   '\u{1F3DB}\u{FE0F}': '1.8s',
-  '\u{1F381}': '1.7s',
 };
 
 export const BottomNav = ({ className }: { className?: string }) => {
