@@ -44,6 +44,7 @@ const Raffles = lazyWithRetry(() => import("../pages/Raffles"));
 const Auth = lazyWithRetry(() => import("../pages/Auth"));
 const RaffleWin = lazyWithRetry(() => import("../pages/RaffleWin"));
 const ClassJoinPage = lazyWithRetry(() => import("@/modules/class-join/ClassJoinPage"));
+const TeacherClaimPage = lazyWithRetry(() => import("@/modules/class-join/TeacherClaimPage"));
 // The organiser area (/account/o). Its AuthGuard lives inside this chunk; the
 // old /account URLs redirect into it (LegacyAccountRedirect, a tiny eager file).
 const OrganiserArea = lazyWithRetry(() => import("@/modules/organiser/shell/OrganiserRoutes"));
@@ -173,6 +174,7 @@ export const AnimatedRoutes = () => {
             } />
             <Route path="/raffle/win/:token" element={<PageTransition><RaffleWin /></PageTransition>} />
             {flags.organiserClassInvites && <Route path="/join/class/:token" element={<PageTransition><ClassJoinPage /></PageTransition>} />}
+            {flags.organiserClassInvites && <Route path="/claim/teacher/:token" element={<PageTransition><TeacherClaimPage /></PageTransition>} />}
             <Route path="/videographers" element={<PageTransition><Videographers /></PageTransition>} />
             <Route path="/dancers" element={<PageTransition><Dancers /></PageTransition>} />
             {/* /dancers/:id is a framework route (app/routes/dancers.tsx). */}
