@@ -40,11 +40,7 @@ const Classes = ({ serverTodayKey }: { serverTodayKey?: string }) => {
           <Link to="/learn-bachata-london" className="text-primary underline">
             beginner&rsquo;s guide to learning bachata in London
           </Link>
-          . Want the full picture? See the{' '}
-          <Link to="/london-bachata-guide" className="text-primary underline">
-            London bachata guide
-          </Link>{' '}
-          or browse{' '}
+          . Or browse{' '}
           <Link to="/teachers" className="text-primary underline">
             teachers by style
           </Link>

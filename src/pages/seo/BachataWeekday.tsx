@@ -201,8 +201,8 @@ const BachataWeekday = ({ serverTodayKey }: { serverTodayKey?: string }) => {
           <h1 className="text-2xl font-bold">Weekday not found</h1>
           <p className="text-muted-foreground">
             Try{' '}
-            <Link to="/london-bachata-guide" className="text-primary underline">
-              the London bachata guide
+            <Link to="/learn-bachata-london" className="text-primary underline">
+              the beginner&rsquo;s guide
             </Link>{' '}
             for the full weekly rhythm.
           </p>
@@ -285,8 +285,8 @@ const BachataWeekday = ({ serverTodayKey }: { serverTodayKey?: string }) => {
         <section className="border-t border-border/40 pt-6">
           <p className="text-sm text-muted-foreground">
             More London bachata:{' '}
-            <Link to="/london-bachata-guide" className="text-primary underline">
-              London Bachata Guide
+            <Link to="/learn-bachata-london" className="text-primary underline">
+              New to bachata?
             </Link>
             {' '}&middot;{' '}
             <Link to="/parties" className="text-primary underline">

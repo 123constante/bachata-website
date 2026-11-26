@@ -37,8 +37,8 @@ const Parties = ({ serverTodayKey }: { serverTodayKey?: string }) => {
           Every regular bachata social, party and weekly room in London - browse by
           night, find your local, see who's playing. The calendar is updated weekly
           from organisers across the city. New here? Start with the{' '}
-          <Link to="/london-bachata-guide" className="text-primary underline">
-            London bachata guide
+          <Link to="/learn-bachata-london" className="text-primary underline">
+            beginner&rsquo;s guide
           </Link>{' '}
           or check{' '}
           <Link to="/tonight" className="text-primary underline">
