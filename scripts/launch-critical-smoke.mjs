@@ -1,4 +1,6 @@
 import { chromium } from 'playwright';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { ciBypassHeaders, isProductionUrl } from './lib/ciBypassHeader.mjs';
 
 const baseUrl = process.env.SMOKE_BASE_URL || 'http://localhost:8083';
@@ -92,7 +94,93 @@ const collectEventLinks = async (page, result) => {
   return count;
 };
 
+// ---- Deploy-swap tolerance -------------------------------------------------
+// Vercel takes ~1 minute to switch to a new deploy; during it the entry
+// assets can 404. Wait for them before scenarios; retry once if the ONLY
+// failures are /assets/ loads.
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const isAssetPath = (u) => {
+  try { return new URL(u, 'http://x').pathname.startsWith('/assets/'); } catch { return false; }
+};
+const OK_NOTE = /^(Console errors:|Failing resources:|map markers\/clusters painted:|No event rows observed|No event links visible|.* not detected$|No \w+ (detail )?link found)/;
+
+// Pure: is this failed result set swap-shaped (asset-only 404 / ERR_ABORTED)?
+export const shouldRetryAssetOnly = (rs, retried = false) => {
+  if (retried) return false;
+  const failed = rs.filter((r) => !r.ok);
+  if (failed.length === 0) return false;
+  return failed.every((r) => {
+    const res = r.failedResources || [];
+    if (res.length === 0) return false;
+    if ((r.supabaseFailures || []).length > 0) return false;
+    if ((r.supabaseStatuses || []).some((s) => s >= 400)) return false;
+    if (!(r.notes || []).every((n) => OK_NOTE.test(n))) return false;
+    const resOk = res.every((s) => {
+      const a = /^404 (\S+)$/.exec(s);
+      if (a) return isAssetPath(a[1]);
+      const b = /^FAILED (\S+) \(net::ERR_ABORTED\)$/.exec(s);
+      return !!b && isAssetPath(b[1]);
+    });
+    const consoleOk = (r.consoleErrors || []).every((s) => {
+      const m = /^Failed to load resource: .* \[(\S+)\]$/.exec(s);
+      return !!m && isAssetPath(m[1]);
+    });
+    return resOk && consoleOk;
+  });
+};
+
+const waitForDeploySwap = async ({ tries = 12, delayMs = 10000 } = {}) => {
+  const headers = isProductionUrl(baseUrl) ? ciBypassHeaders() : {};
+  for (let i = 1; i <= tries; i += 1) {
+    let status = '';
+    let bad = [];
+    try {
+      const res = await fetch(`${baseUrl}/?smoke_wait=${Date.now()}`, { redirect: 'follow', headers });
+      const html = await res.text();
+      const paths = Array.from(new Set(html.match(/\/assets\/(?:entry\.client|manifest)-[\w.-]+\.js/g) || []));
+      for (const p of paths) {
+        const a = await fetch(new URL(p, res.url).href, { redirect: 'follow', headers });
+        if (a.status === 404) bad.push(p);
+      }
+      status = `${paths.length} assets, ${bad.length} 404`;
+    } catch (error) {
+      status = `fetch error: ${error?.message || error}`;
+      bad = ['fetch'];
+    }
+    console.error(`SMOKE_WAIT: try ${i}/${tries}: ${status}`);
+    if (bad.length === 0) return;
+    if (i < tries) await sleep(delayMs);
+  }
+  console.error('SMOKE_WAIT: gave up after 2 min, running scenarios anyway');
+};
+
+const selfTest = () => {
+  const assetOnly = () => ({
+    ok: false, notes: ['Console errors: 1', 'Failing resources: 404 https://x.co.uk/assets/entry.client-a.js'],
+    consoleErrors: ['Failed to load resource: the server responded with a status of 404 () [https://x.co.uk/assets/entry.client-a.js]'],
+    failedResources: ['404 https://x.co.uk/assets/entry.client-a.js', 'FAILED https://x.co.uk/assets/manifest-b.js (net::ERR_ABORTED)'],
+    supabaseStatuses: [200], supabaseFailures: [],
+  });
+  const cases = [
+    ['asset-only 404 retries', shouldRetryAssetOnly([assetOnly()]), true],
+    ['already retried', shouldRetryAssetOnly([assetOnly()], true), false],
+    ['extra console error', shouldRetryAssetOnly([{ ...assetOnly(), consoleErrors: [...assetOnly().consoleErrors, 'TypeError boom'] }]), false],
+    ['page error', shouldRetryAssetOnly([{ ...assetOnly(), consoleErrors: ['pageerror: x'] }]), false],
+    ['supabase failure', shouldRetryAssetOnly([{ ...assetOnly(), supabaseFailures: [{ status: 500, url: 'u' }], supabaseStatuses: [500] }]), false],
+    ['non-asset 404', shouldRetryAssetOnly([{ ...assetOnly(), failedResources: ['404 https://x.co.uk/api/y'] }]), false],
+    ['runtime exception', shouldRetryAssetOnly([{ ...assetOnly(), notes: ['Runtime exception: x'] }]), false],
+    ['no failures', shouldRetryAssetOnly([{ ...assetOnly(), ok: true }]), false],
+  ];
+  let bad = 0;
+  for (const [name, got, want] of cases) {
+    if (got !== want) { bad += 1; console.error(`SELF_TEST FAIL: ${name} (got ${got})`); }
+  }
+  console.error(bad ? `SELF_TEST: ${bad} failed` : `SELF_TEST: ${cases.length} ok`);
+  process.exit(bad ? 1 : 0);
+};
+
 const run = async () => {
+  await waitForDeploySwap();
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
     ignoreHTTPSErrors: true,
@@ -366,9 +454,21 @@ const run = async () => {
     })),
   };
 
-  console.log(JSON.stringify(report, null, 2));
+  const retried = process.env.SMOKE_RETRIED === '1';
+  const willRetry = shouldRetryAssetOnly(results, retried);
+  // On retry the child's report is the one that counts: keep stdout clean.
+  (willRetry ? console.error : console.log)(JSON.stringify(report, null, 2));
 
   const failed = results.filter((r) => !r.ok);
+  if (willRetry) {
+    console.error('SMOKE_RETRY: asset-only failures, retrying once in 60s');
+    await sleep(60000);
+    const child = spawnSync(process.execPath, [fileURLToPath(import.meta.url)], {
+      env: { ...process.env, SMOKE_RETRIED: '1' },
+      stdio: 'inherit',
+    });
+    process.exit(child.status ?? 1);
+  }
   if (failed.length > 0) {
     console.error(`SMOKE_FAILED: ${failed.map((r) => r.name).join('; ')}`);
     for (const r of failed) {
@@ -379,7 +479,11 @@ const run = async () => {
   }
 };
 
-run().catch((error) => {
-  console.error('SMOKE_RUN_FAILED', error);
-  process.exit(1);
-});
+if (process.argv.includes('--self-test')) {
+  selfTest();
+} else if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  run().catch((error) => {
+    console.error('SMOKE_RUN_FAILED', error);
+    process.exit(1);
+  });
+}
