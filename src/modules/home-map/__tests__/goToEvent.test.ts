@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // A card for an event on its own sub-address must leave by a plain page change,
 // never through the router: a router trip runs /event/:id's loader, whose answer
 // is a cross-host redirect, so the page leaves mid-navigation and Back reloads it
