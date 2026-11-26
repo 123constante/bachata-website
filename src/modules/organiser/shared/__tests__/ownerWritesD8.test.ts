@@ -1,8 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   OWNER_UPSERT_KEYS,
-  basicsPayload,
-  hasBasicsChanges,
   ownerPassesFromStored,
   upsertCommand,
   type BasicsDraft,
@@ -53,34 +51,6 @@ describe('D8: the two new owner keys', () => {
     expect(OWNER_UPSERT_KEYS).toContain('instagram_url');
   });
 
-  it('sends instagram_url only when it changed; blank clears', () => {
-    expect(basicsPayload(base, { ...base })).toEqual({ name: 'Friday Party' });
-    expect(basicsPayload(base, { ...base, instagramUrl: ' https://www.instagram.com/fridayparty ' }))
-      .toEqual({ name: 'Friday Party', instagram_url: 'https://www.instagram.com/fridayparty' });
-    const withLink = { ...base, instagramUrl: 'https://instagram.com/x' };
-    expect(basicsPayload(withLink, { ...withLink, instagramUrl: '' })).toEqual({ name: 'Friday Party', instagram_url: '' });
-  });
-
-  it('sends the whole price list only when it changed, owner-shaped; [] clears', () => {
-    const passes = [{ id: ID_A, name: ' Entry ', price: 12.5, currency: 'GBP' as const }];
-    expect(basicsPayload(base, { ...base, passes })).toEqual({
-      name: 'Friday Party',
-      default_passes: [{ id: ID_A, name: 'Entry', price: 12.5, currency: 'GBP' }],
-    });
-    const priced = { ...base, passes: [{ id: ID_A, name: 'Entry', price: 10 }] };
-    expect(basicsPayload(priced, { ...priced })).toEqual({ name: 'Friday Party' });
-    expect(hasBasicsChanges(priced, { ...priced, passes: [] })).toBe(true);
-    expect(basicsPayload(priced, { ...priced, passes: [] })).toEqual({ name: 'Friday Party', default_passes: [] });
-  });
-
-  it('never sends a price list the team shaped (null)', () => {
-    expect(basicsPayload({ ...base, passes: null }, { ...base, passes: null })).toEqual({ name: 'Friday Party' });
-  });
-
-  it('a create draft (no instagram / passes fields) emits neither key', () => {
-    const { instagramUrl: _i, passes: _p, ...plain } = base;
-    expect(basicsPayload(plain, { ...plain, name: 'X' })).toEqual({ name: 'X' });
-  });
 });
 
 describe('D8: ownerPassesFromStored', () => {
@@ -97,17 +67,6 @@ describe('D8: ownerPassesFromStored', () => {
     expect(ownerPassesFromStored([{ id: ID_A, name: 'Entry', price: 'ten' }])).toBeNull();
     expect(ownerPassesFromStored([{ id: ID_A, name: 'Entry', price: 1, currency: 'CHF' }])).toBeNull();
     expect(ownerPassesFromStored({ entry: 1 })).toBeNull();
-  });
-
-  it('the form round-trips the stored list without a change', () => {
-    const s = series({ passes: [{ id: ID_A, name: 'Entry', price: 10, currency: 'GBP' }], instagram_url: 'https://www.instagram.com/fp' });
-    const form = basicsFormFromSeries(s);
-    expect(form.passes).toEqual([{ id: ID_A, name: 'Entry', price: '10', currency: 'GBP' }]);
-    expect(form.instagramUrl).toBe('https://www.instagram.com/fp');
-    const draft = formToDraft(form);
-    expect(basicsPayload(draft, formToDraft({ ...form }))).toEqual({ name: 'Friday Party' });
-    expect(basicsPayload(draft, formToDraft({ ...form, passes: [{ ...form.passes![0], price: '' }] })))
-      .toEqual({ name: 'Friday Party', default_passes: [{ id: ID_A, name: 'Entry', price: null, currency: 'GBP' }] });
   });
 
   it('a team-shaped list reads as not editable', () => {
@@ -144,13 +103,6 @@ describe('event-truth P2: category is never sent (the server derives it from the
     expect(upsertCommand({ name: 'C' })).toEqual({ kind: 'series.upsert', payload: { name: 'C' } });
   });
 
-  it('the basics form on a masterclass series sends no category', () => {
-    const form = basicsFormFromSeries(series({ category: 'masterclass' }));
-    const before = formToDraft(form);
-    const cmd = upsertCommand(basicsPayload(before, formToDraft({ ...form, name: 'Renamed', instagramUrl: 'https://www.instagram.com/m' })));
-    expect(cmd.payload).not.toHaveProperty('category');
-    expect(cmd.payload).toEqual({ name: 'Renamed', instagram_url: 'https://www.instagram.com/m' });
-  });
 });
 
 describe('D8: refusal copy', () => {

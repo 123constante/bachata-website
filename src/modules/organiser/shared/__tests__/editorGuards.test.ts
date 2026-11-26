@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { UNSAVED_MESSAGE, canConfirm, confirmCopy, leaveGuardEnabled, publicEventPath, type ConfirmKind } from '../editorGuards';
-import { basicsPayload, createPayload, hasBasicsChanges, type CreateDraft } from '../seriesCommands';
 import { basicsFormFromSeries, formToDraft, lifecycleActions, type WorkspaceSeries } from '../seriesModel';
-import { createDraft, emptyCreateForm, previewModel } from '../createModel';
+import { emptyCreateForm, previewModel } from '../createModel';
 
 describe('leaveGuardEnabled (unsaved-changes warning)', () => {
   it('warns only while there are edits to lose', () => {
@@ -96,22 +95,8 @@ describe('Level is no longer set by organisers and never wiped', () => {
     expect('level' in form).toBe(false);
     expect('level' in formToDraft(form)).toBe(false);
   });
-  it('saving other changes on a series that has a level sends no default_level, so the server keeps it', () => {
-    const form = basicsFormFromSeries(series);
-    const before = formToDraft(form);
-    const after = formToDraft({ ...form, name: 'Thursday Bachata', description: 'New words' });
-    const payload = basicsPayload(before, after);
-    expect(payload).toEqual({ name: 'Thursday Bachata', default_description: 'New words' });
-    expect(payload).not.toHaveProperty('default_level');
-  });
-  it('an untouched form is not dirty, whatever level the series has', () => {
-    const before = formToDraft(basicsFormFromSeries(series));
-    expect(hasBasicsChanges(before, formToDraft(basicsFormFromSeries(series)))).toBe(false);
-  });
-  it('a create sends no default_level and the preview shows no level', () => {
+  it('the create preview shows no level', () => {
     const form = { ...emptyCreateForm(), name: 'Party', date: '2026-10-17', startTime: '20:00' };
-    const draft: CreateDraft = createDraft(form);
-    expect(createPayload(draft)).not.toHaveProperty('default_level');
     expect('level' in previewModel(form, null, 'Org', '2026-10-05')).toBe(false);
   });
 });

@@ -110,9 +110,6 @@ export function ownerPassesFromStored(raw: unknown): OwnerPass[] | null {
   return out;
 }
 
-/** The price list as the server stores it, for comparing before and after. */
-const passesKey = (passes: OwnerPass[]) =>
-  JSON.stringify(passes.map((p) => [p.id, p.name.trim(), p.price, p.currency ?? null, p.description ?? null]));
 export type OwnerFormat = 'one_off' | 'recurring';
 
 /** occurrence.set_override keys an owner may send (one date's own changes). */
@@ -174,57 +171,6 @@ export interface BasicsDraft {
    */
   passes?: OwnerPass[] | null;
 }
-
-type TextField = Exclude<keyof BasicsDraft, 'name' | 'instagramUrl' | 'passes'>;
-
-const FIELD_KEY: Record<TextField, OwnerUpsertKey> = {
-  description: 'default_description',
-  venueId: 'default_venue_id',
-  startTime: 'default_local_start_time',
-  durationMinutes: 'default_duration_minutes',
-  ticketUrl: 'default_ticket_url',
-  coverImageUrl: 'default_cover_image_url',
-};
-
-/**
- * series.upsert payload for the basics form: `name` always (the handler
- * requires it on every upsert) plus ONLY the fields the organiser changed.
- * The handler is presence-gated (`CASE WHEN p_payload ? key`), so an absent
- * key keeps what the series has, and a field the form does not touch can
- * never be cleared by a save. Blank text clears (the handler NULLIFs '').
- */
-export function basicsPayload(initial: BasicsDraft, draft: BasicsDraft): Record<string, unknown> {
-  const payload: Record<string, unknown> = { name: draft.name.trim() };
-  (Object.keys(FIELD_KEY) as Array<keyof typeof FIELD_KEY>).forEach((field) => {
-    const before = initial[field];
-    const after = draft[field];
-    const norm = (v: unknown) => (typeof v === 'string' ? v.trim() : v);
-    if (norm(before) === norm(after)) return;
-    // A venue cannot be cleared from here, and a removed end time leaves the duration alone.
-    if (field === 'venueId' && !after) return;
-    if (field === 'durationMinutes' && after == null) return;
-    payload[FIELD_KEY[field]] = typeof after === 'string' ? after.trim() : after;
-  });
-  // The Instagram link: blank clears (the handler NULLIFs it).
-  if (draft.instagramUrl !== undefined && (draft.instagramUrl ?? '').trim() !== (initial.instagramUrl ?? '').trim()) {
-    payload.instagram_url = draft.instagramUrl.trim();
-  }
-  // The price list goes whole, and only when it changed; [] clears it. Never
-  // when the stored list is the team's shape (null): the owner rule would
-  // refuse it, and resending would drop the team's keys.
-  if (Array.isArray(draft.passes) && Array.isArray(initial.passes) && passesKey(draft.passes) !== passesKey(initial.passes)) {
-    payload.default_passes = draft.passes.map((p) => {
-      const pass: OwnerPass = { id: p.id, name: p.name.trim(), price: p.price };
-      if (p.currency) pass.currency = p.currency;
-      if (p.description != null) pass.description = p.description;
-      return pass;
-    });
-  }
-  return payload;
-}
-
-export const hasBasicsChanges = (initial: BasicsDraft, draft: BasicsDraft) =>
-  Object.keys(basicsPayload(initial, draft)).length > 1 || draft.name.trim() !== initial.name.trim();
 
 /**
  * series.upsert. `category` never goes: the server derives it from the
@@ -356,39 +302,6 @@ export interface CreateDraft extends BasicsDraft {
   format: OwnerFormat;
   /** The party's date, or the weekly class's first date (YYYY-MM-DD, London). */
   startDate: string;
-}
-
-/** The optional text fields a create sends only when set (keys from FIELD_KEY). */
-const CREATE_TEXT_FIELDS = ['ticketUrl', 'coverImageUrl', 'description'] as const;
-
-/**
- * series.upsert payload for a create, WITHOUT the organiser key (see
- * OWNER_CREATE_KEYS). Always: name, format, the start date, the start time and
- * the time zone; never category (derived from the sessions, see
- * upsertCommand). Optional fields go only when set: a create with an
- * absent key lands NULL anyway, and a blank would echo through the handler's
- * NULLIF for nothing.
- *
- * `cityId` is the series' default_city_id (Lever 2 B1): the server takes the city
- * only from this payload, and a series with no city cannot be approved. Sent only
- * when known (see createCity.resolveCreateCityId); never guessed.
- */
-export function createPayload(draft: CreateDraft, cityId?: string | null): Record<string, unknown> {
-  const payload: Record<string, unknown> = {
-    name: draft.name.trim(),
-    format: draft.format,
-    default_start_date: draft.startDate,
-    default_local_start_time: draft.startTime,
-    timezone: SERIES_TIMEZONE,
-  };
-  if (draft.durationMinutes) payload.default_duration_minutes = draft.durationMinutes;
-  if (draft.venueId) payload.default_venue_id = draft.venueId;
-  if (cityId) payload.default_city_id = cityId;
-  CREATE_TEXT_FIELDS.forEach((field) => {
-    const value = draft[field].trim();
-    if (value) payload[FIELD_KEY[field]] = value;
-  });
-  return payload;
 }
 
 /**
