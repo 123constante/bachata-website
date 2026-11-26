@@ -29,7 +29,10 @@ export interface LiveEventsSectionProps {
   heading: string;
   /** How far ahead to look, in days. Default 7 (this week). */
   windowDays?: number;
-  /** Only show events that include a class (has_class). */
+  /** Only show class events: a class and NO party (has_class && !has_party).
+   *  A party with a class slot (e.g. a monthly party) is not a beginner
+   *  class (site structure S1b, 2026-11-26); those nights stay on the
+   *  weekday pages. */
   classesOnly?: boolean;
   /** Only show events that include a party (has_party). */
   partiesOnly?: boolean;
@@ -86,7 +89,7 @@ const LiveEventsSection = ({
 
   const matched = useMemo(() => {
     const filtered = (events as CalendarEventRow[])
-      .filter((e) => (classesOnly ? e.has_class : true))
+      .filter((e) => (classesOnly ? e.has_class && !e.has_party : true))
       .filter((e) => (partiesOnly ? e.has_party : true));
     // Recurring events return one row per occurrence; collapse to the soonest
     // occurrence of each event so the list shows distinct venues/classes (more
