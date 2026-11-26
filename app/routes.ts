@@ -56,6 +56,7 @@ export default [
   route("api/og/card", "routes/api.og.card.tsx"),
   route("api/og/bake", "routes/api.og.bake.tsx"),
   route("api/io-health", "routes/api.io-health.tsx"),
+  route("api/version", "routes/api.version.tsx"),
   // Proxy for the admin `advertising-stop` edge function (owner email link).
   route("advertising-stop", "routes/advertising-stop.tsx"),
   // Event subdomain nights (<label>.bachatacalendar.co.uk/19-dec). Outranked by
