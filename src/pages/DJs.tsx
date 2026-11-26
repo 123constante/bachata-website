@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
 import GlobalLayout from '@/components/layout/GlobalLayout';
+import { PeopleChips } from '@/modules/people-directory/PeopleChips';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { renderPublicName } from '@/lib/publicName';
 import { NationalityFlag } from '@/components/people/NationalityFlag';
@@ -80,6 +81,7 @@ const DJs = () => {
   if (flags.peopleWall) {
     return (
       <GlobalLayout showSubheader={false} gradientPalette="dj" hero={hero}>
+        <PeopleChips />
         {cityNote}
         <DjsWall djs={djs} isLoading={isLoading} badges={badges} badgesFailed={badgesFailed} teacherPagesOpen={teacherPagesOpen} />
       </GlobalLayout>
@@ -92,6 +94,7 @@ const DJs = () => {
       gradientPalette="dj"
       hero={hero}
     >
+      <PeopleChips />
       {cityNote}
       <div className="max-w-6xl mx-auto px-4">
         {/* Grid */}

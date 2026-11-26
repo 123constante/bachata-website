@@ -9,6 +9,7 @@ import { HOME_ANNOUNCE_HREF } from '@/lib/homeAnnounceBanner';
 import { flags } from '@/lib/featureFlags';
 import { dancerHref, dancerTags, onlyDancers } from '@/components/dancers/dancerListModel';
 import GlobalLayout from '@/components/layout/GlobalLayout';
+import { PeopleChips } from '@/modules/people-directory/PeopleChips';
 import { emitProfileView } from '@/lib/profileViewEmit';
 import { optimizedImageUrl } from '@/lib/imageCdn';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
@@ -125,6 +126,7 @@ const Dancers = () => {
         largeTitle: true,
       }}
     >
+      <PeopleChips />
       {/* Hero Widgets */}
       <div className='relative z-10 px-4 -mt-6 mb-16'>
           {/* Hero Widgets - 2 small cards */}
