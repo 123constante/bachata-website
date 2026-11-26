@@ -14,6 +14,14 @@ import GlobalLayout from "@/components/layout/GlobalLayout";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useSeo } from "@/lib/seo";
+import { flags } from "@/lib/featureFlags";
+
+/** "24 Nov 2026" in London time. Falls back to the raw value if it is not a date. */
+export const formatAgreedDate = (iso: string): string => {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/London" });
+};
 
 interface EntryPayload {
   kind: "raffle" | "guest_list";
@@ -145,7 +153,11 @@ export default function ExportGuestEntry() {
                   <Row label="Consent version" value={entry.consent_version} />
                 )}
                 {entry.consent_at && (
-                  <Row label="Consented at" value={new Date(entry.consent_at).toISOString()} />
+                  flags.rafflePrivacyLine ? (
+                    <Row label="Consent" value={`You agreed on ${formatAgreedDate(entry.consent_at)}`} />
+                  ) : (
+                    <Row label="Consented at" value={new Date(entry.consent_at).toISOString()} />
+                  )
                 )}
                 <Row label="Joined at" value={new Date(entry.created_at).toISOString()} />
                 <Row label="Status" value={entry.status} />
