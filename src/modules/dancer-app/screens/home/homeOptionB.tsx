@@ -334,7 +334,7 @@ const HomeCGolden = ({ profile, went, night, goingCount, focusLoading, alerts, r
           <Sec testId="home-c-head-ready">Get ready</Sec>
           {progress.pct === 100
             ? <GRow testId="home-ring-win" tone={0} icon={<UserRound aria-hidden="true" className="h-[20px] w-[20px]" />} title="Profile complete" line="You are fully visible to dancers and organisers." />
-            : <GRow testId="home-ring" to={nextPath} tone={0} icon={<UserRound aria-hidden="true" className="h-[20px] w-[20px]" />} title="Your profile" line={`${progress.pct}%${progress.next ? ` · Next: ${NEXT_LABEL[progress.next]}` : ''}`} go="Finish" />}
+            : <GRow testId="home-ring" to={nextPath} tone={0} icon={<UserRound aria-hidden="true" className="h-[20px] w-[20px]" />} title="Your profile" line={`${progress.pct}%${progress.next ? ` \u00b7 Next: ${NEXT_LABEL[progress.next]}` : ''}`} go="Finish" />}
         </>
       )}
       {!progress && v.ready && (
