@@ -19,7 +19,6 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { renderPublicName } from '@/lib/publicName';
 import { getInitials } from '@/lib/name-utils';
-import { buildCityPath } from '@/lib/cityPath';
 import { useCity } from '@/contexts/CityContext';
 import { resolvePageCity } from '@/lib/pageCity';
 import EmptyCityNote, { cityHasNoRows, SHOWING_EVERYONE } from '@/components/listing/EmptyCityNote';
@@ -48,7 +47,6 @@ const Dancers = () => {
   useSeo(buildSeoForRoute('dancers', { cityDisplay: city.name }));
   const navigate = useNavigate();
   const { toast } = useToast();
-    const practicePartnersPath = buildCityPath(citySlug, 'practice-partners');
   const [dancers, setDancers] = useState<Dancer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const teacherPagesOpen = flags.teacherDetail;
@@ -132,20 +130,6 @@ const Dancers = () => {
           {/* Hero Widgets - 2 small cards */}
           <ScrollReveal animation="scale" delay={0.6}>
             <div className="flex flex-wrap justify-center gap-3 md:gap-4 mt-8">
-              {/* Find Practice Partners Widget */}
-              <motion.div
-                onClick={() => navigate(practicePartnersPath)}
-                className="cursor-pointer p-4 md:p-5 bg-gradient-to-br from-surface/80 to-surface/40 backdrop-blur-sm rounded-2xl border border-primary/30 shadow-lg w-[140px] md:w-[160px]"
-                whileHover={{ 
-                  scale: 1.05, 
-                  boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
-                }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Users className="w-7 h-7 md:w-9 md:h-9 mb-2 text-primary" aria-hidden="true" />
-                <h3 className="font-bold text-xs md:text-sm text-foreground">Find Practice Partners</h3>
-              </motion.div>
-              
               {/* Create A Profile Widget */}
               <motion.div
                 onClick={() => (flags.peopleWall ? navigate(HOME_ANNOUNCE_HREF) : navigate('/create-dancers-profile'))}
@@ -267,37 +251,6 @@ const Dancers = () => {
         )}
       </section>
       )}
-
-      {/* Find A Dance Partner CTA */}
-      <section id="find-partner" className="px-4 mb-16 max-w-4xl mx-auto">
-        <ScrollReveal animation="fadeUp">
-          <Card className="p-6 md:p-8 bg-gradient-to-br from-festival-pink/20 via-festival-purple/10 to-primary/20 border-festival-pink/30">
-            <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6">
-              <Heart className="w-12 h-12 md:w-14 md:h-14 text-festival-pink" aria-hidden="true" />
-              <div className="text-center md:text-left flex-1">
-                <h2 className="text-2xl md:text-3xl font-bold mb-2">
-                  <span className="text-foreground">Find A </span>
-                  <span className="text-primary">Dance Partner</span>
-                </h2>
-                <p className="text-muted-foreground mb-4">Connect with dancers looking for practice partners</p>
-                
-                <div className="flex items-center justify-center md:justify-start gap-2 mb-4">
-                  <span className="text-sm text-muted-foreground">200+ looking for partners</span>
-                </div>
-              </div>
-              
-              <Button 
-                onClick={() => navigate(practicePartnersPath)}
-                className="shrink-0"
-                size="lg"
-              >
-                <Heart className="w-4 h-4 mr-2" />
-                Find Partners
-              </Button>
-            </div>
-          </Card>
-        </ScrollReveal>
-      </section>
 
       {/* Footer */}
     </GlobalLayout>

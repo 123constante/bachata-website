@@ -47,8 +47,6 @@ const STATIC_ROUTES: StaticRoute[] = [
   { path: "/djs",                              changefreq: "weekly",  priority: "0.6" },
   { path: "/dancers",                          changefreq: "weekly",  priority: "0.6" },
   { path: "/discounts",                        changefreq: "weekly",  priority: "0.5" },
-  { path: "/practice-partners",                changefreq: "weekly",  priority: "0.5" },
-  { path: "/choreography",                     changefreq: "weekly",  priority: "0.5" },
   { path: "/videographers",                    changefreq: "weekly",  priority: "0.5" },
   { path: "/vendors",                          changefreq: "weekly",  priority: "0.5" },
   { path: "/cities",                           changefreq: "monthly", priority: "0.5" },

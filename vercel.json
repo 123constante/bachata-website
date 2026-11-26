@@ -55,7 +55,7 @@
     },
     {
       "source": "/:slug([a-z-]+-[a-z]{2})/choreography",
-      "destination": "/choreography",
+      "destination": "/city/:slug",
       "permanent": true
     },
     {
@@ -105,12 +105,32 @@
     },
     {
       "source": "/:slug([a-z-]+-[a-z]{2})/practice-partners",
-      "destination": "/city/:slug/practice-partners",
+      "destination": "/city/:slug",
       "permanent": true
     },
     {
       "source": "/:slug([a-z-]+-[a-z]{2})/discounts",
       "destination": "/city/:slug/discounts",
+      "permanent": true
+    },
+    {
+      "source": "/choreography",
+      "destination": "/city/london-gb",
+      "permanent": true
+    },
+    {
+      "source": "/practice-partners",
+      "destination": "/city/london-gb",
+      "permanent": true
+    },
+    {
+      "source": "/city/:slug/choreography",
+      "destination": "/city/:slug",
+      "permanent": true
+    },
+    {
+      "source": "/city/:slug/practice-partners",
+      "destination": "/city/:slug",
       "permanent": true
     }
   ],
