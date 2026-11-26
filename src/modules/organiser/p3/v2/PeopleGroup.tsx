@@ -27,13 +27,15 @@ export interface PeopleGroupProps {
   onRemove: (id: string) => void;
   /** Teachers on this page's team, listed first in the picker (flag organiserPickerList). */
   teamIds?: ReadonlySet<string>;
+  /** Picker ends a typed search with "Invite on WhatsApp" (class teachers, flag organiserClassInvites). */
+  onInvite?: (name: string) => void;
 }
 
 /** With flag organiserPickerList the picker reads the page's team itself unless a caller passes teamIds. */
 const Picker = (p: PeoplePickerScreenProps) => (flags.organiserPickerList ? <TeamPickerScreen {...p} /> : <PeoplePickerScreen {...p} />);
 
 /** One people group of the session sheet: label, chips with x, "None yet", picker + Add, or read-only. */
-export function PeopleGroup({ label, people, role, onIds, hint, onAdd, onRemove, teamIds }: PeopleGroupProps) {
+export function PeopleGroup({ label, people, role, onIds, hint, onAdd, onRemove, teamIds, onInvite }: PeopleGroupProps) {
   const [term, setTerm] = useState('');
   const [picked, setPicked] = useState<PickerRow | null>(null);
   const [open, setOpen] = useState(false);
@@ -84,6 +86,7 @@ export function PeopleGroup({ label, people, role, onIds, hint, onAdd, onRemove,
               onIds={onIds}
               teamIds={teamIds}
               onBack={() => setOpen(false)}
+              onInvite={onInvite ? (n) => { setOpen(false); onInvite(n); } : undefined}
               onPick={(r) => {
                 setPhotos((m) => ({ ...m, [r.id]: r.avatarUrl }));
                 onAdd({ id: r.id, name: r.name });

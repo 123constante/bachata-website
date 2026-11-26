@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { shareHref } from '@/modules/admin-organisers/invitePersonModel';
@@ -53,6 +53,8 @@ export const errorLine = (e: unknown) => (/20|cap|too many/i.test(e instanceof E
 export interface ClassInvitesProps {
   occurrenceId: string; itemId: string | null; addedId: string | null;
   classTitle: string; eventName: string; dateLabel: string; canForward: boolean;
+  /** From the picker's invite row: opens the invite sheet with this name filled (n changes on every tap). */
+  prefill?: { name: string; n: number } | null;
 }
 
 const ROW = { minHeight: 44, display: 'inline-flex', alignItems: 'center' } as const;
@@ -66,6 +68,10 @@ export function ClassInvites(p: ClassInvitesProps) {
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState<{ name: string; message: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!p.prefill) return;
+    setName(p.prefill.name.slice(0, MAX_NAME)); setError(null); setAsking(true);
+  }, [p.prefill]);
   const refresh = () => qc.invalidateQueries({ queryKey: classInvitesKey(p.occurrenceId) });
   const show = (n: string, l: InviteLink) => setReady({ name: n, message: inviteMessage({ name: n, classTitle: p.classTitle, eventName: p.eventName, dateLabel: p.dateLabel, link: joinLink(l.token) }) });
 

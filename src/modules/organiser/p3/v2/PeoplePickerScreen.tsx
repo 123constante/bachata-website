@@ -16,6 +16,8 @@ export const PICKER_COPY = {
   addRow: (word: string) => `+ Add a ${word}`,
   team: 'On your team',
   allTeachers: 'All teachers',
+  inviteRow: (name: string) => `+ Invite \u201c${name}\u201d on WhatsApp`,
+  inviteHint: 'Not on the site yet? They join from your link.',
 };
 
 /** The role word the group's rows use: teacher, DJ, MC, performer, dancer. */
@@ -52,10 +54,12 @@ export interface PeoplePickerScreenProps {
   onBack: () => void;
   /** Teachers already on this page's team (listed first when the search is empty). */
   teamIds?: ReadonlySet<string>;
+  /** Set when the class can invite someone not on the site: a typed search ends with an invite row (flag organiserClassInvites). */
+  onInvite?: (name: string) => void;
 }
 
 /** Full-screen search. Height follows the visual viewport so the keyboard never covers a row. */
-export function PeoplePickerScreen({ role, onIds, onPick, onBack, teamIds }: PeoplePickerScreenProps) {
+export function PeoplePickerScreen({ role, onIds, onPick, onBack, teamIds, onInvite }: PeoplePickerScreenProps) {
   const [term, setTerm] = useState('');
   const [h, setH] = useState<number | null>(() => (typeof window !== 'undefined' ? window.visualViewport?.height ?? null : null));
   const input = useRef<HTMLInputElement>(null);
@@ -114,6 +118,13 @@ export function PeoplePickerScreen({ role, onIds, onPick, onBack, teamIds }: Peo
             </span>
           </button>
         ))}
+        {onInvite && ready && !q.isLoading && (
+          <button type="button" role="option" aria-selected={false} data-testid="picker-invite-row" onClick={() => onInvite(t)}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', width: '100%', minHeight: 56, padding: '8px 12px', border: 0, borderTop: '1px solid #E9E9E9', background: '#FFFFFF', textAlign: 'left' }}>
+            <b style={{ fontSize: 15, fontWeight: 600, color: '#C2410C' }}>{PICKER_COPY.inviteRow(t)}</b>
+            <span style={{ fontSize: 13, color: '#6B6B6B' }}>{PICKER_COPY.inviteHint}</span>
+          </button>
+        )}
       </div>
     </div>,
     document.body,
