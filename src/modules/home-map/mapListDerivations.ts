@@ -4,7 +4,7 @@
 // is keyed by occurrence_id (string), never array index.
 
 import type { MapEvent, MapCategory, MapTab } from './mapTypes';
-import { resolvePageCity } from '@/lib/pageCity';
+
 import {
   matchesQuery,
   distanceMiles,
@@ -223,14 +223,14 @@ export function windowGroups(
 
 /**
  * A festival the CITY query itself returned (get_calendar_events_v2 lets every
- * festival through) that is physically in another city. Outside London these
- * join the remote section, labelled "Festivals elsewhere", instead of filling
- * "What's on in Bristol" with London and Budapest rows. London is unchanged
- * (owner question in docs/design/bristol-polish.md).
+ * festival through) that is physically in another city. These join the remote
+ * section ("Festivals elsewhere"; "Festivals further afield" on London) instead
+ * of filling "What's on in Bristol" with London and Budapest rows. London got
+ * the same rule in site structure S1b (2026-11-26): a Nottingham weekender was
+ * listed as a London event.
  */
 export const isOffCityFestival = (e: MapEvent, citySlug: string | null | undefined): boolean =>
   citySlug != null &&
-  !resolvePageCity(citySlug).isLondon &&
   isFestivalFormat(e) &&
   e.city_slug != null &&
   e.city_slug !== citySlug;
