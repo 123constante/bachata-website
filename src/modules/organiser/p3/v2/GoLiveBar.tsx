@@ -16,6 +16,8 @@ export const DRAFT_PILL = 'Draft';
 export const DRAFT_NOTE = 'Not live yet. Dancers can\u2019t see this event.';
 export const COVER_REASON = 'Add a cover photo in Name and details.';
 export const PUT_LIVE = 'Put it live';
+/** Search param a non-Every screen sets so the Every tab opens the matching sheet on arrival. */
+export const goLiveFixParam = 'fix';
 
 /** Only a draft gets the new behaviour; every other state renders as it always did. */
 export const isDraftEvent = (ws: EventWorkspace): boolean => ws.series.lifecycle_status === 'draft';
@@ -32,11 +34,11 @@ export function DraftNote() {
 }
 
 /** The reason line as a button: opens the fix for the first blocker. Inside a Router only (it may navigate). */
-function FixLine({ reason, section, target, seriesId, onFix, onPay }: { reason: string; section: string; target: V2FixTarget; seriesId: string; onFix?: (t: V2FixTarget) => void; onPay: () => void }) {
+function FixLine({ reason, section, target, seriesId, onFix, onPay }: { reason: string; section: string; target: V2FixTarget; seriesId: string; onFix?: (t: V2FixTarget) => boolean | void; onPay: () => void }) {
   const navigate = useNavigate();
   const tap = () => {
     if (target === 'pay') { onPay(); return; }
-    if (onFix) { onFix(target); return; }
+    if (onFix && onFix(target) !== false) return;
     const to = goLiveFixHref(section, seriesId);
     if (to) navigate(to);
   };
@@ -51,7 +53,7 @@ function FixLine({ reason, section, target, seriesId, onFix, onPay }: { reason: 
 }
 
 /** Sticky "Put it live" on a draft: greyed with the first reason until series_go_live_check_v1 says ready; opens the old screen's StatusSheet. */
-export function GoLiveBar({ ws, onFix }: { ws: EventWorkspace; onFix?: (target: V2FixTarget) => void }) {
+export function GoLiveBar({ ws, onFix }: { ws: EventWorkspace; onFix?: (target: V2FixTarget) => boolean | void }) {
   const id = ws.series.id;
   const check = useGoLiveCheck(id, isDraftEvent(ws));
   const toast = useToast(id, ws.series.version);

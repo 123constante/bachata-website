@@ -17,7 +17,8 @@ import { V2 } from './copy';
 import type { WriteStep } from './editorModel';
 import { EveryBody } from './EveryBody';
 import { NightHub } from './NightHub';
-import { GoLiveBar, isDraftEvent } from './GoLiveBar';
+import { GoLiveBar, goLiveFixParam, isDraftEvent } from './GoLiveBar';
+import { goLiveFixOn, type V2FixTarget } from './goLiveFixV2';
 import { OneOffBody } from './OneOffBody';
 import { useSeriesTypes, useSummary } from '../tickets/data';
 import { publicEventRefOf } from '../data/home';
@@ -90,6 +91,16 @@ export function EditorV2({ ws }: { ws: EventWorkspace }) {
   const moneyPence = here.reduce((n, t) => n + (sales.get(t.id)?.grossPence ?? 0), 0);
   /** tap 55: weekly goes to the "Every <day>" tab first, so coming back lands there; then the Tickets screen */
   const goTickets = () => { if (weekly) setTab('every'); openTickets(); };
+  /** Go-live blocker tap on the "This night" tab: dates/tickets open here; Every-tab sheets open after switching tab, in one URL write. */
+  const openFix = (t: V2FixTarget): boolean => {
+    if (t === 'dates') { setDatesOpen(true); return true; }
+    if (t === 'tickets') { goTickets(); return true; }
+    if (t === 'where' || t === 'about' || t === 'flyer' || t === 'name' || t === 'orgs' || t === 'prog') {
+      setParams((p) => { const n = new URLSearchParams(p); n.set('tab', 'every'); n.set(goLiveFixParam, t); return n; }, { replace: true, preventScrollReset: true });
+      return true;
+    }
+    return false;
+  };
   const saveLink = async (url: string) => {
     const old = ws.series.default_ticket_url ?? null;
     const step: WriteStep = { part: V2.ticketsPay.toastLink, target: 'series', id: ws.series.id, version: ws.series.version, command: upsertCommand({ name: ws.series.name ?? '', default_ticket_url: url }), order: 1 };
@@ -164,9 +175,9 @@ export function EditorV2({ ws }: { ws: EventWorkspace }) {
           <NightHub seriesId={ws.series.id} seriesName={ws.series.name ?? ''} occurrenceId={picked.id} oneOff={!weekly} ticketsSold={ticketsSold} moneyPence={moneyPence} shareLink={shareLink} toast={say}
             raffleNight={{ seriesId: ws.series.id, date: picked.occurrence_date, dayLabel: fullDate(picked.occurrence_date) } as unknown as RaffleNightRow} />
         )}
-        {weekly && !every && isDraftEvent(ws) && <GoLiveBar ws={ws} />}
+        {weekly && !every && isDraftEvent(ws) && <GoLiveBar ws={ws} onFix={goLiveFixOn() ? openFix : undefined} />}
         {!weekly && !every && <OneOffBody ws={ws} saveNow={saveNow} busy={busy} onOpenTickets={openTickets} />}
-        {every && <EveryBody onOpenTickets={openTickets} ws={ws} day={day} saveNow={saveNow} busy={busy} />}
+        {every && <EveryBody onOpenTickets={openTickets} onOpenDates={() => setDatesOpen(true)} ws={ws} day={day} saveNow={saveNow} busy={busy} />}
       </div>
       {linkOpen && <LinkSheet link={ws.series.default_ticket_url ?? ''} busy={busy} error={linkError} onDone={(u) => { void saveLink(u); }} onClose={() => setLinkOpen(false)} />}
       <DatesSheet open={datesOpen} dates={coming} seriesStatus={ws.series.lifecycle_status} onPick={pickFromSheet} onClose={() => setDatesOpen(false)} onAdd={addDate} minDate={today} />
