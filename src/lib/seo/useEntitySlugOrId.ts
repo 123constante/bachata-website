@@ -8,6 +8,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { getSupabase } from '@/integrations/supabase/getSupabase';
 import { resolvePublicEventRef } from './resolvePublicEventRef';
+import { resolvePublicOrganiserRef } from './resolvePublicOrganiserRef';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Matches the UUID prefix pattern (8-4-4-4-) without the strict 12-char suffix.
@@ -60,6 +61,11 @@ export function useEntitySlugOrId(
       // Other tables have no P5 resolver and stay on .from(table).
       if (table === 'events') {
         return resolvePublicEventRef(param, 'swallow');
+      }
+      // Organisers: uuid / current slug / old slug via the shared resolver
+      // (app/detailLoader.ts is the throwing mirror).
+      if (table === 'organiser_profiles') {
+        return resolvePublicOrganiserRef(param, 'swallow');
       }
       const whereCol = arrivedViaUuid ? idColumn : 'slug';
       const selectCols = `${idColumn}, slug`;

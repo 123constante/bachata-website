@@ -21,7 +21,7 @@ import {
   throwDetailNotFound,
   cacheHeaders,
   taggedData,
-  redirectUuidToSlug,
+  redirectToCanonicalSlug,
   normalizeOgImage,
 } from "../detailLoader";
 import { withSsrLoaderTimeout } from "../lib/ssrLoaderTimeout";
@@ -61,7 +61,7 @@ export const loader = withSsrLoaderTimeout("organiser-loader", async function lo
   const qc = createServerQueryClient();
   const ref = await resolveEntityInLoader(qc, "organiser_profiles", params.id);
   if (!ref.id) throwDetailNotFound("Organiser");
-  redirectUuidToSlug(ref, request, "/organisers");
+  redirectToCanonicalSlug(ref, params.id, request, "/organisers");
 
   // A thunk, not an eager promise: `ref.slug` is populated ONLY when
   // resolveEntityInLoader's own row lookup actually matched a row (see that
