@@ -107,7 +107,8 @@ describe('festivals elsewhere', () => {
     { page: 'bristol-gb', row: bristolFest, off: false },
     { page: 'bristol-gb', row: bristolSocial, off: false },
     { page: 'bristol-gb', row: ev({ type: 'festival', city_slug: null }), off: false },
-    { page: 'london-gb', row: budapestFest, off: false },
+    { page: 'london-gb', row: budapestFest, off: true },
+    { page: 'london-gb', row: londonFest, off: false },
     { page: null, row: budapestFest, off: false },
   ])('page $page, row $row.occurrence_id -> off-city $off', ({ page, row, off }) => {
     expect(isOffCityFestival(row, page)).toBe(off);
@@ -119,10 +120,11 @@ describe('festivals elsewhere', () => {
     expect(local.map((e) => e.occurrence_id)).toEqual(['s-bri']);
     expect(away.map((e) => e.occurrence_id)).toEqual(['f-lon', 'f-bud', 'remote-x']);
   });
-  it('London: unchanged (only remote- rows leave the stream)', () => {
+  it('London: a festival physically elsewhere leaves "What\'s on" too (S1b: Nottingham weekender in the London list)', () => {
     const all = [londonFest, budapestFest, remote];
-    expect(partitionRemote(all, 'london-gb')).toEqual(partitionRemote(all));
-    expect(partitionRemote(all, 'london-gb').local).toHaveLength(2);
+    const { local, remote: away } = partitionRemote(all, 'london-gb');
+    expect(local.map((e) => e.occurrence_id)).toEqual(['f-lon']);
+    expect(away.map((e) => e.occurrence_id)).toEqual(['f-bud', 'remote-x']);
   });
 });
 
