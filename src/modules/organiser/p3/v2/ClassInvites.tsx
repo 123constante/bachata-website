@@ -27,6 +27,9 @@ export interface NoTeacherClass {
   added_only: boolean; class_title: string; start_time: string | null;
 }
 export const noTeachersKey = (organiserId: string) => ['classes-without-teachers', organiserId] as const;
+/** One row of organiser_class_teachers_week_v1: a class this week with its teachers. */
+export interface WeekClass extends NoTeacherClass { teachers: string[]; invite_pending: boolean }
+export const classTeachersWeekKey = (pageId: string) => ['class-teachers-week', pageId] as const;
 
 export const classInvitesKey = (occurrenceId: string) => ['class-invites', occurrenceId] as const;
 export const waitingInvitesKey = (organiserId: string) => ['class-invites-waiting', organiserId] as const;
@@ -47,6 +50,13 @@ export async function classesWithoutTeachers(organiserId: string): Promise<NoTea
   try {
     const r = await rpc('organiser_classes_without_teachers_v1', { p_organiser_id: organiserId });
     return !r.error && Array.isArray(r.data) ? (r.data as NoTeacherClass[]) : [];
+  } catch { return []; }
+}
+/** organiser_class_teachers_week_v1 may not be on prod yet: ANY error or non-array is "no rows". */
+export async function classTeachersWeek(organiserId: string): Promise<WeekClass[]> {
+  try {
+    const r = await rpc('organiser_class_teachers_week_v1', { p_organiser_id: organiserId });
+    return !r.error && Array.isArray(r.data) ? (r.data as WeekClass[]) : [];
   } catch { return []; }
 }
 export async function createClassInvite(a: { occurrenceId: string; itemId: string | null; addedId: string | null; name: string; forward: boolean }): Promise<InviteLink> {

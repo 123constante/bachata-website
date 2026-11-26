@@ -23,8 +23,8 @@ import { R4Chevron } from './R4Shell';
 import { StripeStatusCard } from './StripeStatusCard';
 import { fetchNightMoney, nightMoneyQueryKey } from './r4MoneyApi';
 import { moneyQuietOf, nightMoneyOf, R4_MONEY_COPY } from './r4MoneyModel';
-import { FAIL_COPY, InviteReadySheet, classesWithoutTeachers, noTeachersKey, fetchWaitingInvites, inviteMessage, joinLink, resendClassInvite, waitingInvitesKey } from '../v2/ClassInvites';
-import { R4_EMPTY_HOME, inviteDateLabel, r4AloneOf, r4HomeOf, r4WaitingOf, type R4Door, type R4NextNight, type R4WaitItem } from './r4Model';
+import { FAIL_COPY, InviteReadySheet, classTeachersWeek, classTeachersWeekKey, classesWithoutTeachers, noTeachersKey, fetchWaitingInvites, inviteMessage, joinLink, resendClassInvite, waitingInvitesKey } from '../v2/ClassInvites';
+import { R4_EMPTY_HOME, classTimeLabel, inviteDateLabel, r4AloneOf, r4HomeOf, r4WaitingOf, type R4Door, type R4NextNight, type R4WaitItem } from './r4Model';
 
 function Row({ to, label, end, testId }: { to: string; label: string; end?: string; testId: string }) {
   return (
@@ -158,6 +158,44 @@ export function WaitingList({ rows, pageId }: { rows: readonly P3Row[]; pageId: 
   );
 }
 
+const WEEK_MAX = 6;
+/** "Classes this week" (flag organiserHomeClassesWeek): each class with its teachers; a tap opens that night's classes. */
+export function ClassesWeekCard({ pageId, today }: { pageId: string; today: string }) {
+  const q = useQuery({
+    queryKey: classTeachersWeekKey(pageId),
+    queryFn: () => classTeachersWeek(pageId),
+    enabled: flags.organiserHomeClassesWeek,
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
+  const list = flags.organiserHomeClassesWeek && Array.isArray(q.data) ? q.data.slice(0, WEEK_MAX) : [];
+  if (list.length === 0) return null;
+  return (
+    <section className="r4-section" aria-labelledby="r4-week-h">
+      <h2 id="r4-week-h" className="r4-label">Classes this week</h2>
+      <div className="r4-card r4-list" data-testid="r4-classes-week">
+        {list.map((c) => {
+          const at = classTimeLabel(c.start_time);
+          const names = c.teachers ?? [];
+          const end = names.length > 0
+            ? `${names.slice(0, 2).join(', ')}${names.length > 2 ? ` +${names.length - 2}` : ''}`
+            : c.invite_pending ? 'Invite sent' : 'Add teacher';
+          return (
+            <Link key={`${c.occurrence_id}-${c.session_id}`} to={`${P3_PATHS.eventNight(c.series_id, c.occurrence_id)}?open=when`} className="r4-row r4-row-tall" data-testid={`r4-week-${c.occurrence_id}-${c.session_id}`}>
+              <span className="r4-row-body">
+                <span className="r4-row-t">{c.class_title}</span>
+                <span className="r4-row-line">{dayWord(c.date, today, c.start_time)}{at ? ` ${at}` : ''}, {c.event_name}</span>
+              </span>
+              <span className="r4-row-end">{end}</span>
+              <span className="r4-mut"><R4Chevron /></span>
+            </Link>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 /** Home through the day (flag organiserR4): before = scoreboard + Share, on the night = door, after = how it went. */
 export function R4Home() {
   const r = useNoPageRedirect();
@@ -273,6 +311,7 @@ export function R4Home() {
           {flags.organiserDash && past.nights.length > 0 && <Row to={compareTo} label="Compare with other nights" testId="r4-row-compare" />}
         </div>
       )}
+      {m.face !== 'after' && flags.organiserHomeClassesWeek && c.page && <ClassesWeekCard pageId={c.page.id} today={today} />}
       {(m.face === 'before' || m.face === 'empty') && c.page && <WaitingList rows={rows} pageId={c.page.id} />}
     </div>
   );
