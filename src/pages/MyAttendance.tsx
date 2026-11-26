@@ -125,7 +125,8 @@ const MyAttendance = () => {
 
   const showLoading = isAuthLoading || (GOING_CHECKIN_ENABLED && Boolean(user?.id) && isLoading);
   const failed = GOING_CHECKIN_ENABLED && isError;
-  const calendarPath = citySlug ? buildCityPath(citySlug, 'calendar') : '/parties';
+  // The city home is the event list (S2e: /city/:slug/calendar 301s there).
+  const calendarPath = citySlug ? buildCityPath(citySlug) : '/parties';
 
   return (
     <GlobalLayout breadcrumbs={buildBreadcrumbs('dancerProfile.attendance')} backHref={DANCER_HOME_PATH}>
