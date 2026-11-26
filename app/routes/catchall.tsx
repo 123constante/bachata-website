@@ -8,6 +8,7 @@ import { AnimatedRoutes } from "@/components/AnimatedRoutes";
 // reasoning; perf-budgets.json `requiredFirstLoad` fails CI if this edge goes.
 import "@/integrations/supabase/eagerAuthClient";
 import { staticShellCacheHeaders } from "../detailLoader";
+import { clientPageMeta } from "../clientPageMeta";
 
 // Edge-cache this shell. MEASURED, not assumed: on 2026-09-27 Vercel's
 // Observability reported `/*` at 8.0K edge requests in 12h with an 8.2% cache
@@ -48,6 +49,13 @@ import { staticShellCacheHeaders } from "../detailLoader";
 // match and only checks for the export), so the loader would buy nothing else.
 export function headers() {
   return staticShellCacheHeaders();
+}
+
+// Known client pages get their own title/description/canonical/robots in the
+// server HTML (site structure S2b); every other path keeps root.tsx's defaults,
+// which is what it inherited before this route exported meta at all.
+export function meta(args: { location: { pathname: string }; matches: Array<{ id?: string; meta?: unknown } | undefined> }) {
+  return clientPageMeta(args.location.pathname) ?? args.matches.find((m) => m?.id === "root")?.meta ?? [];
 }
 
 // Client-gate (spike design decision D1): the legacy ~60-route declarative tree
