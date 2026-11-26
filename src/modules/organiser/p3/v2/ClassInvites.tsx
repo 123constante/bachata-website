@@ -59,6 +59,22 @@ export const joinLink = (token: string) => `${window.location.origin}/join/class
 export function inviteMessage(i: { name: string; classTitle: string; eventName: string; dateLabel: string; link: string }): string {
   return `Hi ${firstName(i.name)}, you're teaching ${i.classTitle} at ${i.eventName} on ${i.dateLabel}. Tap this link to join Bachata Calendar and you'll show on the class: ${i.link}`;
 }
+/** One row of organiser_unclaimed_teachers_v1 (admin#2441): a saved teacher whose profile nobody has claimed yet. */
+export interface UnclaimedTeacher { profile_id: string; link_sent_at: string | null }
+export interface TeacherClaimLink { link_id: string; token: string; expires_at: string | null; display_name: string }
+export const unclaimedKey = (occurrenceId: string, ids: string[]) => ['unclaimed-teachers', occurrenceId, ...[...ids].sort()] as const;
+export async function fetchUnclaimedTeachers(occurrenceId: string, profileIds: string[]): Promise<UnclaimedTeacher[]> {
+  if (profileIds.length === 0) return [];
+  const d = must(await rpc('organiser_unclaimed_teachers_v1', { p_occurrence_id: occurrenceId, p_profile_ids: profileIds }));
+  return Array.isArray(d) ? (d as UnclaimedTeacher[]) : [];
+}
+export async function createTeacherClaimLink(occurrenceId: string, profileId: string): Promise<TeacherClaimLink> {
+  return must(await rpc('organiser_teacher_claim_link_v1', { p_occurrence_id: occurrenceId, p_profile_id: profileId })) as TeacherClaimLink;
+}
+export const claimLink = (token: string) => `${window.location.origin}/claim/teacher/${token}`;
+export function claimMessage(i: { name: string; classTitle: string; eventName: string; dateLabel: string; link: string }): string {
+  return `Hi ${firstName(i.name)}, you're teaching ${i.classTitle} at ${i.eventName} on ${i.dateLabel}. Tap to claim your teacher profile on Bachata Calendar: ${i.link}`;
+}
 export const errorLine = (e: unknown) => (/20|cap|too many/i.test(e instanceof Error ? e.message : '') ? CAP_COPY : FAIL_COPY);
 
 export interface ClassInvitesProps {

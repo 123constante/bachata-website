@@ -8,6 +8,7 @@ import { PeopleGroup, type GroupPerson } from './PeopleGroup';
 import { V2Sheet } from './V2Sheet';
 import { V2 } from './copy';
 import { ClassInvites } from './ClassInvites';
+import { UnclaimedTeachers } from './UnclaimedTeachers';
 import { flags } from '@/lib/featureFlags';
 
 const LEVELS = LEVEL_KEYS.filter((k) => k !== 'open_level');
@@ -72,6 +73,7 @@ export function SessionSheetV2({ row, count, ctx: _ctx, dayLabel: _dayLabel, inv
   const [d, setD] = useState<DraftSession>(() => row ?? { key: 'new', original: null, type: 'class', title: '', start: '', end: '', levels: [], removed: false, people: [] });
   const [tried, setTried] = useState(false);
   const [prefill, setPrefill] = useState<{ name: string; n: number } | null>(null);
+  const [savedIds] = useState(() => new Set((row?.original ? (row.people ?? []) : []).filter((x) => !x.removed).map((x) => x.id)));
   const isNew = !row;
   const locked = !!d.original; // a stored session keeps its stored type (setSessionType rule)
   const title = isNew ? V2.session.addTitle : d.title || typeLabel(d.type);
@@ -152,6 +154,8 @@ export function SessionSheetV2({ row, count, ctx: _ctx, dayLabel: _dayLabel, inv
         return (
           <div key={g.label}>
             {group}
+            <UnclaimedTeachers occurrenceId={invite.occurrenceId} classTitle={d.title.trim() || typeLabel(d.type)} eventName={invite.eventName} dateLabel={invite.dateLabel}
+              people={shown.filter((s) => savedIds.has(s.id)).map((s) => ({ id: s.id, name: s.name }))} />
             <ClassInvites occurrenceId={invite.occurrenceId} itemId={item} addedId={added} classTitle={d.title.trim() || typeLabel(d.type)}
               eventName={invite.eventName} dateLabel={invite.dateLabel} canForward={invite.canForwardItem && item !== null} prefill={prefill} />
           </div>
