@@ -15,6 +15,7 @@ import {
   type SessionLevel,
 } from '@/modules/event-page/sections/EventScheduleGrid';
 import { PeopleStack } from '@/modules/event-page/bento/blocks/schedule/PeopleStack';
+import { TeachThisButton } from '@/modules/event-page/bento/blocks/schedule/TeachThisButton';
 import { emptyScheduleView } from '@/modules/event-page/bento/blocks/schedule/emptyScheduleView';
 import { isRealDateKey, londonDaysBetweenKeys, londonTodayKey } from '@/lib/londonDate';
 
@@ -902,9 +903,13 @@ const RoomColumnHeaders = ({ rooms }: { rooms: string[] }) => {
 const SingleRoomScheduleRow = ({
   session,
   eventId,
+  occurrenceId,
+  occurrenceCancelled,
 }: {
   session: ScheduleSession;
   eventId: string | null;
+  occurrenceId?: string | null;
+  occurrenceCancelled?: boolean;
 }) => {
   const isParty = session.type === 'party';
   const isPerformance = session.type === 'performance' || session.type === 'show';
@@ -1079,6 +1084,7 @@ const SingleRoomScheduleRow = ({
             />
           </div>
         )}
+        <TeachThisButton session={session} occurrenceId={occurrenceId} occurrenceCancelled={occurrenceCancelled || session.cancelled} />
       </div>
     </div>
   );
@@ -1544,7 +1550,7 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled, fall
                     className="flex flex-col gap-[6px]"
                   >
                     {slot.sessions.map((s) => (
-                      <SingleRoomScheduleRow key={s.id} session={s} eventId={eventId} />
+                      <SingleRoomScheduleRow key={s.id} session={s} eventId={eventId} occurrenceId={occurrenceId} occurrenceCancelled={occurrenceCancelled} />
                     ))}
                   </div>
                 );
