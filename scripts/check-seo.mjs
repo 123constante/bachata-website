@@ -144,7 +144,9 @@ const PREFIX_SAMPLE = { '/event/': 4, '/dancers/': 1, '/organisers/': 1 };
 // minEventLinks to undefined, which reads as 0 and disables every link floor.
 const STATIC_PAGES = [
   ['/', 5],
-  ['/parties', 0],
+  // SSR + ISR since site structure S2c (2026-11-26): a this-week list.
+  ['/parties', 1],
+  ['/classes', 1],
   ['/faq', 0],
   // SSR + ISR, real event lists
   ['/london-bachata-guide', 3],
