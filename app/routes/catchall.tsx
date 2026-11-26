@@ -1,4 +1,5 @@
-import { useSyncExternalStore } from "react";
+import { useContext, useMemo, useSyncExternalStore } from "react";
+import { UNSAFE_RouteContext } from "react-router";
 import { AnimatedRoutes } from "@/components/AnimatedRoutes";
 // Load-bearing, and deliberately a STATIC import: the auth routes (/auth and
 // /auth/callback) live on this catchall, and the Supabase client parses the
@@ -72,8 +73,29 @@ function useHydrated(): boolean {
   );
 }
 
+// This page is also rendered by routes that match only PART of the URL
+// (raffle/win/:token, :night). React Router matches descendant <Routes>
+// RELATIVE to the parent route, so under "raffle/win/:token" AnimatedRoutes saw
+// "/" and rendered the home page (every one-segment page and every winner link
+// showed home, 2026-11-25..26). Re-base the last match at "/" (as the "*"
+// catchall already is) so AnimatedRoutes always matches the full URL.
+function useRootBasedRouteContext() {
+  const ctx = useContext(UNSAFE_RouteContext);
+  return useMemo(() => {
+    const last = ctx.matches[ctx.matches.length - 1];
+    if (!last || last.pathnameBase === "/") return ctx;
+    const rebased = { ...last, pathname: "/", pathnameBase: "/", route: { ...last.route, path: "*" } };
+    return { ...ctx, matches: [...ctx.matches.slice(0, -1), rebased] };
+  }, [ctx]);
+}
+
 export default function CatchAll() {
   const hydrated = useHydrated();
+  const routeContext = useRootBasedRouteContext();
   if (!hydrated) return null;
-  return <AnimatedRoutes />;
+  return (
+    <UNSAFE_RouteContext.Provider value={routeContext}>
+      <AnimatedRoutes />
+    </UNSAFE_RouteContext.Provider>
+  );
 }
