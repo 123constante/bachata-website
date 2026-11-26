@@ -52,6 +52,21 @@ export interface PublicTicketType {
   /* v3 (T4) columns: the first future price step, both null when none. Only set when the row carries them. */
   nextPricePence?: number | null;
   nextPriceAt?: string | null;
+  /* v5 (early bird) columns. Absent on v3 rows = no early tier. */
+  /** The normal price while the early price is on (price_pence is the early price then). */
+  regularPricePence?: number | null;
+  earlyState?: 'open' | 'sold_out' | null;
+  /** Early tickets still available while earlyState is 'open'. */
+  earlyLeft?: number | null;
+}
+
+/** The early tier is live on this row: early price shown, stepper capped at early_left. */
+export const isEarlyOpen = (t: PublicTicketType): boolean =>
+  t.earlyState === 'open' && typeof t.regularPricePence === 'number' && t.regularPricePence > t.pricePence;
+
+/** "you save" total over early-open lines: sum((regular - price) * qty). 0 when none. */
+export function earlySavingPence(lines: readonly { type: PublicTicketType; quantity: number }[]): number {
+  return lines.reduce((s, l) => (isEarlyOpen(l.type) && l.quantity > 0 ? s + ((l.type.regularPricePence ?? 0) - l.type.pricePence) * l.quantity : s), 0);
 }
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v.length > 0 ? v : null);
@@ -87,6 +102,14 @@ export function parsePublicTypes(data: unknown): PublicTicketType[] {
         ? {
             nextPricePence: typeof r.next_price_pence === 'number' && Number.isInteger(r.next_price_pence) && r.next_price_pence >= 0 ? r.next_price_pence : null,
             nextPriceAt: str(r.next_price_at),
+          }
+        : {}),
+      // v5 only: v3 rows carry none of these keys, so their parsed shape is unchanged.
+      ...('early_state' in r || 'regular_price_pence' in r || 'early_left' in r
+        ? {
+            regularPricePence: typeof r.regular_price_pence === 'number' && Number.isInteger(r.regular_price_pence) && r.regular_price_pence >= 0 ? r.regular_price_pence : null,
+            earlyState: r.early_state === 'open' || r.early_state === 'sold_out' ? r.early_state : null,
+            earlyLeft: typeof r.early_left === 'number' && Number.isInteger(r.early_left) && r.early_left >= 0 ? r.early_left : null,
           }
         : {}),
     });
@@ -167,7 +190,10 @@ export function typesForNight(types: PublicTicketType[], occurrenceId: string | 
 
 /** The stepper's ceiling: 20 per order and never more than remain. 0 = cannot buy. */
 export function maxQuantity(t: PublicTicketType, now: Date): number {
-  return availability(t, now).kind === 'buyable' ? Math.min(MAX_PER_ORDER, t.remaining) : 0;
+  if (availability(t, now).kind !== 'buyable') return 0;
+  const base = Math.min(MAX_PER_ORDER, t.remaining);
+  // Early bird: never more than the early tickets left (the server raises early_bird_limit if exceeded).
+  return isEarlyOpen(t) && t.earlyLeft != null ? Math.min(base, t.earlyLeft) : base;
 }
 
 export function clampQuantity(q: number, max: number): number {

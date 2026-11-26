@@ -50,9 +50,11 @@ export async function readOrderStatus(orderId: string): Promise<OrderStatusReadi
  * ticket_types_public_v1 stays callable server-side; the buyer pages no longer call it.
  */
 // Defaults to the build flag so every reader of the shared types cache (probe, block, tickets page) reads the same RPC.
-export async function fetchPublicTicketTypes(seriesId: string, occurrenceId: string | null, priceSteps: boolean = flags.ticketPriceSteps): Promise<PublicTicketType[]> {
+export async function fetchPublicTicketTypes(seriesId: string, occurrenceId: string | null, priceSteps: boolean = flags.ticketPriceSteps, earlyBird: boolean = flags.ticketEarlyBird): Promise<PublicTicketType[]> {
   // T4 (flag ticketPriceSteps): v3 = v2 + next_price_pence / next_price_at, ordered by the effective price.
-  const { data, error } = await (supabase as unknown as Untyped).rpc(priceSteps ? 'ticket_types_public_v3' : 'ticket_types_public_v2', {
+  // Early bird (flag ticketEarlyBird, needs priceSteps): v5 = v4 + regular_price_pence / early_state / early_left.
+  const fn = priceSteps ? (earlyBird ? 'ticket_types_public_v5' : 'ticket_types_public_v3') : 'ticket_types_public_v2';
+  const { data, error } = await (supabase as unknown as Untyped).rpc(fn, {
     p_event_series_id: seriesId,
     p_occurrence_id: occurrenceId,
   });

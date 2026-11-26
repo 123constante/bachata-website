@@ -156,6 +156,10 @@ export const flags = {
   // (edge v5 path), "Price rises on <date>" on the card, price_changed confirm. OFF = the old body
   // and the v2 read, exactly as before. Turn on with VITE_ENABLE_TICKET_PRICE_STEPS=true.
   ticketPriceSteps:    import.meta.env.VITE_ENABLE_TICKET_PRICE_STEPS === 'true',
+  // Early-bird count tier, buyer side: reads ticket_types_public_v5 (needs ticketPriceSteps), early price struck
+  // against the regular one, "Early bird price" / "Early bird sold out" lines, "you save" on the pay bar.
+  // OFF = exactly as before. Turn on with VITE_ENABLE_TICKET_EARLY_BIRD=true (Vercel env).
+  ticketEarlyBird:     import.meta.env.VITE_ENABLE_TICKET_EARLY_BIRD === 'true',
   // Ticket picker B1 (docs/briefs/ticket-buyer-picker.md): the white checkout (pick, email, 6-digit code,
   // Stripe) behind "Get tickets". Needs publicTicketing. OFF = the Tickets page is exactly as before.
   // Turn on with VITE_ENABLE_TICKET_PICKER_B1=true (Vercel env) -- no code change.

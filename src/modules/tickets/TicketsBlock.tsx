@@ -16,6 +16,8 @@ import {
   clampQuantity,
   courseLine,
   disabledReason,
+  earlySavingPence,
+  isEarlyOpen,
   formatPence,
   maxQuantity,
   reasonCopy,
@@ -59,6 +61,8 @@ export interface TicketsBlockProps {
   origin?: string;
   /** T4 price steps (basket wire with expected prices). Defaults to flags.ticketPriceSteps; tests pass it. */
   priceSteps?: boolean;
+  /** Early-bird buyer rows (v5 read). Defaults to flags.ticketEarlyBird && priceSteps; tests pass it. */
+  earlyBird?: boolean;
 }
 
 const card = {
@@ -77,7 +81,7 @@ export function searchWithNight(search: string, occurrenceId: string): string {
   return `?${q.toString()}`;
 }
 
-export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [], onPickNight, now: nowProp, origin: originProp, priceSteps = flags.ticketPriceSteps }: TicketsBlockProps) {
+export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [], onPickNight, now: nowProp, origin: originProp, priceSteps = flags.ticketPriceSteps, earlyBird = flags.ticketEarlyBird && priceSteps }: TicketsBlockProps) {
   const queryClient = useQueryClient();
   const location = useLocation();
   const navigate = useNavigate();
@@ -85,7 +89,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [],
   const guest = !user && authStatus !== 'resolving';
   const { data: types } = useQuery({
     queryKey: publicTicketKeys.types(seriesId, occurrenceId),
-    queryFn: () => (priceSteps ? fetchPublicTicketTypes(seriesId, occurrenceId, true) : fetchPublicTicketTypes(seriesId, occurrenceId)),
+    queryFn: () => (priceSteps ? fetchPublicTicketTypes(seriesId, occurrenceId, true, earlyBird) : fetchPublicTicketTypes(seriesId, occurrenceId)),
     staleTime: 30_000,
   });
   const now = nowProp ?? new Date();
@@ -227,6 +231,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [],
       ? { ...baseSum, feePence: checkoutFee(stepTotal > 0 ? Math.max(0, baseSum.subtotalPence - (pv.appliedDiscountPence ?? 0)) : 0, qty) }
       : baseSum;
   const shownDiscount = held && pv.appliedDiscountPence !== null && sum ? Math.max(0, sum.subtotalPence + sum.feePence - held.totalPence) : pv.appliedDiscountPence;
+  const saving = earlyBird && selected ? earlySavingPence([{ type: selected, quantity: qty }]) : 0;
   const payPence = sum ? (priceSteps ? stepTotal : pv.appliedTotalPence !== null ? pv.appliedTotalPence + sum.feePence : sum.totalPence) : 0;
 
   async function onBuy() {
@@ -268,7 +273,8 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [],
       return;
     }
     // A price_changed we cannot read: never silent. Generic retry copy, and re-read the prices.
-    if (priceSteps && result.reason === 'price_changed') {
+    // Early bird: the server's early_bird_limit (early tickets ran out) takes the same refresh path.
+    if (priceSteps && (result.reason === 'price_changed' || (earlyBird && result.reason === 'early_bird_limit'))) {
       setError({ reason: 'price_changed_unreadable', message: null });
       void queryClient.invalidateQueries({ queryKey: publicTicketKeys.types(seriesId, occurrenceId) });
       return;
@@ -342,10 +348,19 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [],
                 <span className="min-w-0 flex-1">
                   <span className="block break-words font-medium">{t.name}</span>
                   <span className="block text-[12px]" style={muted}>{a.label}</span>
+                  {earlyBird && isEarlyOpen(t) && <span className="block text-[11px] font-bold" style={{ color: '#c2410c' }} data-testid="ticket-early-line">Early bird price</span>}
+                  {earlyBird && t.earlyState === 'sold_out' && <span className="block text-[12px]" style={{ color: '#6b7280' }} data-testid="ticket-early-sold-out">Early bird sold out</span>}
                   {courseLine(t) && <span className="block text-[12px]" style={muted} data-testid="ticket-course-line">{courseLine(t)}</span>}
                   {priceSteps && stepLine(t, now) && <span className="block text-[12px] font-medium" data-testid="ticket-step-line">{stepLine(t, now)}</span>}
                 </span>
-                <span className="shrink-0 font-semibold">{formatPence(t.pricePence)}</span>
+                {earlyBird && isEarlyOpen(t) ? (
+                  <span className="shrink-0 text-right" data-testid="ticket-early-price">
+                    <span className="block text-[12px] line-through" style={muted}>{formatPence(t.regularPricePence ?? 0)}</span>
+                    <span className="block text-[18px] font-bold" style={{ color: '#c2410c' }}>{formatPence(t.pricePence)}</span>
+                  </span>
+                ) : (
+                  <span className="shrink-0 font-semibold">{formatPence(t.pricePence)}</span>
+                )}
               </button>
             </li>
           );
@@ -626,7 +641,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [],
             <div className="min-w-0">
               <div className="text-[20px] font-extrabold leading-tight" aria-live="polite" data-testid="ticket-bar-total">{sum.free ? 'Free' : formatPence(payPence)}</div>
               <div className="truncate text-[12px]" style={{ color: '#3A2200' }} id={reason ? 'tickets-buy-reason' : undefined} data-testid="ticket-bar-sub">
-                {reason ?? barSummary(qty, selected.name, sum.free)}
+                {reason ?? <>{barSummary(qty, selected.name, sum.free)}{saving > 0 && <> &middot; <span data-testid="ticket-bar-saving">you save {formatPence(saving)}</span></>}</>}
               </div>
             </div>
             <button
