@@ -38,7 +38,7 @@ const db = supabase as any;
 type StaticRoute = { path: string; changefreq: string; priority: string };
 
 const STATIC_ROUTES: StaticRoute[] = [
-  { path: "/",                                 changefreq: "daily",   priority: "1.0" },
+  { path: "/city/london-gb",                   changefreq: "daily",   priority: "1.0" },
   { path: "/parties",                          changefreq: "daily",   priority: "0.9" },
   { path: "/classes",                          changefreq: "daily",   priority: "0.9" },
   { path: "/tonight",                          changefreq: "daily",   priority: "0.8" },

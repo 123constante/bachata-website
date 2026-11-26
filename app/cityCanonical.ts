@@ -210,8 +210,13 @@ export function citySubpageSeo(
  * cityCanonical.test.ts asserts that disjointness rather than trusting it.
  */
 export function cityCanonicalPath(segments: string[]): string {
-  // Bare /city/:slug is the homepage equivalent.
-  if (segments.length === 2) return '/';
+  // Bare /city/:slug (and its Calendar tab) is the city's homepage and is its OWN
+  // canonical. It used to say '/', but '/' 307s to /city/london-gb, so Google
+  // followed the redirect, met a canonical pointing back, and reported
+  // "Redirect error": the homepage was never indexed (GSC, 2026-11-26).
+  if (segments.length === 2 || (segments.length === 3 && segments[2] === 'calendar')) {
+    return `/city/${segments[1]}`;
+  }
 
   const selfListing = citySelfCanonicalListing(segments);
   if (selfListing) return `/city/${segments[1]}/${selfListing}`;

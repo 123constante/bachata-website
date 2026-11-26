@@ -45,7 +45,9 @@ const SPECS: Record<string, Spec> = {
   home: {
     title: (c) => city(c) === 'London' ? 'Bachata London - Events, Classes & Parties Calendar' : `Bachata in ${city(c)} - Classes, Socials & Festivals`,
     description: (c) => `Every bachata class, social and festival in ${city(c)}, updated daily. The complete calendar for ${city(c)}'s bachata scene.`,
-    path: () => '/',
+    // The city homepage is its own canonical. Never '/': '/' 307s to
+    // /city/london-gb, so a canonical of '/' made a redirect loop for Google.
+    path: (c) => `/city/${c.entitySlug ?? 'london-gb'}`,
   },
   parties: {
     title: (c) => `Bachata Socials & Parties in ${city(c)}`,

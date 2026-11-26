@@ -187,6 +187,7 @@ const Index = ({
   useSeo(
     buildSeoForRoute('home', {
       cityDisplay: cityDisplayName === 'Your City' ? undefined : cityDisplayName,
+      entitySlug: citySlug ?? undefined,
     }),
   );
 

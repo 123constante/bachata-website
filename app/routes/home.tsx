@@ -373,8 +373,13 @@ export async function loader(args: Route.LoaderArgs) {
   }
 }
 
-export const meta: Route.MetaFunction = ({ data }) =>
-  seoInputToMeta(buildSeoForRoute("home", { cityDisplay: data?.cityDisplay }));
+export const meta: Route.MetaFunction = ({ data, params }) =>
+  seoInputToMeta(
+    buildSeoForRoute("home", {
+      cityDisplay: data?.cityDisplay,
+      entitySlug: params.slug ? params.slug.toLowerCase() : undefined,
+    }),
+  );
 
 // Edge-cache the SSR response (s-maxage/SWR) + forward the loader's Vercel-Cache-Tag
 // so a content edit can purge it on demand. Mirrors the detail routes (event.tsx).

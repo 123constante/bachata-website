@@ -347,7 +347,7 @@ export default async function middleware(request: Request): Promise<Response> {
     case 'city': {
       if (!CITY_SLUG_RE.test(id)) return next();
       const isBareCity = segments.length === 2;
-      // Bare /city/:slug is the homepage equivalent (canonical '/'). Send search
+      // Bare /city/:slug is the city homepage (canonical: itself). Send search
       // crawlers to the rich prerendered homepage (next() -> the SPA rewrite
       // serves dist/index.html) rather than the thin city skeleton; social bots
       // still get the OG card so link previews keep working.
