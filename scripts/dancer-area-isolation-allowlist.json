@@ -500,7 +500,6 @@
     "src/components/profile/HideSurnameSwitch.tsx",
     "src/components/account/HideSurnameCard.tsx",
     "src/lib/publicDancerNames.ts",
-    "src/pages/PracticePartners.tsx",
     "app/routes/sitemap.tsx"
   ]
 }

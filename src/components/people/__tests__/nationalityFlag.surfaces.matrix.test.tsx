@@ -67,7 +67,6 @@ import Dancers from '@/pages/Dancers';
 import AllProfiles from '@/pages/AllProfiles';
 import Videographers from '@/pages/Videographers';
 import VendorDetail from '@/pages/VendorDetail';
-import PracticePartners from '@/pages/PracticePartners';
 import { DjHero } from '@/components/dj/DjTiles';
 import { DancerProfileGrid } from '@/components/profile/DancerProfileGrid';
 import { mapDancerPublicProfile } from '@/modules/profile/dancerPublicProfile';
@@ -208,16 +207,6 @@ const SURFACES: Surface[] = [
     mount: async (s) => {
       fixtures.rpc.get_public_vendor_detail_v1 = [{ id: 'v1', business_name: 'Shoe Shop', team: [{ dancer_id: ID, name: s.name, avatar_url: s.photo, nationality_code: s.code, city: null, role: null, is_leader: false }], product_categories: [], products: [], faq: [] }];
       withProviders(<VendorDetail />, '/vendors/v1', '/vendors/:id');
-      await waitName(s.name.split(' ')[0]);
-    },
-  },
-  {
-    name: '/practice-partners (PracticePartners.tsx, signed in)',
-    read: 'dancer_profiles (stored alpha-2)',
-    flagWithoutPhoto: true,
-    mount: async (s) => {
-      fixtures.table.dancer_profiles = [{ id: ID, ...split(s), based_city_id: null, dance_role: null, avatar_url: s.photo, nationality: s.code, cities: null, dancing_role_details: { favorite_styles: [], looking_for_partner: true } }];
-      withProviders(<PracticePartners />);
       await waitName(s.name.split(' ')[0]);
     },
   },
@@ -379,7 +368,7 @@ describe('placement (Sticker spec)', () => {
     [44, 18, 12, '-'],
     [47, 19, 12.67, 'last small size'],
     [48, 22, 14.67, 'TILE_FLAG_SIZE (inset cards)'],
-    [56, 26, 17.33, '/teachers, /practice-partners, /account'],
+    [56, 26, 17.33, '/teachers, /account'],
     [64, 29, 19.33, '/djs list'],
   ])('a %ipx photo gets a %ipx x %spx sticker (%s), same tilt, edge, shadow and position', (photo, w, h) => {
     expect(stickerSize(photo)).toEqual({ w, h });
