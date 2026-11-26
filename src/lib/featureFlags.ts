@@ -181,6 +181,9 @@ export const flags = {
   // Organiser Team R3 W1 (brief #2179): Undo button on the owner's Recent changes rows.
   // OFF = the R2 screen exactly as before. Turn on with VITE_ENABLE_ORGANISER_TEAM_R3=true (Vercel env).
   organiserTeamR3:     import.meta.env.VITE_ENABLE_ORGANISER_TEAM_R3 === 'true',
+  // Organiser teachers forward (brief #2245): after changing a class's teachers on one night, ask "Just this date" or
+  // "This date and all later dates". OFF = the When sheet saves as before. Turn on with VITE_ENABLE_ORGANISER_TEACHERS_FORWARD=true.
+  organiserTeachersForward: import.meta.env.VITE_ENABLE_ORGANISER_TEACHERS_FORWARD === 'true',
   // Raffle data requests (brief #2227): one line in /privacy to a /privacy/raffle-data page with an Email us button,
   // and "You agreed on 24 Nov 2026" on the export page. OFF = every screen exactly as before.
   // Turn on with VITE_ENABLE_RAFFLE_PRIVACY_LINE=true (Vercel env) -- no code change.
