@@ -115,12 +115,12 @@
     },
     {
       "source": "/choreography",
-      "destination": "/city/london-gb",
+      "destination": "/",
       "permanent": true
     },
     {
       "source": "/practice-partners",
-      "destination": "/city/london-gb",
+      "destination": "/",
       "permanent": true
     },
     {

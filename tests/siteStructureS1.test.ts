@@ -13,8 +13,8 @@ const redirects: Redirect[] = JSON.parse(read('vercel.json')).redirects;
 
 describe('S1: retired pages forward to the city page', () => {
   it.each([
-    ['/choreography', '/city/london-gb'],
-    ['/practice-partners', '/city/london-gb'],
+    ['/choreography', '/'],
+    ['/practice-partners', '/'],
     ['/city/:slug/choreography', '/city/:slug'],
     ['/city/:slug/practice-partners', '/city/:slug'],
     ['/:slug([a-z-]+-[a-z]{2})/choreography', '/city/:slug'],
