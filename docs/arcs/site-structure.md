@@ -13,7 +13,7 @@ Hard facts:
 ## Slices
 | Slice | Status | Scope | Measure before next slice |
 |---|---|---|---|
-| S1 fixes + removals | NEXT | `/choreography` and `/practice-partners` (both city forms) 301 to the city What's on page; out of sitemap, breadcrumbs IA, SEO table, catchall client list, Dancers page link. Wrong-city festival data (Sueño Winter Weekender shown in London, is Nottingham; Istanbul congress shown in "Turku"). Beginner list must not include a monthly party. | prod-smoke with `forbid_text`; GSC 1 week |
+| S1 fixes + removals | NEXT | `/choreography` and `/practice-partners` 301 to `/` (bare) or `/city/:slug` (city forms); out of sitemap, breadcrumbs IA, SEO table, catchall client list, Dancers page link. Wrong-city festival data (Sueño Winter Weekender shown in London, is Nottingham; Istanbul congress shown in "Turku"). Beginner list must not include a monthly party. | prod-smoke with `forbid_text`; GSC 1 week |
 | S2 What's on | NOT STARTED | One filter row on home (drop the second row, "All" once). `/classes /parties /tonight` + 7 weekday pages + style pages + `/bachata-parties-london` render What's on with a preset filter, list server-rendered. `/city/<slug>` server-rendered per city. `/city/<slug>/map` = city page with Map on (List/Map toggle). `/city/<slug>/calendar`, `/cities` merge into the city picker. Visible phone menu: city switch + sign in. | GSC clicks on `/classes`, weekday pages; home "seen in lists" |
 | S3 New here? + For organisers | NOT STARTED | `/learn-bachata-london` absorbs Guide + FAQ (one copy of each question); `/london-bachata-guide` and `/faq` 301 to it. For organisers page: list an event, tickets, sign in, raffles; `/start-organiser` (404 today) forwards to it. Raffles leaves the top menu. `/festivals` drops the Hub tiles. | GSC on `/learn-bachata-london` |
 | S4 People & places | NOT STARTED, waits for bd person-page URL shape | ONE directory page, chips All/Dancers/DJs/Teachers/Organisers/Venues/Vendors/Video. `/dancers /djs /teachers /organisers /venues /vendors /videographers /all-profiles` + city forms open it pre-filtered, server-rendered. Every person row links to the bd person page. Venue/vendor detail pages and organiser subdomains server-render. Footer: ~45 organiser links leave the footer. | profile views from shared links, distinct sharers |
@@ -67,7 +67,7 @@ Every slice ships behind a flag in `src/lib/featureFlags` (one flag per slice, `
 ### Removed (S1)
 | Address | After | Sitemap | Checked by |
 |---|---|---|---|
-| `/choreography`, `/practice-partners` | 301 `/city/london-gb` | out | smoke status + sitemap forbid "choreography\|practice-partners" |
+| `/choreography`, `/practice-partners` | 301 `/` (then the visitor's city) | out | smoke status + sitemap forbid "choreography\|practice-partners" |
 | `/city/:slug/practice-partners`, `/:slug/choreography`, `/:slug/practice-partners` | 301 `/city/:slug` | out | smoke |
 
 ### Unchanged
