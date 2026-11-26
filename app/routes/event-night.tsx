@@ -10,6 +10,7 @@ import {
   parseNightPath,
 } from "../lib/eventSubdomain";
 import CatchAll from "./catchall";
+import { clientPageMeta } from "../clientPageMeta";
 import EventRoute, { headers as eventHeaders, loader as eventLoader, meta as eventMeta } from "./event";
 
 // "/<day>-<mon>[-<year>]" on an event subdomain (<label>.bachatacalendar.co.uk/19-dec)
@@ -60,8 +61,11 @@ export function headers(args: { loaderHeaders: Headers; [k: string]: unknown }) 
     : staticShellCacheHeaders();
 }
 
-export function meta(args: { data?: unknown; [k: string]: unknown }) {
-  return args.data ? eventMeta(args as unknown as Parameters<typeof eventMeta>[0]) : [];
+export function meta(args: { data?: unknown; location?: { pathname: string }; [k: string]: unknown }) {
+  if (args.data) return eventMeta(args as unknown as Parameters<typeof eventMeta>[0]);
+  // One-segment client pages (/tonight, /discounts, /search, /cities) land here,
+  // not on the catchall: give them their own head (site structure S2b).
+  return clientPageMeta(args.location?.pathname ?? "") ?? [];
 }
 
 export default function EventNightRoute(props: { loaderData?: unknown; params: { night?: string } }) {
