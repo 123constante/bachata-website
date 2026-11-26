@@ -7,6 +7,8 @@ export const RAFFLE_FRESH_KEY = 'raffle_win_fresh';
 export type RaffleWinCard = {
   winId: string | null;
   qrToken: string;
+  /** The door has already admitted this win: the card says "You're in" and hides the QR. */
+  attended: boolean;
   /** null = the night is not known: "Your night is locked." */
   night: { title: string; dateLine: string; venue: string | null; posterUrl: string | null } | null;
 };
@@ -39,12 +41,25 @@ export function parseMyWins(data: unknown): RaffleWinCard | null {
   for (const r of rows) {
     if (!isObj(r)) continue;
     const win = isObj(r.win) ? r.win : r;
-    if (str(win.state) !== 'locked') continue;
+    const attended = win.attended === true || r.attended === true;
+    if (str(win.state) !== 'locked' && !attended) continue;
     const qrToken = str(win.qr_token);
     if (!qrToken) continue;
-    return { winId: str(win.id), qrToken, night: parseNight(isObj(win.night) ? win.night : win) };
+    return { winId: str(win.id), qrToken, attended, night: parseNight(isObj(win.night) ? win.night : win) };
   }
   return null;
+}
+
+/** Every QR token in a raffle_my_wins_v1 reply (the door page asks: is this visitor the winner?). */
+export function parseMyWinTokens(data: unknown): string[] {
+  const rows = Array.isArray(data) ? data : isObj(data) && Array.isArray(data.wins) ? data.wins : [];
+  const out: string[] = [];
+  for (const r of rows) {
+    if (!isObj(r)) continue;
+    const t = str((isObj(r.win) ? r.win : r).qr_token);
+    if (t) out.push(t);
+  }
+  return out;
 }
 
 /** Read the fresh signal once, then clear it. */

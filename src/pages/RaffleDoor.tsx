@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 import { rpcLoose } from '@/integrations/supabase/rpcLoose';
 import { useSeo } from '@/lib/seo';
+import { parseMyWinTokens } from '@/modules/dancer-app/screens/home/raffleWinModel';
 
-export type DoorStatus = 'valid' | 'already_admitted' | 'not_valid';
+export type DoorStatus = 'valid' | 'too_early' | 'already_admitted' | 'admitted' | 'not_valid';
 export interface DoorResult {
   status: DoorStatus;
   name: string;
   event: string;
   date: string;
   admittedAtLocal: string;
+  /** Optional (the DB ships later): absent or null = no photo. */
+  photoUrl: string | null;
 }
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -32,11 +36,12 @@ export function parseDoorResult(data: unknown): DoorResult {
   const s = o.status;
   const str = (v: unknown) => (typeof v === 'string' ? v : '');
   return {
-    status: s === 'valid' || s === 'already_admitted' ? s : 'not_valid',
+    status: s === 'valid' || s === 'too_early' || s === 'already_admitted' || s === 'admitted' ? s : 'not_valid',
     name: str(o.name),
     event: str(o.event),
     date: str(o.date),
     admittedAtLocal: str(o.admitted_at_local),
+    photoUrl: typeof o.photo_url === 'string' && o.photo_url.trim() !== '' ? o.photo_url : null,
   };
 }
 
@@ -45,8 +50,8 @@ type View =
   | { kind: 'error' }
   | { kind: 'result'; result: DoorResult; admittedByUs: boolean };
 
-export function DoorScreen(props: { view: View; busy: boolean; onAdmit: () => void; onRetry: () => void }) {
-  const { view, busy, onAdmit, onRetry } = props;
+export function DoorScreen(props: { view: View; busy: boolean; onAdmit: () => void; onRetry: () => void; viewerIsWinner?: boolean }) {
+  const { view, busy, onAdmit, onRetry, viewerIsWinner = false } = props;
   let hero = '';
   let title = '';
   let body: React.ReactNode = null;
@@ -67,23 +72,45 @@ export function DoorScreen(props: { view: View; busy: boolean; onAdmit: () => vo
     );
   } else {
     const { result, admittedByUs } = view;
-    if (result.status === 'valid' && admittedByUs) {
+    const photo = result.photoUrl ? (
+      <img data-testid="door-photo" src={result.photoUrl} alt="" width={160} height={160}
+        className="mx-auto mb-3 h-[160px] w-[160px] rounded-full object-cover" />
+    ) : null;
+    const when = formatDoorDate(result.date);
+    const card = (
+      <div className="mt-1 rounded-xl border p-3 text-left">
+        {photo}
+        <p className="text-base font-bold">{result.name}</p>
+        <p className="text-sm text-muted-foreground">
+          {result.event}
+          {when ? <> &middot; {when}</> : null}
+        </p>
+      </div>
+    );
+    if (result.status === 'admitted' || (result.status === 'valid' && admittedByUs)) {
       hero = '🎉';
       title = 'Admitted';
-      body = <p className="text-sm text-muted-foreground">{result.name} is in. Marked as attended.</p>;
+      body = (
+        <>
+          {photo}
+          <p className="text-sm text-muted-foreground">{result.name} is in. Marked as attended.</p>
+        </>
+      );
+    } else if (result.status === 'too_early') {
+      hero = '🕒';
+      title = `Valid on ${when || 'a later date'}. Come back then.`;
+      body = card;
     } else if (result.status === 'valid') {
       hero = '✅';
       title = 'Valid prize';
-      const when = formatDoorDate(result.date);
-      body = (
+      body = viewerIsWinner ? (
         <>
-          <div className="mt-1 rounded-xl border p-3 text-left">
-            <p className="text-base font-bold">{result.name}</p>
-            <p className="text-sm text-muted-foreground">
-              {result.event}
-              {when ? <> &middot; {when}</> : null}
-            </p>
-          </div>
+          {card}
+          <p className="mt-3 text-base font-bold" data-testid="door-show-this">Show this to the door</p>
+        </>
+      ) : (
+        <>
+          {card}
           <button
             type="button"
             onClick={onAdmit}
@@ -98,9 +125,12 @@ export function DoorScreen(props: { view: View; busy: boolean; onAdmit: () => vo
       hero = '⚠️';
       title = 'Already admitted';
       body = (
-        <p className="text-sm text-muted-foreground">
-          This prize was used at {result.admittedAtLocal}. Do not admit again.
-        </p>
+        <>
+          {photo}
+          <p className="text-sm text-muted-foreground">
+            This prize was used at {result.admittedAtLocal}. Do not admit again.
+          </p>
+        </>
       );
     } else {
       hero = '❌';
@@ -127,6 +157,22 @@ export default function RaffleDoor() {
   const { token = '' } = useParams<{ token: string }>();
   const [view, setView] = useState<View>({ kind: 'loading' });
   const [busy, setBusy] = useState(false);
+  const { user } = useAuth();
+  const signedIn = !!user && !user.is_anonymous;
+  const userId = user?.id;
+  const [viewerIsWinner, setViewerIsWinner] = useState(false);
+  useEffect(() => {
+    setViewerIsWinner(false);
+    if (!signedIn || !token) return;
+    let live = true;
+    void (async () => {
+      try {
+        const { data, error } = await rpcLoose('raffle_my_wins_v1');
+        if (live && !error) setViewerIsWinner(parseMyWinTokens(data).includes(token));
+      } catch { /* not the winner view: door staff screen as before */ }
+    })();
+    return () => { live = false; };
+  }, [signedIn, userId, token]);
 
   const call = useCallback(async (fn: string): Promise<DoorResult | null> => {
     try {
@@ -151,12 +197,12 @@ export default function RaffleDoor() {
     const result = await call('raffle_door_admit_v1');
     setBusy(false);
     if (!result) { setView({ kind: 'error' }); return; }
-    setView({ kind: 'result', result, admittedByUs: result.status === 'valid' });
+    setView({ kind: 'result', result, admittedByUs: result.status === 'valid' || result.status === 'admitted' });
   }, [call]);
 
   return (
     <main className="mx-auto flex min-h-[70vh] max-w-sm flex-col justify-center px-4 py-6">
-      <DoorScreen view={view} busy={busy} onAdmit={() => void admit()} onRetry={() => void check()} />
+      <DoorScreen view={view} busy={busy} onAdmit={() => void admit()} onRetry={() => void check()} viewerIsWinner={viewerIsWinner} />
     </main>
   );
 }
