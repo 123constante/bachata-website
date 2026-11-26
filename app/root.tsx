@@ -24,6 +24,7 @@ import { reportClientErrorLazy } from "@/lib/reportClientErrorLazy";
 import { eventHostForwardUrl } from "./lib/eventHostForward";
 import { installEventHostLinkForward } from "./lib/eventHostClientNav";
 import { parseEventHost } from "./lib/eventSubdomain";
+import { useStaleTabRefresh } from "./lib/staleTab";
 import { shouldReloadOnRouteError, sessionStorageOrNull } from "./lib/routeErrorReload";
 
 import { NavigationSplash } from "./NavigationSplash";
@@ -230,6 +231,7 @@ export default function Root() {
     if (parseEventHost(window.location.host).kind === "none") return;
     return installEventHostLinkForward(window.location.host);
   }, []);
+  useStaleTabRefresh();
   const { pathname, search } = useLocation();
   useEffect(() => {
     const to = eventHostForwardUrl(window.location.host, pathname, search);
