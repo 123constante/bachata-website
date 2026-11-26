@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { flags } from '@/lib/featureFlags';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { EventWorkspace } from '../../events/eventModel';
 import { weekdayName } from '../../events/eventModel';
@@ -52,6 +53,13 @@ export function EditorV2({ ws }: { ws: EventWorkspace }) {
   const chips = coming.slice(0, UPCOMING_PAGE);
   const nightId = params.get('night');
   const picked = (nightId && coming.find((d) => d.id === nightId)) || coming[0] || ws.dates[0] || null;
+  // ?open=when (flag organiserHomeClassesWeek): open that night's When sheet once, then drop the param
+  const wantsWhen = flags.organiserHomeClassesWeek && params.get('open') === 'when';
+  const openWhen = wantsWhen && !!nightId && !!picked && picked.id === nightId;
+  useEffect(() => {
+    if (!wantsWhen) return;
+    setParams((p) => { const n = new URLSearchParams(p); n.delete('open'); return n; }, { replace: true, preventScrollReset: true });
+  }, [wantsWhen, setParams]);
   const tab: Tab = weekly && params.get('tab') === 'every' ? 'every' : 'night';
   const day = weekly
     ? (picked ? weekdayName(picked.occurrence_date) : WEEKDAY_NAMES[weekdayOfKey(today)])
@@ -150,7 +158,7 @@ export function EditorV2({ ws }: { ws: EventWorkspace }) {
       )}
       <div data-ev2-slot={every ? 'every' : 'night'}>
         {!every && picked && (
-          <NightCard soldCount={ticketsSold} onOpenTickets={goTickets} onChangeLink={() => { setLinkError(null); setLinkOpen(true); }} ws={ws} date={picked} busy={busy} onCancelNight={cancelNight} onBringBack={bringBack} onSave={saveNow} onBack={(step, before, label) => saveNow([step], [before], label)} />
+          <NightCard openWhen={openWhen} soldCount={ticketsSold} onOpenTickets={goTickets} onChangeLink={() => { setLinkError(null); setLinkOpen(true); }} ws={ws} date={picked} busy={busy} onCancelNight={cancelNight} onBringBack={bringBack} onSave={saveNow} onBack={(step, before, label) => saveNow([step], [before], label)} />
         )}
         {!every && picked && (
           <NightHub seriesId={ws.series.id} seriesName={ws.series.name ?? ''} occurrenceId={picked.id} oneOff={!weekly} ticketsSold={ticketsSold} moneyPence={moneyPence} shareLink={shareLink} toast={say}

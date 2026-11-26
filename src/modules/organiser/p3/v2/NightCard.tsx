@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { EventWorkspace } from '../../events/eventModel';
 import { dateDetailQueryKey, fetchDateDetail } from '../../shared/selfServeApi';
 import { fullDate } from '../../shared/dateWords';
@@ -59,7 +59,9 @@ export function backToUsualStep(d: Pick<WorkspaceDate, 'id' | 'version' | 'overr
 
 const hm = (t: string | null | undefined) => (t ? t.slice(0, 5) : '');
 
-export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBringBack, soldCount = 0, onOpenTickets, onChangeLink }: {
+export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBringBack, soldCount = 0, onOpenTickets, onChangeLink, openWhen = false }: {
+  /** deep link ?open=when: open the When sheet once on mount (needs onSave) */
+  openWhen?: boolean;
   /** one-off, link mode: opens the Link to buy tickets sheet */
   onChangeLink?: () => void;
   /** opens the Tickets screen; the shell passes it (no router in this component) */
@@ -76,6 +78,7 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
 }) {
   const qc = useQueryClient();
   const [whenOpen, setWhenOpen] = useState(false);
+  useEffect(() => { if (openWhen && onSave) setWhenOpen(true); }, []); // eslint-disable-line react-hooks/exhaustive-deps -- once, on mount
   const [sheet, setSheet] = useState<'where' | 'about' | 'flyer' | 'price' | null>(null);
   const s = ws.series;
   const detail = useQuery({ queryKey: dateDetailQueryKey(date.id), queryFn: () => fetchDateDetail(date.id) });

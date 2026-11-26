@@ -221,6 +221,10 @@ export const flags = {
   // OFF = today's home, unchanged. Needs the admin RPCs (my_profile_match_candidates_v1, answer_profile_match_v1).
   // Turn on with VITE_ENABLE_PROFILE_MATCH_ASK=true (Vercel env) -- no code change.
   profileMatchAsk:     import.meta.env.VITE_ENABLE_PROFILE_MATCH_ASK === 'true',
+  // Organiser Home "Classes this week" card (teacher extras). OFF = Home exactly as before. Also gates the night
+  // editor deep link `?open=when` (opens that night's When sheet once).
+  // Turn on with VITE_ENABLE_ORGANISER_HOME_CLASSES_WEEK=true (Vercel env) -- no code change.
+  organiserHomeClassesWeek: import.meta.env.VITE_ENABLE_ORGANISER_HOME_CLASSES_WEEK === 'true',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the

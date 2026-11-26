@@ -79,9 +79,11 @@ function OldNewStep() {
   return <Navigate to={seriesId ? P3_PATHS.event(seriesId) : P3_PATHS.createForFormat(params.get('format'), params.get('o'))} replace />;
 }
 /** Editor v2: the old edit and night URLs become the one editor page (the night id rides in ?night=). */
-function ToEditor() {
+export function ToEditor() {
   const { seriesId, occurrenceId } = useParams();
-  const q = occurrenceId ? `?night=${encodeURIComponent(occurrenceId)}` : '';
+  const [params] = useSearchParams();
+  const keepOpen = flags.organiserHomeClassesWeek && !!occurrenceId && params.get('open') === 'when';
+  const q = occurrenceId ? `?night=${encodeURIComponent(occurrenceId)}${keepOpen ? '&open=when' : ''}` : '';
   return <Navigate to={`${P3_PATHS.event(seriesId ?? '')}${q}`} replace />;
 }
 function lazyScreen(el: ReactNode, frame: P3RouteFrame, back: (p: Readonly<Params>) => P3RouteBack) {
