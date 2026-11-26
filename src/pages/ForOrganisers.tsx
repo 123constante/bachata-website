@@ -78,7 +78,7 @@ const ForOrganisers = () => {
           />
           {flags.organiserTicketing && (
             <Card
-              emoji={'\u{1F39F}️'}
+              emoji={'\u{1F39F}\u{FE0F}'}
               title="Sell tickets"
               line="Sign in, open your event and switch tickets on."
               label="Sign in to sell tickets"
