@@ -203,6 +203,10 @@ export const flags = {
   // (up to 6) and "The more draws you're in, the more chances you get." OFF = today's tile, unchanged.
   // Turn on with VITE_ENABLE_RAFFLE_WINNERS_WALL=true (Vercel env) -- no code change.
   raffleWinnersWall:   import.meta.env.VITE_ENABLE_RAFFLE_WINNERS_WALL === 'true',
+  // Dancer home "Is this you?" card: asks a new account whether a team-made page matching their name + city is theirs.
+  // OFF = today's home, unchanged. Needs the admin RPCs (my_profile_match_candidates_v1, answer_profile_match_v1).
+  // Turn on with VITE_ENABLE_PROFILE_MATCH_ASK=true (Vercel env) -- no code change.
+  profileMatchAsk:     import.meta.env.VITE_ENABLE_PROFILE_MATCH_ASK === 'true',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the

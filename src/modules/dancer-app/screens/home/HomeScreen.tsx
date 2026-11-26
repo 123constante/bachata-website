@@ -21,6 +21,7 @@ import { DANCER_LAYOUT_C_ENABLED } from './layoutCFlag';
 import { flags } from '@/lib/featureFlags';
 import { TICKET_TEASER_ENABLED } from '../teaser/teaserFlag';
 import { ClaimCard } from './claimCard';
+import { MatchAskCard } from './MatchAskCard';
 import { useMyNumbers } from '../../api/useMyNumbers';
 import NoProfileWayOut from '../options/NoProfileWayOut';
 import { HIDDEN_STATE_LINE, SHOW_AGAIN_LABEL } from '../../copy/sharedCopy';
@@ -179,6 +180,7 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
           <HomeGoingFeed onGoing={setGoing} />
         </Suspense>
       )}
+      <MatchAskCard />
       <Suspense fallback={null}>
         <HomeRaffleWin />
       </Suspense>
