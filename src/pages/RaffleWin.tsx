@@ -81,6 +81,15 @@ export default function RaffleWin() {
   const [dancers, setDancers] = useState<number | null>(null);
   const profileDone = useRef(false);
 
+  // Tell the board the winner opened the link: once per mount, fire and forget.
+  // The RPC ships in admin PR #2427 (not in generated types yet), hence rpcLoose.
+  const openedSent = useRef(false);
+  useEffect(() => {
+    if (!token || openedSent.current) return;
+    openedSent.current = true;
+    try { void rpcLoose('raffle_win_link_opened_v1', { p_link_token: token }).catch(() => {}); } catch { /* swallowed */ }
+  }, [token]);
+
   const claim = useCallback(async () => {
     setStep('loading');
     const fromAuth = readFromAuth();
