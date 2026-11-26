@@ -209,6 +209,8 @@ export const flags = {
   organiserClassInvites: import.meta.env.VITE_ENABLE_ORGANISER_CLASS_INVITES === 'true',
   // Organiser Home "<class> has no teacher yet" waiting row (brief #2286). OFF = Home is exactly as before, no extra call.
   organiserNoTeachersCard: import.meta.env.VITE_ENABLE_ORGANISER_NO_TEACHERS_CARD === 'true',
+  // Organiser Home "Classes this week" card with each class's teachers (brief #2309). OFF = Home is exactly as before, no extra call.
+  organiserHomeClassesWeek: import.meta.env.VITE_ENABLE_ORGANISER_HOME_CLASSES_WEEK === 'true',
   // Raffle data requests (brief #2227): one line in /privacy to a /privacy/raffle-data page with an Email us button,
   // and "You agreed on 24 Nov 2026" on the export page. OFF = every screen exactly as before.
   // Turn on with VITE_ENABLE_RAFFLE_PRIVACY_LINE=true (Vercel env) -- no code change.

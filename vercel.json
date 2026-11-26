@@ -152,6 +152,11 @@
       "source": "/cities",
       "destination": "/city/london-gb",
       "permanent": true
+    },
+    {
+      "source": "/city/:slug/calendar",
+      "destination": "/city/:slug",
+      "permanent": true
     }
   ],
   "headers": [

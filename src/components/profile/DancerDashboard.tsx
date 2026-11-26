@@ -214,7 +214,8 @@ export const DancerDashboard = () => {
     return next;
   };
 
-  const calendarPath = citySlug ? buildCityPath(citySlug, 'calendar') : '/';
+  // The city home is the event list (S2e: /city/:slug/calendar 301s there).
+  const calendarPath = citySlug ? buildCityPath(citySlug) : '/';
 
   /**
    * Stored row -> form. PURE, because the partner tile must build a hydrated form
@@ -731,7 +732,7 @@ export const DancerDashboard = () => {
       // The same fact as completion step 3 (hasActivity): one mapping, never two.
       subtitle: hasActivity ? 'Nights in your list' : 'Find your next night',
       preview: 'Socials, classes and festivals near you',
-      actionLabel: 'Open calendar',
+      actionLabel: 'See events',
       status: hasActivity ? 'live' : 'attention',
       icon: CalendarDays,
       sizeClass: 'col-span-6 lg:col-span-4 lg:row-span-1',
