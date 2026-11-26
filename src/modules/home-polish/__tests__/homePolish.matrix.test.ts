@@ -15,31 +15,28 @@ const base = {
 };
 
 describe('menu rows per role', () => {
-  const cases: [MenuRole, boolean, string[], number][] = [
-    ['signedOut', false, ['signin'], 8],
-    ['signedOut', true, ['signin'], 9],
-    ['signedIn', false, ['profile'], 8],
-    ['organiser', true, ['profile', 'orgdash', 'sell'], 9],
+  const cases: [MenuRole, string[], number][] = [
+    ['signedOut', ['signin'], 9],
+    ['signedIn', ['profile'], 9],
+    ['organiser', ['profile', 'orgdash', 'sell'], 9],
   ];
-  it.each(cases)('%s (raffles %s)', (role, rafflesOn, accountIds, browseCount) => {
-    const { account, browse } = menuRows({ ...base, role, rafflesOn });
+  it.each(cases)('%s', (role, accountIds, browseCount) => {
+    const { account, browse } = menuRows({ ...base, role });
     expect(account.map((r) => r.id)).toEqual(accountIds);
     expect(browse).toHaveLength(browseCount);
-    expect(browse.some((r) => r.id === 'raffles')).toBe(rafflesOn);
+    expect(browse.some((r) => r.id === 'raffles')).toBe(false);
+    expect(browse.find((r) => r.id === 'forOrganisers')?.href).toBe('/for-organisers');
     // Every row the brief names is present, every href is real.
-    for (const id of ['dancers', 'teachers', 'djs', 'organisers', 'venues', 'festivals', 'cities', 'community']) {
+    for (const id of ['dancers', 'teachers', 'djs', 'organisers', 'venues', 'festivals', 'forOrganisers', 'cities', 'community']) {
       expect(browse.find((r) => r.id === id)?.href).toBeTruthy();
     }
     expect(browse.find((r) => r.id === 'community')?.external).toBe(true);
   });
-  it.each([[true, ['organisers', 'venues', 'raffles']], [false, ['organisers', 'venues']]] as const)(
-    'end-of-feed block mirrors the menu rows (raffles %s)',
-    (on, ids) => {
-      const rows = feedEndRows('/city/london-gb/venues', on);
-      expect(rows.map((r) => r.id)).toEqual(ids);
-      expect(rows.find((r) => r.id === 'venues')?.href).toBe('/city/london-gb/venues');
-    },
-  );
+  it('end-of-feed block mirrors the menu rows', () => {
+    const rows = feedEndRows('/city/london-gb/venues');
+    expect(rows.map((r) => r.id)).toEqual(['organisers', 'venues', 'forOrganisers']);
+    expect(rows.find((r) => r.id === 'venues')?.href).toBe('/city/london-gb/venues');
+  });
   it('support has exactly the three Stripe links', () => {
     expect(SUPPORT_LINKS.map((s) => s.label)).toEqual(['£3', '£5', '£10']);
     for (const s of SUPPORT_LINKS) expect(s.href.startsWith('https://buy.stripe.com/')).toBe(true);

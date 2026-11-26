@@ -188,7 +188,7 @@ function TonightBody({ state }: { state: UseMapListResult }) {
 /** homePolish end-of-feed link block (critique add): where to go next once the feed runs out. */
 function FeedEndLinks({ citySlug }: { citySlug?: string | null }) {
   // The SAME rows the menu sheet shows (one mapping, never two copies).
-  const links = feedEndRows(buildCityPath(citySlug ?? null, 'venues'), flags.rafflesPage);
+  const links = feedEndRows(buildCityPath(citySlug ?? null, 'venues'));
   return (
     <nav aria-label="More to explore" className="mt-6 grid grid-cols-3 gap-2">
       {links.map((l) => (

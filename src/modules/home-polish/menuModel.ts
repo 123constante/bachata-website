@@ -20,7 +20,6 @@ export interface MenuInput {
   signInHref: string;
   venuesHref: string;
   communityHref: string;
-  rafflesOn: boolean;
   accountHref: string;
   organiserHomeHref: string;
   sellTicketsHref: string;
@@ -43,7 +42,7 @@ export function menuRows(i: MenuInput): { account: MenuRow[]; browse: MenuRow[] 
     { id: 'djs', label: 'DJs', emoji: '\u{1F3A7}', href: '/djs', bob: '1.8s' },
     { id: 'organisers', label: 'Organisers', emoji: '\u{1F3AA}', href: '/organisers', bob: '1.6s' },
     { id: 'venues', label: 'Venues', emoji: '\u{1F3DB}\u{FE0F}', href: i.venuesHref, bob: '1.8s' },
-    ...(i.rafflesOn ? [{ id: 'raffles', label: 'Raffles', emoji: '\u{1F381}', href: '/raffles', bob: '1.7s' }] : []),
+    { id: 'forOrganisers', label: 'For organisers', emoji: '\u{1F4E3}', href: '/for-organisers', bob: '1.7s' },
     { id: 'festivals', label: 'Festivals', emoji: '\u{1F389}', href: '/festivals', bob: '2.1s' },
     // Site structure S2d-2: London is the only active city, so the city switch is one row
     // straight to its page (/cities now 301s there). More cities = turn this into a picker.
@@ -53,13 +52,13 @@ export function menuRows(i: MenuInput): { account: MenuRow[]; browse: MenuRow[] 
   return { account, browse };
 }
 
-/** End-of-feed link block: Organisers, Venues, Raffles -- taken from the menu's own rows. */
-export function feedEndRows(venuesHref: string, rafflesOn: boolean): MenuRow[] {
+/** End-of-feed link block: Organisers, Venues, For organisers -- taken from the menu's own rows. */
+export function feedEndRows(venuesHref: string): MenuRow[] {
   const { browse } = menuRows({
-    role: 'signedOut', signInHref: '', venuesHref, communityHref: '', rafflesOn,
+    role: 'signedOut', signInHref: '', venuesHref, communityHref: '',
     accountHref: '', organiserHomeHref: '', sellTicketsHref: '',
   });
-  return browse.filter((r) => r.id === 'organisers' || r.id === 'venues' || r.id === 'raffles');
+  return browse.filter((r) => r.id === 'organisers' || r.id === 'venues' || r.id === 'forOrganisers');
 }
 
 export const RATE_US_URL = 'https://g.page/r/Cc1SYPxlRrkmEBE/review';
