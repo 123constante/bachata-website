@@ -9,6 +9,8 @@ import { SessionSheetV2 } from './SessionSheetV2';
 import { V2Sheet } from './V2Sheet';
 import { V2 } from './copy';
 import { nightSessionsOff, type WriteStep } from './editorModel';
+import { flags } from '@/lib/featureFlags';
+import { FWD, buildForward, forwardLabel, laterNights, teachersChanged } from './forwardTeachers';
 
 const W = V2.whenSheet;
 
@@ -46,8 +48,8 @@ export function SessionRows({ rows, onOpen }: { rows: DraftSession[]; onOpen: (r
 }
 
 /** SH-WHEN: this night's date (one-off only) and its classes and party. Saves at once through onSave. */
-export function WhenSheet({ date, oneOff, today, onSave, onClose }: {
-  date: WorkspaceDate; oneOff: boolean; today: string; onSave: OnSave; onClose: () => void;
+export function WhenSheet({ date, oneOff, today, onSave, onClose, laterDates }: {
+  date: WorkspaceDate; laterDates?: WorkspaceDate[]; oneOff: boolean; today: string; onSave: OnSave; onClose: () => void;
 }) {
   const why = nightSessionsOff(date, today, false);
   const prog = useDateProgramme(why ? null : date.id);
@@ -60,6 +62,8 @@ export function WhenSheet({ date, oneOff, today, onSave, onClose }: {
   const [dateVal, setDateVal] = useState(date.occurrence_date);
   const [dateErr, setDateErr] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const [ask, setAsk] = useState<{ next: DraftSession[]; edited: DraftSession; later: WorkspaceDate[] } | null>(null);
+  const [askBusy, setAskBusy] = useState(false);
 
   const save = async (next: DraftSession[]): Promise<boolean> => {
     if (!prog.data) return false;
@@ -71,9 +75,27 @@ export function WhenSheet({ date, oneOff, today, onSave, onClose }: {
     return r.ok;
   };
   const onDone = (row: DraftSession) => {
+    const was = editing?.row;
     setEditing(null);
+    if (flags.organiserTeachersForward && !oneOff && was && laterDates && teachersChanged(was, row)) {
+      const later = laterNights(laterDates, date, today);
+      if (later.length > 0) { setAsk({ next: original.map((r) => (r.key === was.key ? row : r)), edited: row, later }); return; }
+    }
     void save(editing?.row ? original.map((r) => (r.key === editing.row?.key ? row : r)) : [...original, row]);
   };
+  const saveForward = async () => {
+    if (!ask || !prog.data) return;
+    const bad = validateProgramme(ask.next).rows[0];
+    if (bad) { setAsk(null); setProblem(bad.message); return; }
+    setAskBusy(true);
+    const fwd = await buildForward(ask.edited, ask.later);
+    const step: WriteStep = { part: V2.nightSessions, target: 'programme', id: date.id, version: prog.data.version, command: null, payload: buildPayload(ask.next), order: 2 };
+    const r = await onSave([step, ...fwd.steps], [{ payload: buildPayload(original) }, ...fwd.before], forwardLabel(1 + fwd.changed, fwd.skipped));
+    setAskBusy(false);
+    setProblem(r.ok ? null : r.error);
+    setAsk(null);
+  };
+  const justThis = () => { const next = ask?.next; setAsk(null); if (next) void save(next); };
   const onRemove = (row: DraftSession) => {
     setEditing(null);
     if (!row.original) return;
@@ -112,6 +134,15 @@ export function WhenSheet({ date, oneOff, today, onSave, onClose }: {
       {editing && (
         <SessionSheetV2 row={editing.row} count={shown.length} ctx="night" dayLabel={long}
           onDone={onDone} onRemove={onRemove} onClose={() => setEditing(null)} />
+      )}
+      {ask && (
+        <V2Sheet open title={FWD.title} onClose={() => setAsk(null)}>
+          <div className="grp">
+            <button type="button" className="btn sec" style={{ minHeight: 48 }} disabled={askBusy} onClick={justThis}>{FWD.justThis}</button>
+            <button type="button" className="btn pri" style={{ minHeight: 48 }} disabled={askBusy} onClick={() => void saveForward()}>{askBusy ? FWD.saving : FWD.allLater}</button>
+            <p className="hint">{FWD.laterCount(ask.later.length)}</p>
+          </div>
+        </V2Sheet>
       )}
     </V2Sheet>
   );
