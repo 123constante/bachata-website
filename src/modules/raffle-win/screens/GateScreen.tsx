@@ -1,6 +1,7 @@
 // Winner journey W4a: signed-out gate. Controlled, unrouted. Copy is the frozen prototype's.
 import { Link } from 'react-router-dom';
 import { winAuthHref } from '../model';
+import { flags } from '@/lib/featureFlags';
 
 export const FROM_AUTH_KEY = 'raffle_win_from_auth';
 export const markFromAuth = () => {
@@ -23,7 +24,29 @@ export function Ticket({ title, stub, heading }: { title: string; stub: React.Re
   );
 }
 
+function GatePolished({ token }: { token: string }) {
+  return (
+    <main className="flex min-h-[100dvh] flex-col justify-center gap-4 bg-[#150a1c] px-5 py-6 text-[#f7ecd9]" data-testid="win-gate">
+      <Ticket heading title="You won a free night" stub={<span>Sealed. Sign in to open it.</span>} />
+      <p className="text-[16px] text-[#f7ecd9]/70">Sign in to claim it. Keep this link private.</p>
+      <Link
+        to={winAuthHref(token)}
+        onClick={markFromAuth}
+        className="flex h-[56px] w-full items-center justify-center rounded-[18px] bg-[#ec3458] text-[17px] font-bold text-white"
+      >
+        Sign in to claim
+      </Link>
+      <details className="text-[14px] text-[#f7ecd9]/70" data-testid="win-gate-why">
+        <summary className="flex min-h-[44px] cursor-pointer items-center underline underline-offset-4">Why sign in?</summary>
+        <p className="pb-2">This link works until an organiser cancels it, so keep it private.</p>
+        <p>The first account to sign in keeps the prize. Do not forward this link.</p>
+      </details>
+    </main>
+  );
+}
+
 export default function GateScreen({ token }: { token: string }) {
+  if (flags.raffleWinPolish) return <GatePolished token={token} />;
   return (
     <main className="flex min-h-[100dvh] flex-col justify-center gap-4 bg-[#150a1c] px-5 py-6 text-[#f7ecd9]" data-testid="win-gate">
       <Ticket heading title="You won a free night" stub={<span>Sealed. Sign in to open it.</span>} />

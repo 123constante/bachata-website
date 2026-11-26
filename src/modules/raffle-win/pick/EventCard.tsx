@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { CalendarDays, Check, ChevronDown } from 'lucide-react';
+import { flags } from '@/lib/featureFlags';
 import { DATES_HEAD, DATES_HEAD_ONE } from './pickCopy';
 import type { PickEvent, PickSelection } from './pickModel';
 
@@ -10,7 +12,11 @@ type Props = {
   onPickDate: (event: PickEvent, occurrenceId: string) => void;
 };
 
+const initialsOf = (t: string) => t.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?';
+
 export function EventCard({ event, open, selection, onToggle, onPickDate }: Props) {
+  const [broken, setBroken] = useState(false);
+  const polish = flags.raffleWinPolish;
   const picked = selection?.eventKey === event.key ? event.dates.find((d) => d.occurrenceId === selection.occurrenceId) : undefined;
   return (
     <div
@@ -23,8 +29,12 @@ export function EventCard({ event, open, selection, onToggle, onPickDate }: Prop
         onClick={() => onToggle(event)}
         className="flex min-h-[62px] w-full items-center gap-3 py-[9px] pl-[10px] pr-[10px] text-left"
       >
-        {event.posterUrl ? (
-          <img src={event.posterUrl} alt="" loading="lazy" className="h-[50px] w-[40px] flex-none rounded-[8px] object-cover" />
+        {event.posterUrl && !(polish && broken) ? (
+          <img src={event.posterUrl} alt="" loading="lazy" onError={polish ? () => setBroken(true) : undefined} className="h-[50px] w-[40px] flex-none rounded-[8px] object-cover" />
+        ) : polish ? (
+          <span data-testid="pick-flyer-fallback" className="grid h-[50px] w-[40px] flex-none place-items-center rounded-[8px] bg-[#3a2f42] text-[14px] font-bold text-white/60">
+            {initialsOf(event.title)}
+          </span>
         ) : (
           <span data-testid="pick-flyer-fallback" className="grid h-[50px] w-[40px] flex-none place-items-center rounded-[8px] bg-[#3a2f42] text-white/50">
             <CalendarDays className="h-[20px] w-[20px]" aria-hidden="true" />

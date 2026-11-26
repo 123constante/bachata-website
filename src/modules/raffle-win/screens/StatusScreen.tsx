@@ -1,5 +1,7 @@
 // Winner journey W4a: status screens (none, error, other, cancel). Controlled, unrouted.
 import { Link } from 'react-router-dom';
+import { flags } from '@/lib/featureFlags';
+import { ACCOUNT_CONTACT_EMAIL } from '@/lib/accountDeletionCopy';
 
 export type StatusKind = 'none' | 'error' | 'other' | 'cancel';
 
@@ -34,6 +36,15 @@ export default function StatusScreen({ kind, afterLock, onAction }: Props) {
       </div>
       {kind === 'none' ? <button type="button" className={primary} onClick={onAction}>Check again</button> : null}
       {kind === 'error' ? <button type="button" className={primary} onClick={onAction}>Retry</button> : null}
+      {(kind === 'other' || kind === 'cancel') && flags.raffleWinPolish ? (
+        <a
+          href={`mailto:${ACCOUNT_CONTACT_EMAIL}?subject=${encodeURIComponent('My raffle prize')}`}
+          className={`${primary} mb-2`}
+          data-testid="win-message-organiser"
+        >
+          Message the organiser
+        </a>
+      ) : null}
       {kind === 'other' || kind === 'cancel' ? <Link to="/" className={quiet}>See what is on</Link> : null}
     </main>
   );

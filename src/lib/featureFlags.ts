@@ -33,6 +33,8 @@ export const flags = {
   raffleDoorTime:      import.meta.env.VITE_ENABLE_RAFFLE_DOOR_TIME === 'true',
   // Raffle winner photo: face-guide + in-browser background removal. OFF = today's photo step.
   raffleCutout:        import.meta.env.VITE_ENABLE_RAFFLE_PHOTO_CUTOUT === 'true',
+  // /raffle/win/:token polish (shorter gate, door-photo wording, flyers, contact buttons). OFF = today's screens.
+  raffleWinPolish:     import.meta.env.VITE_ENABLE_RAFFLE_WIN_POLISH === 'true',
   // Federated search v5 (Cmd+K / mobile full-screen overlay + search_public_v5).
   // When false the existing HeaderSearch omnibox (search_public_v4) renders
   // unchanged, so prod is untouched until this flips per-environment.
