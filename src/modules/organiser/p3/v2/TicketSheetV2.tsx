@@ -77,6 +77,8 @@ export async function writeTicket(a: { organiserId: string; seriesId: string; ty
 export const formOfType = (t: Pick<TicketType, 'name' | 'pricePence' | 'capacity'>, steps: readonly PriceStep[], base = t.pricePence): TicketForm =>
   ({ name: t.name, free: base === 0 && !steps.length, qty: t.capacity, ...formOfStored(base, steps) });
 
+export const EARLY_OFF_FIRST = 'A free ticket cannot have an early bird price. Turn Free off, turn Cheaper first tickets off, then save.';
+
 export interface TicketSheetProps {
   organiserId: string;
   seriesId: string;
@@ -142,6 +144,8 @@ export function TicketSheetV2(p: TicketSheetProps) {
     const back = p.type ? formOfType(p.type, p.steps, p.basePence) : null;
     const earlyBad = earlyShown ? earlyInvalid(early) : null;
     if (earlyBad) { setErr(earlyReasonMessage(earlyBad)); return; }
+    // A saved early tier cannot ride on a free ticket (the early price would still be charged): refuse before any write.
+    if (flags.ticketEarlyBird && f.free && p.managed?.earlyPricePence != null) { setErr(EARLY_OFF_FIRST); return; }
     const out: Out = savedId.current
       ? { ok: true, id: savedId.current, changed: false }
       : await writeTicket({ organiserId: p.organiserId, seriesId: p.seriesId, type: p.type, basePence: p.basePence, steps: p.steps, form: f })
