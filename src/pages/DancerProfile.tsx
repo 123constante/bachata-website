@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, Image } from "lucide-react";
@@ -28,6 +29,7 @@ import { DancerWorldLoading, DancerWorldMissing, DancerWorldPage } from "@/modul
 import { showsJoinInvite } from "@/modules/person-page/facts";
 import { buildBreadcrumbs } from "@/lib/breadcrumbs";
 import { PUBLIC_LINK_REL } from '@/lib/organiserLinkLabels';
+import { emitProfileView } from '@/lib/profileViewEmit';
 
 type DancerProfileProps = {
   /** From the route loader: v2 when the dancer area is open, else null/absent = today's page. */
@@ -83,6 +85,13 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
   // The world shell's join invite reads the viewer (signed-out / anonymous only).
   const { user } = useAuth();
   const error = dancerError ? (dancerError as Error).message || "Failed to load dancer profile" : null;
+  // Count every open of the profile page (shared link, search, typed URL, Back), not just link taps.
+  // Server dedupes per person + browser session + UTC day, so this is a no-op after a link-tap emit.
+  const viewedId = dancer && dancerView ? dancerView.id : undefined;
+  useEffect(() => {
+    if (!viewedId) return;
+    emitProfileView({ personId: viewedId, profileType: 'dancer', context: 'profile-page' });
+  }, [viewedId]);
   // People arc S2b (flags.personWorlds, not embedded): every state in the one world shell, so the
   // frame sits where the DJ world's does. OFF (and embedded) = the states below, unchanged.
   const worlds = flags.personWorlds && !embedded;
