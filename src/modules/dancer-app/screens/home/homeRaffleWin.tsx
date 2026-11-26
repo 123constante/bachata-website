@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { Calendar, Check, Lock, MapPin, Maximize2, Share2, ShieldCheck } from 'lucide-react';
+import { Calendar, Check, Lock, MapPin, ShieldCheck } from 'lucide-react';
 
 import { Card } from '@/modules/organiser/ui';
 import { useAuth } from '@/hooks/useAuth';
@@ -11,6 +11,10 @@ import { useMyDancerEdit } from '../../api/useMyDancerEdit';
 import { doorUrl } from '../../../raffle-win/model';
 import { daysUntilKey, parseMyWins, takeFreshFlag, type RaffleWinCard } from './raffleWinModel';
 import RaffleDoorView from './RaffleDoorView';
+
+const svgP = { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true } as const;
+const BigIcon = () => <svg {...svgP} width={16} height={16}><path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5" /></svg>;
+const ShareBoxIcon = () => <svg {...svgP} width={20} height={20}><path d="M12 15V4M8 8l4-4 4 4M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" /></svg>;
 
 const TicketQrCode = lazy(() => import('../../../tickets/TicketQrCode'));
 
@@ -78,7 +82,7 @@ const GoldenWin = ({ card, fresh, onRetry, onShare }: { card: RaffleWinCard; fre
   const won = fresh && !card.attended && !!n;
   const heading = won ? `You won, ${first}!` : card.attended ? 'You\u2019re in. Enjoy the night!' : n ? `Your free night ${when}` : 'Your free night';
   const meta = look ? { margin: '4px 0 0', fontSize: 14, display: 'flex', gap: 8, alignItems: 'center', color: 'var(--muted)' } : { margin: '2px 0 0', fontSize: 14, display: 'flex', gap: 6, alignItems: 'center' };
-  const shareBtn = <button type="button" className="da-tap" data-testid="gt-share" style={{ ...(look ? gtBtnLook(won) : gtBtn(won)), display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }} onClick={() => void share()}><Share2 size={16} aria-hidden="true" /> Tell a friend</button>;
+  const shareBtn = <button type="button" className="da-tap" data-testid="gt-share" style={{ ...(look ? gtBtnLook(won) : gtBtn(won)), display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }} onClick={() => void share()}><ShareBoxIcon /> Tell a friend</button>;
   return (
     <section data-testid="raffle-win-card" className={look ? 'hgl' : undefined} style={{ display: 'grid', gap: 12, position: 'relative' }}>
       <style>{look ? GT_CSS + HGL_CSS : GT_CSS}</style>
@@ -129,7 +133,7 @@ const GoldenWin = ({ card, fresh, onRetry, onShare }: { card: RaffleWinCard; fre
             <span>
               <b style={{ display: 'block', fontSize: 17, lineHeight: 1.2 }}>Tap to show at the door</b>
               <span style={{ fontSize: 13, ...(look ? { color: 'var(--muted)' } : {}) }}>Opens big and bright</span><br />
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, background: look ? 'var(--brand)' : 'var(--da-accent)', color: look ? 'var(--brand-ink)' : 'var(--da-on-accent, #fff)', fontWeight: 800, fontSize: 13, padding: '8px 12px', borderRadius: 14 }}><Maximize2 size={16} aria-hidden="true" /> Make it big</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, background: look ? 'var(--brand)' : 'var(--da-accent)', color: look ? 'var(--brand-ink)' : 'var(--da-on-accent, #fff)', fontWeight: 800, fontSize: 13, padding: '8px 12px', borderRadius: 14 }}><BigIcon /> Make it big</span>
             </span>
           </button>
         )}

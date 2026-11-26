@@ -143,6 +143,28 @@ describe('golden ticket states', () => {
   });
 });
 
+describe('golden door sheet and icons (prototype A)', () => {
+  it('portals a white fixed sheet to body, Fraunces heading, gradient avatar, Done and Esc close', async () => {
+    rpc.mockResolvedValue({ data: WIN(NIGHT), error: null });
+    shell();
+    expect(await screen.findByText('Your free night is in 3 days')).toBeTruthy();
+    expect(document.querySelector('path[d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"]')).toBeTruthy();
+    expect(document.querySelector('path[d="M12 15V4M8 8l4-4 4 4M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"]')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('raffle-win-qr'));
+    const sheet = await screen.findByTestId('golden-door-sheet');
+    expect(sheet.parentElement).toBe(document.body);
+    expect(sheet.style.position).toBe('fixed');
+    expect(sheet.style.background).toMatch(/#fff|rgb\(255, 255, 255\)/);
+    expect((await screen.findByText('Show this at the door')).style.fontFamily).toMatch(/Fraunces/);
+    expect(screen.getByTestId('golden-door-avatar').style.background).toMatch(/linear-gradient/);
+    expect(document.body.style.overflow).toBe('hidden');
+    fireEvent.click(screen.getByTestId('raffle-door-back'));
+    expect(await screen.findByTestId('raffle-win-card')).toBeTruthy();
+    expect(screen.queryByTestId('golden-door-sheet')).toBeNull();
+    expect(document.body.style.overflow).not.toBe('hidden');
+  });
+});
+
 describe('homeGoldenLook (prototype A)', () => {
   const Probe = () => <i data-testid="probe">{String(useHasRaffleWin())}</i>;
   it('gradient even with a poster, gold chip, Fraunces heading, win store true', async () => {
