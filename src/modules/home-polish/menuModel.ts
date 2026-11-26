@@ -45,7 +45,9 @@ export function menuRows(i: MenuInput): { account: MenuRow[]; browse: MenuRow[] 
     { id: 'venues', label: 'Venues', emoji: '\u{1F3DB}\u{FE0F}', href: i.venuesHref, bob: '1.8s' },
     ...(i.rafflesOn ? [{ id: 'raffles', label: 'Raffles', emoji: '\u{1F381}', href: '/raffles', bob: '1.7s' }] : []),
     { id: 'festivals', label: 'Festivals', emoji: '\u{1F389}', href: '/festivals', bob: '2.1s' },
-    { id: 'cities', label: 'Cities and countries', emoji: '\u{1F30D}', href: '/cities', bob: '1.9s' },
+    // Site structure S2d-2: London is the only active city, so the city switch is one row
+    // straight to its page (/cities now 301s there). More cities = turn this into a picker.
+    { id: 'cities', label: 'City: London', emoji: '\u{1F4CD}', href: '/city/london-gb', bob: '1.9s' },
     { id: 'community', label: 'Community', emoji: '\u{1F4AC}', href: i.communityHref, external: true, bob: '2.0s' },
   ];
   return { account, browse };

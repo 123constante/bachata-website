@@ -147,6 +147,11 @@
       "source": "/bachata-london-dominican-parties",
       "destination": "/parties",
       "permanent": true
+    },
+    {
+      "source": "/cities",
+      "destination": "/city/london-gb",
+      "permanent": true
     }
   ],
   "headers": [
