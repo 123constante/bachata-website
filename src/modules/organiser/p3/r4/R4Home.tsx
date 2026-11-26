@@ -24,6 +24,7 @@ import { StripeStatusCard } from './StripeStatusCard';
 import { fetchNightMoney, nightMoneyQueryKey } from './r4MoneyApi';
 import { moneyQuietOf, nightMoneyOf, R4_MONEY_COPY } from './r4MoneyModel';
 import { FAIL_COPY, InviteReadySheet, classTeachersWeek, classTeachersWeekKey, classesWithoutTeachers, noTeachersKey, fetchWaitingInvites, inviteMessage, joinLink, resendClassInvite, waitingInvitesKey } from '../v2/ClassInvites';
+import { codeOf, decideTeachRequest, organiserTeachRequests, organiserTeachRequestsKey, type OrganiserTeachRequest } from '@/modules/class-teach/teachRequestsApi';
 import { R4_EMPTY_HOME, classTimeLabel, inviteDateLabel, r4AloneOf, r4HomeOf, r4WaitingOf, type R4Door, type R4NextNight, type R4WaitItem } from './r4Model';
 
 function Row({ to, label, end, testId }: { to: string; label: string; end?: string; testId: string }) {
@@ -154,6 +155,85 @@ export function WaitingList({ rows, pageId }: { rows: readonly P3Row[]; pageId: 
         <p className="r4-err" role="alert" data-testid="r4-wait-error">We could not load join requests. <button type="button" className="r4-linkbtn" onClick={() => void requests.refetch()}>Try again</button></p>
       )}
       {ready && <InviteReadySheet ready={ready} onClose={() => { setReady(null); void qc.invalidateQueries({ queryKey: waitingInvitesKey(pageId) }); }} />}
+    </section>
+  );
+}
+
+const TEACH_MAX = 5;
+const TEACH_BTN: import('react').CSSProperties = { height: 44, minWidth: 88, flex: 1 };
+
+function TeachRequestRow({ r, today, onDone }: { r: OrganiserTeachRequest; today: string; onDone: (r: OrganiserTeachRequest, accepted: boolean) => void }) {
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<'closed' | 'error' | null>(null);
+  const decide = async (accept: boolean) => {
+    setSaving(true);
+    setMsg(null);
+    try {
+      await decideTeachRequest(r.request_id, accept);
+      onDone(r, accept);
+    } catch (e) {
+      setMsg(codeOf(e) === 'class_closed' ? 'closed' : 'error');
+      setSaving(false);
+    }
+  };
+  const closed = msg === 'closed';
+  const initial = (r.teacher_name || '?').trim().charAt(0).toUpperCase();
+  return (
+    <div className="r4-row r4-row-tall" style={{ flexWrap: 'wrap', padding: '10px 16px' }} data-testid={`r4-teach-${r.request_id}`}>
+      {r.teacher_photo_url
+        ? <img src={r.teacher_photo_url} alt="" width={36} height={36} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flex: 'none' }} />
+        : <span aria-hidden="true" style={{ width: 36, height: 36, borderRadius: '50%', background: '#E9E9E9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flex: 'none' }}>{initial}</span>}
+      <span className="r4-row-body">
+        <span className="r4-row-t">{r.teacher_name} wants to teach</span>
+        <span className="r4-row-line">{r.class_title}, {dayWord(r.night_date, today)}, {r.event_name}</span>
+      </span>
+      <div style={{ display: 'flex', gap: 8, width: '100%' }}>
+        {!closed && <button type="button" className="r4-btn" style={TEACH_BTN} disabled={saving} onClick={() => void decide(true)}>Accept</button>}
+        <button type="button" className="r4-btn r4-btn-quiet" style={TEACH_BTN} disabled={saving} onClick={() => void decide(false)}>Decline</button>
+      </div>
+      {closed && <span className="r4-row-line" style={{ width: '100%' }}>This class is closed.</span>}
+      {msg === 'error' && <span className="r4-row-line" style={{ width: '100%' }}>Couldn&rsquo;t save. Try again.</span>}
+    </div>
+  );
+}
+
+/** "Teacher requests" (flag teachRequests): who asked to teach a class; one-tap Accept (this night only) or Decline. */
+export function TeachRequestsCard({ pageId, today }: { pageId: string; today: string }) {
+  const qc = useQueryClient();
+  const q = useQuery({
+    queryKey: organiserTeachRequestsKey(pageId),
+    queryFn: () => organiserTeachRequests(pageId),
+    enabled: flags.teachRequests,
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
+  const [hidden, setHidden] = useState<string[]>([]);
+  const [added, setAdded] = useState<OrganiserTeachRequest[]>([]);
+  const data = flags.teachRequests && Array.isArray(q.data) ? q.data.filter((r) => !hidden.includes(r.request_id) && !added.some((a) => a.request_id === r.request_id)) : [];
+  const onDone = (r: OrganiserTeachRequest, accepted: boolean) => {
+    setHidden((h) => [...h, r.request_id]);
+    if (accepted) {
+      setAdded((a) => [...a, r]);
+      setTimeout(() => setAdded((a) => a.filter((x) => x.request_id !== r.request_id)), 3000);
+      void qc.invalidateQueries({ queryKey: classTeachersWeekKey(pageId) });
+      void qc.invalidateQueries({ queryKey: noTeachersKey(pageId) });
+    }
+    void qc.invalidateQueries({ queryKey: organiserTeachRequestsKey(pageId) });
+  };
+  const shown = data.slice(0, TEACH_MAX);
+  if (shown.length === 0 && added.length === 0) return null;
+  return (
+    <section className="r4-section" aria-labelledby="r4-teach-h">
+      <h2 id="r4-teach-h" className="r4-label">Teacher requests</h2>
+      <div className="r4-card r4-list" data-testid="r4-teach-requests">
+        {added.map((r) => (
+          <div key={r.request_id} className="r4-row r4-row-tall" data-testid={`r4-teach-added-${r.request_id}`}>
+            <span className="r4-row-t">{r.teacher_name.split(' ')[0]} added to {r.class_title}.</span>
+          </div>
+        ))}
+        {shown.map((r) => <TeachRequestRow key={r.request_id} r={r} today={today} onDone={onDone} />)}
+        {data.length > TEACH_MAX && <div className="r4-row"><span className="r4-row-line">+{data.length - TEACH_MAX} more</span></div>}
+      </div>
     </section>
   );
 }
@@ -311,6 +391,7 @@ export function R4Home() {
           {flags.organiserDash && past.nights.length > 0 && <Row to={compareTo} label="Compare with other nights" testId="r4-row-compare" />}
         </div>
       )}
+      {m.face !== 'after' && flags.teachRequests && c.page && <TeachRequestsCard pageId={c.page.id} today={today} />}
       {m.face !== 'after' && flags.organiserHomeClassesWeek && c.page && <ClassesWeekCard pageId={c.page.id} today={today} />}
       {(m.face === 'before' || m.face === 'empty') && c.page && <WaitingList rows={rows} pageId={c.page.id} />}
     </div>
