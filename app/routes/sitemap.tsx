@@ -8,6 +8,7 @@ import { NOT_PUBLIC_LIFECYCLE } from "@/modules/profile/organiserPublicProfile";
 import { fetchOrganiserDirectoryHiddenIds, withoutHiddenOrganisers } from "@/lib/organiserDirectoryHiddenIds";
 import { withSsrLoaderTimeout } from "../lib/ssrLoaderTimeout";
 import { eventSubdomainLinksEnabled, eventSubdomainOrigin, isSubdomainLabel } from "../lib/eventSubdomain";
+import { organiserSubdomainLinksEnabled, organiserSubdomainOrigin } from "../lib/organiserSubdomain";
 import { teachersSitemapPaths, type CityRow } from "@/modules/teachers-directory/teachersCity";
 
 // Live /sitemap.xml resource route (loader-only, no component) - replaces the
@@ -204,10 +205,11 @@ async function fetchOrganiserProfiles(): Promise<UrlRow[]> {
     .order("updated_at", { ascending: false })
     .limit(500), fetchOrganiserDirectoryHiddenIds(db)]);
   if (error) throw error;
+  const subdomains = organiserSubdomainLinksEnabled();
   return withoutHiddenOrganisers((data ?? []) as Array<ProfileRow & PublicNameSource>, hiddenIds)
     .filter((o) => resolvePublicName(o) !== null)
     .map((o) => ({
-    loc: `${BASE_URL}/organisers/${o.slug || o.id}`,
+    loc: subdomains && isSubdomainLabel(o.slug) ? `${organiserSubdomainOrigin(o.slug)}/` : `${BASE_URL}/organisers/${o.slug || o.id}`,
     lastmod: toDate(o.updated_at),
     changefreq: "weekly",
     priority: "0.7",

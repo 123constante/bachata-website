@@ -24,6 +24,9 @@ import {
   redirectToCanonicalSlug,
   normalizeOgImage,
 } from "../detailLoader";
+import { redirect } from "react-router";
+import { isSubdomainLabel, isWwwOrApexHost, parseEventHost } from "../lib/eventSubdomain";
+import { organiserSubdomainLinksEnabled, organiserSubdomainOrigin } from "../lib/organiserSubdomain";
 import { withSsrLoaderTimeout } from "../lib/ssrLoaderTimeout";
 import { stampOrganiser, ORGANISERS } from "../cacheTags";
 import { seoInputToMeta } from "../seoMeta";
@@ -61,6 +64,15 @@ export const loader = withSsrLoaderTimeout("organiser-loader", async function lo
   const qc = createServerQueryClient();
   const ref = await resolveEntityInLoader(qc, "organiser_profiles", params.id);
   if (!ref.id) throwDetailNotFound("Organiser");
+  // Sub-address flag ON: www/apex /organisers/<uuid|current|old slug> goes to the
+  // CURRENT slug's sub-address in ONE hop (no chain via /organisers/<current>). Not for
+  // the sub-address host itself nor *.vercel.app previews. Flag OFF: unchanged below.
+  const requestHost =
+    request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? new URL(request.url).host;
+  const subdomainOn = organiserSubdomainLinksEnabled() && isSubdomainLabel(ref.slug);
+  if (subdomainOn && parseEventHost(requestHost).kind === "none" && isWwwOrApexHost(requestHost)) {
+    throw redirect(`${organiserSubdomainOrigin(ref.slug as string)}/`, 301);
+  }
   redirectToCanonicalSlug(ref, params.id, request, "/organisers");
 
   // A thunk, not an eager promise: `ref.slug` is populated ONLY when
@@ -169,6 +181,8 @@ export const loader = withSsrLoaderTimeout("organiser-loader", async function lo
     // DOWNGRADE for every organiser who wrote one: they would trade a real
     // description for the generic "<name> runs bachata events in <city>".
     bioDescription: truncate(row.bio as string | null, HEAD_DESCRIPTION_MAX) || undefined,
+    // Flag ON: the canonical is the sub-address (also on the sub-address itself).
+    canonicalUrl: subdomainOn ? `${organiserSubdomainOrigin(ref.slug as string)}/` : undefined,
     ogImage: normalizeOgImage({
       rawUrl: row.avatar_url as string | null,
       request,
@@ -229,7 +243,11 @@ export const meta: Route.MetaFunction = ({ data }) => {
   // Prefer the organiser's own words over the route template, but keep every
   // other field (title, canonical, og:*, and crucially the noindex derived from
   // a falsy entityName) coming from buildSeoForRoute.
-  return seoInputToMeta({ ...seo, description: data.bioDescription ?? seo.description });
+  return seoInputToMeta({
+    ...seo,
+    description: data.bioDescription ?? seo.description,
+    canonical: data.canonicalUrl ?? seo.canonical,
+  });
 };
 
 export default function OrganiserRoute({ loaderData, params }: Route.ComponentProps) {
