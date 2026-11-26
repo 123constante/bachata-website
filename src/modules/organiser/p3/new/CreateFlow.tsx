@@ -19,6 +19,9 @@ import {
 } from './model';
 import { LANDED_PARAM, forgetStoredDraft, useCreateSave } from './useCreateSave';
 import { SessionsSheetLook } from './SessionsSheetLook';
+import { latestTeachers } from './lastTeachers';
+import { rowsOf } from '../data/home';
+import { useQuery } from '@tanstack/react-query';
 import { DescriptionSheet, PriceSheet, RepeatSheetNew, SessionsSheet, VenueSheet } from './sheets';
 import { Sheet } from '../screens/Sheet';
 import { flags } from '@/lib/featureFlags';
@@ -216,6 +219,14 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
     failedRef.current.scrollIntoView?.({ block: 'center' });
     failedRef.current.focus();
   }, [isFailed]);
+  const teachersOn = flags.organiserPeoplePicker && flags.organiserP3;
+  const homeNow = useOrganiserChoice().home.data;
+  const teachPrefill = useQuery({
+    queryKey: ['teach-prefill', organiser.id],
+    queryFn: () => latestTeachers(homeNow ? rowsOf(homeNow, organiser.id) : []),
+    staleTime: 5 * 60 * 1000,
+    enabled: flags.teachPrefill && teachersOn && CREATE_LOOK && !!organiser.id && !!homeNow,
+  }).data ?? null;
   const stripeState = useStripe(flags.stripeNudgeV2 && CREATE_LOOK ? organiser.id : undefined).state;
   const back = backOf('form', kind.kind, organiser.id, pageCount);
   const cancel = () => {
@@ -534,7 +545,7 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
 
       {sheet === 'venue' && <VenueSheet onPick={(v) => { set({ venue: v }); setSheet(null); }} onClose={() => setSheet(null)} />}
       {sheet === 'repeat' && <RepeatSheetNew d={d} today={today} onChange={(r) => set({ repeat: r })} onClose={() => setSheet(null)} />}
-      {sheet === 'sessions' && CREATE_LOOK && <SessionsSheetLook forms={d.sessions} venueId={d.venue?.id ?? null} teachers={flags.organiserPeoplePicker && flags.organiserP3} onDone={(s) => { set({ sessions: s }); setSheet(null); }} onClose={() => setSheet(null)} />}
+      {sheet === 'sessions' && CREATE_LOOK && <SessionsSheetLook forms={d.sessions} venueId={d.venue?.id ?? null} teachers={teachersOn} prefill={flags.teachPrefill && teachersOn ? teachPrefill : null} onDone={(s) => { set({ sessions: s }); setSheet(null); }} onClose={() => setSheet(null)} />}
       {sheet === 'sessions' && !CREATE_LOOK && <SessionsSheet d={d} today={today} teachers={CREATE_LOOK && flags.organiserPeoplePicker && flags.organiserP3} onChange={(s) => set({ sessions: s })} onClose={() => setSheet(null)} />}
       {sheet === 'description' && CREATE_LOOK && <DescriptionSheet value={d.description} onSave={(v) => { set({ description: v }); setSheet(null); }} onClose={() => setSheet(null)} />}
       {sheet === 'price' && <PriceSheet d={d} today={today} onChange={set} onClose={() => setSheet(null)}

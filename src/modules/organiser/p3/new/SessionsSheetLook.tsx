@@ -6,6 +6,7 @@ import { PeopleGroup } from '../v2/PeopleGroup';
 import { V2Sheet } from '../v2/V2Sheet';
 import { V2 } from '../v2/copy';
 import { PEOPLE_PER_SESSION_MAX } from './model';
+import { prefillTeachers, type TeachPerson } from './lastTeachers';
 
 const LEVELS = LEVEL_KEYS.filter((k) => k !== 'open_level');
 const isTeaching = (type: string | null) => addRoleFor(type) === 'teaching';
@@ -14,10 +15,11 @@ const isTeaching = (type: string | null) => addRoleFor(type) === 'teaching';
  * Create look slice 3 (VITE_ENABLE_ORGANISER_CREATE_LOOK): the sessions sheet in the edit page's look
  * (SessionSheetV2's fields, classes and copy). Local copy of the forms: Done hands them back, closing drops the edits.
  */
-export function SessionsSheetLook({ forms, venueId, teachers, onDone, onClose }: {
-  forms: SessForm[]; venueId: string | null; teachers: boolean; onDone: (s: SessForm[]) => void; onClose: () => void;
+export function SessionsSheetLook({ forms, venueId, teachers, prefill, onDone, onClose }: {
+  forms: SessForm[]; venueId: string | null; teachers: boolean; prefill?: { from: string; people: TeachPerson[][] } | null; onDone: (s: SessForm[]) => void; onClose: () => void;
 }) {
-  const [rows, setRows] = useState<SessForm[]>(forms);
+  const [init] = useState(() => (prefill ? prefillTeachers(forms, prefill.people) : { forms, filled: false }));
+  const [rows, setRows] = useState<SessForm[]>(init.forms);
   const rooms = useVenueRooms(venueId).data ?? [];
   const set = (i: number, patch: Partial<SessForm>) => setRows((r) => r.map((s, j) => (j === i ? { ...s, ...patch } : s)));
   const toggle = (xs: string[], x: string) => (xs.includes(x) ? xs.filter((y) => y !== x) : [...xs, x]);
@@ -28,6 +30,7 @@ export function SessionsSheetLook({ forms, venueId, teachers, onDone, onClose }:
 
   return (
     <V2Sheet open title="Sessions" onClose={onClose}>
+      {init.filled && prefill && <p className="hint" data-testid="p3-new-sess-prefill">Teachers from {prefill.from}. Remove anyone who isn&rsquo;t teaching.</p>}
       {!rows.length && <p className="hint" data-testid="p3-new-sess-empty">{V2.session.needOne}</p>}
       {rows.map((s, i) => {
         const people = s.people ?? [];
