@@ -64,7 +64,33 @@ describe('RaffleDoor status -> screen', () => {
     h.rpc.mockResolvedValueOnce(reply('already_admitted'));
     mount();
     expect(await screen.findByText('Already admitted')).toBeTruthy();
-    expect(screen.getByText(/used at 21:40\. Do not admit again\./)).toBeTruthy();
+    expect(screen.getByText('⚠️')).toBeTruthy();
+    expect(screen.getByText('Aisha K.')).toBeTruthy();
+    expect(screen.getByText(/Friday Social/).textContent).toContain('Fri 28 Nov');
+    expect(screen.getByTestId('door-used-at').textContent).toBe('This prize was used at 21:40.');
+    expect(screen.getByTestId('door-photo-rule').textContent).toBe('If this is Aisha K., let them in.');
+    expect(screen.queryByTestId('door-photo')).toBeNull();
+    expect(screen.queryByText(/Do not admit again/)).toBeNull();
+    expect(screen.queryByText('Admit')).toBeNull();
+  });
+
+  it('already_admitted with photo: photo rule; viewer winner still no Admit', async () => {
+    setTestUser({ id: 'u1', is_anonymous: false } as never);
+    h.rpc.mockImplementation(async (fn: string) =>
+      fn === 'raffle_my_wins_v1' ? { data: [], error: null } : reply('already_admitted', { photo_url: 'https://x.test/p.jpg' }));
+    mount();
+    expect(await screen.findByText('Already admitted')).toBeTruthy();
+    expect(screen.getByTestId('door-photo')).toBeTruthy();
+    expect(screen.getByTestId('door-photo-rule').textContent).toBe('If this is the person in the photo, let them in.');
+    expect(screen.queryByText(/Do not admit again/)).toBeNull();
+    expect(screen.queryByText('Admit')).toBeNull();
+  });
+
+  it('already_admitted with no photo and no name: ask the organiser', async () => {
+    h.rpc.mockResolvedValueOnce(reply('already_admitted', { name: '' }));
+    mount();
+    expect(await screen.findByText('Already admitted')).toBeTruthy();
+    expect(screen.getByTestId('door-photo-rule').textContent).toBe('Ask the organiser for help.');
   });
 
   it('not_valid', async () => {
