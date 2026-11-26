@@ -308,10 +308,24 @@ const run = async () => {
   // observers as above (page errors, console errors, failed requests,
   // Supabase 4xx/5xx), plus a 4xx/5xx document status and the app's
   // error-boundary text. Set via the workflow_dispatch input extra_paths.
+  //
+  // SMOKE_FORBID_TEXT (workflow input forbid_text): a '|'-separated list of
+  // words that must NOT appear on any extra page (case-insensitive, the
+  // rendered text). It proves a removal reached the live page: after
+  // retiring "Level", run with forbid_text=Level: and the check fails while
+  // the word still shows. '|' not ',' because the words may hold commas.
   const extraPaths = (process.env.SMOKE_EXTRA_PATHS || '')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
+  const forbidText = (process.env.SMOKE_FORBID_TEXT || '')
+    .split('|')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (forbidText.length > 0 && extraPaths.length === 0) {
+    console.error('SMOKE_FAILED: forbid_text needs extra_paths (no page to read the words on)');
+    process.exit(1);
+  }
   for (const extra of extraPaths) {
     await runScenario(`Extra page ${extra}`, async () => {
       const url = new URL(extra, baseUrl);
@@ -324,6 +338,11 @@ const run = async () => {
       await page.waitForTimeout(3000);
       const crashed = await page.getByText('Something went wrong', { exact: false }).count();
       if (crashed > 0) throw new Error('Error text "Something went wrong" on page');
+      if (forbidText.length > 0) {
+        const bodyText = (await page.locator('body').innerText()).toLowerCase();
+        const found = forbidText.filter((word) => bodyText.includes(word.toLowerCase()));
+        if (found.length > 0) throw new Error(`Removed text still on page: ${found.map((w) => `"${w}"`).join(', ')}`);
+      }
     });
   }
 
