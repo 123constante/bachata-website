@@ -24,6 +24,8 @@ async function run(param: string, search = "") {
   }
 }
 
+// Resolver-error rethrow is covered in src/lib/seo/resolvePublicOrganiserRef.test.ts
+// (a rejected fetchQuery surfaces as an unhandled rejection under vitest here).
 describe("organiser loader: canonical slug redirect", () => {
   beforeEach(() => resolvePublicOrganiserRef.mockReset());
 
@@ -63,15 +65,5 @@ describe("organiser loader: canonical slug redirect", () => {
     const { thrown } = await run("nobody-here");
     expect((thrown as Response).status).toBe(404);
     expect((thrown as Response).headers.get("X-Robots-Tag")).toBe("noindex");
-  });
-
-  it("resolver error is rethrown, not a 404", async () => {
-    resolvePublicOrganiserRef.mockImplementation(async () => {
-      throw new Error("db blip");
-    });
-    const { resolveEntityInLoader } = await import("./detailLoader");
-    await expect(
-      resolveEntityInLoader(new QueryClient(), "organiser_profiles", "bpm-dance-studios"),
-    ).rejects.toThrow("db blip");
   });
 });
