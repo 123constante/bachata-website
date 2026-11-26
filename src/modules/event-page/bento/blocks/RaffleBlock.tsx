@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import './RaffleBlock.css';
+import '@/components/raffles/RaffleRedesignA.css';
 import { BentoTile } from '@/modules/event-page/bento/BentoTile';
 import { BLOCK_COLORS, BLOCK_TITLES } from '@/modules/event-page/bento/BentoGrid';
 import { useEventRaffleConfig } from '@/hooks/useEventRaffleConfig';
@@ -484,6 +485,9 @@ const RaffleBoardTile = ({ eventId }: { eventId: string | null }) => {
             </h3>
           )}
           {!joined && <div className="rsb-free-badge"><span>Free to enter</span></div>}
+          {!joined && flags.raffleTileSheet && (
+            <p className="rsb-board-note" data-testid="raffle-tap-line">Tap to enter. It&rsquo;s free.</p>
+          )}
 
           <div className="rsb-machine-row">
             <Cabinet
@@ -534,7 +538,7 @@ const RaffleBoardTile = ({ eventId }: { eventId: string | null }) => {
               {'\u{1F389}'} <b>{winnerName}</b> won this night
             </p>
           )}
-          {!multiWinnerOn() && anyWinner && (
+          {!multiWinnerOn() && anyWinner && (!flags.raffleTileSheet || flags.rafflesPage) && (
             <Link to="/raffles" className="rsb-see-who-won" data-testid="raffle-see-who-won">
               See who won &rarr;
             </Link>
@@ -546,6 +550,7 @@ const RaffleBoardTile = ({ eventId }: { eventId: string | null }) => {
         onOpenChange={setDialogOpen}
         consentVersion={null}
         onSubmitted={onSubmitted}
+        redesign={!!flags.raffleTileSheet}
       />
     </>
   );
