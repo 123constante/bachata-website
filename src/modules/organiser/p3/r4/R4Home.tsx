@@ -23,7 +23,7 @@ import { R4Chevron } from './R4Shell';
 import { StripeStatusCard } from './StripeStatusCard';
 import { fetchNightMoney, nightMoneyQueryKey } from './r4MoneyApi';
 import { moneyQuietOf, nightMoneyOf, R4_MONEY_COPY } from './r4MoneyModel';
-import { FAIL_COPY, InviteReadySheet, fetchWaitingInvites, inviteMessage, joinLink, resendClassInvite, waitingInvitesKey } from '../v2/ClassInvites';
+import { FAIL_COPY, InviteReadySheet, classesWithoutTeachers, noTeachersKey, fetchWaitingInvites, inviteMessage, joinLink, resendClassInvite, waitingInvitesKey } from '../v2/ClassInvites';
 import { R4_EMPTY_HOME, inviteDateLabel, r4AloneOf, r4HomeOf, r4WaitingOf, type R4Door, type R4NextNight, type R4WaitItem } from './r4Model';
 
 function Row({ to, label, end, testId }: { to: string; label: string; end?: string; testId: string }) {
@@ -98,6 +98,12 @@ export function WaitingList({ rows, pageId }: { rows: readonly P3Row[]; pageId: 
     queryFn: () => fetchWaitingInvites(pageId),
     enabled: flags.organiserClassInvites,
   });
+  // Flag off = no call, no rows. An error already reads as no rows inside the loader.
+  const noTeachers = useQuery({
+    queryKey: noTeachersKey(pageId),
+    queryFn: () => classesWithoutTeachers(pageId),
+    enabled: flags.organiserNoTeachersCard,
+  });
   const [ready, setReady] = useState<{ name: string; message: string } | null>(null);
   const [resendError, setResendError] = useState<{ id: string; text: string } | null>(null);
   const resend = useMutation({
@@ -111,9 +117,14 @@ export function WaitingList({ rows, pageId }: { rows: readonly P3Row[]; pageId: 
   });
   const todoIds = useMemo(() => todoSeriesIdsOf(home.data, pageId), [home.data, pageId]);
   // HomeOrganiser.role is owner | manager: every Home viewer may answer a join request.
-  const m = r4WaitingOf({ rows, todoIds, requests: requests.data ?? null, editor: true, invites: flags.organiserClassInvites && !invites.isError ? invites.data ?? null : null });
+  const m = r4WaitingOf({ rows, todoIds, requests: requests.data ?? null, editor: true, invites: flags.organiserClassInvites && !invites.isError ? invites.data ?? null : null, noTeachers: flags.organiserNoTeachersCard ? noTeachers.data ?? null : null });
   const go = (it: R4WaitItem) => {
     if (it.go === 'resend') { setResendError(null); resend.mutate(it.id); return; }
+    if (it.go === 'teachers') {
+      const c = (noTeachers.data ?? []).find((x) => x.occurrence_id === it.id);
+      if (c) navigate(P3_PATHS.eventNight(c.series_id, c.occurrence_id));
+      return;
+    }
     if (it.go === 'answer') navigate(`${P3_PATHS.youTeam}?answer=${encodeURIComponent(it.id)}`);
     else if (it.go === 'place') navigate(P3_PATHS.eventEdit(it.id));
     else if (it.go === 'dates') navigate(P3_PATHS.eventAll(it.id));
