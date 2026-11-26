@@ -35,7 +35,7 @@ import { Trophy } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { flags } from '@/lib/featureFlags';
 import { useRaffleBoard } from '@/hooks/useRaffleBoard';
-import { boardForEvent, multiWinnerOn, nightsWithWinner } from '@/lib/raffleBoard';
+import { boardForEvent, multiWinnerOn, nightsWithWinner, recentWinnersForWall } from '@/lib/raffleBoard';
 import { PersonAvatar } from '@/components/account/profiles/PersonAvatar';
 
 const GOLD = 'hsl(var(--bento-accent))';
@@ -458,6 +458,8 @@ const RaffleBoardTile = ({ eventId }: { eventId: string | null }) => {
   const anyWinner = loaded && nightsWithWinner(board).length > 0;
   const winnerName = state?.winnerFirstName ?? null;
   const chips = state?.night?.winnerChips ?? [];
+  const showWall = flags.raffleWinnersWall && joined;
+  const wall = useMemo(() => (showWall && board ? recentWinnersForWall(board) : []), [showWall, board]);
 
   return (
     <>
@@ -513,6 +515,25 @@ const RaffleBoardTile = ({ eventId }: { eventId: string | null }) => {
             )}
           </div>
 
+          {showWall && (
+            <p className="rsb-board-note" data-testid="raffle-more-chances">
+              The more draws you&rsquo;re in, the more chances you get.
+            </p>
+          )}
+          {showWall && wall.length > 0 && (
+            <div className="rsb-wall" data-testid="raffle-winners-wall">
+              <p className="rsb-wall-title">Recent winners</p>
+              <span className="rsb-winner-chips">
+                {wall.map((w, i) => (
+                  <span key={i} className="rsb-winner-chip" data-testid="raffle-wall-winner">
+                    <PersonAvatar photoUrl={w.avatarUrl} name={w.firstName} size={32} />
+                    <b>{w.firstName}</b>
+                  </span>
+                ))}
+              </span>
+              <p className="rsb-board-note">This could be you next.</p>
+            </div>
+          )}
           {multiWinnerOn() && chips.length > 0 && (
             <div className="rsb-winner-strip" data-testid="raffle-winner-strip">
               <span className="rsb-winner-chips">

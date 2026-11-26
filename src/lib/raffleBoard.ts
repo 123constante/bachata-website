@@ -56,6 +56,27 @@ export type RaffleBoard = {
   winners?: RaffleWinner[];
 };
 
+/** Up to 6 recent winners for the "Recent winners" wall. Top-level winners[] has no photo field, so a photo
+ *  comes from a night's winner chip with the same first name; otherwise the avatar falls back to initials. */
+export function recentWinnersForWall(board: RaffleBoard, max = 6): Array<{ firstName: string; avatarUrl: string | null }> {
+  const photos = new Map<string, string>();
+  for (const n of board.nights) {
+    for (const c of n.winnerChips) if (c.avatarUrl && !photos.has(c.firstName)) photos.set(c.firstName, c.avatarUrl);
+  }
+  const names = board.winners?.length
+    ? board.winners.map((w) => w.firstName)
+    : board.nights.flatMap((n) => n.winnerChips.map((c) => c.firstName));
+  const seen = new Set<string>();
+  const out: Array<{ firstName: string; avatarUrl: string | null }> = [];
+  for (const name of names) {
+    if (seen.has(name)) continue;
+    seen.add(name);
+    out.push({ firstName: name, avatarUrl: photos.get(name) ?? null });
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
 export const emptyRaffleBoard = (): RaffleBoard => ({
   poolCount: 0,
   winnersThisMonth: 0,
