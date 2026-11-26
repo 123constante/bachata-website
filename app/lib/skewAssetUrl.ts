@@ -2,10 +2,13 @@ import { CHUNK_RELOAD_KEY } from "@/lib/staleChunk";
 
 // First-visit skew pinning. A cookie-less first load during a Vercel alias swap
 // can pair HTML from one deployment with /assets/* from the other. Appending
-// ?dpl=<deployment id> to every built asset URL in the RR manifest pins each
-// request (stylesheet, modulepreload, script, and the manifest the client
-// carries) to the deployment that rendered the HTML. Only when skew protection
-// is on AND an id is known; local and preview builds keep plain URLs.
+// ?dpl=<deployment id> to the STYLESHEET URLs in the RR manifest pins the
+// render-blocking CSS to the deployment that rendered the HTML, so a first
+// visit never paints unstyled. JS stays unpinned on purpose: chunks import each
+// other by plain relative URL, so a pinned modulepreload would never match the
+// real import (double download, no pin); a stale JS chunk is already handled by
+// staleChunk's reload. Only when skew protection is on AND an id is known; local
+// and preview builds keep plain URLs.
 
 type AssetEntry = {
   module?: string;
@@ -29,23 +32,10 @@ export function pinAssetUrl(url: string, deploymentId: string): string {
   return `${url}${url.includes("?") ? "&" : "?"}dpl=${encodeURIComponent(deploymentId)}`;
 }
 
-const SINGLE_KEYS = [
-  "module",
-  "clientActionModule",
-  "clientLoaderModule",
-  "clientMiddlewareModule",
-  "hydrateFallbackModule",
-] as const;
-
+// CSS only (see the header comment for why JS is left alone).
 function pinEntry(entry: AssetEntry, id: string): AssetEntry {
-  const out: AssetEntry = { ...entry };
-  for (const k of SINGLE_KEYS) {
-    const v = entry[k];
-    if (typeof v === "string") out[k] = pinAssetUrl(v, id);
-  }
-  if (entry.imports) out.imports = entry.imports.map((u) => pinAssetUrl(u, id));
-  if (entry.css) out.css = entry.css.map((u) => pinAssetUrl(u, id));
-  return out;
+  if (!entry.css) return entry;
+  return { ...entry, css: entry.css.map((u) => pinAssetUrl(u, id)) };
 }
 
 const cache = new WeakMap<object, PinnableManifest>();

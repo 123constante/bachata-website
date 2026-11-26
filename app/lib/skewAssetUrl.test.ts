@@ -9,11 +9,15 @@ const make = () => ({
 });
 
 describe("pinManifest", () => {
-  it("adds ?dpl= when enabled and an id is set", () => {
+  it("adds ?dpl= to stylesheets only when enabled and an id is set", () => {
     const p = pinManifest(make(), { enabled: true, deploymentId: "dpl_1" });
     expect(p.routes.root.css).toEqual(["/assets/root-abc.css?dpl=dpl_1"]);
-    expect(p.entry.module).toBe("/assets/entry.js?dpl=dpl_1");
-    expect(p.entry.imports).toEqual(["/assets/a.js?dpl=dpl_1"]);
+    // JS stays plain: chunks import each other by plain URL, so a pinned
+    // modulepreload would never match the real import.
+    expect(p.routes.root.module).toBe("/assets/root.js");
+    expect(p.routes.root.imports).toEqual(["/assets/a.js"]);
+    expect(p.entry.module).toBe("/assets/entry.js");
+    expect(p.entry.imports).toEqual(["/assets/a.js"]);
     expect(p.url).toBe("/assets/manifest-x.js");
   });
   it("leaves URLs unchanged without the flag or the id", () => {
