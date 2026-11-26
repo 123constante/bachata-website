@@ -317,6 +317,8 @@ function findEventNode(blocks) {
 // The whole per-page assertion surface, PURE (path + server HTML in, failures
 // and warns out) so the canary can prove the assertions without a network.
 // checkPage owns the fetch and the status-code handling.
+const EVENT_LINK_RE = /href="(?:\/event\/|https:\/\/(?!www\.)[a-z0-9-]+\.bachatacalendar\.co\.uk\/)/g;
+
 function auditHtml(path, html, { isEvent = false, minEventLinks = 0 } = {}) {
   const failures = [];
   const warns = [];
@@ -454,9 +456,14 @@ function auditHtml(path, html, { isEvent = false, minEventLinks = 0 } = {}) {
 
   // Crawlable event links in the SERVER HTML. Homepage: the July 2026 regression
   // (0 links). SEO landing pages: the prerender-era "(0 events)" indexed body.
+  // An event link is EITHER the path form /event/<id> OR the per-event
+  // subdomain form https://<slug>.bachatacalendar.co.uk/ that eventHref()
+  // (src/lib/seo/eventHref.ts) emits when the subdomain flag is on. Counting
+  // only the path form turned every link floor red once the subdomains went
+  // live, on pages that DID list events. www. is the site itself, never an event.
   if (minEventLinks > 0) {
-    const n = (html.match(/href="\/event\//g) ?? []).length;
-    if (n < minEventLinks) failures.push(`only ${n} /event/ links in server HTML (expected >= ${minEventLinks})`);
+    const n = (html.match(EVENT_LINK_RE) ?? []).length;
+    if (n < minEventLinks) failures.push(`only ${n} event links in server HTML (expected >= ${minEventLinks})`);
   }
 
   return { failures, warns, paused };
@@ -718,6 +725,10 @@ async function selfTest() {
       auditHtml('/parties', page({ title: `${GENERIC_TITLE} | all events` }), {}).failures.some((f) => f.includes('generic fallback title'))],
     ['silent boundary: the homepage legitimately uses the site title',
       auditHtml('/', page({ title: `${GENERIC_TITLE} | all events`, links: 5 }), { minEventLinks: 5 }).failures.length === 0],
+    ['silent boundary: per-event subdomain links count as event links',
+      auditHtml('/parties', page({ body: '<a href="https://salsanight.bachatacalendar.co.uk/">e</a> <a href="https://other-night.bachatacalendar.co.uk/">e</a>' }), { minEventLinks: 2 }).failures.length === 0],
+    ['fires: a www. link is the site, not an event link',
+      fails(page({ body: '<a href="https://www.bachatacalendar.co.uk/parties">p</a>' }), { minEventLinks: 1 }, 'only 0 event links')],
     ['fires: no <title> at all',
       fails(page({ title: null }), {}, 'missing <title>')],
     ['fires: no meta description',
@@ -966,7 +977,7 @@ async function selfTest() {
         return offerWarns(r).length === 1 && offerWarns(r)[0].includes('no offers node');
       })()],
     ['fires: one /event/ link short of the floor (the indexed "(0 events)" body)',
-      fails(page({ links: 4 }), { minEventLinks: 5 }, '/event/ links in server HTML')],
+      fails(page({ links: 4 }), { minEventLinks: 5 }, 'event links in server HTML')],
     ['silent boundary: exactly the required /event/ links',
       clean(page({ links: 5 }), { minEventLinks: 5 })],
 
