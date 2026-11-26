@@ -35,8 +35,9 @@ describe('cityCanonicalPath', () => {
     expect(cityCanonicalPath(seg(`/city/${slug}/map`))).toBe(`/city/${slug}/map`);
   });
 
-  it('leaves the bare city on the homepage canonical', () => {
-    expect(cityCanonicalPath(seg('/city/london-gb'))).toBe('/');
+  it('makes the bare city its own canonical (never "/", which redirects here)', () => {
+    expect(cityCanonicalPath(seg('/city/london-gb'))).toBe('/city/london-gb');
+    expect(cityCanonicalPath(seg('/city/berlin-de'))).toBe('/city/berlin-de');
   });
 
   it('still consolidates city-prefixed clean listings onto the clean route', () => {
@@ -45,12 +46,12 @@ describe('cityCanonicalPath', () => {
     expect(cityCanonicalPath(seg('/city/london-gb/search'))).toBe('/search');
   });
 
-  it('keeps /city/:slug/calendar on the homepage canonical', () => {
-    // It renders <Index/>, i.e. the homepage with the Calendar tab open, so '/'
-    // is correct for it. It is in NEITHER set, and this pins that it stays out.
+  it('keeps /city/:slug/calendar on the city homepage canonical', () => {
+    // It renders <Index/>, i.e. the city homepage with the Calendar tab open, so
+    // /city/:slug is correct for it. It is in NEITHER set, and this pins that.
     expect(CITY_SELF_CANONICAL.has('calendar')).toBe(false);
     expect(CLEAN_LISTINGS.has('calendar')).toBe(false);
-    expect(cityCanonicalPath(seg('/city/london-gb/calendar'))).toBe('/');
+    expect(cityCanonicalPath(seg('/city/london-gb/calendar'))).toBe('/city/london-gb');
   });
 
   it('does not mint an alias for a deeper path that is not a route', () => {

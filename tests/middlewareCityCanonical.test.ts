@@ -158,7 +158,7 @@ describe('the rest of the city rule is unchanged', () => {
   it('still gives a social bot the city card on a bare city', async () => {
     const { body } = await get('/city/london-gb', WHATSAPP);
     expect(titleOf(body)).toBe('Bachata in London');
-    expect(canonicalOf(body)).toBe('https://www.bachatacalendar.co.uk/');
+    expect(canonicalOf(body)).toBe('https://www.bachatacalendar.co.uk/city/london-gb');
   });
 
   it('returns a noindex 404 for an unknown city subpath', async () => {
