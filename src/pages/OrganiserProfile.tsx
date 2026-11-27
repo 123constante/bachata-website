@@ -112,6 +112,8 @@ type EntityProfile = {
   organisation_category: string | null;
   founded_year: number | null;
   cities: { name: string; slug: string } | null;
+  /** Drafted City from the edit-in-place overlay (eip.overlay), when present. */
+  city?: string | null;
 };
 
 // --- Design tokens ---

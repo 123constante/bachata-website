@@ -220,7 +220,6 @@ const VendorDetail = () => {
       // 'Vendor' fallback the SPEC title/description already use.
       entityName: vendor?.business_name || 'Vendor',
       entitySlug: id ?? undefined,
-      ogImage: vendor?.avatar_url ?? undefined,
       isLoading: loading,
     }),
   );

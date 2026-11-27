@@ -23,7 +23,7 @@ const person = (roles: PersonRole[], over: Partial<PersonSnapshot> = {}): Person
 });
 
 const mount = (p: PersonSnapshot, slugOrId = 'ana-g', publicPage?: { extras: never } | null) =>
-  render(<MemoryRouter><PersonPage person={p} slugOrId={slugOrId} publicPage={publicPage} /></MemoryRouter>);
+  render(<MemoryRouter><PersonPage person={p} slugOrId={slugOrId} publicPage={publicPage as never} /></MemoryRouter>);
 
 beforeEach(() => { window.location.hash = ''; });
 afterEach(cleanup);
