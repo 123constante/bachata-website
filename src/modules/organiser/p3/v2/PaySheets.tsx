@@ -4,6 +4,9 @@ import { V2Sheet } from './V2Sheet';
 
 const T = V2.ticketsPay;
 
+/** Organisers type `www.site.com`; the server only takes an http(s) link, so a bare address gets https:// in front. */
+export const withHttps = (raw: string): string => { const t = raw.trim(); return /^https?:[/][/]/i.test(t) ? t : `https://${t.replace(/^[/]+/, '')}`; };
+
 /** SH-DOOR: the usual price at the door. `weekdayHint` is the weekly line; null on a one-off. */
 export function DoorSheet({ price, day, error, busy, onDone, onClose }: { busy?: boolean; price: number | null; day: string | null; error?: string | null; onDone: (raw: string) => void; onClose: () => void }) {
   const [raw, setRaw] = useState(price != null ? String(price) : '');
@@ -26,7 +29,7 @@ export function LinkSheet({ link, error, busy, onDone, onClose }: { busy?: boole
   const [empty, setEmpty] = useState(false);
   const done = () => {
     if (!raw.trim()) { setEmpty(true); return; }
-    onDone(raw.trim());
+    onDone(withHttps(raw));
   };
   return (
     <V2Sheet open title={T.linkTitle} onClose={onClose}>
