@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import GlobalLayout from "@/components/layout/GlobalLayout";
+import { PeopleChips } from "@/modules/people-directory/PeopleChips";
 
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 const PAGE_SIZE = 12;
@@ -62,6 +63,7 @@ const Vendors = () => {
         largeTitle: true,
       }}
     >
+      <PeopleChips />
       <div className="max-w-6xl mx-auto px-4 pb-24 space-y-6">
         <Card>
           <CardContent className="pt-6 grid gap-3 md:grid-cols-[1.4fr_1fr_1fr_auto]">

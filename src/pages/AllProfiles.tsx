@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Mail, Globe, Instagram } from 'lucide-react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
+import { PeopleChips } from '@/modules/people-directory/PeopleChips';
 import { optimizedImageUrl } from '@/lib/imageCdn';
 import { buildSeoForRoute, useSeo } from '@/lib/seo';
 import { NationalityFlag, TILE_FLAG_SIZE } from '@/components/people/NationalityFlag';
@@ -31,6 +32,7 @@ export default function AllProfiles() {
           largeTitle: true,
         }}
       >
+        <PeopleChips />
         <div className="px-4 pb-24 flex items-center justify-center min-h-[40vh]">
           <div className="text-center">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -52,6 +54,7 @@ export default function AllProfiles() {
           largeTitle: true,
         }}
       >
+        <PeopleChips />
         <div className="px-4 pb-24 flex items-center justify-center min-h-[40vh]">
           <div className="text-center">
             <p className="text-red-600 font-semibold">Error loading profiles</p>
@@ -73,6 +76,7 @@ export default function AllProfiles() {
           largeTitle: true,
         }}
       >
+        <PeopleChips />
         <div className="px-4 pb-24 flex items-center justify-center min-h-[40vh]">
           <p className="text-muted-foreground">No profiles found</p>
         </div>
@@ -101,6 +105,7 @@ export default function AllProfiles() {
         largeTitle: true,
       }}
     >
+      <PeopleChips />
       <div className="px-4 pb-24 space-y-16">
       {/* Sections by role */}
       {Object.entries(grouped).map(([role, roleProfiles]) => (
