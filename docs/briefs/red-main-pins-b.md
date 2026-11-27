@@ -1,5 +1,7 @@
 # Brief: red main unit pins, part B (open problem P45)
 
+
+Size: 5 files, 80 lines
 Main 89b8a1c0 unit tests are red in all 4 shards; every PR inherits the red. Part B covers three tests. Part A (another worker, branch claude/red-main-pins-a) covers catchallGate, catchallClientPaths and entryPointCoverage: do not touch those.
 
 Rule for every item: first find the commit that changed the behaviour (`git log -S`). If that change was intended (a merged PR on purpose), update the pin/list/register and name the PR in the commit message. If the test caught a real bug, fix the code instead and say so in the PR body. Never delete or weaken a test.
