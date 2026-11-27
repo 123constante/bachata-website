@@ -78,6 +78,9 @@ export type TeachersCityCopy = {
 
 export const TELL_US_LABEL = 'Tell us';
 
+/** The default (London) SEO input for /teachers; the server route's meta() reads it. */
+export const DEFAULT_TEACHERS_SEO = { cityDisplay: DEFAULT_TEACHERS_CITY.name, entitySlug: DEFAULT_TEACHERS_CITY.slug, canonicalPath: teachersPath(DEFAULT_TEACHERS_CITY.slug) };
+
 export function teachersCityCopy(view: TeachersCityView, teacherCount: number | null): TeachersCityCopy {
   const seo = { cityDisplay: view.cityName, entitySlug: view.listSlug, canonicalPath: view.canonicalPath };
   // The heading IS the document title and the subtitle IS the meta description:

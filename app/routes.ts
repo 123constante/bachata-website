@@ -25,6 +25,15 @@ export default [
   route("djs/:id", "routes/djs.tsx"),
   route("people/:id", "routes/people.tsx"),
   route("teachers/:id", "routes/teachers.tsx"),
+  // People & places list pages, server-rendered head (site structure S4b-1).
+  // Build-time gate: unset = the catchall keeps serving them (rollback = flag off + redeploy).
+  ...(process.env.VITE_ENABLE_PEOPLE_SSR === "true"
+    ? [
+        route("dancers", "routes/list.dancers.tsx"),
+        route("djs", "routes/list.djs.tsx"),
+        route("teachers", "routes/list.teachers.tsx"),
+      ]
+    : []),
   route("festival/:id", "routes/festival.tsx"),
   // /vendors/:id stays on the catchall (client-only) until a public vendor exists
   // to verify the SSR happy path — the public RPC returns 0 rows for every current
