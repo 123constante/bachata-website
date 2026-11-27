@@ -52,16 +52,12 @@ jobs:
           set -euo pipefail
           [ -n "${BOT_TOKEN:-}" ] || { echo "::error::secret BOT_PR_TOKEN is not set"; exit 1; }
           api() { curl -sS -H "Authorization: Bearer $BOT_TOKEN" -H "Accept: application/vnd.github+json" "$@"; }
-          existing="$(api "https://api.github.com/repos/$REPO/pulls?state=open&head=$OWNER:$BRANCH" \
-            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const a=JSON.parse(s);if(!Array.isArray(a)){console.error(s);process.exit(2)}console.log(a.map(p=>"#"+p.number).join(" "))})')"
-          if [ -n "$existing" ]; then echo "Already has an open PR: $existing"; exit 0; fi
-          merged="$(api "https://api.github.com/repos/$REPO/pulls?state=closed&head=$OWNER:$BRANCH&per_page=100" \
-            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const a=JSON.parse(s);if(!Array.isArray(a)){console.error(s);process.exit(2)}console.log(a.filter(p=>p.merged_at).map(p=>"#"+p.number).join(" "))})')"
-          if [ -n "$merged" ]; then
-            echo "::warning::$BRANCH already shipped in $merged (merged), so this push opens no PR. Put new work on a new branch cut from $BASE."
-            echo "No PR opened: $BRANCH already shipped in $merged. Put new work on a new branch cut from $BASE." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
+          # scripts/lib/bot-pr-adopt.mjs decides: "open" = no open PR and none merged (go on);
+          # anything else = done. An OWNER-authored open PR is replaced by a bot copy there
+          # (title/body/labels carried over). An API error fails the step loudly.
+          ADOPT_OUT=adopt.out node scripts/lib/bot-pr-adopt.mjs
+          [ -f adopt.out ] || { echo "::error::adopt.out missing; bot-pr-adopt wrote no outcome"; exit 1; }
+          [ "$(cat adopt.out)" = "open" ] || exit 0
           # One generator, pinned to both checkers by tests/prBodyStub.test.ts. The PR must
           # always open: on any generator failure fall back to the old minimal body, warned.
           if ! body="$(node scripts/pr-body-stub.mjs)" || [ -z "$body" ]; then
