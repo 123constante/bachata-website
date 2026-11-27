@@ -138,6 +138,29 @@ describe('note', () => {
   it('soldKeep singular', () => { expect(soldKeep(1200, 1, 1000)).toBe('Changed to £12. The 1 person who bought keeps their £10 ticket.'); });
 });
 
+describe('skip-door line with skipped nights', () => {
+  it('two nights: names them and says Change', () => {
+    view({ door: true, noDoorNights: ['Friday 5 December', 'Friday 12 December'] });
+    expect(text('skip-door')).toBe('No door on Friday 5 December and Friday 12 December');
+    expect(screen.getByTestId('ws-skip-door').textContent).toBe('Change');
+    expect(screen.getByTestId('ws-skip-door').getAttribute('aria-label')).toBe('Change the night to skip the door');
+  });
+  it('one night, three nights, and empty list', () => {
+    view({ door: true, noDoorNights: ['Friday 5 December'] });
+    expect(text('skip-door')).toBe('No door on Friday 5 December');
+    cleanup(); view({ door: true, noDoorNights: ['A', 'B', 'C'] });
+    expect(text('skip-door')).toBe('No door on A, B and C');
+    cleanup(); view({ door: true, noDoorNights: [] });
+    expect(text('skip-door')).toBe('Skip the door on one night');
+    expect(screen.getByTestId('ws-skip-door').textContent).toBe('Choose');
+  });
+  it('tap still calls skipDoor and other lines are unchanged', () => {
+    const on = view({ door: true, noDoorNights: ['Friday 5 December'] });
+    fireEvent.click(screen.getByTestId('ws-skip-door')); expect(on.skipDoor).toHaveBeenCalledTimes(1);
+    expect(text('door')).toBe('Pay at the door'); expect(text('rerun')).toBe('Run the questions again');
+  });
+});
+
 describe('callbacks', () => {
   it('every button calls its callback with the right id', () => {
     const on = view({ tickets: [tk({ nextStep: { pricePence: 800, effectiveFrom: '2026-12-02T00:00:00Z' } })], door: true, link: 'https://x.test', free: true });

@@ -387,6 +387,8 @@ export const V2 = {
     yourSite: (url: string) => `Your ticket site: ${url}`,
     sold: (n: number) => `${n} sold`,
     skipDoor: 'Skip the door on one night',
+    /** the summary line once nights are skipped: "No door on Friday 5 December and Friday 12 December" */
+    noDoorOn: (list: string) => `No door on ${list}`,
     rerun: 'Run the questions again',
     /** "Online £10, 100 a night"; one-off says tickets; several tickets lead with the ticket name. */
     ticketLine: (price: string, qty: number, oneOff: boolean, name: string | null) => `${name ?? 'Online'} ${price}, ${qty} ${oneOff ? 'tickets' : 'a night'}`,

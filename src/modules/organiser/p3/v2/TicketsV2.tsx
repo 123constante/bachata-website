@@ -211,7 +211,10 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
     };
   });
   const T = V2.ticketsPay;
-  const say = (text: string, onUndo?: () => void) => { plainSeq += 1; setPlain({ seq: plainSeq, text, onUndo }); };
+  /** Latest saveNow toast: `say` can run from an async save started renders ago (the guide), so it must not read a stale `toast`. */
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
+  const say = (text: string, onUndo?: () => void) => { const old = toastRef.current; if (old) onToastDone(old.seq); plainSeq += 1; setPlain({ seq: plainSeq, text, onUndo }); };
   const refresh = () => { void qc.invalidateQueries({ queryKey: ticketKeys.all }); };
   /** Back from Stripe: once the organiser is known, drop the param. `refresh` (expired link) restarts sign-up; `return` is polled below. */
   useEffect(() => {
@@ -414,13 +417,14 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
   const [guideErr, setGuideErr] = useState<string | null>(null);
   const [skipOpen, setSkipOpen] = useState(false);
   const saveGuide = useWaysInGuideSave({ ws, organiserId: orgId, ticketCount: rows.length, change, say, refresh });
-  const nights = useQueries({ queries: coming.map((d) => ({ queryKey: dateDetailQueryKey(d.id), queryFn: () => fetchDateDetail(d.id), enabled: rebuild && skipOpen, staleTime: 30_000 })) });
+  const nights = useQueries({ queries: coming.map((d) => ({ queryKey: dateDetailQueryKey(d.id), queryFn: () => fetchDateDetail(d.id), enabled: rebuild && (skipOpen || (parsePayment(oldMethods).includes('door') && !oneOff && s.format !== 'festival')), staleTime: 30_000 })) });
   const nightsFailed = rebuild && skipOpen && nights.some((q) => q.isError);
   useEffect(() => { if (nightsFailed) { setSkipOpen(false); say(V2.waysInSummary.nightsLoadFail); } }, [nightsFailed]); // eslint-disable-line react-hooks/exhaustive-deps
   const nothingSet = types.data !== undefined && rows.length === 0 && parsePayment(oldMethods).length === 0 && !oldUrl;
   const showGuide = rebuild && (guideOpen || (nothingSet && !guideDone));
   const firstDate = upcomingOf(ws.dates ?? [], londonTodayKey())[0]?.occurrence_date ?? null;
   const dayWords = (iso: string) => fullDate(iso).replace(/ \d{4}$/, '');
+  const noDoorNights = coming.filter((d, i) => nights[i]?.data?.noDoor === true).map((d) => dayWords(d.occurrence_date));
   /** the guide opened from the summary starts from the current answers */
   const openGuide = () => {
     const first = rows[0] ? list.find((t) => t.id === rows[0].id) : undefined;
@@ -473,6 +477,7 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
         stripe={connected} stripeReady={stripe.state !== null} online={guideOnline || rows.length > 0} tickets={sumTickets}
         door={parsePayment(oldMethods).includes('door')} free={parsePayment(oldMethods).includes('free')} link={oldUrl} festival={s.format === 'festival'} busy={busy}
         stripeWarn={stripeWarn} onCheckAgain={ret.again} stripeBusy={onboard.busy} stripeNote={onboard.note} stripeOff={onboard.switchedOff}
+        noDoorNights={noDoorNights}
         on={{ ticket: openTicket, early: openTicket, newTicket: () => openTicket(), stripe: () => { void onboard.go(); }, door: openGuide, free: openGuide, link: openWaysLink, rerun: openGuide, skipDoor: () => setSkipOpen(true) }} />
       {guideErr ? <p className="err" role="alert" data-testid="ways-guide-err">{guideErr}</p> : null}
     </>
@@ -510,7 +515,7 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
       {!flags.waysInV2 && switchTo && <SwitchPaySheet busy={busy} sold={switchSold} onSwitch={() => { void doSwitch(); }} onKeep={() => setSwitchTo(null)} />}
       {rebuild && skipOpen && nights.every((q) => q.isSuccess) && (
         <SkipDoorSheet dates={coming.map((d, i) => ({ id: d.id, label: dayWords(d.occurrence_date), noDoor: nights[i].data?.noDoor === true }))}
-          onClose={() => setSkipOpen(false)} onSaved={() => say(T.savedOne)} />
+          onClose={() => setSkipOpen(false)} onSaved={() => { coming.forEach((d) => { void qc.invalidateQueries({ queryKey: dateDetailQueryKey(d.id) }); }); say(T.savedOne); }} />
       )}
       <V2Toast toast={plain ?? toast} onDone={(q) => { setPlain(null); onToastDone(q); }} />
     </>
