@@ -211,7 +211,10 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
     };
   });
   const T = V2.ticketsPay;
-  const say = (text: string, onUndo?: () => void) => { if (toast) onToastDone(toast.seq); plainSeq += 1; setPlain({ seq: plainSeq, text, onUndo }); };
+  /** Latest saveNow toast: `say` can run from an async save started renders ago (the guide), so it must not read a stale `toast`. */
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
+  const say = (text: string, onUndo?: () => void) => { const old = toastRef.current; if (old) onToastDone(old.seq); plainSeq += 1; setPlain({ seq: plainSeq, text, onUndo }); };
   const refresh = () => { void qc.invalidateQueries({ queryKey: ticketKeys.all }); };
   /** Back from Stripe: once the organiser is known, drop the param. `refresh` (expired link) restarts sign-up; `return` is polled below. */
   useEffect(() => {
@@ -414,7 +417,7 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
   const [guideErr, setGuideErr] = useState<string | null>(null);
   const [skipOpen, setSkipOpen] = useState(false);
   const saveGuide = useWaysInGuideSave({ ws, organiserId: orgId, ticketCount: rows.length, change, say, refresh });
-  const nights = useQueries({ queries: coming.map((d) => ({ queryKey: dateDetailQueryKey(d.id), queryFn: () => fetchDateDetail(d.id), enabled: rebuild && (skipOpen || (parsePayment(oldMethods).includes('door') && !oneOff)), staleTime: 30_000 })) });
+  const nights = useQueries({ queries: coming.map((d) => ({ queryKey: dateDetailQueryKey(d.id), queryFn: () => fetchDateDetail(d.id), enabled: rebuild && (skipOpen || (parsePayment(oldMethods).includes('door') && !oneOff && s.format !== 'festival')), staleTime: 30_000 })) });
   const nightsFailed = rebuild && skipOpen && nights.some((q) => q.isError);
   useEffect(() => { if (nightsFailed) { setSkipOpen(false); say(V2.waysInSummary.nightsLoadFail); } }, [nightsFailed]); // eslint-disable-line react-hooks/exhaustive-deps
   const nothingSet = types.data !== undefined && rows.length === 0 && parsePayment(oldMethods).length === 0 && !oldUrl;
