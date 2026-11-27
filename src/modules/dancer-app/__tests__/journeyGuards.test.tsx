@@ -41,6 +41,11 @@ const IMG_ALLOWED = new Set([
   'src/components/account/profiles/PersonAvatar.tsx',
   'src/modules/dancer-app/screens/photo/PhotoScreen.tsx',
   'src/modules/dancer-app/public-page/PublicDancerPageV2.tsx',
+  // Home raffle cards added in #2328 (git log -S: file-creating commit). RaffleDoorView draws the winner's photo with its
+  // own gradient initial and testid (swapping to PersonAvatar would change visible UI: left for a product call);
+  // homeRaffleWin's <img> are event flyers/posters, not avatars.
+  'src/modules/dancer-app/screens/home/RaffleDoorView.tsx',
+  'src/modules/dancer-app/screens/home/homeRaffleWin.tsx',
 ]);
 
 describe('the journey draws avatars only through PersonAvatar', () => {

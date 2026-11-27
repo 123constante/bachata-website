@@ -2,6 +2,7 @@
 /** Sneak peek (brief C1): the real Home, visible and inert. Exact copy, lock behaviour, toast timing. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }));
@@ -28,11 +29,13 @@ import { APP_WELCOME_PATH } from '@/lib/accountRouting';
 const Where = () => <div data-testid="where">{useLocation().pathname}</div>;
 const mount = (onFinish?: () => void) =>
   render(
-    <MemoryRouter initialEntries={['/app/welcome?step=peek']}>
-      <Routes>
-        <Route path="*" element={<><LockedHome profile={makeProfile({ first_name: 'Ana' })} onFinish={onFinish} /><Where /></>} />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <MemoryRouter initialEntries={['/app/welcome?step=peek']}>
+        <Routes>
+          <Route path="*" element={<><LockedHome profile={makeProfile({ first_name: 'Ana' })} onFinish={onFinish} /><Where /></>} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 const toast = () => screen.getByTestId('peek-toast');
 

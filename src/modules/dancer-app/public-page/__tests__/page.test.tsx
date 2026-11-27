@@ -241,10 +241,10 @@ describe('Share', () => {
 });
 
 describe('views and names', () => {
-  it('v2 calls no view recorder (the page never did; no second recorder)', async () => {
+  it('v2 records the profile view exactly once, through the one shared recorder (emitProfileView)', async () => {
     mount('complete + all extras', { extrasOk: true, extras: EXTRAS.full });
     await settle();
-    expect(h.rpcCalls.filter((n) => /view/.test(n))).toEqual([]);
+    expect(h.rpcCalls.filter((n) => /view/.test(n))).toEqual(['record_profile_view_v1']);
   });
 
   // F6: the portrait is above the fold, so it loads eagerly (check:images needs an explicit loading attr).

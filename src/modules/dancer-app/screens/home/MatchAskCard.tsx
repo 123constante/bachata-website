@@ -4,20 +4,11 @@ import { Card } from '@/modules/organiser/ui';
 import { flags } from '@/lib/featureFlags';
 import { answerMatch, fetchMatchCandidates, type MatchAnswer, type MatchCandidate } from '@/lib/profileMatch';
 import { buttonStyle } from '../nights/nightsStyles';
+import { PersonAvatar } from '@/components/account/profiles/PersonAvatar';
 
 export const MATCH_CANDIDATES_KEY = ['profile-match-candidates'] as const;
 
-const initials = (name: string) =>
-  name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('');
-
-const Photo = ({ c }: { c: MatchCandidate }) =>
-  c.avatar_url ? (
-    <img src={c.avatar_url} alt="" width={64} height={64} style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', flex: 'none' }} />
-  ) : (
-    <div aria-hidden="true" style={{ width: 64, height: 64, borderRadius: '50%', background: '#9ca3af', color: '#fff', fontWeight: 800, fontSize: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
-      {initials(c.name)}
-    </div>
-  );
+const Photo = ({ c }: { c: MatchCandidate }) => <PersonAvatar photoUrl={c.avatar_url} name={c.name} size={64} />;
 
 const OneCandidate = ({ c, onHide }: { c: MatchCandidate; onHide: () => void }) => {
   const [busy, setBusy] = useState(false);
