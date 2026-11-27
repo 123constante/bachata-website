@@ -25,6 +25,9 @@ export const flags = {
   // /raffles redesign part A (look C v6: hero, orbs, steps, footer, sticky bar). Only read when raffleV2 is on.
   // OFF = today's board page, unchanged. Turn on with VITE_ENABLE_RAFFLE_REDESIGN=true.
   raffleRedesign:      import.meta.env.VITE_ENABLE_RAFFLE_REDESIGN === 'true',
+  // /raffles "This week's winners": a winner with a public profile photo shows the photo in the gold ring
+  // (trophy coin bottom-right) and photo + name link to /dancers/:slug. OFF = trophy disc, no link, as today.
+  raffleWinnerPhoto:   import.meta.env.VITE_ENABLE_RAFFLE_WINNER_PHOTO === 'true',
   // Event-page raffle tile opens the same black + orange /raffles entry sheet, with plainer copy and an in-sheet
   // "closed" note. Only read when raffleV2 is on. OFF = today's tile and dialog. VITE_ENABLE_RAFFLE_TILE_SHEET=true.
   raffleTileSheet:     import.meta.env.VITE_ENABLE_RAFFLE_TILE_SHEET === 'true',

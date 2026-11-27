@@ -5,6 +5,7 @@ import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom';
 import { parseRaffleBoard } from '@/lib/raffleBoard';
 import { rafflePoolJoinedKey } from '@/lib/raffleSession';
+import { flags } from '@/lib/featureFlags';
 
 const h = vi.hoisted(() => ({ board: { data: undefined as unknown, isError: false, isLoading: false, refetch: vi.fn() } }));
 
@@ -129,6 +130,49 @@ describe('RaffleRedesignA keep-list', () => {
     h.board = { ...h.board, data: board([]) };
     mount();
     expect(screen.queryByTestId('raffles-recent-winners')).toBeNull();
+  });
+
+  it('winner photo (flag on): public photo + slug = photo in the ring, trophy coin, photo + name one link; else trophy, no link', () => {
+    const f = flags as { raffleWinnerPhoto: boolean };
+    const was = f.raffleWinnerPhoto;
+    f.raffleWinnerPhoto = true;
+    try {
+      h.board = { ...h.board, data: board([
+        { first_name: 'Ishaan', last_initial: 'K', night_title: 'Luna', avatar_url: 'https://x.test/i.webp', profile_slug: 'ishaan-k' },
+        { first_name: 'Tom', night_title: 'Sol' },
+        { first_name: 'Ana', night_title: 'Mar', profile_slug: 'ana' },
+      ]) };
+      mount();
+      const wins = screen.getByTestId('raffles-recent-winners');
+      expect(screen.getByRole('heading', { level: 2, name: /This week.s winners/ })).toBeTruthy();
+      const links = screen.getAllByTestId('raffles-winner-link');
+      expect(links).toHaveLength(1);
+      expect(links[0].getAttribute('href')).toBe('/dancers/ishaan-k');
+      expect(links[0].textContent).toBe('Ishaan K.');
+      const img = screen.getByTestId('raffles-winner-photo');
+      expect(img.getAttribute('src')).toBe('https://x.test/i.webp');
+      expect(links[0].contains(img)).toBe(true);
+      expect(links[0].querySelector('.rd-medal__coin svg')).toBeTruthy();
+      expect(links[0].querySelector('.rd-medal__disc i')).toBeTruthy();
+      // keep-list: night + WON A FREE ENTRY on every medal, outside the link
+      expect(wins.querySelectorAll('em')).toHaveLength(3);
+      for (const t of ['Luna', 'Sol', 'Mar', 'Tom', 'Ana']) expect(wins.textContent).toContain(t);
+      expect(links[0].textContent).not.toContain('Luna');
+      // no photo, or slug without photo: trophy disc, not a link
+      expect(wins.querySelectorAll('a')).toHaveLength(1);
+      expect(wins.querySelectorAll('.rd-medal__disc:not(.rd-medal__disc--photo) svg')).toHaveLength(2);
+      // photo fails to load: falls back to the trophy disc, no link
+      fireEvent.error(img);
+      expect(screen.queryByTestId('raffles-winner-link')).toBeNull();
+      expect(wins.querySelectorAll('a')).toHaveLength(0);
+      cleanup();
+      f.raffleWinnerPhoto = false;
+      mount();
+      expect(screen.queryByTestId('raffles-winner-photo')).toBeNull();
+      expect(screen.getByTestId('raffles-recent-winners').querySelectorAll('a')).toHaveLength(0);
+    } finally {
+      f.raffleWinnerPhoto = was;
+    }
   });
 
   it('sticky bar entered state: tick, copy, no Reset, no enter button', () => {

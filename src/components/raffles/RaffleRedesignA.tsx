@@ -10,7 +10,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useRaffleBoard } from '@/hooks/useRaffleBoard';
-import { nightIsOpen, nextNightPerEvent, winnersListedCount } from '@/lib/raffleBoard';
+import { nightIsOpen, nextNightPerEvent, winnersListedCount, type RaffleWinner } from '@/lib/raffleBoard';
+import { flags } from '@/lib/featureFlags';
 import { isRafflePoolJoined, markRafflePoolJoined } from '@/lib/raffleSession';
 import { ACCOUNT_CONTACT_EMAIL } from '@/lib/accountDeletionCopy';
 import { RaffleEntryDialog } from '@/modules/event-page/bento/modals/RaffleEntryDialog';
@@ -114,6 +115,43 @@ const makeConfetti = (): Burster => {
 const TrophyIcon = () => (
   <svg viewBox="0 0 24 24" width="40" height="40" aria-hidden="true"><path fill="currentColor" d="M7 3h10v2h3v3a4 4 0 0 1-4 4h-.3a5 5 0 0 1-2.7 2.6V18h3v3H8v-3h3v-3.4A5 5 0 0 1 8.3 12H8a4 4 0 0 1-4-4V5h3V3zm0 4H6v1a2 2 0 0 0 1 1.7V7zm10 0v2.7A2 2 0 0 0 18 8V7h-1z" /></svg>
 );
+
+/** One medal of "This week's winners". Flag on + public photo + profile slug: the photo fills the gold disc,
+ *  a small trophy coin sits bottom-right, and photo + name are one link to the dancer profile. Otherwise (flag
+ *  off, no photo, private profile, photo fails to load) the trophy disc exactly as before, not a link. */
+const WinnerMedal = ({ w, photoOn }: { w: RaffleWinner; photoOn: boolean }) => {
+  const [broken, setBroken] = useState(false);
+  const name = w.lastInitial ? `${w.firstName} ${w.lastInitial}.` : w.firstName;
+  const withPhoto = photoOn && !broken && !!w.avatarUrl && !!w.profileSlug;
+  const rest = (
+    <>
+      {w.nightTitle ? <span>{w.nightTitle}</span> : null}
+      <em>won a free entry</em>
+    </>
+  );
+  if (!withPhoto) {
+    return (
+      <div className="rd-medal">
+        <span className="rd-medal__disc"><i /><TrophyIcon /></span>
+        <b>{name}</b>
+        {rest}
+      </div>
+    );
+  }
+  return (
+    <div className="rd-medal">
+      <Link to={`/dancers/${w.profileSlug}`} className="rd-medal__link" data-testid="raffles-winner-link">
+        <span className="rd-medal__disc rd-medal__disc--photo">
+          <i />
+          <img src={w.avatarUrl} alt="" loading="lazy" decoding="async" onError={() => setBroken(true)} data-testid="raffles-winner-photo" />
+          <span className="rd-medal__coin"><TrophyIcon /></span>
+        </span>
+        <b>{name}</b>
+      </Link>
+      {rest}
+    </div>
+  );
+};
 
 /** Drop-in reveal: adds `seen` once the item scrolls into view (no observer / reduced motion = shown, no animation). */
 const WinnerItem = ({ n, children }: { n: number; children: React.ReactNode }) => {
@@ -244,12 +282,7 @@ export const RaffleRedesignA = () => {
               <ul className="rd-medals">
                 {board.winners.map((w, i) => (
                   <WinnerItem key={`${w.firstName}-${w.lastInitial ?? ''}-${w.wonAt ?? i}`} n={i}>
-                    <div className="rd-medal">
-                      <span className="rd-medal__disc"><i /><TrophyIcon /></span>
-                      <b>{w.lastInitial ? `${w.firstName} ${w.lastInitial}.` : w.firstName}</b>
-                      {w.nightTitle ? <span>{w.nightTitle}</span> : null}
-                      <em>won a free entry</em>
-                    </div>
+                    <WinnerMedal w={w} photoOn={flags.raffleWinnerPhoto} />
                   </WinnerItem>
                 ))}
               </ul>
