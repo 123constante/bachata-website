@@ -75,7 +75,7 @@ const DEFAULT_SURFACES = [
   ['calendar', '/city/london-gb/calendar'],
   ['parties', '/parties'],
   ['festivals', '/festivals'],
-  ['landing', '/london-bachata-guide'],
+  ['landing', '/learn-bachata-london'],
 ];
 
 const METRICS = [

@@ -92,7 +92,7 @@ const INTENTIONAL_REDIRECTS = new Set([
 
 // Indexable routes we spot-check every run (the full prerender set).
 const INSPECT_ROUTES = [
-  '/', '/faq', '/london-bachata-guide',
+  '/', '/learn-bachata-london',
   '/bachata-london-monday', '/bachata-london-tuesday', '/bachata-london-wednesday',
   '/bachata-london-thursday', '/bachata-london-friday', '/bachata-london-saturday',
   '/bachata-london-sunday',
