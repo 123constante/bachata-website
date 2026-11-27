@@ -56,11 +56,11 @@ export function switchErrorLine(err: unknown): string {
 }
 
 const LONDON = 'Europe/London';
-/** "Thu 14:00" in London time. */
+/** "Thursday 14:00" in London time. */
 export function doorUntilWords(iso: string | null): string {
   const d = iso ? new Date(iso) : null;
   if (!d || Number.isNaN(d.getTime())) return 'Door';
-  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: LONDON, weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(d);
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: LONDON, weekday: 'long', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(d);
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
   return `Door until ${get('weekday')} ${get('hour')}:${get('minute')}`;
 }
@@ -68,7 +68,7 @@ export function doorUntilWords(iso: string | null): string {
 export function expiresWords(iso: string | null): string {
   const d = iso ? new Date(iso) : null;
   if (!d || Number.isNaN(d.getTime())) return '';
-  return `expires ${new Intl.DateTimeFormat('en-GB', { timeZone: LONDON, day: 'numeric', month: 'short' }).format(d)}`;
+  return `expires ${new Intl.DateTimeFormat('en-GB', { timeZone: LONDON, day: 'numeric', month: 'long' }).format(d)}`;
 }
 
 const londonDay = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: LONDON }).format(d);
@@ -81,7 +81,7 @@ export function agoWords(iso: string, now: Date): string {
   const yesterday = new Date(now.getTime() - 86400000);
   if (londonDay(d) === londonDay(yesterday)) return 'yesterday';
   if (mins < 60 * 24) return `${Math.floor(mins / 60)}h ago`;
-  return new Intl.DateTimeFormat('en-GB', { timeZone: LONDON, day: 'numeric', month: 'short' }).format(d);
+  return new Intl.DateTimeFormat('en-GB', { timeZone: LONDON, day: 'numeric', month: 'long' }).format(d);
 }
 
 /** One plain sentence per recent change. */

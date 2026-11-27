@@ -21,7 +21,7 @@ import { dirname, join, relative, resolve } from 'node:path';
 import {
   AW1_COMMAND_KINDS, OWNER_CANCEL_KEYS, OWNER_CANCEL_ONE_OFF_KEYS, OWNER_COMMAND_KINDS, cancelOneOffCommand, OWNER_OVERRIDE_KEYS, OWNER_UPSERT_KEYS,
   addDateCommand, bulkCancelCommand, bulkShiftCommand, cancelCommand, lifecycleCommand, overrideCommand,
-  resetTimeCommand, setTimeCommand, skipDateCommand, uncancelCommand, unskipDateCommand,
+  setTimeCommand, skipDateCommand, uncancelCommand, unskipDateCommand,
   type BulkCommand, type OwnerCommand,
 } from '@/modules/organiser/shared/seriesCommands';
 import { dayChangeCommand, detailCommand, endRunCommand, parseEventWorkspace, stopRepeatingCommand, venueCommand, weeklyUntilCommand } from '@/modules/organiser/events/eventModel';
@@ -381,12 +381,11 @@ export const PARITY: Row[] = [
     ],
     shows: [['flows/change/changeModel.ts', 'export function copyPatches']] },
   // PARTIAL: no read exposes a per-date time change; the start-differs proxy misses an end-only change (P-DATES decision 5).
-  { id: 'C61', capability: 'Put a date back to the usual time / details', verdict: 'PARTIAL', screen: 'flows/change/Time.tsx', from: [[WHAT, 'ORG_PATHS.changeTime']],
+  // #2100 removed the 'usual time' idea from change-time (no event start time): only the details reset is left.
+  { id: 'C61', capability: 'Put a date back to the usual details', verdict: 'PARTIAL', screen: 'flows/change/Detail.tsx', from: [[WHAT, 'ORG_PATHS.changeDetail']],
     sends: [
-      { in: 'flows/change/Time.tsx', token: 'resetTimeCommand()', kind: 'occurrence.set_time', keys: ['reset'], build: () => resetTimeCommand() },
-      { in: 'flows/change/Detail.tsx', screen: 'flows/change/Detail.tsx', token: 'overrideCommand({ [key]: null })', kind: 'occurrence.set_override', keys: ['description'], build: () => overrideCommand({ description: null }) },
-    ],
-    shows: [['flows/change/Time.tsx', 'hasOwnTime(']] },
+      { in: 'flows/change/Detail.tsx', token: 'overrideCommand({ [key]: null })', kind: 'occurrence.set_override', keys: ['description'], build: () => overrideCommand({ description: null }) },
+    ] },
   { id: 'C62', capability: 'Featured flag / promotion log', verdict: 'MISSING-ADMIN-ONLY', adminKey: 'featured' },
   { id: 'C63', capability: 'Review / approval step', verdict: 'DROPPED-BY-DECISION', decision: 'D4' },
   { id: 'C64', capability: 'Undo the last change', verdict: 'DROPPED-BY-DECISION', decision: 'D49' },
@@ -554,7 +553,7 @@ describe('organiser parity matrix', () => {
   it('the counts: MATCH / PARTIAL / admin-only / dropped, nothing left to fill', () => {
     const count = (v: Verdict) => PARITY.filter((r) => r.verdict === v).length;
     expect({ match: count('MATCH'), partial: count('PARTIAL'), adminOnly: count('MISSING-ADMIN-ONLY'), dropped: count('DROPPED-BY-DECISION') })
-      .toEqual({ match: 43, partial: 9, adminOnly: 8, dropped: 11 });
+      .toEqual({ match: 42, partial: 9, adminOnly: 8, dropped: 12 }); // C14 dropped in #2098
   });
 });
 

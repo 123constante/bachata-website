@@ -16,7 +16,7 @@ import {
   weekdayOf,
   type CreateForm,
 } from '../createModel';
-import { OWNER_CREATE_KEYS, SERIES_TIMEZONE, createPayload, weeklyRuleCommand } from '../seriesCommands';
+import { SERIES_TIMEZONE, createDraftPayload, weeklyRuleCommand } from '../seriesCommands';
 import { commandErrorMessage, isServerRefusal } from '../selfServeErrors';
 
 // selfServeApi imports the Supabase client; only its pure createSeriesCommand is under test.
@@ -140,56 +140,10 @@ describe('createBlock (the server: series.upsert (create) needs a live organiser
   });
 });
 
-describe('createPayload', () => {
-  it('sends the exact keys for a full weekly class, trimmed, with London as the zone', () => {
-    const payload = createPayload(createDraft(weeklyForm));
-    expect(payload).toEqual({
-      name: 'Tuesday Bachata Class',
-      format: 'recurring',
-      default_start_date: '2026-10-06',
-      default_local_start_time: '19:00',
-      timezone: 'Europe/London',
-      default_duration_minutes: 150,
-      default_venue_id: 'ven-1',
-      default_ticket_url: 'https://tickets.example/tue',
-      default_cover_image_url: 'https://img.example/a.jpg',
-      default_description: 'Friendly weekly class.',
-    });
-    expect(SERIES_TIMEZONE).toBe('Europe/London');
-  });
-
-  it('sends only the five always-keys for a bare party (an absent key lands NULL; a blank would be noise)', () => {
-    expect(createPayload(createDraft(partyForm))).toEqual({
-      name: 'Bachata Sundays Party',
-      format: 'one_off',
-      default_start_date: '2026-10-17',
-      default_local_start_time: '20:00',
-      timezone: 'Europe/London',
-    });
-  });
-
-  it('never emits a key outside the owner create allowlist', () => {
-    const keys = Object.keys(createPayload(createDraft(weeklyForm)));
-    expect(keys.filter((k) => !(OWNER_CREATE_KEYS as readonly string[]).includes(k))).toEqual([]);
-  });
-
-  it('adds default_city_id only when a city is known (B1: the server takes the city only from the payload)', () => {
-    expect(createPayload(createDraft(partyForm), 'city-1').default_city_id).toBe('city-1');
-    expect('default_city_id' in createPayload(createDraft(partyForm), null)).toBe(false);
-    expect('default_city_id' in createPayload(createDraft(partyForm))).toBe(false);
-    const keys = Object.keys(createPayload(createDraft(weeklyForm), 'city-1'));
-    expect(keys.filter((k) => !(OWNER_CREATE_KEYS as readonly string[]).includes(k))).toEqual([]);
-  });
-
-  it('an end at or before the start crosses midnight; no end means no duration', () => {
-    expect(createPayload(createDraft({ ...partyForm, endTime: '01:00' })).default_duration_minutes).toBe(300);
-    expect('default_duration_minutes' in createPayload(createDraft(partyForm))).toBe(false);
-  });
-});
-
 describe('createSeriesCommand (selfServeApi, the one file allowed to spell the organiser key)', () => {
   it('adds exactly one key, naming the one organiser, to the payload', () => {
-    const payload = createPayload(createDraft(partyForm));
+    const payload = createDraftPayload(partyForm.name, 'one_off');
+    expect(payload).toEqual({ name: 'Bachata Sundays Party', format: 'one_off', timezone: SERIES_TIMEZONE });
     const command = createSeriesCommand(payload, 'org-1');
     expect(command.kind).toBe('series.upsert');
     const extra = Object.entries(command.payload).filter(([k]) => !(k in payload));

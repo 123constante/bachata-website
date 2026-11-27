@@ -250,13 +250,6 @@ const OFF_ROWS: OffRow[] = [
     reason: () => screen.queryByTestId('event-step-reason'),
     says: () => /\S/,
   },
-  {
-    row: 'change the event time: an untouched Save',
-    path: () => detailEditPath(A, 'time'),
-    control: () => screen.findByTestId('org-detail-save'),
-    reason: () => screen.queryByTestId('event-step-reason'),
-    says: () => /\S/,
-  },
 ];
 
 const isOff = (el: HTMLElement) => el.getAttribute('aria-disabled') === 'true' || (el as HTMLButtonElement).disabled === true;
@@ -327,7 +320,6 @@ const UNTOUCHED: UntouchedRow[] = [
     untouch: () => fireEvent.click(screen.getByText('Salsa Bar')),
   },
   { screen: 'change the name', path: () => detailEditPath(A, 'name'), save: 'org-detail-save', ...typed('org-detail-input', 'Friday Social Club') },
-  { screen: 'change the event time', path: () => detailEditPath(A, 'time'), save: 'org-detail-save', ...typed('org-detail-input', '21:30') },
 ];
 
 describe('Save is off until the value differs, and an untouched Save sends NO command', () => {
