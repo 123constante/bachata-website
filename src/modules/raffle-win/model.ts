@@ -9,6 +9,8 @@ export type WinScreen =
 export type OpenNight = {
   occurrenceId: string; title: string; startLocal: string;
   venueName: string | null; posterUrl: string | null; publicEventId: string | null;
+  /** Optional pick-list keys; a missing key means today's behaviour. */
+  featured?: boolean; organiserName?: string | null; needsTick?: boolean; tickOrganiser?: boolean;
 };
 
 export type ClaimResult =
@@ -26,6 +28,8 @@ export function parseNight(raw: unknown): OpenNight | null {
   if (!occurrenceId || !startLocal) return null;
   return { occurrenceId, title: str(raw.title) ?? 'Bachata night', startLocal,
     venueName: str(raw.venue_name), posterUrl: str(raw.poster_url), publicEventId: str(raw.public_event_id),
+    featured: raw.featured === true ? true : undefined, organiserName: str(raw.organiser_name) ?? undefined,
+    needsTick: raw.needs_tick === false ? false : undefined, tickOrganiser: raw.tick_organiser === true ? true : undefined,
   };
 }
 

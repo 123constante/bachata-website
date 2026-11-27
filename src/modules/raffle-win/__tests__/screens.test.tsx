@@ -146,3 +146,31 @@ describe('StatusScreen', () => {
     expect(screen.getByRole('link', { name: 'See what is on' }).getAttribute('href')).toBe('/');
   });
 });
+
+describe('HonestySheet organiser tick', () => {
+  const tickLabel = () => screen.getByRole('checkbox').textContent;
+  it('shows the organiser line when tick_organiser and a name are set (collab joined with &)', () => {
+    sheet({ night: { ...night, tickOrganiser: true, organiserName: 'Luna & Sol Events' } });
+    expect(tickLabel()).toContain('ve never been to any event by Luna & Sol Events');
+    expect(screen.getByRole('checkbox').getAttribute('aria-checked')).toBe('false');
+  });
+  it('falls back to today\'s line with a null organiser or tick_organiser missing', () => {
+    sheet({ night: { ...night, tickOrganiser: true, organiserName: null } });
+    expect(tickLabel()).toContain('I have never been to this event.');
+    cleanup();
+    sheet({ night: { ...night, organiserName: 'Luna' } });
+    expect(tickLabel()).toContain('I have never been to this event.');
+  });
+  it('needs_tick false: no tick row and confirm is enabled', () => {
+    const p = sheet({ night: { ...night, needsTick: false } });
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    const confirm = screen.getByRole('button', { name: 'Confirm and get my QR' });
+    expect(confirm.getAttribute('aria-disabled')).toBe('false');
+    fireEvent.click(confirm);
+    expect(p.onConfirm).toHaveBeenCalledTimes(1);
+  });
+  it('the words "never been to" appear only in the tick label inside the sheet', () => {
+    sheet({ night: { ...night, needsTick: false } });
+    expect(document.body.textContent).not.toMatch(/never been to/);
+  });
+});

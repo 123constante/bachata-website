@@ -86,3 +86,16 @@ describe('share poster data + screen table', () => {
     expect(screenForClaim(parseClaim(ok({ state: 'locked', qr_token: 'abc' }, [])), { fromAuth: false })).toBe('qr');
   });
 });
+
+describe('parseNight pick-list keys', () => {
+  const base = { occurrence_id: 'o1', start_local: '2026-12-04T20:00:00' };
+  it('reads featured, organiser_name, needs_tick, tick_organiser', () => {
+    const n = parseNight({ ...base, featured: true, organiser_name: 'A & B', needs_tick: false, tick_organiser: true });
+    expect(n).toMatchObject({ featured: true, organiserName: 'A & B', needsTick: false, tickOrganiser: true });
+  });
+  it('missing keys leave today\'s behaviour', () => {
+    const n = parseNight(base);
+    expect(n?.featured).toBeUndefined();
+    expect(n?.needsTick).toBeUndefined();
+  });
+});

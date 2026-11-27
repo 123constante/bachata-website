@@ -137,11 +137,12 @@ export default function RaffleWin() {
 
   const confirm = async () => {
     if (busy || !night) return;
-    if (!ticked) { setNudge(true); return; }
+    const needsTick = night.needsTick !== false;
+    if (needsTick && !ticked) { setNudge(true); return; }
     setBusy(true);
     let out;
     try {
-      const res = await rpcLoose('raffle_win_lock_v2', { p_win_id: winId, p_occurrence_id: night.occurrenceId, p_never_been: true });
+      const res = await rpcLoose('raffle_win_lock_v2', { p_win_id: winId, p_occurrence_id: night.occurrenceId, p_never_been: needsTick });
       out = res.error ? ({ kind: 'error' } as const) : parseLock(res.data);
     } catch { out = { kind: 'error' } as const; }
     setBusy(false);

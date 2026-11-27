@@ -100,3 +100,20 @@ describe('PickScreen keep-list', () => {
     expect(REFUSAL_LINES.honesty_required).toBe('Please tick the box to confirm.');
   });
 });
+
+describe('Featured badge', () => {
+  const featuredNights = [{ ...NIGHTS[2], featured: true }, NIGHTS[0], NIGHTS[1]];
+  it('shows on a featured night only, keeping server order', () => {
+    render(<PickScreen nights={featuredNights} selection={null} banner={null} onSelect={() => {}} onLock={() => {}} />);
+    const badges = screen.getAllByTestId('pick-featured');
+    expect(badges).toHaveLength(1);
+    expect(badges[0].textContent).toContain('Featured');
+    const cards = screen.getAllByTestId('pick-event');
+    expect(cards[0].textContent).toContain('Winter Ball');
+    expect(cards[0].querySelector('[data-testid="pick-featured"]')).toBeTruthy();
+  });
+  it('is absent when no night is featured', () => {
+    render(<Harness />);
+    expect(screen.queryByTestId('pick-featured')).toBeNull();
+  });
+});
