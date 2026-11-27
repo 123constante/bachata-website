@@ -20,7 +20,7 @@ import { WorkspaceGate } from '../screens/EventPage';
 import { P3_PATHS } from '../shell/paths';
 import { upcomingOf } from './editorModel';
 import { payModeOf, doorPriceOf, type PayMode } from './payMode';
-import { TicketSheetV2 } from './TicketSheetV2';
+import { SOLD_STEP_WINDOW_MS, TicketSheetV2 } from './TicketSheetV2';
 import { earlyBirdOf, type EarlyBirdView } from '../tickets/earlyBird';
 import { flags } from '@/lib/featureFlags';
 import { WaysInLinkSheet, WaysInView, withMethod } from './WaysIn';
@@ -134,8 +134,12 @@ const WHEN = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', weekd
 
 /** "£10 until Tuesday 1 December, then £12" when a price change is coming; else the plain price. */
 export function ticketLine(pricePence: number, m: Pick<ManagedType, 'steps'> | undefined, now = Date.now()): string {
-  const next = (m?.steps ?? []).filter((s) => !s.isLive && Date.parse(s.effectiveFrom) > now).sort((a, b) => Date.parse(a.effectiveFrom) - Date.parse(b.effectiveFrom))[0];
-  const cur = pricePence === 0 ? 'Free' : formatPence(pricePence);
+  const coming = (m?.steps ?? []).filter((s) => !s.isLive && Date.parse(s.effectiveFrom) > now).sort((a, b) => Date.parse(a.effectiveFrom) - Date.parse(b.effectiveFrom));
+  // a step starting within 2 minutes already counts as the current price (a sold price change goes in 60 s ahead)
+  let shown = pricePence;
+  while (coming.length && Date.parse(coming[0].effectiveFrom) - now <= SOLD_STEP_WINDOW_MS) shown = coming.shift()!.pricePence;
+  const next = coming[0];
+  const cur = shown === 0 ? 'Free' : formatPence(shown);
   if (!next) return cur;
   return `${cur} until ${WHEN.format(new Date(next.effectiveFrom)).replace(/,/g, '')}, then ${formatPence(next.pricePence)}`;
 }
