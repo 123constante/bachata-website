@@ -2,7 +2,7 @@
 Brief-version: 1
 Branch: claude/draft-ticket-stale-live
 Lane: careful, Opus. Repo 123constante/bachata-website. One PR.
-Size: max 4 files, 200 lines. No new design, no copy change.
+Size: 4 files, 200 lines. No new design, no copy change.
 
 ## Read the brief
 Never run `gh api`. Read this file with `git fetch origin brief/draft-ticket-stale-live && git show FETCH_HEAD:docs/briefs/draft-ticket-stale-live.md`.
