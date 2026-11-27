@@ -3,7 +3,7 @@
 Size: 3 files, <=80 lines
 Repo: 123constante/bachata-website
 Branch: claude/ways-in-guide-free-seed
-Kind: bug fix, non-visual logic (no new screens, no copy change)
+Kind: bug fix, pure logic only (no visual or copy change)
 
 ## Problem
 `TicketsV2.tsx` `openGuide` (~line 429) seeds the Ways in guide with
