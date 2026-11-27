@@ -21,6 +21,8 @@ export interface RaffleNight {
   refuseReason: string | null;
 }
 
+export type RaffleAudience = 'new_only' | 'anyone';
+
 export interface RaffleRead {
   seriesId: string;
   canEdit: boolean;
@@ -30,6 +32,10 @@ export interface RaffleRead {
   seriesEnabled: boolean;
   /** The admin has locked the series switch: organisers cannot change it. */
   adminLocked: boolean;
+  /** Who can win: series_raffle_audience; anything else or missing is 'new_only'. */
+  audience: RaffleAudience;
+  /** Bachata Calendar has set the audience: organisers see it but cannot change it. */
+  audienceAdminSet: boolean;
   nights: RaffleNight[];
 }
 
@@ -74,6 +80,8 @@ export function parseRead(data: unknown): ReadResult {
       viewOnlyReason: str(o.view_only_reason),
       seriesEnabled: o.series_raffle_enabled === true,
       adminLocked: o.series_admin_locked === true || o.admin_locked === true,
+      audience: o.series_raffle_audience === 'anyone' ? 'anyone' : 'new_only',
+      audienceAdminSet: o.series_raffle_audience_admin_set === true,
       nights: o.nights.flatMap((n) => { const p = parseNight(n); return p ? [p] : []; }),
     },
   };

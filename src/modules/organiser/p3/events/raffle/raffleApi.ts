@@ -31,3 +31,11 @@ export async function setRaffleSeries(seriesId: string, enabled: boolean): Promi
   if (error) throw new Error(error.message);
   return !!data && typeof data === 'object' && (data as { ok?: unknown }).ok === true;
 }
+
+/** Choose who can win for the series. Resolves { ok, reason } (reason: not_authorised | view_only | audience_invalid | not_found | admin_set); an error throws. */
+export async function setRaffleAudience(seriesId: string, audience: 'new_only' | 'anyone'): Promise<{ ok: boolean; reason?: string }> {
+  const { data, error } = await rpc('organiser_raffle_audience_set_v1', { p_series_id: seriesId, p_audience: audience });
+  if (error) throw new Error(error.message);
+  const o = data && typeof data === 'object' ? (data as { ok?: unknown; reason?: unknown }) : {};
+  return o.ok === true ? { ok: true } : { ok: false, reason: typeof o.reason === 'string' ? o.reason : undefined };
+}
