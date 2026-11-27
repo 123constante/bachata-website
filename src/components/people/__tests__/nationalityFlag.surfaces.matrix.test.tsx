@@ -341,7 +341,7 @@ describe.each(SURFACES)('$name ($read)', (surface) => {
     art.innerHTML = flagArtMarkup(want.code);
     expect(svg.innerHTML).toBe(art.innerHTML);
     expect(f.style.transform).toBe('rotate(9deg)');
-    expect(f.style.boxShadow).toMatch(/^0(px)? 0(px)? 0(px)? 2px (#fff|rgb\(255, 255, 255\))/);
+    expect(f.style.boxShadow).toMatch(/^(0(px)? 0(px)? 0(px)? 2px (#fff|rgb\(255, 255, 255\))|(#fff|rgb\(255, 255, 255\)) 0(px)? 0(px)? 0(px)? 2px)/); // jsdom 31 serializes colour first
     expect(f.style.borderRadius).toBe('3px');
     expect(f.querySelector('canvas')).toBeNull();
     expect(f.getAnimations?.() ?? []).toHaveLength(0);
@@ -379,7 +379,7 @@ describe('placement (Sticker spec)', () => {
     expect(f.style.top).toBe('-6%');
     expect(f.style.right).toBe('-14%');
     expect(f.style.transform).toBe('rotate(9deg)');
-    expect(f.style.boxShadow).toMatch(/^0(px)? 0(px)? 0(px)? 2px (#fff|rgb\(255, 255, 255\))/);
+    expect(f.style.boxShadow).toMatch(/^(0(px)? 0(px)? 0(px)? 2px (#fff|rgb\(255, 255, 255\))|(#fff|rgb\(255, 255, 255\)) 0(px)? 0(px)? 0(px)? 2px)/); // jsdom 31 serializes colour first
   });
   it('no sticker under 28px; the photo props carry the country instead (owner decision 2026-10-13)', () => {
     expect(MIN_FLAG_PHOTO_PX).toBe(28);
