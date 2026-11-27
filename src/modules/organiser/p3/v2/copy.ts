@@ -1,4 +1,5 @@
 import { levelWord, typeWord, type PItem } from '../../events/programmeSeriesModel';
+import { formatPence } from '../../tickets/ticketModel';
 
 /** Editor v2 (S1): every owner-facing line, in one place. Punctuation as \u escapes (cp1252 mojibake rule). */
 export const V2 = {
@@ -370,6 +371,27 @@ export const V2 = {
     savedOne: 'Saved',
     gone: 'This night has gone.',
   },
+  /** Ways in rebuild W2: the one-line-per-fact Tickets summary. Punctuation as HTML entities in the view; \u escapes here. */
+  waysInSummary: {
+    online: 'Online, by card',
+    onlineAdd: 'Online, by card: add your price',
+    change: 'Change',
+    connect: 'Connect',
+    add: 'Add',
+    choose: 'Choose',
+    start: 'Start',
+    another: '+ Another ticket',
+    door: 'Pay at the door',
+    free: 'Free entry',
+    yourSite: (url: string) => `Your ticket site: ${url}`,
+    sold: (n: number) => `${n} sold`,
+    skipDoor: 'Skip the door on one night',
+    rerun: 'Run the questions again',
+    /** "Online £10, 100 a night"; one-off says tickets; several tickets lead with the ticket name. */
+    ticketLine: (price: string, qty: number, oneOff: boolean, name: string | null) => `${name ?? 'Online'} ${price}, ${qty} ${oneOff ? 'tickets' : 'a night'}`,
+    earlyDate: (price: string, until: string) => `Early buyers ${price} until ${until}`,
+    earlyCount: (price: string, first: number) => `Early buyers ${price}, first ${first}`,
+  },
   /** Ways in list on the Tickets screen (flag waysInV2). */
   waysIn: {
     title: 'Ways in',
@@ -478,6 +500,12 @@ export function sessionLine(s: Pick<PItem, 'type' | 'people' | 'levels'>): strin
 }
 
 /** The Repeat row on one line each: "Every Friday" over "Last date Friday 25 December" (no wrapped sentence). */
+/** The note after a price change when tickets were already sold: "Changed to £12. The 12 people who bought keep their £10 ticket." Prices in pence. */
+export function soldKeep(newPence: number, sold: number, oldPence: number): string {
+  const who = sold === 1 ? 'The 1 person who bought keeps' : `The ${sold} people who bought keep`;
+  return `Changed to ${formatPence(newPence)}. ${who} their ${formatPence(oldPence)} ticket.`;
+}
+
 export function repeatParts(words: string): { head: string; rest: string; full: string } {
   const full = words.trim().replace(/\.$/, '');
   const at = full.indexOf(', ');
