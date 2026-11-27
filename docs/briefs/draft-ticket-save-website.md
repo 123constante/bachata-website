@@ -5,6 +5,7 @@ Size: 5 files, 300 lines
 Model: opus
 Repo: 123constante/bachata-website (base main)
 Brief-version: 2
+Design: owner-approved mockup https://claude.ai/artifact/DBwBzRR6umjXZEXqPK8Edg (screen copy "Goes on sale when you put the event live."); no layout change in this PR.
 
 ## What main lacks
 - writeTicket (TicketSheetV2.tsx:113) always calls setTicketStatus on_sale for a new ticket, even on a draft series -- grep: Goes on sale when you put the event live
