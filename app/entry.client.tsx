@@ -31,7 +31,8 @@ if (typeof window !== "undefined") {
   if ("requestIdleCallback" in window) {
     window.requestIdleCallback(initWebVitals, { timeout: 3000 });
   } else {
-    window.setTimeout(initWebVitals, 2000);
+    // `in window` narrows this branch to never; plain setTimeout is the same timer.
+    setTimeout(initWebVitals, 2000);
   }
 
   scheduleDecorativeFonts();

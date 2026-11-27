@@ -29,7 +29,7 @@ export async function uploadJpeg(
     return null;
   }
   // R2 rejects a PUT whose Content-Type differs from the signed one: send exactly what was requested.
-  const put = await fetchImpl(signed.uploadUrl, { method: "PUT", headers: { "Content-Type": OG_CONTENT_TYPE }, body: bytes });
+  const put = await fetchImpl(signed.uploadUrl, { method: "PUT", headers: { "Content-Type": OG_CONTENT_TYPE }, body: bytes as unknown as BodyInit });
   if (!put.ok) console.error(`[og-bake] R2 PUT failed: status=${put.status} path=${path}`);
   return put.ok ? signed.publicUrl : null;
 }

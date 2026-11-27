@@ -178,7 +178,7 @@ export async function searchPublicV3(
         p_section_limit: sectionLimit,
         p_include_past: includePast,
         ...(v6 ? { p_level: levels && levels.length ? levels : null } : {}),
-      }),
+      } as never),
     ),
     fetchPublicFestivalsList(),
   ]);

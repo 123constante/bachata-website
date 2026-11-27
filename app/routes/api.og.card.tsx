@@ -135,7 +135,7 @@ const CACHE_TALL_TEST = "public, max-age=3600";
 
 function imageResponse(buf: Buffer, etag: string, fallback: FallbackReason | null = null, tallTest = false): Response {
   if (tallTest && !fallback) {
-    return new Response(buf, {
+    return new Response(buf as unknown as BodyInit, {
       status: 200,
       headers: {
         "Content-Type": "image/jpeg",
@@ -146,7 +146,7 @@ function imageResponse(buf: Buffer, etag: string, fallback: FallbackReason | nul
       },
     });
   }
-  return new Response(buf, {
+  return new Response(buf as unknown as BodyInit, {
     status: 200,
     headers: {
       "Content-Type": "image/jpeg",
