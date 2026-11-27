@@ -33,7 +33,7 @@ export const AvatarUpload: React.FC<AvatarUploadProps> = ({
 
       const file = event.target.files[0];
       const check = validateImageFile(file);
-      if (!check.ok) throw new Error(check.message);
+      if (check.ok === false) throw new Error(check.message);
 
       const fileExt = file.name.split('.').pop();
       const fileName = `${userId}-${Math.random()}.${fileExt}`;

@@ -1149,7 +1149,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
                       const f = e.target.files?.[0];
                       if (!f) return;
                       const check = validateImageFile(f);
-                      if (!check.ok) { toast({ title: check.message, variant: 'destructive' }); return; }
+                      if (check.ok === false) { toast({ title: check.message, variant: 'destructive' }); return; }
                       setPrimaryFile(f);
                     }}
                   />
@@ -1262,7 +1262,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
                         const file = e.target.files?.[0];
                         if (!file) return;
                         const check = validateImageFile(file);
-                        if (!check.ok) { toast({ title: check.message, variant: 'destructive' }); e.currentTarget.value = ""; return; }
+                        if (check.ok === false) { toast({ title: check.message, variant: 'destructive' }); e.currentTarget.value = ""; return; }
                         void uploadProductImage(index, file);
                         e.currentTarget.value = "";
                       }}

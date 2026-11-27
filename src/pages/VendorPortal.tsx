@@ -698,7 +698,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
                       const f = e.target.files?.[0];
                       if (!f) return;
                       const check = validateImageFile(f);
-                      if (!check.ok) { toast({ title: check.message, variant: 'destructive' }); return; }
+                      if (check.ok === false) { toast({ title: check.message, variant: 'destructive' }); return; }
                       setPrimaryFile(f);
                     }}
                   />
