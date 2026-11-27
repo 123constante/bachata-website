@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+// @vitest-environment jsdom
+import { afterEach, describe, it, expect, vi, beforeEach } from 'vitest';
+import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 const flagState = vi.hoisted(() => ({ on: false }));
@@ -18,6 +19,7 @@ const wrap = (ui: React.ReactElement) => render(<MemoryRouter>{ui}</MemoryRouter
 
 describe('raffle privacy line', () => {
   beforeEach(() => { flagState.on = false; });
+  afterEach(cleanup);
 
   it('flag off: privacy keeps its sections, no raffle line, new page is not found', () => {
     wrap(<Privacy />);

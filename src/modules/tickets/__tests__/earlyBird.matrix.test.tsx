@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Early-bird buyer (flag ticketEarlyBird): rows, stepper cap, pay-bar saving, v3 parse unchanged. */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -16,7 +16,8 @@ vi.mock('../ticketCheckoutApi', async (orig) => {
 });
 
 import { TicketsBlock } from '../TicketsBlock';
-import { fetchPublicTicketTypes as realFetch } from '../ticketCheckoutApi';
+// The module above is mocked, so the wire function under test is the real one.
+const { fetchPublicTicketTypes: realFetch } = await vi.importActual<typeof import('../ticketCheckoutApi')>('../ticketCheckoutApi');
 import { earlySavingPence, maxQuantity, parsePublicTypes, type PublicTicketType } from '../ticketCheckoutModel';
 
 const NOW = new Date('2026-10-20T12:00:00Z');
@@ -33,7 +34,7 @@ function show(rows: unknown[], earlyBird: boolean) {
   return render(
     <QueryClientProvider client={qc}>
       <MemoryRouter>
-        <TicketsBlock seriesId="s1" occurrenceId={null} organiserId="o1" now={NOW} priceSteps earlyBird={earlyBird} />
+        <TicketsBlock seriesId="s1" occurrenceId={null} organiserId="o1" now={NOW} origin="https://bachatacalendar.co.uk" priceSteps earlyBird={earlyBird} />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -81,8 +82,10 @@ describe('stepper cap and saving', () => {
   });
   it('pay bar says you save £10 for 2 early tickets, nothing without', async () => {
     show([early({ early_left: 5 })], true);
-    const btn = await screen.findByRole('button', { name: /Party ticket/ });
-    btn.click();
+    // The bar shows its saving only once the buyer details are valid (otherwise it shows the reason).
+    await screen.findByTestId('ticket-bar');
+    fireEvent.change(screen.getByLabelText(/Email/), { target: { value: 'a@b.co' } });
+    fireEvent.click(screen.getByRole('checkbox'));
     expect((await screen.findByTestId('ticket-bar-saving')).textContent).toBe('you save £5');
   });
 });
