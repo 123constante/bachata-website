@@ -24,7 +24,7 @@ function mount(step: FieldStep) {
   const onClose = vi.fn();
   const router = createMemoryRouter([
     { path: '/a', element: <p>a</p> },
-    { path: '/b', element: <DateFieldSheet step={step} ws={ws} detail={null} busy={false} error={null} conflict={false} restarting={false} onSave={vi.fn()} onBack={vi.fn()} onClose={onClose} /> },
+    { path: '/b', element: <DateFieldSheet step={step} ws={ws} detail={null} busy={false} error={null} conflict={false} restarting={false} gen={0} onStartAgain={vi.fn(async () => true)} onSave={vi.fn()} onBack={vi.fn()} onClose={onClose} /> },
     { path: '/c', element: <p data-testid="landed">c</p> },
   ], { initialEntries: ['/a', '/b'], initialIndex: 1 });
   render(<RouterProvider router={router} />);
