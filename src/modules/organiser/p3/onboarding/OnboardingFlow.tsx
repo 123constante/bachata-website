@@ -378,7 +378,7 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
       email={user.email ?? null}
       orgId={orgId}
       left={rs ? new Set(rs.missing).size : null}
-      firstName={dancer.data?.first_name ?? ''}
+      firstName={typeof dancer.data?.first_name === 'string' ? dancer.data.first_name : ''}
       held={held ?? { ...EMPTY_PAGE, name: pageName }}
       draft={d ?? draftFrom(EMPTY_PAGE)}
       setDraft={(f) => setD((p) => f(p ?? draftFrom(EMPTY_PAGE)))}

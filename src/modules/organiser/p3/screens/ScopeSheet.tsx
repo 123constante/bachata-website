@@ -99,8 +99,8 @@ export function ScopeSheet({ seriesId, fields, changes, unscopedChanged, seriesV
     setError(null);
     const r = await run(req, day, fields);
     setBusy(false);
-    if (r.ok) onDone(r.done);
-    else { setError(r.error); if (r.gated) onGated(); }
+    if (r.ok === false) { setError(r.error); if (r.gated) onGated(); }
+    else onDone(r.done);
   };
   const all = () => {
     if (choices.allSendsPlain) { onPlain(); return; }

@@ -179,7 +179,7 @@ function ShareRow({ ws }: { ws: EventWorkspace }) {
   const sh = shareOf(ws, typeof window === 'undefined' ? '' : window.location.origin);
   const [note, setNote] = useState<'copied' | 'failed' | null>(null);
   const title = <span className="p3-row-t">Share this event</span>;
-  if (sh.off) {
+  if ('why' in sh) {
     return (
       <div className="p3-row" aria-disabled="true" data-testid="p3-share-off">
         <span className="p3-grow p3-mut">{title}<br /><span className="p3-row-s" data-testid="p3-share-why">{sh.why}</span></span>

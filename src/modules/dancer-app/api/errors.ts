@@ -73,6 +73,12 @@ export const FIELD_LABEL: Record<SaveKey, string> = {
   favorite_styles: 'favourite styles',
   favorite_songs: 'favourite songs',
   achievements: 'achievements',
+  looking_for_partner: 'partner search setting',
+  partner_search_role: 'partner role',
+  partner_years_min: 'partner experience (from)',
+  partner_years_max: 'partner experience (to)',
+  partner_details: 'partner details',
+  partner_practice_goals: 'practice goals',
 };
 
 /** Copy for a code whose DETAIL named a field: says WHICH field, in plain words. */

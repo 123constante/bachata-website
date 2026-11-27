@@ -52,7 +52,7 @@ describe('night screen prototype lines', () => {
   });
 
   it('night copy has no mojibake', () => {
-    const all = Object.values(V2).filter((v): v is string => typeof v === 'string').join('\n');
+    const all = Object.values(V2 as Record<string, unknown>).filter((v): v is string => typeof v === 'string').join('\n');
     expect(all).not.toMatch(/\u00e2\u20ac|\u00c3/);
   });
 });

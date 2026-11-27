@@ -4,6 +4,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { SHAPES } from './wsFixtures';
+
+const WEEKLY = SHAPES.weekly as Record<string, unknown> & { series: Record<string, unknown> & { series: Record<string, unknown> } };
 import { L, saveWordsFor } from '../../model';
 import { PROGRAMME_WHY } from '../../model/programme';
 import { CHANGED_SESSION_REMOVE_CONFIRM } from '../../../events/programmeSeriesModel';
@@ -313,7 +315,7 @@ describe('review r1 #3: the idempotency key belongs to one envelope', () => {
     let n = 0;
     let version = 7;
     const calls = server({
-      admin_event_workspace_p5: () => ({ data: { ...SHAPES.weekly, series: { ...SHAPES.weekly.series, series: { ...SHAPES.weekly.series.series, version } } }, error: null }),
+      admin_event_workspace_p5: () => ({ data: { ...WEEKLY, series: { ...WEEKLY.series, series: { ...WEEKLY.series.series, version } } }, error: null }),
       series_command_p5: () => { n += 1; if (n === 1) { version = 9; throw new TypeError('Failed to fetch'); } return { data: { ok: true, new_version: 10 }, error: null }; },
     });
     show();
