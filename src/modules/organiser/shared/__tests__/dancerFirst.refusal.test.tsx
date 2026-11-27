@@ -55,7 +55,7 @@ const mountAt = (path: string, ui: ReactNode, gateValue: ProfileGateValue | 'loa
 
 const claimCard = () => (
   <PublicClaimCard
-    facts={ownershipFacts({ flagOn: true, signedIn: true, ownership: { is_managed: false, i_own_it: false, my_role: null }, hint: 'email_matches' })}
+    facts={ownershipFacts({ flagOn: true, signedIn: true, ownership: { is_managed: false, i_own_it: false, my_role: null, seat_kind: null }, hint: 'email_matches' })}
     hint="email_matches"
     organiser={ORG}
     user={ME}

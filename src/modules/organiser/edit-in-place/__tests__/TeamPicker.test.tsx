@@ -297,7 +297,7 @@ describe('pick, then Done', () => {
 
 describe('the invite fallback', () => {
   it('copies a sign-up link when the phone cannot share, and says what happens next', async () => {
-    const writeText = vi.fn(async () => undefined);
+    const writeText = vi.fn(async (_text: string) => undefined);
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
     setup({ team: { myRole: 'owner', members: [] } });
     const dialog = await openSheet();

@@ -63,7 +63,7 @@ vi.mock('react-router-dom', async (orig) => {
       const navigate = actual.useNavigate();
       return (...args: Parameters<typeof navigate>) => {
         h.atNavigate.push(personKeysLeft());
-        return navigate(...(args as [string]));
+        return navigate(...(args as unknown as [string]));
       };
     },
   };

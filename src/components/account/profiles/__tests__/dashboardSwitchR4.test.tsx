@@ -84,7 +84,7 @@ describe('Teacher / DJ rule: picked at onboarding only', () => {
 
 describe('Switch button with ONE profile', () => {
   it.each(['dancer', 'organiser'] as const)('%s area: Switch, sheet = the one profile + Add a profile, no Sign out', async (area) => {
-    if (area === 'organiser') sides.facts = { organisers: [ORG], dancer: 'none', areaAllowed: false, dancerFace: null } as SidesFacts;
+    if (area === 'organiser') sides.facts = { organisers: [ORG], dancer: 'none', areaAllowed: false, dancerFace: null } as unknown as SidesFacts;
     mount(area);
     const btn = screen.getByTestId('profile-switcher-button');
     expect(btn.getAttribute('aria-label')).toBe('Switch profile');

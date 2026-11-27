@@ -173,7 +173,7 @@ describe('the programme tree: parse, edit, build', () => {
   });
 
   it('differs-on-N-dates counts coming, not-cancelled dates with their own sessions', () => {
-    const d = (id: string, date: string, so: number, ad: number, st = 'scheduled') => ({ id, occurrence_date: date, lifecycle_status: st, version: 1, has_override: false, session_overrides_count: so, added_sessions_count: ad, materialised_start_utc: null });
+    const d = (id: string, date: string, so: number, ad: number, st = 'scheduled') => ({ id, occurrence_date: date, lifecycle_status: st, version: 1, has_override: false, session_overrides_count: so, added_sessions_count: ad, materialised_start_utc: null, override_keys: [] });
     const dates = [d('a', '2026-10-23', 1, 0), d('b', '2026-10-30', 0, 2), d('c', '2026-11-06', 0, 0), d('d', '2026-10-01', 3, 0), d('e', '2026-11-13', 1, 0, 'cancelled')];
     expect(differingDates(dates, '2026-10-20').map((x) => x.id)).toEqual(['a', 'b']);
     expect(differsLabel(1)).toBe('Differs on 1 date');

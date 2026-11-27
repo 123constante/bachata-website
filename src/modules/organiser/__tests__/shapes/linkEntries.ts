@@ -12,4 +12,5 @@ export const LINK_ENTRIES: Record<LinkKind, { saved: string; valid: string; inva
   instagram: { saved: 'https://instagram.com/ritmoleeds', valid: '@ritmo.leeds', invalid: 'not a handle!' },
   website: { saved: 'ritmo.example', valid: 'https://ritmo.example/tickets', invalid: 'not a site' },
   facebook: { saved: 'ritmofb', valid: 'https://facebook.com/ritmo', invalid: 'my page!!' },
+  chat: { saved: 'https://chat.whatsapp.com/SavedCode123', valid: 'https://chat.whatsapp.com/NewCode456', invalid: 'whatsapp group' },
 };

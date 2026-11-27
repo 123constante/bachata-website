@@ -22,7 +22,7 @@ const day = (n: number) => addDaysToKey(today(), n);
 
 const wsDate = (id: string, n: number, status = 'scheduled'): WorkspaceDate => ({
   id, occurrence_date: day(n), lifecycle_status: status, version: 1, has_override: false,
-  session_overrides_count: 0, added_sessions_count: 0, materialised_start_utc: `${day(n)}T20:00:00Z`,
+  session_overrides_count: 0, added_sessions_count: 0, materialised_start_utc: `${day(n)}T20:00:00Z`, override_keys: [],
 });
 const series = (id: string, over: Partial<HomeSeriesFull> = {}): HomeSeriesFull => ({
   id, name: id, slug: null, format: 'recurring', category: null, lifecycle_status: 'live', default_local_start_time: '20:00',
