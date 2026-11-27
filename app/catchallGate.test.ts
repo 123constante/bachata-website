@@ -38,7 +38,7 @@ import { EDGE_404, finalizeDocumentCacheHeaders } from "./documentCacheHeaders";
 
 const BROWSER = "public, max-age=0, must-revalidate";
 const SHELL_EDGE = edgeCacheControl();
-const COOKIE = "__vdpl=dpl_test; HttpOnly";
+const COOKIE = "__vdpl=dpl_test; Path=/; SameSite=Lax; Secure";
 const real = async () => true;
 const notReal = async () => false;
 const broken = async (): Promise<boolean> => {
@@ -265,6 +265,7 @@ describe("public/ files and the sitemap are not catchall 404s", () => {
     "/map-placeholder/london-gb-desktop.webp",
     "/map-placeholder/london-gb-mobile.webp",
     "/og-image.jpg",
+    "/og-raffle-win.jpg",
     "/placeholder.svg",
     "/robots.txt",
     "/site.webmanifest",
