@@ -6,6 +6,7 @@ import { isbot } from "isbot";
 import { renderToPipeableStream, type RenderToPipeableStreamOptions } from "react-dom/server";
 import { ServerRouter, type EntryContext } from "react-router";
 import { NonceProvider } from "./nonce";
+import { SkewCookieProvider, skewCookieScript } from "./skewCookie";
 import { contentSecurityPolicy } from "./csp";
 import { finalizeDocumentCacheHeaders } from "./documentCacheHeaders";
 import { isSsrLoaderTimeoutError } from "./lib/ssrLoaderTimeout";
@@ -46,6 +47,11 @@ function injectCspMeta(source: PassThrough, csp: string): Transform {
 
 const vercelDeploymentId = process.env.VERCEL_DEPLOYMENT_ID;
 const vercelSkewProtectionEnabled = process.env.VERCEL_SKEW_PROTECTION_ENABLED === "1";
+const headSkewCookieScript = skewCookieScript({
+  enabled: vercelSkewProtectionEnabled,
+  deploymentId: vercelDeploymentId,
+  killSwitch: process.env.HEAD_SKEW_COOKIE,
+});
 const RELEASE_ID =
   process.env.VITE_VERCEL_GIT_COMMIT_SHA?.trim() ||
   process.env.VERCEL_GIT_COMMIT_SHA?.trim() ||
@@ -149,7 +155,11 @@ export default async function handleRequest(
       createElement(
         NonceProvider,
         { value: nonce },
-        createElement(ServerRouter, { context: routerContext, url: request.url, nonce }),
+        createElement(
+          SkewCookieProvider,
+          { value: headSkewCookieScript },
+          createElement(ServerRouter, { context: routerContext, url: request.url, nonce }),
+        ),
       ),
       {
         ...options,

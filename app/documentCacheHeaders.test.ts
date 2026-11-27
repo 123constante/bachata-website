@@ -54,15 +54,15 @@ describe("live SSR document cache headers", () => {
   });
 
   it("an uncacheable document keeps the skew cookie (skew protection still works there)", () => {
-    expect(document(untagged(), 200).get("Set-Cookie")).toBe("__vdpl=dpl_test; HttpOnly");
-    expect(document(tagged(), 500).get("Set-Cookie")).toBe("__vdpl=dpl_test; HttpOnly");
+    expect(document(untagged(), 200).get("Set-Cookie")).toBe("__vdpl=dpl_test; Path=/; SameSite=Lax; Secure");
+    expect(document(tagged(), 500).get("Set-Cookie")).toBe("__vdpl=dpl_test; Path=/; SameSite=Lax; Secure");
   });
 
   it("a bound of zero (s-maxage=0) is NOT cacheable, so it keeps the cookie", () => {
     const h = document(tagged({ "X-Edge-Ttl-Bound": "0" }), 200);
     expect(h.get("Vercel-CDN-Cache-Control")).toBe("public, s-maxage=0, must-revalidate");
     expect(isEdgeCacheable(h)).toBe(false);
-    expect(h.get("Set-Cookie")).toBe("__vdpl=dpl_test; HttpOnly");
+    expect(h.get("Set-Cookie")).toBe("__vdpl=dpl_test; Path=/; SameSite=Lax; Secure");
   });
 
   it("skew protection off: never a cookie, cache policy unchanged", () => {
