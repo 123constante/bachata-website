@@ -18,7 +18,7 @@ import {
   type PersonRole,
 } from './personRoles';
 // Through the seam src/pages/DancerProfile.tsx, never from dancer-app (isolation rule c).
-import type { PublicPageV2Data } from '@/pages/DancerProfile';
+import type { PublicPageV2Data } from '@/modules/dancer-app/public-page/model';
 import type { PersonSnapshot } from './reads';
 import { PUBLIC_LINK_REL } from '@/lib/organiserLinkLabels';
 
