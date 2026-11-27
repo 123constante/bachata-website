@@ -16,6 +16,7 @@ import { useLondonToday } from '@/hooks/useLondonToday';
 import { resolvePageCity } from '@/lib/pageCity';
 import { useCity } from '@/contexts/CityContext';
 import EmptyCityNote, { cityHasNoRows, SHOWING_EVERYONE } from '@/components/listing/EmptyCityNote';
+import { PeopleChips } from '@/modules/people-directory/PeopleChips';
 import { fetchDirectoryOrganisers, type OrgRow } from '@/lib/organiserDirectoryList';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -705,6 +706,7 @@ const Organisers = () => {
             floatingIcons: [Users, CalendarDays, Music, MapPin, Star, Building2],
           }}
         >
+          <PeopleChips />
           <div className="px-4 pb-3 pt-1 flex justify-center">
             <div
               className="flex items-center gap-2 rounded-xl border px-3 py-2 w-full max-w-[210px] transition-colors"

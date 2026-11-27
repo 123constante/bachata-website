@@ -14,6 +14,7 @@ import { useLondonToday } from '@/hooks/useLondonToday';
 import { resolvePageCity } from '@/lib/pageCity';
 import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
+import { PeopleChips } from '@/modules/people-directory/PeopleChips';
 import EmptyCityNote, { rowsForCity } from '@/components/listing/EmptyCityNote';
 
 // ---------------------------------------------------------------------------
@@ -571,6 +572,7 @@ const Venues = () => {
         floatingIcons: [Building2, MapPin, Users, Music, Layers, Lightbulb],
       }}
     >
+      <PeopleChips />
       <section className="mx-auto max-w-3xl px-4 pb-1 pt-3 text-center">
         <p className="text-sm leading-relaxed" style={{ color: MUTED }}>
           {/* One text node, as before: the London HTML stays byte-identical. */}
