@@ -15,6 +15,11 @@ vi.mock('@/lib/seoLandingEvents', () => ({
 }));
 vi.mock('@/lib/listImpressions', () => ({ useListImpressions: () => () => () => {} }));
 vi.mock('@/hooks/useLondonToday', () => ({ useLondonToday: () => '2026-11-27' }));
+// This file is the FLAG-OFF keep-list (rollback layout). Two doors: classesTwoDoors.test.tsx.
+vi.mock('@/lib/featureFlags', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@/lib/featureFlags')>();
+  return { ...mod, flags: { ...mod.flags, classesTwoDoors: false } };
+});
 vi.mock('@/components/EventCalendar', () => ({ EventCalendar: () => <div data-testid="calendar" /> }));
 vi.mock('@/lib/seo', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/seo')>()),

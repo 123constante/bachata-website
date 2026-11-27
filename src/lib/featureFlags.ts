@@ -38,6 +38,10 @@ export const flags = {
   raffleCutout:        import.meta.env.VITE_ENABLE_RAFFLE_PHOTO_CUTOUT === 'true',
   // /raffle/win/:token polish (shorter gate, door-photo wording, flyers, contact buttons). OFF = today's screens.
   raffleWinPolish:     import.meta.env.VITE_ENABLE_RAFFLE_WIN_POLISH === 'true',
+  // /classes "Two doors" (SEO arc, owner pick C 2026-11-27): This week / First class switch, day drawers,
+  // first-class steps, FAQ. DEFAULT ON; rollback = set VITE_ENABLE_CLASSES_TWO_DOORS=false and redeploy
+  // (OFF = the 2026-11-27 article layout, unchanged).
+  classesTwoDoors:     import.meta.env.VITE_ENABLE_CLASSES_TWO_DOORS !== 'false',
   // Dancer home raffle-win card: Golden Ticket layout. OFF = today's card, unchanged.
   raffleGoldenTicket:  import.meta.env.VITE_ENABLE_RAFFLE_GOLDEN_TICKET === 'true',
   // Dancer home drawn in prototype A's look (Golden Ticket + rest of home). OFF = today's screen, unchanged.
