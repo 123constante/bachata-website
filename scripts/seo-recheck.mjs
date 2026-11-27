@@ -53,7 +53,7 @@ const range = { startDate: process.env.SEO_RECHECK_START || '2026-11-28', endDat
 const QUERIES = ['bachata classes london', 'bachata classes in london', 'bachata class london', 'learn bachata london', 'bachata london'];
 const BASE = { 'bachata classes london': '/ 8.5, /learn-bachata-london 47, /classes 76' };
 
-const path = (u) => u.replace(/^https?:\/\/(www\.)?bachatacalendar\.co\.uk/, '') || '/';
+const path = (u) => (u.replace(/^https?:\/\/www\.bachatacalendar\.co\.uk/, '') || '/').replace(/^https?:\/\//, '');
 const f = (r) => `${r.clicks} clicks, ${r.impressions} impr, pos ${r.position.toFixed(1)}`;
 const lines = [`Window: ${range.startDate} to ${range.endDate} (after option C shipped 2026-11-27).`, ''];
 let classesPos = null;
