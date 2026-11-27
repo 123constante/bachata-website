@@ -17,6 +17,22 @@ type UseVendorDirectoryResult = {
   error: string | null;
 };
 
+// The one public vendor-directory read; shared with the server list loader.
+export const fetchVendorDirectoryRpc = (args: {
+  query: string | null;
+  cityId: string | null;
+  category: string | null;
+  limit: number;
+  offset: number;
+}) =>
+  supabase.rpc("get_public_vendor_directory_v1", {
+    p_query: args.query,
+    p_city_id: args.cityId,
+    p_category: args.category,
+    p_limit: args.limit,
+    p_offset: args.offset,
+  });
+
 export const useVendorDirectory = ({
   page,
   pageSize,
@@ -68,16 +84,13 @@ export const useVendorDirectory = ({
         }
       }
 
-      const { data, error: fetchError } = await supabase.rpc(
-        "get_public_vendor_directory_v1",
-        {
-          p_query: trimmedSearch || null,
-          p_city_id: cityId,
-          p_category: trimmedCategory || null,
-          p_limit: pageSize,
-          p_offset: offset,
-        },
-      );
+      const { data, error: fetchError } = await fetchVendorDirectoryRpc({
+        query: trimmedSearch || null,
+        cityId,
+        category: trimmedCategory || null,
+        limit: pageSize,
+        offset,
+      });
 
       if (cancelled) return;
 
