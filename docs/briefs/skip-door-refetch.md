@@ -1,6 +1,7 @@
 # Brief: skip-door sheet refetches failed night loads (open problem P46)
 
-Repo: bachata-website. Branch: claude/skip-door-refetch (from main). One PR. Max 2 files.
+Repo: bachata-website. Branch: claude/skip-door-refetch (from main). One PR.
+Size: 2 files, 60 lines
 
 ## Bug
 `src/modules/organiser/p3/v2/TicketsV2.tsx` ~line 418-422, 481, 516.
