@@ -67,6 +67,8 @@ case ".${EXT,,}" in
         exit 0
         ;;
 esac
+case "$FILE_PATH" in */.claude/bin/*) exit 0 ;; esac # bin-exempt
+case "$FILE_PATH" in */pack-*.json|*/scratchpad/*|*/.claude/plans/*|*/.claude/projects/*) exit 0 ;; esac # nonsource-exempt
 
 # Trivial files (small new file or small target) → allow Edit/Write.
 # Threshold is 2 KB — the empirically-observed corruption floor.
