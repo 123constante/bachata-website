@@ -5,19 +5,21 @@ import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 vi.hoisted(() => vi.stubEnv('VITE_ENABLE_DANCER_ONBOARDING_V3', 'true'));
 vi.mock('@/hooks/useAuth', async (importOriginal) => (await import('@/modules/dancer-app/shell/testAuth')).authModuleMock(importOriginal));
 vi.mock('@/lib/analytics', async (importOriginal) => ({ ...(await importOriginal<object>()), trackAnalyticsEvent: vi.fn() }));
-vi.mock('../../../shell/confetti', () => ({ daConfetti: vi.fn(() => 0) }));
+vi.mock('../neon/neonConfetti', () => ({ boom: vi.fn(() => 0) }));
 
-import { daConfetti } from '../../../shell/confetti';
+import { boom } from '../neon/neonConfetti';
 import { renderInShell, resetShell } from '@/modules/dancer-app/shell/renderInShell';
 import { CITY_LONDON, makeProfile } from '@/modules/dancer-app/api/fixtures';
 import type { FakeDancerBackend } from '@/modules/dancer-app/api/fakeBackend';
 import type { MyDancerEdit } from '@/modules/dancer-app/api/types';
 import { yearForBandV3 } from '../modelV3';
 
-afterEach(() => {
+afterEach(async () => {
+  // The neon burst fires on a 120ms timer that outlives the screen: let it land before the next test.
+  await new Promise((r) => setTimeout(r, 150));
   cleanup();
   resetShell();
-  vi.mocked(daConfetti).mockClear();
+  vi.mocked(boom).mockClear();
 });
 
 const SIGNED_UP = { first_name: 'Ana', based_city_id: CITY_LONDON.id, dance_role: 'follower', avatar_url: 'https://x.test/a.jpg' } as Partial<MyDancerEdit>;
@@ -60,7 +62,7 @@ describe('roles screen', () => {
     fireEvent.click(cont());
     await step('styles');
     expect(roleSaves(backend).map((c) => c.args)).toEqual([['dancer', 'teacher']]);
-    expect(daConfetti).not.toHaveBeenCalled();
+    expect(boom).not.toHaveBeenCalled();
   });
 
   it('a saved answer reopens as saved; an unchanged set sends nothing', async () => {
@@ -99,7 +101,7 @@ describe('styles screen', () => {
     fireEvent.click(cont());
     await step('years');
     expect(profileSaves(backend)).toEqual([{ favorite_styles: ['Zouk'] }]);
-    expect(daConfetti).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(boom).toHaveBeenCalledTimes(1));
   });
 
   it('Back keeps what was typed and does not celebrate', async () => {
@@ -111,7 +113,7 @@ describe('styles screen', () => {
     fireEvent.click(cont());
     await step('styles');
     expect((await screen.findByText('Kizomba')).closest('button')!.getAttribute('aria-checked')).toBe('true');
-    expect(daConfetti).not.toHaveBeenCalled();
+    expect(boom).not.toHaveBeenCalled();
   });
 });
 
@@ -141,7 +143,7 @@ describe('years screen', () => {
     await step('partner');
     expect(location()).toBe('/app/welcome');
     expect(profileSaves(backend)).toEqual([{ dance_started_year: yearForBandV3('three-five') }]);
-    expect(daConfetti).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(boom).toHaveBeenCalledTimes(1));
   });
 });
 
@@ -172,6 +174,7 @@ describe('resume and pre-steps', () => {
   it('while the name is missing, the existing name card shows first', async () => {
     open({ first_name: null });
     await step('name');
-    expect(screen.queryByTestId('onboarding-progress')).toBeNull();
+    // The name card now sits in the neon frame with its own three-segment bar (name, city, role).
+    expect(screen.getAllByTestId('onboarding-seg').length).toBe(3);
   });
 });
