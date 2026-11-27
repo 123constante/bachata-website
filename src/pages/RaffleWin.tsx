@@ -7,11 +7,11 @@ import { fetchRaffleBoard } from '@/hooks/useRaffleBoard';
 import { getSupabase } from '@/integrations/supabase/getSupabase';
 import { rpcLoose } from '@/integrations/supabase/rpcLoose';
 import {
-  LOCK_LINES, parseClaim, parseLock, screenForClaim, type OpenNight, type WinScreen,
+  parseClaim, parseLock, screenForClaim, type OpenNight, type WinScreen,
 } from '@/modules/raffle-win/model';
 import { missingProfileFields, type ProfileField } from '@/modules/raffle-win/profileFields';
 import { applyRefusal, type PickSelection } from '@/modules/raffle-win/pick/pickModel';
-import type { PickRefusal } from '@/modules/raffle-win/pick/pickCopy';
+import type { PickRefusal, ShownRefusal } from '@/modules/raffle-win/pick/pickCopy';
 import { PickScreen } from '@/modules/raffle-win/pick/PickScreen';
 import { ProfileSteps, type ProfileValues } from '@/modules/raffle-win/profile/ProfileSteps';
 import GateScreen from '@/modules/raffle-win/screens/GateScreen';
@@ -56,8 +56,8 @@ const initialFrom = (row: Record<string, unknown> | null): Partial<ProfileValues
   };
 };
 
-const refusalKey = (line: string): PickRefusal | null =>
-  (Object.keys(LOCK_LINES).find((k) => LOCK_LINES[k] === line) as PickRefusal | undefined) ?? null;
+const REFUSALS: readonly string[] = ['spot_taken', 'already_been_to_event', 'night_not_open', 'honesty_required'];
+const refusalKey = (reason: string): PickRefusal | null => (REFUSALS.includes(reason) ? (reason as PickRefusal) : null);
 
 export default function RaffleWin() {
   const { token = '' } = useParams();
@@ -68,7 +68,7 @@ export default function RaffleWin() {
   const [winId, setWinId] = useState('');
   const [nights, setNights] = useState<OpenNight[]>([]);
   const [selection, setSelection] = useState<PickSelection>(null);
-  const [banner, setBanner] = useState<PickRefusal | null>(null);
+  const [banner, setBanner] = useState<ShownRefusal | null>(null);
   const [night, setNight] = useState<OpenNight | null>(null);
   const [ticked, setTicked] = useState(false);
   const [nudge, setNudge] = useState(false);
@@ -119,6 +119,25 @@ export default function RaffleWin() {
     return () => { live = false; };
   }, [step]);
 
+  // Onboarding can newly link "been to" events: re-read the open nights so the list is honest again.
+  const reloadAfterProfile = async () => {
+    profileDone.current = true;
+    setStep('loading');
+    let r;
+    try {
+      const res = await rpcLoose('raffle_win_claim_link_v1', { p_link_token: token });
+      r = res.error ? ({ kind: 'error' } as const) : parseClaim(res.data);
+    } catch { r = { kind: 'error' } as const; }
+    if (r.kind !== 'ok') { setStep('honest'); return; }
+    const next = screenForClaim(r, { fromAuth: true });
+    if (next === 'qr') { navigate('/app/home', { replace: true }); return; }
+    if (next !== 'pick') { setAfterLock(false); setStep(next); return; }
+    setNights(r.nights); setFirstName(r.firstName);
+    if (night && r.nights.some((n) => n.occurrenceId === night.occurrenceId)) { setStep('honest'); return; }
+    setNight(null); setSelection(null); setBanner(null); setTicked(false);
+    setStep('pick');
+  };
+
   const onLockTap = async (n: OpenNight) => {
     setNight(n); setTicked(false); setNudge(false);
     if (profileDone.current) { setStep('honest'); return; }
@@ -152,8 +171,11 @@ export default function RaffleWin() {
       setFresh(); sendEmail(winId); setStep('share'); return;
     }
     if (out.kind === 'back-to-pick') {
-      const key = refusalKey(out.line);
-      if (key) { const a = applyRefusal(nights, key, night); setNights(a.nights); setSelection(a.selection); setBanner(key); }
+      const key = refusalKey(out.reason);
+      if (key) {
+        const a = applyRefusal(nights, key, night); setNights(a.nights); setSelection(a.selection);
+        setBanner(key === 'already_been_to_event' ? null : key); // that one is silent
+      }
       setStep('pick'); return;
     }
     if (out.kind === 'profile') { profileDone.current = false; setMissing(out.missing); setIsNew(false); setStep('profile'); return; }
@@ -172,7 +194,7 @@ export default function RaffleWin() {
     body = (
       <ProfileSteps missing={missing} isNewAccount={isNew} userId={user.id} initial={initial}
         night={night ? { date: nightParts(night.startLocal).long, title: night.title } : null}
-        onDone={() => { profileDone.current = true; setStep('honest'); }} onBackToPick={() => setStep('pick')} />
+        onDone={() => void reloadAfterProfile()} onBackToPick={() => setStep('pick')} />
     );
   } else if (step === 'honest' && night) {
     body = <HonestySheet night={night} ticked={ticked} busy={busy} nudge={nudge}

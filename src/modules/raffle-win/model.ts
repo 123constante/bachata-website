@@ -56,14 +56,13 @@ export function screenForClaim(r: ClaimResult, opts: { fromAuth: boolean }): Win
 
 export type LockOutcome =
   | { kind: 'qr'; qrToken: string; night: OpenNight | null; firstName: string | null }
-  | { kind: 'back-to-pick'; line: string; dropNight: boolean }
+  | { kind: 'back-to-pick'; line: string; reason: string; dropNight: boolean }
   | { kind: 'screen'; screen: WinScreen }
   | { kind: 'profile'; missing: ProfileField[] }
   | { kind: 'error' };
 
 export const LOCK_LINES: Record<string, string> = {
   spot_taken: 'Someone else just took that night. Pick another.',
-  already_been_to_event: 'Our records say you have been to that event, so it is not open to you. Pick another.',
   night_not_open: 'That night is no longer open. Pick another.',
   honesty_required: 'Please tick the box to confirm.',
 };
@@ -82,8 +81,10 @@ export function parseLock(data: unknown): LockOutcome {
   }
   if (reason === 'not_found') return { kind: 'screen', screen: 'cancel' };
   if (reason === 'not_claimable') return { kind: 'screen', screen: 'cancel' };
-  if (reason === 'honesty_required') return { kind: 'back-to-pick', line: LOCK_LINES[reason], dropNight: false };
-  if (reason in LOCK_LINES) return { kind: 'back-to-pick', line: LOCK_LINES[reason], dropNight: true };
+  if (reason === 'honesty_required') return { kind: 'back-to-pick', line: LOCK_LINES[reason], reason, dropNight: false };
+  // Silent: the event just leaves the list. No sentence names it (owner 2026-11-27).
+  if (reason === 'already_been_to_event') return { kind: 'back-to-pick', line: '', reason, dropNight: true };
+  if (reason in LOCK_LINES) return { kind: 'back-to-pick', line: LOCK_LINES[reason], reason, dropNight: true };
   return { kind: 'error' };
 }
 

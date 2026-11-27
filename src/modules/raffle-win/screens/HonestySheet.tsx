@@ -55,7 +55,7 @@ export default function HonestySheet({ night, ticked, busy, nudge, onTick, onCon
           onClick={onTick}
           className={`flex min-h-[68px] w-full items-center gap-3.5 rounded-[18px] border-2 px-3.5 py-3 text-left text-[17px] font-bold ${ticked ? 'border-[#3ddbb4] bg-[#3ddbb4]/10' : 'border-[#f7ecd9]/35'}`}
         >
-          <span aria-hidden="true" className={`flex h-8 w-8 flex-none items-center justify-center rounded-[10px] border-[2.5px] text-[20px] ${ticked ? 'border-[#3ddbb4] bg-[#3ddbb4] text-[#150a1c]' : 'border-[#f7ecd9]/60 text-transparent'}`}>{'✓'}</span>
+          <span aria-hidden="true" className={`flex h-8 w-8 flex-none items-center justify-center rounded-[10px] border-[2.5px] text-[20px] ${ticked ? 'border-[#3ddbb4] bg-[#3ddbb4] text-[#150a1c]' : 'border-[#f7ecd9]/60 text-transparent'}`} data-testid="honesty-tick">&#10003;</span>
           <span className="min-w-0 break-words">{orgTick ? <>I&rsquo;ve never been to any event by {night.organiserName}</> : 'I have never been to this event.'}</span>
         </button>
         ) : null}

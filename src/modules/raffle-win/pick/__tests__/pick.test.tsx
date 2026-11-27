@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { OpenNight } from '../../model';
 import { PickScreen } from '../PickScreen';
-import { REFUSAL_LINES, type PickRefusal } from '../pickCopy';
+import { REFUSAL_LINES, type PickRefusal, type ShownRefusal } from '../pickCopy';
 import { applyRefusal, formatPickDate, groupNights, type PickSelection } from '../pickModel';
 
 afterEach(cleanup);
@@ -19,7 +19,7 @@ const NIGHTS = [
   n('c1', 'e3', '', '2026-11-27T21:00:00', 'Tram Shed'),
 ];
 
-function Harness({ onLock = () => {}, banner = null }: { onLock?: (x: OpenNight) => void; banner?: PickRefusal | null }) {
+function Harness({ onLock = () => {}, banner = null }: { onLock?: (x: OpenNight) => void; banner?: ShownRefusal | null }) {
   const [sel, setSel] = useState<PickSelection>(null);
   return <PickScreen nights={NIGHTS} selection={sel} banner={banner} onSelect={setSel} onLock={onLock} />;
 }
@@ -89,13 +89,13 @@ describe('PickScreen keep-list', () => {
     expect(screen.getByText('One date only')).toBeTruthy();
     expect(screen.getByTestId('pick-dock-line').textContent).toBe('Winter Ball, Saturday 19 Dec');
   });
-  it.each(Object.keys(REFUSAL_LINES) as PickRefusal[])('banner %s shows its line', (r) => {
+  it.each(Object.keys(REFUSAL_LINES) as ShownRefusal[])('banner %s shows its line', (r) => {
     render(<Harness banner={r} />);
     expect(screen.getByTestId('pick-banner').textContent).toBe(REFUSAL_LINES[r]);
   });
   it('refusal copy is verbatim', () => {
     expect(REFUSAL_LINES.spot_taken).toBe('Someone else just took that night. Pick another.');
-    expect(REFUSAL_LINES.already_been_to_event).toBe('Our records say you have been to that event, so it is not open to you. Pick another.');
+    expect('already_been_to_event' in REFUSAL_LINES).toBe(false);
     expect(REFUSAL_LINES.night_not_open).toBe('That night is no longer open. Pick another.');
     expect(REFUSAL_LINES.honesty_required).toBe('Please tick the box to confirm.');
   });

@@ -14,9 +14,11 @@ export const FALLBACK_TITLE = 'Bachata night';
 
 export type PickRefusal = 'spot_taken' | 'already_been_to_event' | 'night_not_open' | 'honesty_required';
 
-export const REFUSAL_LINES: Record<PickRefusal, string> = {
+/** Refusals that show a banner. already_been_to_event is silent: the event is just removed. */
+export type ShownRefusal = Exclude<PickRefusal, 'already_been_to_event'>;
+
+export const REFUSAL_LINES: Record<ShownRefusal, string> = {
   spot_taken: LOCK_LINES.spot_taken,
-  already_been_to_event: LOCK_LINES.already_been_to_event,
   night_not_open: LOCK_LINES.night_not_open,
   honesty_required: LOCK_LINES.honesty_required,
 };

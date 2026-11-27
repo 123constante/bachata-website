@@ -5,14 +5,14 @@ import { Search, TriangleAlert } from 'lucide-react';
 import type { OpenNight } from '../model';
 import { EventCard } from './EventCard';
 import {
-  DOCK_IDLE, LOCK_LABEL, PICK_INTRO, PICK_TITLE, REFUSAL_LINES, SEARCH_CLEAR, SEARCH_EMPTY, SEARCH_LABEL, type PickRefusal,
+  DOCK_IDLE, LOCK_LABEL, PICK_INTRO, PICK_TITLE, REFUSAL_LINES, SEARCH_CLEAR, SEARCH_EMPTY, SEARCH_LABEL, type ShownRefusal,
 } from './pickCopy';
 import { autoSelection, filterEvents, groupNights, selectedNight, type PickEvent, type PickSelection } from './pickModel';
 
 type Props = {
   nights: OpenNight[];
   selection: PickSelection;
-  banner: PickRefusal | null;
+  banner: ShownRefusal | null;
   onSelect: (selection: PickSelection) => void;
   onLock: (night: OpenNight) => void;
 };
