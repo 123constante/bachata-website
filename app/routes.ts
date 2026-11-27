@@ -63,6 +63,13 @@ export default [
         route("all-profiles", "routes/list.all-profiles.tsx"),
       ]
     : []),
+  // Legal pages, server-rendered head (site structure S5a).
+  ...(process.env.VITE_ENABLE_SITE_HEADS_SSR === "true"
+    ? [
+        route("privacy", "routes/legal.tsx", { id: "legal-privacy" }),
+        route("terms", "routes/legal.tsx", { id: "legal-terms" }),
+      ]
+    : []),
   route("london-bachata-guide", "routes/london-bachata-guide.tsx"),
   route("learn-bachata-london", "routes/learn-bachata-london.tsx"),
   route("bachata-london-monday", "routes/bachata-weekday.tsx", { id: "weekday-monday" }),
