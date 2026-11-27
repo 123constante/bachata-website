@@ -18,4 +18,4 @@ Add a test case for F1 and F3 in tests/botPrAdopt.test.ts.
 ## Out of scope
 `src/pages/__tests__/classesTwoDoors.test.tsx` is red on main too (date-bound); do not touch. `open-pr` job red on this branch is expected (script read from main until merge).
 
-Max 4 files. Commit message ends with [skip preview]. Last commit carries `[worker-done <ticket>]`.
+Size: 4 files, 120 lines. Max 4 files. Design: none (non-UI CI script). Commit message ends with [skip preview]. Last commit carries `[worker-done <ticket>]`.
