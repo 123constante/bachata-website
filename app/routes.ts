@@ -96,6 +96,8 @@ export default [
   route("advertising-stop", "routes/advertising-stop.tsx"),
   // Event subdomain nights (<label>.bachatacalendar.co.uk/19-dec). Outranked by
   // every static route above; off an event host it behaves as the catchall.
+  // Raffles page, server-rendered head (site structure S5b).
+  ...(process.env.VITE_ENABLE_SITE_HEADS_SSR === "true" ? [route("raffles", "routes/raffles.tsx")] : []),
   // Winner link: own route only so the WhatsApp preview card gets its meta; renders the catchall page.
   route("raffle/win/:token", "routes/raffle-win.tsx"),
   route(":night", "routes/event-night.tsx"),
