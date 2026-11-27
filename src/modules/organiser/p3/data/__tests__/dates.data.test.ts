@@ -55,7 +55,7 @@ const TWO_STEP: DatePlan = { to: 'date', occurrenceId: D.id, version: 3, command
 describe('Put this date back to normal: the composite (CONTRACT 2), only what the date has', () => {
   it.each([
     ['venue only', { venue_id_override: 'v2' }, [{ kind: 'occurrence.set_override', payload: { venue_id: null, city_id: null } }]],
-    ['every detail', { venue_id_override: 'v2', description_override: 'd', ticket_url_override: 't', cover_image_url_override: 'c' }, false,
+    ['every detail', { venue_id_override: 'v2', description_override: 'd', ticket_url_override: 't', cover_image_url_override: 'c' },
       [{ kind: 'occurrence.set_override', payload: { venue_id: null, city_id: null, description: null, ticket_url: null, cover_image_url: null } }]],
   ] as Array<[string, Record<string, unknown>, unknown[]]>)('%s', (_n, ev, commands) => {
     const plan = resetNormalPlan(D, detailRaw(ev))!;
