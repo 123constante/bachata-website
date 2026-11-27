@@ -33,4 +33,4 @@ claude/** branch with a bot-authored copy. Website's bot-pr.yml never got that p
 
 ## Done when
 `npx vitest run tests/botPrAdopt.test.ts` is green, `npm run typecheck` is green, workflow YAML parses.
-Max 3 files, about 350 lines. No other files.
+Size: 3 files, 350 lines. No other files. Design: none (CI-only, no UI).
