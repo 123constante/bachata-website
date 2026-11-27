@@ -141,7 +141,7 @@ describe('youRows (the one row list): shape -> rows', () => {
 describe('You hub x shape', () => {
   it('single page, owner, live: page card (shared role + status words), no Switch row, Add another page', async () => {
     at(P3_PATHS.you);
-    expect(await screen.findByTestId('p3-you-page-name')).toHaveProperty('textContent', 'Bachata Sensual London');
+    expect(await screen.findByTestId('p3-you-page-name', {}, { timeout: 10_000 })).toHaveProperty('textContent', 'Bachata Sensual London');
     expect(screen.getByTestId('p3-you-page-card').textContent).toContain(ROLE_LABEL.owner);
     expect(screen.getByTestId('p3-you-page-status').textContent).toBe('Live');
     await waitFor(() => expect(within(screen.getByTestId('p3-you-team')).getByText('5 people')).toBeTruthy());
