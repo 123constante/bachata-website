@@ -56,6 +56,7 @@ jobs:
           # anything else = done. An OWNER-authored open PR is replaced by a bot copy there
           # (title/body/labels carried over). An API error fails the step loudly.
           ADOPT_OUT=adopt.out node scripts/lib/bot-pr-adopt.mjs
+          [ -f adopt.out ] || { echo "::error::adopt.out missing; bot-pr-adopt wrote no outcome"; exit 1; }
           [ "$(cat adopt.out)" = "open" ] || exit 0
           # One generator, pinned to both checkers by tests/prBodyStub.test.ts. The PR must
           # always open: on any generator failure fall back to the old minimal body, warned.

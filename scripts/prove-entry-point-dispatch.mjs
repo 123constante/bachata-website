@@ -167,6 +167,7 @@ const TARGETS = [
   { rel: 'scripts/_serve-build.mjs' },
   { rel: 'scripts/preview-shots.mjs' },
   { rel: 'scripts/apply-firewall.mjs' },
+  { rel: 'scripts/lib/bot-pr-adopt.mjs' },
   { rel: 'scripts/auto-walk-manifest.mjs' },
   { rel: 'scripts/automation-arming.mjs' },
   { rel: 'scripts/automation-money-check.mjs' },

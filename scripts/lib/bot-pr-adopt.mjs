@@ -56,8 +56,12 @@ export async function adopt({ api, repo, owner, branch, base, warn = () => {}, l
     return 'open';
   }
 
+  if (openPrs.length > 1) {
+    warn(`${branch} has ${openPrs.length} open PRs (${openPrs.map((p) => `#${p.number}`).join(' ')}); not replacing any. Close the extras and push again.`);
+    return 'skip';
+  }
   const old = openPrs[0];
-  if (old.user?.login !== owner) {
+  if (String(old.user?.login || '').toLowerCase() !== String(owner || '').toLowerCase()) {
     log(`Already has an open PR: #${old.number} (by ${old.user?.login})`);
     return 'skip';
   }
@@ -87,8 +91,13 @@ export async function adopt({ api, repo, owner, branch, base, warn = () => {}, l
     throw err;
   }
   log(`Opened #${created.number} as ${created.user?.login}, replacing #${old.number}`);
-  if (labels.length) await api('POST', `/repos/${repo}/issues/${created.number}/labels`, { labels });
-  await api('POST', `/repos/${repo}/issues/${old.number}/comments`, { body: `Replaced by #${created.number}` });
+  // The bot PR exists now; a failure below must not lose the old PR's labels silently.
+  try {
+    if (labels.length) await api('POST', `/repos/${repo}/issues/${created.number}/labels`, { labels });
+    await api('POST', `/repos/${repo}/issues/${old.number}/comments`, { body: `Replaced by #${created.number}` });
+  } catch (err) {
+    throw new Error(`#${created.number} was opened as the bot, but copying labels or commenting on #${old.number} failed: ${err.message}. Old labels to re-apply by hand: ${labels.join(', ') || '(none)'}`);
+  }
   return 'skip';
 }
 

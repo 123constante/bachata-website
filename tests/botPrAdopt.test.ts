@@ -107,6 +107,25 @@ describe('bot-pr-adopt', () => {
     expect(f.calls.every((c) => c.startsWith('GET'))).toBe(true);
   });
 
+  it('more than one open PR -> skip + warning, nothing written', async () => {
+    const f = fake({ open: [ownerPr(), ownerPr({ number: 6 })] });
+    const r = run(f);
+    expect(await r.p).toBe('skip');
+    expect(r.warns[0]).toMatch(/2 open PRs/);
+    expect(f.calls.some((c) => c.startsWith('PATCH') || c.startsWith('POST'))).toBe(false);
+  });
+
+  it('owner login compare is case-insensitive', async () => {
+    const f = fake({ open: [ownerPr({ user: { login: 'O' } })] });
+    expect(await run(f).p).toBe('skip');
+    expect(f.calls.some((c) => c === `PATCH /repos/${REPO}/pulls/5`)).toBe(true);
+  });
+
+  it('label copy fails after reopen -> error names the old labels', async () => {
+    const f = fake({ open: [ownerPr()], failOn: /issues\/99\/labels/ });
+    await expect(run(f).p).rejects.toThrow(/automerge-ok/);
+  });
+
   it('makeApi throws on non-2xx', async () => {
     const api = makeApi('t', (async () => ({ ok: false, status: 403, text: async () => 'no' })) as any);
     await expect(api('GET', '/x')).rejects.toThrow(/HTTP 403/);
