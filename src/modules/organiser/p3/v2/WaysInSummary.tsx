@@ -12,8 +12,10 @@ const T = V2.ticketsPay;
 export interface SummaryTicket extends TicketRow {
   /** the price today, in pence (TicketRow.pence is money earned) */
   pricePence: number;
-  /** a coming price step: the early-bird date line reads from it */
+  /** the NEXT coming price step: today's price is the early one until the day before it starts */
   nextStep?: { pricePence: number; effectiveFrom: string } | null;
+  /** the price after the LAST coming step (the main price everyone ends up paying); missing: nextStep's price */
+  mainPence?: number | null;
   /** count early bird (t.early set): the early price and how many get it */
   earlyPence?: number | null;
   earlyFirst?: number | null;
@@ -57,6 +59,9 @@ function joinNights(list: string[]): string {
 
 const DAY = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', weekday: 'long' });
 const DAY_DATE = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', weekday: 'long', day: 'numeric', month: 'long' });
+
+/** The last moment of the early price: the London day BEFORE the step starts (the sheet's "until" day, EarlyBirds instantToUntil). */
+export const lastEarlyMoment = (effectiveFrom: string): string => new Date(Date.parse(effectiveFrom) - 1).toISOString();
 
 /** "Friday" within 6 days, "Friday 5 December" further out. */
 export function untilWords(iso: string, now: number): string {
@@ -111,15 +116,20 @@ export function WaysInSummaryView(p: WaysInSummaryViewProps) {
       {p.stripe && !p.tickets.length ? <Line id="add" text={S.onlineAdd} action={S.add} label="your price" onTap={() => on.newTicket?.()} /> : null}
 
       {p.stripe && p.tickets.map((t) => {
-        const price = t.pricePence === 0 ? 'Free' : formatPence(t.pricePence);
         const step = t.nextStep && Date.parse(t.nextStep.effectiveFrom) > now ? t.nextStep : null;
+        // a date early bird stores TODAY's (early) price on the type and the main price as a later step (P94):
+        // the line shows the main price, the early line today's price; a step DOWN is no early bird
+        const main = step ? (t.mainPence ?? step.pricePence) : t.pricePence;
+        const dated = step && t.pricePence < main ? step : null;
+        const shown = dated ? main : t.pricePence;
+        const price = shown === 0 ? 'Free' : formatPence(shown);
         return (
           <div key={t.id} style={{ display: 'contents' }}>
             <Line id={`ticket-${t.id}`} text={S.ticketLine(price, t.qty, p.oneOff, several ? t.name : null)} sub={t.sold > 0 ? S.sold(t.sold) : null} action={S.change} label={t.name} onTap={() => on.ticket?.(t.id)} />
             {t.early && t.earlyPence != null && t.earlyFirst != null ? (
               <Line id={`early-${t.id}`} text={S.earlyCount(formatPence(t.earlyPence), t.earlyFirst)} action={S.change} label={`early price for ${t.name}`} onTap={() => on.early?.(t.id)} />
-            ) : step ? (
-              <Line id={`early-${t.id}`} text={S.earlyDate(formatPence(step.pricePence), untilWords(step.effectiveFrom, now))} action={S.change} label={`early price for ${t.name}`} onTap={() => on.early?.(t.id)} />
+            ) : dated ? (
+              <Line id={`early-${t.id}`} text={S.earlyDate(formatPence(t.pricePence), untilWords(lastEarlyMoment(dated.effectiveFrom), now))} action={S.change} label={`early price for ${t.name}`} onTap={() => on.early?.(t.id)} />
             ) : null}
           </div>
         );
