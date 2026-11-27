@@ -20,7 +20,7 @@ afterEach(() => {
 describe('YoureIn', () => {
   it('shows the keep-list copy and no buttons', () => {
     render(<YoureIn firstName="Ana" onDone={vi.fn()} />);
-    expect(screen.getByRole('heading').textContent).toBe('You’re in, Ana! \u{1F389}');
+    expect(screen.getByRole('heading').textContent).toBe('You\u2019re in, Ana! \u{1F389}');
     expect(screen.getByTestId('youre-in-sub').textContent).toBe('Welcome to the London bachata scene.');
     expect(screen.getAllByTestId('youre-in-row').map((r) => r.textContent)).toEqual(YOURE_IN_ROWS.map((r) => `${r.emoji}${r.title}${r.sub}`));
     expect(screen.getByTestId('youre-in-bar').textContent).toContain('Make your profile shine');

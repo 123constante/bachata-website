@@ -20,7 +20,7 @@ afterEach(cleanup);
 
 describe('HomeTicket', () => {
   it.each([
-    ['loading', 'Getting your tickets…'],
+    ['loading', 'Getting your tickets\u2026'],
     ['none', 'No order found yet'],
   ])('flag on, %s: one row with title, line and Open to the Tickets tab', (kind, line) => {
     h.view = { kind };

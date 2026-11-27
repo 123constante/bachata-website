@@ -31,7 +31,7 @@ const Foot = ({ busy, error, disabled, reason, onContinue }: { busy: boolean; er
       </p>
     ) : null}
     <button type="button" className="cta" data-testid="onboarding-continue" disabled={disabled || busy} onClick={onContinue}>
-      {busy ? 'Saving…' : 'Continue'}
+      {busy ? 'Saving\u2026' : 'Continue'}
     </button>
   </>
 );

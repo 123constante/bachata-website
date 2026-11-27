@@ -35,7 +35,7 @@ describe('roles screen', () => {
   it('keep-list: heading, sub, 4 rows in order with icon, title, sub; Dancer ticked first; Continue enabled', async () => {
     open();
     await step('roles');
-    expect(screen.getByRole('heading').textContent).toBe('Who’s hitting the floor?');
+    expect(screen.getByRole('heading').textContent).toBe('Who\u2019s hitting the floor?');
     expect(screen.getByTestId('onboarding-sub').textContent).toBe('Pick all that fit. Change anytime.');
     const rows = screen.getAllByRole('checkbox');
     expect(rows.map((r) => r.textContent)).toEqual(['\u{1F483}DancerFind nights and partners', '\u{1F39F}\uFE0FOrganiserRun events and classes', '\u{1F393}TeacherShare your classes', '\u{1F3A7}DJPlay at nights']);

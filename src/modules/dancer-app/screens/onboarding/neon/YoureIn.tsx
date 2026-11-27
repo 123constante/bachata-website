@@ -4,9 +4,9 @@ import './neon.css';
 
 /** Mockup stand-ins until real feed items are wired (brief B3). */
 export const YOURE_IN_ROWS: readonly { emoji: string; title: string; sub: string }[] = [
-  { emoji: '\u{1F389}', title: 'Bachata Sensual Social', sub: 'Tonight 21:00 · Soho' },
-  { emoji: '\u{1F483}', title: 'Salsa y Bachata Club', sub: 'Tonight 22:00 · Camden' },
-  { emoji: '\u{1F393}', title: 'Beginner class + party', sub: 'Sat 19:30 · Shoreditch' },
+  { emoji: '\u{1F389}', title: 'Bachata Sensual Social', sub: 'Tonight 21:00 \u00B7 Soho' },
+  { emoji: '\u{1F483}', title: 'Salsa y Bachata Club', sub: 'Tonight 22:00 \u00B7 Camden' },
+  { emoji: '\u{1F393}', title: 'Beginner class + party', sub: 'Sat 19:30 \u00B7 Shoreditch' },
   { emoji: '\u{1F91D}', title: 'Dancers looking for a partner', sub: '12 near you' },
 ];
 

@@ -54,7 +54,7 @@ export const NeonPartner = ({ draft, sheet, busy, error, onAnswer, onChange, onO
         </p>
       ) : null}
       <button type="button" className="cta" data-testid="onboarding-continue" disabled={draft.answer === null || busy} onClick={go}>
-        {busy ? 'Saving…' : 'Continue'}
+        {busy ? 'Saving\u2026' : 'Continue'}
       </button>
       {sheet ? (
         <div className="sheet" role="dialog" aria-modal="true" aria-label="Your ideal partner" data-testid="partner-sheet">

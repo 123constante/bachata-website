@@ -86,7 +86,7 @@ describe('golden ticket states', () => {
   it('5 attended: stamp, scanned line, no QR, share, no safe line', async () => {
     rpc.mockResolvedValue({ data: WIN(NIGHT, { state: 'attended', attended: true }), error: null });
     shell();
-    expect(await screen.findByText('You’re in. Enjoy the night!')).toBeTruthy();
+    expect(await screen.findByText('You\u2019re in. Enjoy the night!')).toBeTruthy();
     expect(screen.getByTestId('gt-stamp')).toBeTruthy();
     expect(screen.getByText('The door has scanned you')).toBeTruthy();
     expect(screen.getByText('Nothing more to show. Go and dance.')).toBeTruthy();
@@ -133,7 +133,7 @@ describe('golden ticket states', () => {
     expect(screen.getByTestId('gt-notch-l')).toBeTruthy();
   });
 
-  it('flag off: today’s card, none of the golden parts', async () => {
+  it('flag off: today\u2019s card, none of the golden parts', async () => {
     flag.on = false;
     rpc.mockResolvedValue({ data: WIN(NIGHT), error: null });
     shell();
