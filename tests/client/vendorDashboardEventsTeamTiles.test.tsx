@@ -85,7 +85,7 @@ describe('vendor dashboard Events + Team tiles', () => {
     expect(screen.getByText(/Core steps: 4\/4/)).toBeTruthy();
     expect(screen.getByText('Refresh profile')).toBeTruthy();
     expect(screen.getByText(/Use promos to get more profile views\./)).toBeTruthy();
-    expect(screen.getByText(/Name: Shoe Co/)).toBeTruthy();
+    expect(screen.getByText(/Name: Shoe Co . City: London/)).toBeTruthy();
   });
 
   it('flag off (rollback): the old tiles, step and nudge come back', async () => {
