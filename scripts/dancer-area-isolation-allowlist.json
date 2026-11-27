@@ -35,6 +35,9 @@
     "scripts/dancer-area-isolation-allowlist.json",
     "scripts/onboarding-write-doors.json",
     "src/modules/raffle-win/profile/LanguagesStep.tsx",
+    "src/modules/class-join/ClassJoinPage.tsx",
+    "src/modules/person-page/PersonPage.tsx",
+    "src/pages/RaffleDoor.tsx",
     "src/modules/raffle-win/profile/NationalityStep.tsx",
     "src/pages/Auth.tsx",
     "src/pages/AuthCallback.tsx",
@@ -266,6 +269,9 @@
     "src/modules/organiser/p3/onboarding/personModel.ts"
   ],
   "seamNotes": {
+    "src/modules/class-join/ClassJoinPage.tsx": "teacher class-join landing /join/class/:token (PR #2254, flagged): reuses the dancer-app rpc helper; listed 2026-11-27 to clear the red main rule (c), no code change",
+    "src/modules/person-page/PersonPage.tsx": "public person page (PR #2436 types fix): reads the dancer-app public-page model; listed 2026-11-27 to clear the red main rule (c), no code change",
+    "src/pages/RaffleDoor.tsx": "raffle door page (PR #2208): reuses raffleWinModel from dancer-app home; listed 2026-11-27 to clear the red main rule (c), no code change",
     "src/modules/raffle-win/profile/LanguagesStep.tsx": "raffle winner journey W2b (owner decision 2026-11-24): reuses the dancer-app languages list and helpers, lazy import",
     "src/modules/raffle-win/profile/NationalityStep.tsx": "raffle winner journey W2b (owner decision 2026-11-24): reuses nationalityCodeForPick from dancer-app editModel",
     "src/modules/tickets/CodeBoxes.tsx": "The 6-box code entry, extracted from TicketPickerB1 so the My tickets account-link sheet reuses the checkout behaviour (onboard-dups-website).",
