@@ -112,4 +112,22 @@ describe('RaffleWin: been-to events after onboarding', () => {
     go(); await afterProfile();
     expect((await screen.findByRole('checkbox')).getAttribute('aria-checked')).toBe('false');
   });
+  const lockArgs = () => h.rpc.mock.calls.find((c) => c[0] === 'raffle_win_lock_v2')?.[1];
+  it('lock payload: needs_tick false -> p_never_been false (P98)', async () => {
+    setup({ raffle_win_claim_link_v1: claim([{ ...N1, needs_tick: false }]), my_dancer_edit_v1: { data: FULL, error: null },
+      raffle_win_lock_v2: { data: { ok: false, reason: 'night_not_open' }, error: null } });
+    go(); await pickAndLock();
+    fireEvent.click(await screen.findByRole('button', { name: /confirm/i }));
+    await waitFor(() => expect(lockArgs()).toBeTruthy());
+    expect(lockArgs()).toEqual(expect.objectContaining({ p_never_been: false }));
+  });
+  it('lock payload: needs_tick missing, ticked -> p_never_been true (P98)', async () => {
+    setup({ raffle_win_claim_link_v1: claim([N1]), my_dancer_edit_v1: { data: FULL, error: null },
+      raffle_win_lock_v2: { data: { ok: false, reason: 'night_not_open' }, error: null } });
+    go(); await pickAndLock();
+    fireEvent.click(await screen.findByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: /confirm/i }));
+    await waitFor(() => expect(lockArgs()).toBeTruthy());
+    expect(lockArgs()).toEqual(expect.objectContaining({ p_never_been: true }));
+  });
 });
