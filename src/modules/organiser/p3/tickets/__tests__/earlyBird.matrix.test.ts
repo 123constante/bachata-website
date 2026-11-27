@@ -10,7 +10,7 @@ describe('earlyBirdOf (flag ticketEarlyBird)', () => {
     ['flag off', tier({}), false, null],
     ['no tier (fields absent)', base, true, null],
     ['not loaded', undefined, true, null],
-    ['open', tier({}), true, { pill: 'Early bird 4 left', price: '£8.00 now, £15.00 after' }],
+    ['open', tier({}), true, { pill: 'Early bird 4 left', price: '£8 now, £15 after' }],
     ['sold out', tier({ earlyLeft: 0 }), true, null],
     ['closed', tier({ earlyOpen: false }), true, null],
   ];

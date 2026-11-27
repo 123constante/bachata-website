@@ -10,7 +10,7 @@ function rowFor(s: Shape) {
   return rowOf({
     id: 's1', name: 'Friday Social', lifecycle_status: s.lifecycle, format: s.format, category: null,
     default_venue_name: s.venue, default_cover_image_url: null, default_local_start_time: '21:00:00', upcoming_count: s.dates.length,
-    next_dates: s.dates.map((d) => ({ occurrence_date: d, lifecycle_status: s.status ?? 'scheduled', status: s.status ?? 'scheduled', starts_at: `${d}T21:00:00Z`, start_time: '21:00', venue_name: null })),
+    next_dates: s.dates.map((d) => ({ occurrence_date: d, lifecycle_status: s.status ?? 'scheduled', status: s.status ?? 'scheduled', starts_at: `${d}T21:00:00Z`, materialised_start_utc: `${d}T21:00:00Z`, start_time: '21:00', venue_name: null })),
   } as unknown as HomeSeriesRow, TODAY);
 }
 

@@ -11,7 +11,7 @@ export const ticketEarlyBird = import.meta.env.VITE_ENABLE_TICKET_EARLY_BIRD ===
 export interface EarlyBirdView {
   /** The pill after the ticket name, e.g. "Early bird 4 left". */
   pill: string;
-  /** The price part of the line, e.g. "£8.00 now, £15.00 after". */
+  /** The price part of the line, e.g. "£8 now, £15 after" (whole pounds drop .00, as formatPence). */
   price: string;
 }
 
