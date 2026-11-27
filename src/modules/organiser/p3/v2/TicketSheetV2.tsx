@@ -17,6 +17,8 @@ export interface TicketForm { name: string; free: boolean; price: string; qty: n
 type Out = { ok: true; id: string | null; changed: boolean } | { ok: false; error: string; wrote?: boolean; createdId?: string };
 type Existing = Pick<TicketType, 'id' | 'name' | 'capacity' | 'occurrenceId' | 'salesOpenAt' | 'salesCloseAt' | 'pricePence'>;
 
+/** A step starting this soon counts as the current price (a sold price change goes in 60 s ahead). */
+export const SOLD_STEP_WINDOW_MS = 120_000;
 const sameAt = (a: string, b: string) => new Date(a).getTime() === new Date(b).getTime();
 /** The price that counts now: the base, or the latest step that has already started (isLive). */
 export const priceNow = (base: number, steps: readonly Pick<PriceStep, 'effectiveFrom' | 'pricePence' | 'isLive'>[]): number => {
@@ -79,7 +81,11 @@ export async function writeTicket(a: { organiserId: string; seriesId: string; ty
   if (!id) return { ok: false, error: T.notSaved, wrote };
   const createdId = a.type ? undefined : id;
   if (soldPrice) {
-    const r = await setPriceStep({ p_ticket_type_id: id, p_step_id: null, p_effective_from: new Date(Date.now() + 60_000).toISOString(), p_price_pence: w.basePence });
+    // a sold-price step still about to start (within 2 minutes) is replaced, not piled onto
+    const soon = Date.now() + SOLD_STEP_WINDOW_MS;
+    const prior = [...cur].reverse().find((s) => !s.isLive);
+    const replace = prior && Date.parse(prior.effectiveFrom) <= soon ? prior : undefined;
+    const r = await setPriceStep({ p_ticket_type_id: id, p_step_id: replace?.id ?? null, p_effective_from: new Date(Date.now() + 60_000).toISOString(), p_price_pence: w.basePence });
     if (!r.ok) return { ok: false, error: refusal(r, true), wrote, createdId };
     wrote = true;
   }
