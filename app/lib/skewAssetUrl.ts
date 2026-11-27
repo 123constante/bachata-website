@@ -27,9 +27,17 @@ export type PinnableManifest = {
   [key: string]: unknown;
 };
 
+// React Router marks a stylesheet that is ALSO dynamically imported with a
+// trailing "#" ("/assets/homeMap-x.css#") so its <link> href never matches
+// Vite's preload-helper href. The pin must go BEFORE the fragment, or the
+// query lands inside it ("css#?dpl=") and never reaches the server; the "#"
+// stays so RR's marker still works.
 export function pinAssetUrl(url: string, deploymentId: string): string {
-  if (!url.startsWith("/assets/") || /[?&]dpl=/.test(url)) return url;
-  return `${url}${url.includes("?") ? "&" : "?"}dpl=${encodeURIComponent(deploymentId)}`;
+  const hashAt = url.indexOf("#");
+  const base = hashAt === -1 ? url : url.slice(0, hashAt);
+  const hash = hashAt === -1 ? "" : url.slice(hashAt);
+  if (!base.startsWith("/assets/") || /[?&]dpl=/.test(base)) return url;
+  return `${base}${base.includes("?") ? "&" : "?"}dpl=${encodeURIComponent(deploymentId)}${hash}`;
 }
 
 // CSS only (see the header comment for why JS is left alone).

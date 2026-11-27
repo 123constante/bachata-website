@@ -36,6 +36,15 @@ describe("pinManifest", () => {
     expect(pinAssetUrl("https://x.test/a.css", "d")).toBe("https://x.test/a.css");
     expect(pinAssetUrl("/assets/a.css?dpl=d", "d")).toBe("/assets/a.css?dpl=d");
   });
+  it("puts the pin before RR's trailing '#' dynamic-css marker", () => {
+    expect(pinAssetUrl("/assets/homeMap-x.css#", "dpl_1")).toBe("/assets/homeMap-x.css?dpl=dpl_1#");
+    expect(pinAssetUrl("/assets/homeMap-x.css?dpl=dpl_1#", "dpl_1")).toBe("/assets/homeMap-x.css?dpl=dpl_1#");
+    const p = pinManifest(
+      { url: "/m.js", entry: { css: [] }, routes: { home: { css: ["/assets/homeMap-x.css#"] } } },
+      { enabled: true, deploymentId: "dpl_1" },
+    );
+    expect(p.routes.home.css).toEqual(["/assets/homeMap-x.css?dpl=dpl_1#"]);
+  });
 });
 
 describe("STYLESHEET_RELOAD_SCRIPT", () => {
