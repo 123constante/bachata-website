@@ -61,6 +61,12 @@ pnpm-lock.yaml
 # docs-only commit would build again.
 scripts/*
 !scripts/vercel-ignore-build.sh
+# vercel.json buildCommand runs this guard after the build (#2389); its first
+# deploy failed MODULE_NOT_FOUND because these two were stripped.
+!scripts/check-lazy-route-css.mjs
+!scripts/lib/
+scripts/lib/*
+!scripts/lib/entry-point.mjs
 # bin/ is glob-excluded rather than dir-excluded so this one entry can be
 # un-ignored -- postinstall (package.json) requires it during `npm install`,
 # before build even starts, so it can't just be built/copied in later.

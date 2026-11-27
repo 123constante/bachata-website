@@ -84,7 +84,8 @@ BUILD_PATHS='app src api components pages public index.html middleware.ts
 package.json package-lock.json .npmrc .nvmrc .node-version bin/install-hooks.cjs
 vite.config.* vite.chunks.ts react-router.config.* tsconfig*.json
 postcss.config.* tailwind.config.* .env* vercel.json .vercelignore
-.gitattributes scripts/vercel-ignore-build.sh'
+.gitattributes scripts/vercel-ignore-build.sh
+scripts/check-lazy-route-css.mjs scripts/lib/entry-point.mjs'
 
 build() { echo "vercel-ignore-build: BUILD -- $1"; exit 1; }
 skip() { echo "vercel-ignore-build: SKIP -- $1"; exit 0; }
