@@ -19,7 +19,8 @@ describe('S4b-3 people list routes', () => {
 
   it('routes.ts registers both paths inside the flag gate', () => {
     const src = readFileSync('app/routes.ts', 'utf8');
-    const i = src.indexOf('VITE_ENABLE_PEOPLE_SSR === "true"');
+    // Three slices each have their own gate block; anchor on this slice's comment.
+    const i = src.indexOf('VITE_ENABLE_PEOPLE_SSR === "true"', src.indexOf('(site structure S4b-3)'));
     expect(i).toBeGreaterThan(-1);
     const block = src.slice(i, src.indexOf(': []', i));
     expect(block).toContain('route("videographers", "routes/list.videographers.tsx")');
