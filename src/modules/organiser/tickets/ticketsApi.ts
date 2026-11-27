@@ -210,7 +210,8 @@ export async function fetchOrders(typeIds: readonly string[], opts: { money?: bo
       const wanted = new Set<string>(typeIds);
       return (res.orders as Record<string, unknown>[]).filter((r) => wanted.has(String(r.ticket_type_id))).map(parseOrderRow);
     }
-    const missing = error && (error.code === 'PGRST202' || error.code === '42883');
+    const code = (error as { code?: string } | null)?.code;
+    const missing = !!error && (code === 'PGRST202' || code === '42883');
     if (!missing) throw error ?? new Error(typeof res.reason === 'string' ? res.reason : 'orders_not_allowed');
   }
   const out: Order[] = [];

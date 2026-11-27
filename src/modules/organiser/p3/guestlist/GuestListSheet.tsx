@@ -93,7 +93,7 @@ export function GuestListLive({ occurrenceId, title, onClose }: { occurrenceId: 
     setNote(null);
     try {
       const r = await fn();
-      setNote(r.ok ? done : reasonWords(r.reason));
+      setNote(r.ok === false ? reasonWords(r.reason) : done);
       if (r.ok) await reload();
       return r.ok;
     } catch {
@@ -108,7 +108,7 @@ export function GuestListLive({ occurrenceId, title, onClose }: { occurrenceId: 
   if (q.isPending) return <Sheet title="Guest list" onClose={onClose}>{head}<div className="p3-card p3-state" data-testid="gl-loading"><strong>Loading the names&hellip;</strong><p>Add is off until they load.</p></div></Sheet>;
   if (q.isError) return <Sheet title="Guest list" onClose={onClose}>{head}<p className="p3-error" role="alert" data-testid="gl-error">Nothing was changed: nobody was added, removed or checked in.</p><RetryButton onClick={() => void q.refetch()} /></Sheet>;
   const v = q.data;
-  if (!v.ok) return <Sheet title="Guest list" onClose={onClose}>{head}<p className="p3-note" role="alert" data-testid="gl-refused">{reasonWords(v.reason)}</p><button type="button" className="p3-btn p3-btn-line" style={TAP} onClick={onClose}>Close</button></Sheet>;
+  if (v.ok === false) return <Sheet title="Guest list" onClose={onClose}>{head}<p className="p3-note" role="alert" data-testid="gl-refused">{reasonWords(v.reason)}</p><button type="button" className="p3-btn p3-btn-line" style={TAP} onClick={onClose}>Close</button></Sheet>;
 
   const block = editBlock(v);
   const banner = stateBanner(v);
@@ -214,7 +214,7 @@ function Scanner({ occurrenceId, onScanned }: { occurrenceId: string; onScanned:
     busy.current = true;
     last.current = t;
     scan(occurrenceId, t)
-      .then((r) => onScanned(scanWords(r.ok ? { ok: true, firstName: r.firstName, alreadyIn: r.alreadyIn, counts: r.counts } : { ok: false, reason: r.reason })))
+      .then((r) => onScanned(scanWords(r.ok === false ? { ok: false, reason: r.reason } : { ok: true, firstName: r.firstName, alreadyIn: r.alreadyIn, counts: r.counts })))
       .catch(() => { last.current = ''; onScanned('We could not reach the server. Nobody was checked in. Try again.'); })
       .finally(() => { busy.current = false; window.setTimeout(() => { last.current = ''; }, 2500); });
   }, [occurrenceId, onScanned]);

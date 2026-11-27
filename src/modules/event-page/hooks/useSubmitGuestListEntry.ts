@@ -127,7 +127,7 @@ export const useSubmitGuestListEntry = (eventId: string | null | undefined) => {
 
       // ONE lookup, TOTAL by construction. Before P6 this was a `switch` with no `default:`,
       // so a reason it did not name removed the dancer's pill and said nothing at all.
-      const message = guestListReasonMessage(result.reason);
+      const message = guestListReasonMessage(result.ok === false ? result.reason : '');
 
       if (message.invalidates) {
         queryClient.invalidateQueries({ queryKey: eventGuestListQueryKey(eventId) });
