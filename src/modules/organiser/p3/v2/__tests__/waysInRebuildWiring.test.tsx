@@ -141,6 +141,14 @@ describe('Ways in rebuild wiring (W3)', () => {
     expect(h.save).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(h.save.mock.calls[0][0])).toContain('door');
   });
+  it('rerun with a ticket: a changed price opens that ticket\u2019s sheet, no ticket write from the guide', async () => {
+    h.types = [ticket]; h.summary = { ok: true, types: [] };
+    h.managed = { types: [{ id: 't1', basePricePence: 1000, steps: [] }] };
+    show(); click('ws-rerun');
+    click('wg-next'); type('wg-price', '12'); click('wg-next'); click('wg-early-no'); click('wg-finish');
+    expect((await screen.findByTestId('sheet-mock')).textContent).toBe('t1');
+    expect(h.log).toEqual([]);
+  });
   it('summary tap: link opens the link sheet (its address lives there)', () => {
     h.types = [ticket]; mk({ payment_methods: 'ticket_link', default_ticket_url: 'https://x.test' });
     show(); click('ws-link');

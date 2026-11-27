@@ -373,6 +373,7 @@ export const V2 = {
   },
   /** Ways in rebuild W2: the one-line-per-fact Tickets summary. Punctuation as HTML entities in the view; \u escapes here. */
   waysInSummary: {
+    nightsLoadFail: 'Could not load your nights. Try again.',
     online: 'Online, by card',
     onlineAdd: 'Online, by card: add your price',
     change: 'Change',

@@ -415,6 +415,8 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
   const [skipOpen, setSkipOpen] = useState(false);
   const saveGuide = useWaysInGuideSave({ ws, organiserId: orgId, ticketCount: rows.length, change, say, refresh });
   const nights = useQueries({ queries: coming.map((d) => ({ queryKey: dateDetailQueryKey(d.id), queryFn: () => fetchDateDetail(d.id), enabled: rebuild && skipOpen, staleTime: 30_000 })) });
+  const nightsFailed = rebuild && skipOpen && nights.some((q) => q.isError);
+  useEffect(() => { if (nightsFailed) { setSkipOpen(false); say(V2.waysInSummary.nightsLoadFail); } }, [nightsFailed]); // eslint-disable-line react-hooks/exhaustive-deps
   const nothingSet = types.data !== undefined && rows.length === 0 && parsePayment(oldMethods).length === 0 && !oldUrl;
   const showGuide = rebuild && (guideOpen || (nothingSet && !guideDone));
   const firstDate = upcomingOf(ws.dates ?? [], londonTodayKey())[0]?.occurrence_date ?? null;
@@ -442,7 +444,10 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
   const finishGuide = async (r: GuideResult) => {
     setGuideOpen(false); setGuideDone(true); setGuideErr(null);
     if (r.ticket) setGuideOnline(true);
-    await saveAnswers(r);
+    if (!(await saveAnswers(r))) return;
+    // the guide only makes the FIRST ticket; a changed price or count on an existing one goes to its own sheet (price steps live there)
+    const first = rows[0] ? list.find((t) => t.id === rows[0].id) : undefined;
+    if (r.ticket && first && (r.ticket.pence !== first.pricePence || r.ticket.qty !== first.capacity)) openTicket(first.id);
   };
   const connectFromGuide = async (r: GuideResult) => {
     setGuideOpen(false); setGuideDone(true); setGuideErr(null); setGuideOnline(true);
@@ -465,7 +470,7 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
   ) : (
     <>
       <WaysInSummaryView name={s.name ?? ''} oneOff={oneOff} day={day} backTo={P3_PATHS.event(s.id)}
-        stripe={connected} stripeReady={stripe.state !== null} online={guideOnline} tickets={sumTickets}
+        stripe={connected} stripeReady={stripe.state !== null} online={guideOnline || rows.length > 0} tickets={sumTickets}
         door={parsePayment(oldMethods).includes('door')} free={parsePayment(oldMethods).includes('free')} link={oldUrl} festival={s.format === 'festival'} busy={busy}
         stripeWarn={stripeWarn} onCheckAgain={ret.again} stripeBusy={onboard.busy} stripeNote={onboard.note} stripeOff={onboard.switchedOff}
         on={{ ticket: openTicket, early: openTicket, newTicket: () => openTicket(), stripe: () => { void onboard.go(); }, door: openGuide, free: openGuide, link: openWaysLink, rerun: openGuide, skipDoor: () => setSkipOpen(true) }} />
