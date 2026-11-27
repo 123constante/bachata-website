@@ -132,7 +132,7 @@ function Page({ occurrenceId, nights }: { occurrenceId: string | null; nights: N
       />
       {open && (
         <EventTicketsPage
-          {...({ programHooks: hooks } as object)}
+          programHooks={hooks as never}
           seriesId="e1"
           occurrenceId={occurrenceId}
           organiserId="org1"

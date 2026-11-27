@@ -22,7 +22,7 @@ function mount(requests: MyAccessRequest[]) {
   render(
     <QueryClientProvider client={qc}>
       <MemoryRouter>
-        <OnboardingView user={{ id: 'u1', email: 'sam@example.com' } as never} mailboxProven myOrganiserIds={[]} requests={requests} firstRun={false} onChanged={() => undefined} />
+        <OnboardingView user={{ id: 'u1', email: 'sam@example.com' } as never} mailboxProven myOrganiserIds={new Set<string>()} requests={requests} firstRun={false} onChanged={() => undefined} />
       </MemoryRouter>
     </QueryClientProvider>,
   );

@@ -17,7 +17,7 @@ vi.mock('../../../tickets/ticketsApi', async (orig) => ({ ...(await orig<typeof 
 
 import { TicketsEntry } from '../TicketsEntry';
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => { vi.clearAllMocks(); });
 afterEach(cleanup);
 
 const loadWith = (known: boolean, status: TicketType['status'] = 'on_sale') => {

@@ -117,7 +117,7 @@ describe('patterns for rule shapes not in the survey', () => {
   });
 
   it('dates with no common weekday read as set one by one', () => {
-    const d = (date: string) => ({ id: date, occurrence_date: date, lifecycle_status: 'scheduled', version: 1, has_override: false, session_overrides_count: 0, added_sessions_count: 0, materialised_start_utc: null });
+    const d = (date: string) => ({ id: date, occurrence_date: date, lifecycle_status: 'scheduled', version: 1, has_override: false, session_overrides_count: 0, added_sessions_count: 0, materialised_start_utc: null, override_keys: [] });
     expect(datesPattern([d('2026-10-10'), d('2026-10-15')])).toBeNull();
     expect(scheduleView({ format: 'recurring', lifecycle_status: 'live', recurrence_rule: null }, [d('2026-10-10'), d('2026-10-15')]).pattern).toBe('Dates set one by one');
   });
