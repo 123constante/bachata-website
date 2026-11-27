@@ -30,6 +30,15 @@ export default [
   // to verify the SSR happy path — the public RPC returns 0 rows for every current
   // vendor, so a framework loader would 404 them all.
   route("venue-entity/:id", "routes/venue-entity.tsx"),
+  // People & places list pages, server-rendered head (site structure S4b-2).
+  // Build-time gate: unset = the catchall keeps serving them (rollback = flag off + redeploy).
+  ...(process.env.VITE_ENABLE_PEOPLE_SSR === "true"
+    ? [
+        route("organisers", "routes/list.organisers.tsx"),
+        route("venues", "routes/list.venues.tsx"),
+        route("vendors", "routes/list.vendors.tsx"),
+      ]
+    : []),
   // SEO landing pages -- framework routes so prerender emits real HTML
   // (canonical/meta/JSON-LD/h1) instead of the catchall's generic shell.
   // The style/weekday modules are shared across paths, so each registration
