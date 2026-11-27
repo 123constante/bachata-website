@@ -47,7 +47,7 @@ describe('whenKeys', () => {
 describe('PosterRow with homeOneRow', () => {
   it('renders six words, Today pressed, tapping it again clears to everything', () => {
     flagsMock.value = { homePolish: true, homeFeedLook: true, homeOneRow: true };
-    const onSelect = vi.fn<(s: PosterSel) => void>();
+    const onSelect = vi.fn<[PosterSel], void>();
     render(<PosterRow geo={geo} sel="today" onSelect={onSelect} />);
     const btns = screen.getAllByRole('button');
     expect(btns.map((b) => b.textContent)).toEqual(['Today', 'Weekend', 'Near me', 'Party', 'Class', 'Festival']);

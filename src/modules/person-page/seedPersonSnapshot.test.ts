@@ -35,8 +35,8 @@ const CASES = [
 ] as const;
 
 describe('seedPersonSnapshot: settles by its deadline, never rejects, leaves no timer', () => {
-  beforeEach(() => vi.useFakeTimers());
-  afterEach(() => vi.useRealTimers());
+  beforeEach(() => { vi.useFakeTimers(); });
+  afterEach(() => { vi.useRealTimers(); });
 
   it.each(CASES)('$name: complete $seeded', async (c) => {
     read.impl = c.impl as () => Promise<unknown>;

@@ -22,7 +22,7 @@ vi.mock('@/integrations/supabase/client', () => {
 
 import { CITY_NAME_TIMEOUT_MS, fetchOwnOrganiserEntity } from '../organiserPublicProfile';
 
-afterEach(() => vi.useRealTimers());
+afterEach(() => { vi.useRealTimers(); });
 
 describe('organiser entity city name lookup', () => {
   it('a lookup that never answers resolves with cities: null after the timeout', async () => {

@@ -52,7 +52,7 @@ export async function fetchPublicVenue(venueId: string): Promise<PublicVenue | n
 
   if (error || !data) return null;
 
-  return data as PublicVenue;
+  return data as unknown as PublicVenue;
 }
 
 export interface PublicVenueListItem {
