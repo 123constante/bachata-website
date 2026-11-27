@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const h = vi.hoisted(() => ({ step: vi.fn(), upsert: vi.fn(), remove: vi.fn() }));
-vi.mock('../../tickets/ticketsApi', () => ({
+vi.mock('../../../tickets/ticketsApi', () => ({
   fetchManagedTypes: vi.fn(), removePriceStep: (id: string) => h.remove(id), setEarlyBird: vi.fn(), setTicketStatus: vi.fn(),
   setPriceStep: (a: unknown) => h.step(a), upsertTicketType: (a: unknown) => h.upsert(a),
 }));
@@ -46,7 +46,7 @@ describe('sold price change', () => {
   it('the form shows the pending price and no early-bird row for it', () => {
     const coming = { id: 'c1', effectiveFrom: new Date(Date.now() + 40_000).toISOString(), pricePence: 1200, isLive: false };
     const f = formOfType(type, [live, coming], 1000, true);
-    expect(f.price).toBe('12');
+    expect(f.price).toBe('12.00');
     expect(f.birds).toEqual([]);
   });
   it('adds a new step when only live steps exist', async () => {
