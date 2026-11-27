@@ -154,15 +154,15 @@ const LearnBachataLondon = ({ serverTodayKey }: { serverTodayKey?: string }) => 
           limit={8}
           emptyText={
             <>
-              No classes listed in the next few weeks just now &mdash; browse the full{' '}
-              <Link to="/classes" className="text-primary underline">Classes page</Link>{' '}or see what&rsquo;s on{' '}
+              No classes listed in the next few weeks just now &mdash; see all{' '}
+              <Link to="/classes" className="text-primary underline">bachata classes in London</Link>{' '}or see what&rsquo;s on{' '}
               <Link to="/tonight" className="text-primary underline">tonight</Link>.
             </>
           }
         />
         <p className="text-sm text-muted-foreground -mt-4">
-          Classes are pulled live from the calendar. Look for ones marked as beginner or Level 1 &mdash; full details and times are on each event page and the{' '}
-          <Link to="/classes" className="text-primary underline">Classes page</Link>.
+          Classes are pulled live from the calendar. Look for ones marked as beginner or Level 1 &mdash; full details and times are on each event page and on{' '}
+          <Link to="/classes" className="text-primary underline">bachata classes in London</Link>.
         </p>
 
         <section className="space-y-3">
@@ -195,8 +195,8 @@ const LearnBachataLondon = ({ serverTodayKey }: { serverTodayKey?: string }) => 
             <section className="space-y-3">
               <h2 className="text-2xl font-bold">Where to go next</h2>
               <p className="leading-relaxed">
-                Ready to pick a night? Browse beginner-friendly options on the{' '}
-                <Link to="/classes" className="text-primary underline">Classes page</Link>{' '}or see what&rsquo;s on this evening on the{' '}
+                Ready to pick a night? Browse every night on{' '}
+                <Link to="/classes" className="text-primary underline">bachata classes in London</Link>{' '}or see what&rsquo;s on this evening on the{' '}
                 <Link to="/tonight" className="text-primary underline">Tonight page</Link>.
               </p>
             </section>
@@ -225,8 +225,8 @@ const LearnBachataLondon = ({ serverTodayKey }: { serverTodayKey?: string }) => 
             <section className="space-y-3">
               <h2 className="text-2xl font-bold">Where to go next</h2>
               <p className="leading-relaxed">
-                Ready to pick a night? Browse beginner-friendly options on the{' '}
-                <Link to="/classes" className="text-primary underline">Classes page</Link>{' '}or see what&rsquo;s on this evening on the{' '}
+                Ready to pick a night? Browse every night on{' '}
+                <Link to="/classes" className="text-primary underline">bachata classes in London</Link>{' '}or see what&rsquo;s on this evening on the{' '}
                 <Link to="/tonight" className="text-primary underline">Tonight page</Link>.
               </p>
             </section>
