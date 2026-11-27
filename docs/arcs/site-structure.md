@@ -1,5 +1,7 @@
 # Arc: Site structure (5 main pages, fewer useless pages)
 
+**Status: DONE 2026-11-27.** All slices S1-S5 shipped and live; flags ON in prod. Follow-on SEO work (ranking for "bachata London" + "tonight") is a new arc, not this one.
+
 Last verified: 2026-11-26 against Website origin/main 65eb3435f (`app/routes.ts`, `src/components/AnimatedRoutes.tsx`, `app/routes/sitemap.tsx`, `vercel.json`). Sources: owner click board https://claude.ai/artifact/3z3xFxr7e3mV4Roqp4X7Cf (43 of 44 rows picked 2026-11-26) and `~/.claude/plans/AUDIT-DATA-site-pages-2026-11-26.md` (GSC 90 days, impressions, signed-out fetch, Fable first-visit test, every owner decision). `W#` = bachata-website, `A#` = bachata-admin.
 
 Goal: Google ranks the pages people search for ("bachata calendar", "bachata classes london", weekday nights), and a first-time visitor finds something THIS WEEK in one tap. Five main pages: **1 What's on** (home, city picker, one filter row Today/Weekend/Near me/Party/Class/Festival), **2 Festivals** (plain list), **3 People & places** (one directory with filter chips), **4 New here?** (Learn + Guide + FAQ, lives at `/learn-bachata-london`), **5 For organisers** (list an event, tickets, sign in, raffles).
