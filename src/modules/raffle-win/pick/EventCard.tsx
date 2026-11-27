@@ -41,7 +41,10 @@ export function EventCard({ event, open, selection, onToggle, onPickDate }: Prop
           </span>
         )}
         <span className="flex min-w-0 flex-1 flex-col gap-[2px]">
-          <strong className="text-[17px] font-extrabold leading-tight">{event.title}</strong>
+          {event.dates.some((d) => d.night.featured === true) ? (
+            <span data-testid="pick-featured" className="w-fit rounded-full bg-[#f7ecd9] px-2 py-[1px] text-[12px] font-bold text-[#24121f]">&#9733; Featured</span>
+          ) : null}
+          <strong className="text-[17px] font-extrabold leading-tight break-words">{event.title}</strong>
           {event.venueName ? <small className="text-[13px] opacity-70">{event.venueName}</small> : null}
           {picked && !open ? <em data-testid="pick-date-line" className="mt-[3px] text-[13px] font-bold not-italic">{picked.label}</em> : null}
         </span>

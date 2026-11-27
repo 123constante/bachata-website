@@ -15,7 +15,7 @@ export function nightParts(startLocal: string): { d: string; mon: string; long: 
 }
 
 type Props = {
-  night: Pick<OpenNight, 'title' | 'startLocal' | 'venueName'>;
+  night: Pick<OpenNight, 'title' | 'startLocal' | 'venueName' | 'organiserName' | 'needsTick' | 'tickOrganiser'>;
   ticked: boolean;
   busy: boolean;
   /** true after a confirm tap without the tick: the hint line is highlighted */
@@ -27,7 +27,9 @@ type Props = {
 
 export default function HonestySheet({ night, ticked, busy, nudge, onTick, onConfirm, onBack }: Props) {
   const p = nightParts(night.startLocal);
-  const confirmBlocked = !ticked || busy;
+  const needsTick = night.needsTick !== false;
+  const orgTick = night.tickOrganiser === true && !!night.organiserName;
+  const confirmBlocked = (needsTick && !ticked) || busy;
   return (
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-black/65" onClick={busy ? undefined : onBack} aria-hidden="true" />
@@ -44,6 +46,7 @@ export default function HonestySheet({ night, ticked, busy, nudge, onTick, onCon
             {night.venueName ? <small className="text-[13px] text-[#f7ecd9]/70">{night.venueName}</small> : null}
           </span>
         </div>
+        {needsTick ? (
         <button
           type="button"
           role="checkbox"
@@ -53,8 +56,9 @@ export default function HonestySheet({ night, ticked, busy, nudge, onTick, onCon
           className={`flex min-h-[68px] w-full items-center gap-3.5 rounded-[18px] border-2 px-3.5 py-3 text-left text-[17px] font-bold ${ticked ? 'border-[#3ddbb4] bg-[#3ddbb4]/10' : 'border-[#f7ecd9]/35'}`}
         >
           <span aria-hidden="true" className={`flex h-8 w-8 flex-none items-center justify-center rounded-[10px] border-[2.5px] text-[20px] ${ticked ? 'border-[#3ddbb4] bg-[#3ddbb4] text-[#150a1c]' : 'border-[#f7ecd9]/60 text-transparent'}`}>{'✓'}</span>
-          <span>I have never been to this event.</span>
+          <span className="min-w-0 break-words">{orgTick ? <>I&rsquo;ve never been to any event by {night.organiserName}</> : 'I have never been to this event.'}</span>
         </button>
+        ) : null}
         <p id="honesty-hint" role={nudge ? 'alert' : undefined} className={`text-center text-[13.5px] ${nudge ? 'font-bold text-[#ff5470]' : 'text-[#f7ecd9]/70'}`}>
           Once you lock it, only the organiser can change it.
         </p>
