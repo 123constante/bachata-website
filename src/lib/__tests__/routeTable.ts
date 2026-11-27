@@ -15,8 +15,9 @@ export function routePatterns(): string[] {
   const framework = [...read('app/routes.ts').matchAll(/\broute\(\s*"([^"]+)"/g)].map((m) => `/${m[1]}`);
   // `index(...)` is the bare "/" framework route.
   const patterns = [...declarative, ...framework, '/'];
-  // The splat is the 404 page, not a route anyone means to land on.
-  return [...new Set(patterns)].filter((p) => p !== '*' && p !== '/*');
+  // The splat is the 404 page, not a route anyone means to land on. `/:night` serves
+  // event subdomains only; on www it renders the same catchall, so it is not a route either.
+  return [...new Set(patterns)].filter((p) => p !== '*' && p !== '/*' && p !== '/:night');
 }
 
 /** The path part of a target (no query, no hash). */
