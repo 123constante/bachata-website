@@ -340,7 +340,7 @@ const BachataInLondon = ({ serverTodayKey }: { serverTodayKey?: string }) => {
             <Link to="/learn-bachata-london" className="text-primary underline">beginner&rsquo;s guide</Link>, check the{' '}
             <Link to="/tonight" className="text-primary underline">Tonight page</Link>, pick a class on the{' '}
             <Link to="/classes" className="text-primary underline">Classes page</Link>, and read the{' '}
-            <Link to="/faq" className="text-primary underline">full FAQ</Link>{' '}for everything else dancers ask before their first night.
+            <Link to="/learn-bachata-london#faq" className="text-primary underline">full FAQ</Link>{' '}for everything else dancers ask before their first night.
           </p>
         </section>
       </article>

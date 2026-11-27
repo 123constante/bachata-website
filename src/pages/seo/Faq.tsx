@@ -172,7 +172,7 @@ export const FAQS: Faq[] = [
         South London (Kennington, Vauxhall, Clapham) is the studio heartland; Covent
         Garden, the City and King's Cross host the big club nights; Fulham and Hackney
         anchor west and east. The{' '}
-        <Link to="/london-bachata-guide" className="text-primary underline">London bachata guide</Link>{' '}
+        <a href="#areas" className="text-primary underline">London bachata guide</a>{' '}
         maps it area by area, and the{' '}
         <Link to="/venues" className="text-primary underline">Venues page</Link>{' '}
         lists every room.
