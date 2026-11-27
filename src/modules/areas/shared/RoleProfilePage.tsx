@@ -13,6 +13,9 @@ import { ROLE_ERROR_COPY, roleErrorCode, roleErrorMessage, type RoleErrorCode } 
 import { REQUIRED_HINT, ROLE_FIELDS, ROLE_NAME, ROLE_NOUN, ROLE_REQUIRED_LEAD, isGoLiveField, type Role } from './fieldRegistry';
 import { FieldInput } from './inputs';
 import { DancersSeeLine } from './DancersSeeLine';
+import { flags } from '@/lib/featureFlags';
+import { useMyDancerEdit } from '@/modules/dancer-app/api/useMyDancerEdit';
+import { ownPublicName } from '@/modules/dancer-app/api/publicName';
 import { useLeaveGuard } from './leaveGuard';
 import { SavedToast } from './SavedToast';
 import { diffPatch, toDraft, validatePatch, withPendingDraft, type Details, type Draft } from './roleModel';
@@ -29,10 +32,12 @@ export interface RoleProfileFormProps {
   /** Called with ONLY the changed keys; never with an empty patch. */
   onSave(patch: Record<string, unknown>): void;
   serverError: string | null;
+  /** The person's own public name (dancer profile, hide-surname applied); shown under the DJ name box. */
+  ownName?: string | null;
 }
 
 /** Every role field, grouped: a go-live key says it is needed, every other one is marked optional. Untouched = Save disabled, with the reason on screen. */
-export function RoleProfileForm({ role, details, saving, onSave, serverError }: RoleProfileFormProps) {
+export function RoleProfileForm({ role, details, saving, onSave, serverError, ownName }: RoleProfileFormProps) {
   const [draft, setDraft] = useState<Draft>(() => toDraft(role, details));
   const [errors, setErrors] = useState<Record<string, RoleErrorCode>>({});
   const { shake, shakeProps } = useShake();
@@ -99,7 +104,7 @@ export function RoleProfileForm({ role, details, saving, onSave, serverError }: 
                       if (errors[f.key]) setErrors(({ [f.key]: _gone, ...rest }) => rest);
                     }}
                   />
-                  {role === 'dj' && f.key === 'dj_name' && <DancersSeeLine details={details} typedDjName={draft.dj_name} />}
+                  {role === 'dj' && f.key === 'dj_name' && <DancersSeeLine ownName={ownName} typedDjName={draft.dj_name} />}
                 </Field>
               );
             })}
@@ -139,6 +144,8 @@ export function RoleProfilePage({ role, areaPath, blocked }: { role: Role; areaP
   const roles = useQuery({ queryKey: myRolesQueryKey, queryFn: fetchMyRoles });
   const progress = useProfileProgress(null);
   const name = ROLE_NAME[role];
+  const me = useMyDancerEdit({ staleTime: 60_000, enabled: flags.nameFixes && role === 'dj' });
+  const ownName = flags.nameFixes && role === 'dj' && me.data ? ownPublicName(me.data) : null;
   // A Go live gap link opens this page with ?returnTo= (the event or the Go live flow): Back goes there.
   const [params] = useSearchParams();
   const returnTo = sanitizeReturnTo(params.get('returnTo'));
@@ -168,6 +175,7 @@ export function RoleProfilePage({ role, areaPath, blocked }: { role: Role; areaP
           saving={save.isPending}
           serverError={save.isError ? roleErrorMessage(save.error) : null}
           onSave={(patch) => save.mutate(patch)}
+          ownName={ownName}
         />
       )}
     </AreaFrame>
