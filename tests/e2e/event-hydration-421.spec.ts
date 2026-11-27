@@ -42,7 +42,7 @@ test.beforeAll(async () => {
   });
   for (let i = 0; i < 60; i += 1) {
     try {
-      const r = await fetch(`${BASE}/faq`);
+      const r = await fetch(`${BASE}/for-organisers`);
       if (r.status < 500) return;
     } catch {
       /* not up yet */

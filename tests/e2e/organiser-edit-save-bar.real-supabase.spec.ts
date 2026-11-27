@@ -108,7 +108,7 @@ test.describe('public organiser page: the edit-in-place Save bar on a phone', ()
         } else {
           // A client navigation from another FRAMEWORK route (the fade only plays
           // once one has mounted): the organiser route then mounts inside PageTransition.
-          await page.goto('/faq');
+          await page.goto('/for-organisers');
           await page.waitForFunction(() => !!(window as unknown as { __reactRouterDataRouter?: unknown }).__reactRouterDataRouter);
           // The PageTransition chunk is warmed at the first idle moment; navigating
           // before it has loaded renders the plain wrapper and misses the filter.
