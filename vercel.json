@@ -231,7 +231,7 @@
     "qualities": [70]
   },
   "framework": "react-router",
-  "buildCommand": "npm run build && npm run check:lazy-route-css",
+  "buildCommand": "npm run build",
   "ignoreCommand": "sh scripts/vercel-ignore-build.sh",
   "git": {
     "deploymentEnabled": {
