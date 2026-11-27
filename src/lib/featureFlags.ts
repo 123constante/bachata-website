@@ -151,6 +151,8 @@ export const flags = {
   // organiser_raffle_night_set_v1) is NOT applied to prod yet: OFF = the night sheet's Raffle row is a Coming soon
   // card and no raffle RPC is called. Default ON (2026-11-24): off only with VITE_ENABLE_ORGANISER_RAFFLE_LIVE=false.
   organiserRaffleLive: import.meta.env.VITE_ENABLE_ORGANISER_RAFFLE_LIVE !== 'false',
+  // Raffle "Who can win" choice (new people only / anyone) on the organiser Raffle card. Default OFF.
+  raffleAudience: import.meta.env.VITE_ENABLE_RAFFLE_AUDIENCE === 'true',
   // Buyer ticket checkout (S4, docs/ticketing-buyer-journey.md): the Tickets block on
   // /event/:id and the /tickets/thanks return page. OFF = no block, no route. Turn on with
   // VITE_ENABLE_PUBLIC_TICKETING=true (Vercel env) -- no code change.

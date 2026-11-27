@@ -4,8 +4,8 @@ import { flags } from '@/lib/featureFlags';
 import { supportLinks } from '../../../shared/support';
 import type { Night } from '../eventsModel';
 import { useQueryClient } from '@tanstack/react-query';
-import { fetchRaffleNights, raffleNightsQueryKey, setRaffleSeries } from './raffleApi';
-import { TRACK, chipWord, nightOnDate, stepOf, type RaffleNight, type RaffleRead } from './raffleModel';
+import { fetchRaffleNights, raffleNightsQueryKey, setRaffleAudience, setRaffleSeries } from './raffleApi';
+import { TRACK, chipWord, nightOnDate, stepOf, type RaffleAudience, type RaffleNight, type RaffleRead } from './raffleModel';
 
 const TAP = { minHeight: 44, minWidth: 44 } as const;
 
@@ -68,6 +68,8 @@ export function SeriesSwitchCard({ seriesId }: { seriesId: string }) {
   const qc = useQueryClient();
   const [pending, setPending] = useState<boolean | null>(null);
   const [error, setError] = useState(false);
+  const [audPending, setAudPending] = useState<RaffleAudience | null>(null);
+  const [audError, setAudError] = useState(false);
   if (q.isPending || q.isError || q.data.kind === 'refused') return null;
   const read = q.data.read;
   const on = pending ?? read.seriesEnabled;
@@ -87,6 +89,23 @@ export function SeriesSwitchCard({ seriesId }: { seriesId: string }) {
       setPending(null);
     }
   };
+  const audience = audPending ?? read.audience;
+
+  const audOff = !read.canEdit || read.audienceAdminSet;
+  const pick = async (next: RaffleAudience) => {
+    if (audOff || audPending !== null || next === audience) return;
+    setAudPending(next);
+    setAudError(false);
+    try {
+      const r = await setRaffleAudience(seriesId, next);
+      if (!r.ok) throw new Error('refused');
+      await qc.invalidateQueries({ queryKey: raffleNightsQueryKey(seriesId) });
+    } catch {
+      setAudError(true);
+    } finally {
+      setAudPending(null);
+    }
+  };
   return (
     <div className="p3-card p3-inset" data-testid="raffle-series-card">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
@@ -103,6 +122,25 @@ export function SeriesSwitchCard({ seriesId }: { seriesId: string }) {
         </button>
       </div>
       <p className="p3-note" data-testid="raffle-series-hint">Default for every night. Nights you set by hand stay as they are.</p>
+      {flags.raffleAudience && on && (
+        <div data-testid="raffle-audience">
+          <strong className="p3-row-t" data-testid="raffle-audience-label">Who can win{read.audienceAdminSet ? ' (set by Bachata Calendar)' : ''}</strong>
+          <div role="group" aria-label="Who can win" style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+            {([['new_only', 'New people only'], ['anyone', 'Anyone']] as const).map(([val, label]) => {
+              const sel = audience === val;
+              return (
+                <button key={val} type="button" aria-pressed={sel} disabled={audOff} onClick={() => void pick(val)} data-testid={`raffle-audience-${val}`}
+                  style={{ ...TAP, flex: 1, opacity: audOff ? 0.5 : 1, border: '1px solid #d0d5dd', borderRadius: 8, background: 'transparent', color: 'inherit',
+                    ...(sel ? { background: 'var(--p3-accent, #7c3aed)', color: '#fff', borderColor: 'var(--p3-accent, #7c3aed)' } : {}) }}>
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <p className="p3-note" data-testid="raffle-audience-note">{audience === 'anyone' ? 'Anyone can win, including regulars.' : 'People who have been to your events before can’t win.'}</p>
+          {audError && <p className="p3-error" role="alert" data-testid="raffle-audience-error">Could not change who can win. Try again.</p>}
+        </div>
+      )}
       {locked && <p className="p3-note" data-testid="raffle-series-locked">Locked. Message us to change this.</p>}
       {error && <p className="p3-error" role="alert" data-testid="raffle-series-error">Could not change the raffle. Try again.</p>}
     </div>
