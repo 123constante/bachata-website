@@ -1,5 +1,6 @@
 import { flags } from '@/lib/featureFlags';
-import { NO_NAME_YET } from '@/modules/dancer-app/api/publicName';
+import { NO_NAME_YET, ownPublicName } from '@/modules/dancer-app/api/publicName';
+import { useMyDancerEdit } from '@/modules/dancer-app/api/useMyDancerEdit';
 
 /** What DJ slots show for this person: the typed DJ name when not blank, else their own public name (from ownPublicName). */
 export function dancersSee(ownName: string | null | undefined, typedDjName: unknown): string | null {
@@ -19,4 +20,10 @@ export function DancersSeeLine({ ownName, typedDjName }: { ownName?: string | nu
       <p className="text-[13px] text-[var(--mut)]">Leave it empty to use your own name.</p>
     </div>
   );
+}
+
+/** The line with the signed-in person's own public name. Mount it only when flags.nameFixes is on: the profile read happens only while it is mounted. */
+export function MyDancersSeeLine({ typedDjName }: { typedDjName: unknown }) {
+  const me = useMyDancerEdit({ staleTime: 60_000 });
+  return <DancersSeeLine ownName={me.data ? ownPublicName(me.data) : null} typedDjName={typedDjName} />;
 }

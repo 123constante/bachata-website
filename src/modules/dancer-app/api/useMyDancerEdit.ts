@@ -13,7 +13,7 @@ import type { DancerDelta, MyDancerEdit } from './types';
  */
 export const myDancerEditKey = (userId: string | null | undefined) => ['my-dancer-edit', userId ?? null] as const;
 
-type Options = { refetchOnMount?: boolean | 'always'; staleTime?: number; retry?: boolean; enabled?: boolean };
+type Options = { refetchOnMount?: boolean | 'always'; staleTime?: number; retry?: boolean };
 
 /** Profiles that already sent profile_strength_70 in this page session (exactly once per person). */
 const crossed70 = new Set<string>();
@@ -55,8 +55,8 @@ export function useMyDancerEdit(options: Options = {}) {
   const query = useQuery({
     queryKey: myDancerEditKey(userId),
     queryFn: fetchMyDancerEdit,
+    enabled: Boolean(userId),
     ...options,
-    enabled: Boolean(userId) && options.enabled !== false,
   });
   /** Save a delta and write the server-returned profile into the shared cache. */
   const save = useCallback(
