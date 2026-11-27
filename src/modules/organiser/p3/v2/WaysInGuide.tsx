@@ -137,7 +137,7 @@ export function WaysInGuideView(p: WaysInGuideProps) {
   const showNextHint = step === 'q1' && a.online && p.stripe;
 
   return (
-    <div className="ev2 ev2-page v2-page" data-testid="ways-in-guide">
+    <div className="ev2 ev2-page v2-page wi-page" data-testid="ways-in-guide">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: 44 }}>
         {backTo ? <button type="button" style={barBtn} data-testid="wg-back" onClick={() => { setTried(false); setStep(backTo); }}>&larr; {G.back}</button> : <span />}
         <button type="button" style={barBtn} data-testid="wg-close" onClick={p.onClose}>{G.close}</button>

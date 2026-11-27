@@ -18,6 +18,14 @@ const view = (o: Partial<WaysInSummaryViewProps> = {}) => {
 const text = (id: string) => screen.getByTestId(`ws-text-${id}`).textContent;
 const has = (id: string) => screen.queryByTestId(`ws-${id}`) !== null;
 
+describe('wi-page margin + nudge style', () => {
+  it('root carries wi-page and the nudge is orange', () => {
+    view({ stripe: false, tickets: [], door: true });
+    expect(screen.getByTestId('ways-in-summary').className).toContain('wi-page');
+    expect(screen.getByTestId('ws-stripe-nudge').style.color).toBe('rgb(194, 65, 12)');
+  });
+});
+
 describe('WaysInSummaryView lines', () => {
   it('header: back, title, sub, weekly line', () => {
     view();
