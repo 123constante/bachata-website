@@ -26,7 +26,7 @@ describe('PosterRow', () => {
     expect(screen.getAllByRole('button').filter((b) => b.getAttribute('aria-pressed') === 'true')).toHaveLength(1);
   });
   it('tap reports the next selection', () => {
-    const onSelect = vi.fn<(s: PosterSel) => void>();
+    const onSelect = vi.fn<[PosterSel], void>();
     render(<PosterRow geo={geo} sel="party" onSelect={onSelect} />);
     fireEvent.click(screen.getByText('Party'));
     expect(onSelect).toHaveBeenLastCalledWith('all');

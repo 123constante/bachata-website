@@ -70,8 +70,8 @@ function isColumnarPacked(v: unknown): v is ColumnarPacked {
   return (
     isPlainObject(v) &&
     (v as Record<string, unknown>)[MARKER] === true &&
-    Array.isArray((v as ColumnarPacked).cols) &&
-    Array.isArray((v as ColumnarPacked).rows)
+    Array.isArray((v as unknown as ColumnarPacked).cols) &&
+    Array.isArray((v as unknown as ColumnarPacked).rows)
   );
 }
 

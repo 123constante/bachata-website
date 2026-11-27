@@ -69,7 +69,7 @@ const flush = async () => { await act(async () => { await vi.advanceTimersByTime
 
 describe('order QR block x exact words', () => {
   beforeEach(() => { vi.useFakeTimers(); rpc.mockReset(); });
-  afterEach(() => vi.useRealTimers());
+  afterEach(() => { vi.useRealTimers(); });
   const rows: Array<[string, unknown, string | null]> = [
     ['loading', new Promise(() => {}), 'Getting your door codes…'],
     ['cards', { data: { tickets: [{ ticket_id: 'a', ticket_type_name: 'GA', qr_token: tok(1), checked_in: false }] }, error: null }, null],

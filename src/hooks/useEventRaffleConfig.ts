@@ -95,7 +95,7 @@ export function useEventRaffleConfig(
     if (rpcErr) {
       setError(rpcErr.message || 'Failed to load raffle info');
     } else {
-      setConfig((data as RaffleConfig) ?? null);
+      setConfig((data as unknown as RaffleConfig) ?? null);
       setError(null);
     }
     setLoading(false);

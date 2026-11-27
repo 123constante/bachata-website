@@ -107,7 +107,7 @@ describe('C40 name, C40b city', () => {
 });
 
 describe('organiser_invite_required (S-ERR)', () => {
-  afterEach(() => vi.unstubAllEnvs());
+  afterEach(() => { vi.unstubAllEnvs(); });
 
   it('says why, shows the WhatsApp row, and offers no retry that cannot work', async () => {
     vi.stubEnv('VITE_SUPPORT_WHATSAPP', 'https://wa.me/447000000000');
