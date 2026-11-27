@@ -2,6 +2,8 @@
 Brief-version: 2
 Branch: claude/p94-early-price-swap
 Lane: normal, Sonnet. Repo 123constante/bachata-website. One PR.
+Size: 2 files, 120 lines.
+Design: no visual change. Keep the shipped Ways in summary design and copy exactly (copy.ts earlyDate / ticketLine); only which numbers and day fill those lines changes.
 
 ## Goal
 Open problem P94. A date early bird is stored as: the ticket's price NOW is the early price, and a later price step (higher) is the normal price. The Ways in summary shows it the wrong way round. Real walk: organiser typed £12, early £8 until 30 Nov. DB: price now 800, step 1200 from 2026-12-01. Summary shows "Online £8, 50 a night" and "Early buyers £12 until Tuesday". It must show "Online £12, 50 a night" and "Early buyers £8 until Monday".
