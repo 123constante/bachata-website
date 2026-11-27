@@ -399,7 +399,7 @@ export const V2 = {
     onlineSub: 'Money in your account in seconds.',
     door: 'At the door',
     link: 'On my own ticket site',
-    free: 'It’s free',
+    free: 'It2019s free',
     next: 'Next',
     back: 'Back',
     q2Title: 'What does a ticket cost?',
