@@ -18,6 +18,18 @@ type Out = { ok: true; id: string | null; changed: boolean } | { ok: false; erro
 type Existing = Pick<TicketType, 'id' | 'name' | 'capacity' | 'occurrenceId' | 'salesOpenAt' | 'salesCloseAt' | 'pricePence'>;
 
 const sameAt = (a: string, b: string) => new Date(a).getTime() === new Date(b).getTime();
+/** The price that counts now: the base, or the latest step whose start is already in the past. */
+export const priceNow = (base: number, steps: readonly { effectiveFrom: string; pricePence: number }[], now = Date.now()): number => {
+  let at = -Infinity;
+  let price = base;
+  for (const s of steps) {
+    const t = new Date(s.effectiveFrom).getTime();
+    if (t <= now && t >= at) { at = t; price = s.pricePence; }
+  }
+  return price;
+};
+const wantedNow = (w: { basePence: number; steps: readonly { at: string; pence: number }[] }, now = Date.now()): number =>
+  priceNow(w.basePence, w.steps.map((s) => ({ effectiveFrom: s.at, pricePence: s.pence })), now);
 const refusal = (r: WriteResult, steps = false) => (steps ? stepReasonMessage(r.reason) : reasonMessage(r.reason));
 
 /**
@@ -44,7 +56,8 @@ export async function writeTicket(a: { organiserId: string; seriesId: string; ty
   const gone = cur.slice(keep);
   if (moves.some((m) => m.was?.isLive) || gone.some((g) => g.isLive)) return { ok: false, error: T.birdLive };
   // a sold type refuses a base price change in the upsert: its new price goes in as a step that counts from now on
-  const soldPrice = !!a.type && (a.sold ?? 0) > 0 && w.basePence !== a.type.pricePence;
+  // compare with the price that counts NOW (base, or the latest step already started), not the stored base
+  const soldPrice = !!a.type && (a.sold ?? 0) > 0 && wantedNow(w) !== priceNow(a.type.pricePence, cur);
   const baseSame = !a.force && !!a.type && (soldPrice || a.basePence === w.basePence) && a.type.name === name && a.type.capacity === a.form.qty;
   if (!a.force && a.type && baseSame && !soldPrice && !moves.length && !gone.length) return { ok: true, id: a.type.id, changed: false };
   for (const g of [...gone].reverse()) {
