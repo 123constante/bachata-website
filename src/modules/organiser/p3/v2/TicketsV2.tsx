@@ -418,7 +418,7 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
   const [skipOpen, setSkipOpen] = useState(false);
   const saveGuide = useWaysInGuideSave({ ws, organiserId: orgId, ticketCount: rows.length, change, say, refresh });
   const nights = useQueries({ queries: coming.map((d) => ({ queryKey: dateDetailQueryKey(d.id), queryFn: () => fetchDateDetail(d.id), enabled: rebuild && (skipOpen || (parsePayment(oldMethods).includes('door') && !oneOff && s.format !== 'festival')), staleTime: 30_000 })) });
-  const nightsFailed = rebuild && skipOpen && nights.some((q) => q.isError);
+  const nightsFailed = rebuild && skipOpen && nights.some((q) => q.isError && !q.isFetching);
   useEffect(() => { if (nightsFailed) { setSkipOpen(false); say(V2.waysInSummary.nightsLoadFail); } }, [nightsFailed]); // eslint-disable-line react-hooks/exhaustive-deps
   const nothingSet = types.data !== undefined && rows.length === 0 && parsePayment(oldMethods).length === 0 && !oldUrl;
   const showGuide = rebuild && (guideOpen || (nothingSet && !guideDone));
@@ -478,7 +478,7 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
         door={parsePayment(oldMethods).includes('door')} free={parsePayment(oldMethods).includes('free')} link={oldUrl} festival={s.format === 'festival'} busy={busy}
         stripeWarn={stripeWarn} onCheckAgain={ret.again} stripeBusy={onboard.busy} stripeNote={onboard.note} stripeOff={onboard.switchedOff}
         noDoorNights={noDoorNights}
-        on={{ ticket: openTicket, early: openTicket, newTicket: () => openTicket(), stripe: () => { void onboard.go(); }, door: openGuide, free: openGuide, link: openWaysLink, rerun: openGuide, skipDoor: () => setSkipOpen(true) }} />
+        on={{ ticket: openTicket, early: openTicket, newTicket: () => openTicket(), stripe: () => { void onboard.go(); }, door: openGuide, free: openGuide, link: openWaysLink, rerun: openGuide, skipDoor: () => { const redo = coming.filter((d) => qc.getQueryState(dateDetailQueryKey(d.id))?.status === 'error').map((d) => qc.resetQueries({ queryKey: dateDetailQueryKey(d.id), exact: true })); if (redo.length) void Promise.all(redo).then(() => setSkipOpen(true)); else setSkipOpen(true); } }} />
       {guideErr ? <p className="err" role="alert" data-testid="ways-guide-err">{guideErr}</p> : null}
     </>
   );
