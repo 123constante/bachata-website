@@ -1,0 +1,265 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git switch *)",
+      "Bash(gh pr create --base main --head fix/mojibake-sweep --title 'fix\\(integrity\\): sweep cp1252 mojibake from comments + one error string' --body ' *)",
+      "Bash(git fetch *)",
+      "Bash(python3 c:/dev/Website/scripts/safe-write.py c:/dev/Website/src/pages/SearchResults.tsx)",
+      "Bash(PYTHONUTF8=1 python3)",
+      "Bash(node scripts/lint-runtime-architecture.mjs)",
+      "Bash(pkill -f \"node.*vite\")",
+      "Bash(cat >> *)",
+      "Bash(python3 scripts/safe-write.py src/modules/event-page/bento/BentoPage.tsx)",
+      "Bash(python3 -c \"import json,sys; p=json.load\\(sys.stdin\\); print\\('\\\\n'.join\\(f'{k}: {v}' for k,v in p.get\\('scripts',{}\\).items\\(\\) if k in \\('dev','typecheck','tsc'\\)\\)\\)\")",
+      "Bash(kill %1)",
+      "Bash(jobs -l)",
+      "Bash(git check-ignore *)",
+      "Bash(SAFEWRITE_HOOK_BYPASS=1 echo \"Bypassing to use native write tools\")",
+      "Bash(python3 -c \"print\\('test'\\)\")",
+      "Bash(cat > *)",
+      "Bash(python3 -c 'import base64; b64 = \"aW1wb3J0IHsgdXNlU2VhcmNoUGFyYW1zIH0gZnJvbSAncmVhY3Qtcm91dGVyLWRvbSc7CmltcG9ydCB7IHVzZU1lbW8sIHVzZVN0YXRlIH0gZnJvbSAncmVhY3QnOwppbXBvcnQgeyB1c2VRdWVyeSB9IGZyb20gJ0B0YW5zdGFjay9yZWFjdC1xdWVyeSc7CmltcG9ydCB7IFVzZXJzLCBTZWFyY2gsIFggfSBmcm9tICdsdWNpZGUtcmVhY3QnOwppbXBvcnQgeyBzdXBhYmFzZSB9IGZyb20gJ0AvaW50ZWdyYXRpb25zL3N1cGFiYXNlL2NsaWVudCc7CmltcG9ydCBHbG9iYWxMYXlvdXQgZnJvbSAnQC9jb21wb25lbnRzL2xheW91dC9HbG9iYWxMYXlvdXQnOwppbXBvcnQgeyBidWlsZEJyZWFkY3J1bWJzIH0gZnJvbSAnQC9saWIvYnJlYWRjcnVtYnMnOwppbXBvcnQgeyBTa2VsZXRvbiB9IGZyb20gJ0AvY29tcG9uZW50cy91aS9za2VsZXRvbic7CmltcG9ydCB7IHVzZUNpdHkgfSBmcm9tICdAL2NvbnRleHRzL0NpdHlDb250ZXh0Jzsog==\" ; print\\(base64.b64decode\\(b64\\).decode\\(\"utf-8\"\\)\\)')",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 scripts/safe-write.py src/components/AnimatedRoutes.tsx)",
+      "Bash(python3 -c \"import os; print\\(os.path.abspath\\('/tmp'\\)\\); print\\(os.path.exists\\('/tmp'\\)\\); import tempfile; print\\(tempfile.gettempdir\\(\\)\\)\")",
+      "Bash(PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python3)",
+      "Bash(PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python3 /c/tmp/upd_tests.py)",
+      "Bash(grep -nE \"label: 'Parties', path: '/parties'|label: 'Classes', path: '/classes'|toBe\\\\\\\\\\('parties'\\\\\\\\\\)|toBe\\\\\\\\\\('classes'\\\\\\\\\\)\" src/lib/breadcrumbs/__tests__/buildBreadcrumbs.test.ts)",
+      "Bash(npm ci *)",
+      "Bash(SAFEWRITE_HOOK_BYPASS=1 python3)",
+      "Bash(node -e \"const yaml=require\\('js-yaml'\\); ['e2e-smoke','types-drift-autoheal','architecture-guard'].forEach\\(n => { const c=require\\('fs'\\).readFileSync\\('.github/workflows/'+n+'.yml','utf8'\\); try { yaml.load\\(c\\); console.log\\(n, 'ok'\\); } catch\\(e\\) { console.log\\(n, 'FAIL', e.message\\); } }\\)\")",
+      "Bash(node scripts/check-occurrence-instance-time-canonical.mjs)",
+      "Bash(SAFEWRITE_HOOK_BYPASS=1 PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python3)",
+      "Bash(git -C /c/dev/bachata-admin-11april diff --stat HEAD -- supabase/migrations/20260808000000_venue_rpc_add_missing_fields.sql supabase/migrations/20260808010000_venue_rpc_draft_guard_and_publish_state.sql)",
+      "Bash(git -C /c/dev/bachata-admin-11april status --short -- supabase/migrations/20260808000000_venue_rpc_add_missing_fields.sql supabase/migrations/20260808010000_venue_rpc_draft_guard_and_publish_state.sql)",
+      "Bash(git -C /c/dev/bachata-admin-11april log --oneline -3)",
+      "Bash(git -C /c/dev/bachata-admin-11april log --oneline origin/main..HEAD)",
+      "Bash(git -C /c/dev/bachata-admin-11april push origin main)",
+      "Bash(pkill -f \"vite --port 8080\")",
+      "Bash(git -C c:/dev/Website status)",
+      "Bash(git -C c:/dev/Website diff)",
+      "Bash(PYTHONUTF8=1 python3 scripts/safe-write.py src/modules/event-page/bento/modals/RafflePhoneInput.tsx)",
+      "Bash(dir \"C:\\\\dev\\\\Website\\\\src\\\\modules\")",
+      "Bash(xargs -I {} gh api {} --jq '.[0] | \"\\\\\\(.state\\): \\\\\\(.environment_url\\)\"')",
+      "Bash(gh deployment *)",
+      "Bash(xargs -I {} gh api repos/123constante/bachata-website/actions/jobs/{} --jq '.steps[] | select\\(.status == \"completed\"\\) | {name: .name, conclusion: .conclusion}')",
+      "Bash(xargs -I {} gh api repos/123constante/bachata-website/actions/jobs/{} --jq '.steps[] | select\\(.name == \"Smoke live production\"\\) | .status')",
+      "Bash(xargs -I {} sh -c 'gh api repos/123constante/bachata-website/actions/runs/{} --jq \".name, .status, .conclusion, .html_url\"')",
+      "Bash(python3 scripts/safe-write.py src/modules/home-map/EventMap.tsx)",
+      "Bash(python3 scripts/safe-write.py /c/dev/Website/src/modules/home-map/useMapList.ts)",
+      "Bash(PYTHONUTF8=1 python3 -)",
+      "Bash(git -C /c/dev/Website show origin/fix/preview-checks-skip-when-walled:scripts/lib/previewProbe.mjs)",
+      "Bash(git -C /c/dev/Website diff --stat origin/main...origin/fix/preview-checks-skip-when-walled)",
+      "Bash(git -C /c/dev/Website diff origin/main...origin/fix/preview-checks-skip-when-walled)",
+      "Bash(git -C /c/dev/Website diff origin/main...origin/fix/preview-checks-skip-when-walled -- .github/workflows/perf-budget.yml scripts/check-lighthouse.mjs)",
+      "Bash(git -C /c/dev/Website diff origin/main...origin/fix/preview-checks-skip-when-walled -- scripts/check-og-images.mjs scripts/check-seo.mjs tests/previewProbe.test.ts)",
+      "PowerShell(gh run view 29808152486 --log-failed | Out-File -Encoding utf8 C:\\\\tmp\\\\r29808152486.log; \\(Get-Content C:\\\\tmp\\\\r29808152486.log | Measure-Object -Line\\).Lines)",
+      "Bash(git -C /c/dev/Website show origin/fix/preview-checks-skip-when-walled:.github/workflows/perf-budget.yml)",
+      "Bash(git -C /c/dev/Website grep -rln 'previewProbe\\\\|bypassHeaders\\\\|VERCEL_AUTOMATION_BYPASS\\\\|set-bypass-cookie' origin/fix/preview-checks-skip-when-walled)",
+      "PowerShell(gh run view 29808152486 --log | Out-File -Encoding utf8 C:\\\\tmp\\\\full29808152486.log; \\(Get-Content C:\\\\tmp\\\\full29808152486.log | Measure-Object -Line\\).Lines; gh run view 29888236022 --log | Out-File -Encoding utf8 C:\\\\tmp\\\\full29888236022.log; \\(Get-Content C:\\\\tmp\\\\full29888236022.log | Measure-Object -Line\\).Lines)",
+      "Bash(git -C /c/dev/Website ls-tree -r --name-only origin/main)",
+      "Bash(git -C /c/dev/Website show origin/fix/preview-checks-skip-when-walled:scripts/check-doc-weight.mjs)",
+      "Bash(git -C /c/dev/Website show origin/fix/preview-checks-skip-when-walled:scripts/check-lighthouse.mjs)",
+      "Bash(git -C /c/dev/Website show origin/fix/preview-checks-skip-when-walled:playwright.synthetic.config.ts)",
+      "Bash(PYTHONUTF8=1 python3 scripts/safe-write.py *)",
+      "Bash(PYTHONUTF8=1 python3 scripts/safe-edit.py *)",
+      "Bash(PYTHONUTF8=1 python3 /c/dev/Website/scripts/safe-write.py *)",
+      "Bash(PYTHONUTF8=1 python3 /c/dev/Website/scripts/safe-edit.py *)",
+      "Bash(node ~/.claude/bin/dispatch-worker.mjs *)",
+      "Bash(node /c/Users/ecual/.claude/bin/dispatch-worker.mjs *)",
+      "Bash(node ~/.claude/bin/drift-audit.mjs *)",
+      "Bash(node /c/Users/ecual/.claude/bin/drift-audit.mjs *)",
+      "RemoteTrigger",
+      "ArtifactData",
+      "Bash(gh api *)",
+      "PowerShell(gh api *)",
+      "mcp__claude-in-chrome__find",
+      "mcp__claude-in-chrome__get_page_text",
+      "mcp__playwright__browser_snapshot",
+      "mcp__claude-in-chrome__read_page",
+      "mcp__claude-in-chrome__read_console_messages",
+      "mcp__claude-in-chrome__tabs_context_mcp",
+      "mcp__claude_ai_Supabase__list_migrations",
+      "mcp__claude_ai_Supabase__get_advisors",
+      "mcp__claude_ai_Supabase__list_branches",
+      "Bash(node ~/.claude/bin/wait-done.mjs *)",
+      "Bash(node /c/Users/ecual/.claude/bin/wait-done.mjs *)",
+      "Bash(node ~/.claude/bin/branch-owner.mjs who *)",
+      "Bash(node ~/.claude/bin/pr-status.mjs *)",
+      "Bash(node /c/Users/ecual/.claude/bin/pr-status.mjs *)",
+      "mcp__claude_ai_Supabase__query_logs",
+      "mcp__claude_ai_Supabase__get_edge_function",
+      "mcp__claude_ai_Supabase__list_edge_functions",
+      "mcp__claude_ai_Supabase__list_projects",
+      "mcp__claude-in-chrome__read_network_requests",
+      "mcp__claude-in-chrome__list_connected_browsers",
+      "mcp__claude_ai_Supabase__execute_sql",
+      "Bash(node ~/.claude/bin/dispatch-one.mjs *)",
+      "Bash(node /c/Users/ecual/.claude/bin/dispatch-one.mjs *)",
+      "Bash(node C:/Users/ecual/.claude/bin/dispatch-one.mjs *)",
+      "mcp__claude-in-chrome__navigate",
+      "mcp__claude-in-chrome__computer",
+      "ListAgents",
+      "ToolSearch",
+      "Skill",
+      "TaskStop",
+      "Artifact",
+      "Monitor",
+      "SendMessage"
+    ],
+    "ask": [
+      "Bash(gh repo delete *)",
+      "Bash(gh secret set *)",
+      "Bash(gh secret delete *)",
+      "Bash(gh cache delete *)",
+      "Bash(gh auth logout *)",
+      "Bash(gh pr review *)",
+      "Bash(gh run cancel *)",
+      "Bash(gh run delete *)",
+      "Bash(gh workflow disable *)",
+      "Bash(gh workflow enable *)",
+
+      "Bash(gh release *)",
+      "PowerShell(gh repo delete *)",
+      "PowerShell(gh secret set *)",
+      "PowerShell(gh secret delete *)",
+      "PowerShell(gh cache delete *)",
+      "PowerShell(gh auth logout *)",
+      "PowerShell(gh pr review *)",
+      "PowerShell(gh run cancel *)",
+      "PowerShell(gh run delete *)",
+      "PowerShell(gh workflow disable *)",
+      "PowerShell(gh workflow enable *)",
+
+      "PowerShell(gh release *)"
+    ],
+    "additionalDirectories": [
+      "\\tmp",
+      "c:\\tmp"
+    ]
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/arc-checkpoint.mjs --event=UserPromptSubmit"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/session-lock.mjs heartbeat --hook"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/ctx-gate-cloud.mjs",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/session-lock.mjs acquire --warn-only --hook"
+          }
+        ]
+      },
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/session-boot.mjs"
+          },
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/arc-checkpoint.mjs --event=SessionStart"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/session-lock.mjs heartbeat --hook --quiet"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/session-lock.mjs release --hook"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && .claude/hooks/pre-write-block.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/pre-exec-guard.mjs --hook"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && .claude/hooks/post-write-check.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "ReportFindings",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/review-stamp.mjs"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/ctx-gate-cloud.mjs",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "frontend-design@anthropic-plugin-directory": true,
+    "claude-md-management@anthropic-plugin-directory": true
+  }
+}

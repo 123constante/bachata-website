@@ -1,0 +1,6 @@
+# Review: Website PR #1584 (organiser Events tab core), head a89f61c (fresh review of the final head)
+Independent review, ONE round. Read-only: do not edit the PR branch, do not merge or approve. Post the verdict as ONE PR comment on #1584 (gh pr comment), 3-line summary + findings list with file:line. No docs(review) PR, no pack file.
+Context: round-1 review verdict was FIX (F1-F4). Fix round 3 (commit 34a95221d) claims: F1 fresh idempotency key after Reload and in the non-network catch (src/modules/organiser/p3/events/DashEvents.tsx); F2 conflict walk shot re-taken; F3 single Close in the conflict Sheet; F4 unknown role is view-only. Check each claim against the code and its test (dashEvents.test.tsx), and that each new test fails on the unfixed code.
+Also re-check against the contract (docs/briefs/profile-dash-organiser-events-build.md, docs/design/profile-dash/organiser-events.md): contributor view-only, flag organiserDash off = no change to the existing Events screen, empty/loading/error states actionable, disabled controls say why, walk shots docs/design/profile-dash/shots/organiser-events-walk-*.png (390x844) show what the tests claim.
+contract-check is red on main too (inherited P5 drift) and decide is a cancelled auto-merge job: neither is a finding.
+Verdict line: PASS or FIX with exact defects.

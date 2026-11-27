@@ -1,0 +1,10 @@
+# Brief: door-code check-in screen (Website, ticketing side arc)
+
+Lane: normal (database already applied: admin #1132). Model: Opus (new logic: error handling, rate limit). Branch: claude/ticket-door-code-screen. One PR, push once, no run-ci. INVENTORY first.
+Step 0 INVENTORY.md (docs/design/ticket-door-code-screen/INVENTORY.md): the existing door/scan screens in the current Website (grep ticket, door, check-in, Tonight list), the admin check-in tools, and the RPCs ticket_check_in_by_id_v1 and ticket_check_in_by_code_v1 (read the real bodies read-only on prod; supabase/migrations/20270314140000_ticket_door_short_code_v1.sql in the admin repo on main), every result code each returns, with file:line, ending with a COVERAGE COUNT. Prove the data source: which table/column holds short_code and who writes it.
+## Build
+A phone screen at 390x844 for door staff: type the short code, Check in. One shared mapping from every RPC result to words and one next action (valid, already checked in, wrong event, not found, too_many_attempts, not allowed, network error). On too_many_attempts (20 failures per 15 minutes) the screen says wait and offers the Tonight-list check-in by id as the fallback, never a dead end. Disabled button says why; empty input sends nothing; no double submit; pending state.
+## Tests
+Table: every result code x staff role x shape (empty list, 1 ticket, 100+ tickets); copy never points at a missing control. Red first. Zero bytes to dancer-app first load (npm run check:bundle-budget on main and branch); do not edit perf-budgets.json or vite.config.ts. Own flag if the repo uses one for ticketing; ship OFF.
+## Rules
+git fetch origin main, merge-base equals origin/main before pushing. Per-job CI table and a Verified / Not verified block in the PR body (label exactly "- Shapes surveyed:", Phone QA names 390x844). Walk pictures under docs/walk/ticket-door-code-screen/. Supabase read-only. Never merge or approve. HTML entities in JSX. Handover docs/handover/ticket-door-code-screen.md.

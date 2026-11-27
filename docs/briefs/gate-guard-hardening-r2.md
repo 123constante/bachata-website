@@ -1,0 +1,17 @@
+# Brief: gate-guard-hardening-r2 (ADMIN repo 123constante/bachata-admin, Opus, CAREFUL lane). Branch claude/gate-guard-hardening-r2, cut FROM origin/main (never from claude/gate-guard-hardening).
+
+Context line: stay under 30% of your context; push + handover by 35%. Never merge/approve/--no-verify. Plain git only. Supabase READ-ONLY (SELECT only). Push ONCE when coherent and the local checks ran. Never add `run-ci`.
+
+Base check (stale sandbox trap): `git fetch origin main`; branch from it; before the first push `git merge-base HEAD origin/main` must equal `git rev-parse origin/main`.
+
+## Why this brief exists
+Admin PR #1148 (branch claude/gate-guard-hardening, 35 commits, owner-authored, in CONFLICT with main in 10 files) carries the "gate guard hardening" follow-up to #1141. It could not be rebased cleanly because the bulk-door migration it sits on top of ALREADY LANDED ON MAIN as `supabase/migrations/20270308120000_onboarding_gate_bulk_door_v1.sql`, while #1148 carries a renumbered DUPLICATE of it (`20270315010000_onboarding_gate_bulk_door_v1.sql`). Every conflict is that renumber (comments, guards.json note, test helper docs). The PR's real new content is the hardening only. The owner chose "rebase now"; this is the rebase done by hand, as a new bot-authored PR (the owner cannot approve a PR authored by his own account).
+
+## Task
+0. INVENTORY FIRST (docs/handover/gate-guard-hardening-r2-INVENTORY.md): list every file in `git diff $(git merge-base origin/main origin/claude/gate-guard-hardening) origin/claude/gate-guard-hardening --stat`; classify each as (a) hardening content to carry, (b) duplicate bulk-door renumber to DROP (take main's version), (c) test/guard file that changed for BOTH reasons (merge by hand). Coverage count at the end: N files, N classified.
+1. Read prod read-only: does the live ledger contain 20270308120000? Does the live `check_organiser_onboarding_gate_v1` body match the pin in the hardening migration header (prosrc md5 55fcb824d9e50d8f07def8b21c559d3c, "refuses to run before #1141")? If the pin no longer matches main's/prod's guard, STOP and report which side moved; do not edit the pin to make it pass.
+2. Build the branch from main: bring over only class (a) and the hand-merged class (c). Do NOT carry `20270315010000_onboarding_gate_bulk_door_v1.sql` or any rename of it. Keep the hardening migration as `99990101000000_onboarding_gate_guard_hardening_v1.sql` (placeholder: the migration queue assigns the real version at merge time; do not pick one). Update the pin comments/wording that mention 20270315010000 to 20270308120000.
+3. Run, in order, and put the per-job table in the PR body: the migration proof (`npm run migration:prove` or the CI-equivalent, static-only if no Docker), the local gate-guard harness (scripts/gate-guard-harness/run.sh) both runs, vitest for tests/onboardingGateBulkDoor.db.test.ts, onboardingS2.db.test.ts, anonGuardBatch, frontDoorGuardrails, erAd2, erP4A2SeriesOwner, erP4D42Duplicate, p3A1ForwardRule, onboardingGateLine, and `node scripts/check-no-placeholder-on-main.mjs` (expected to flag the placeholder: say so; the queue renames it).
+4. Open nothing yourself: push the branch; bot-pr.yml opens the PR. Run pr-body.mjs equivalent only if the PR template needs it.
+
+Handover docs/handover/gate-guard-hardening-r2.md: Done / Not verified / what the reviewer (Fable) should mutate-test. Commit subject ends [worker-done <ticket>].

@@ -1,0 +1,10 @@
+# T2 (admin repo): reserve v5 + public v3 + preview v2 + edge v5 path — BUILD, careful lane, money
+
+Branch: claude/ticket-reserve-v5-t2 in 123constante/bachata-admin. BASE: create it from origin/claude/ticket-price-steps-t1 (admin PR #1395, T1 not yet merged; its head moves if review fixes land: `git fetch` often, rebase onto it, and onto main once T1 merges).
+DO NOT open a PR until `git log origin/main` contains the T1 merge (check each time you push); push the branch only. Until then push with subject ending `[skip preview]`-style WIP and finish with `PARTIAL [worker-done <ticket>]` if T1 has not merged, stating exactly what is built.
+
+Spec (binding, final reviewed design, in this brief's folder): docs/briefs/design-ticketing-organisers.md s.3 (checkout behaviour, v5 two checkpoints, price_changed fail-closed, rollout order), s.5 "T2" (EXACT privilege list and POST-APPLY ASSERTIONS, copy them into the PR and into a test), s.6 contract rows M-1..M-n; docs/briefs/contract-ticket-tiers.md.
+Scope: `ticket_checkout_reserve_v5` (10 args as in s.5, service_role only), `ticket_orders.reserve_version`, `ticket_types_public_v3`, patch `ticket_promo_preview_v2` and `ticket_types_public_v2` to the seam, edge `ticket-checkout` v5 path ADDED (v3/v4 paths kept, nothing retired: that is T2b), hold-sweep scheduler (s.5 N6). Placeholder migration timestamp 99990101000400 (T1 uses ...0300); never hand-pick a real timestamp.
+NOT in scope: Website UI, revoking reserve v3/v4, T2b.
+Tests: table-driven DB tests for every contract row incl. M-5 omission matrix, parity M-2, M-3 across all executable reserves, privilege assertions; mutants listed in s.5/s.6 each killed (report the list). Prod shapes survey read-only (Supabase MCP SELECT only) with counts in the PR. Never apply a migration, never merge: lead does after independent review.
+PR (when allowed): bot-authored, careful lane, body with Verified / Not verified, per-job CI table, label run-ci is added by the lead. Handover docs/handover/ticket-reserve-v5-t2.md.

@@ -1,0 +1,7 @@
+# p3-page-scope-1 continuation (walk, review fixes, CI steps, PR body)
+
+Branch `claude/p3-page-scope-1` (head 7099e7e4a, Website PR #1307 already open). The first worker built F-26 (Home, Events and Stats show the chosen page and name it; Switch page in place; Also run by) and stopped PARTIAL: no browser walk, no review, CI steps not all run. FIRST read its handover and inventory on the branch (find them with `git ls-tree -r --name-only HEAD | grep -i page-scope`) and the original brief `brief/p3-page-scope-1:docs/briefs/p3-page-scope-1.md`. Do ONLY what is left:
+1. The 390x844 browser walk (mocked answers, reuse `tests/e2e/walk-invite-recheck.spec.ts` copied from branch `claude/walk-invite-recheck-1`): every person type x journey x data shape in the brief's contract. OPEN EVERY PICTURE and write one line each in `docs/walk/p3-page-scope-1/RESULTS.md` (PASS / FAIL / CANNOT-TELL).
+2. One /code-review round at medium; fix findings as red-first tests plus edits; one fix round max.
+3. Run the CI steps not yet run (e2e smoke, phone-qa, pre-ship, bundle budget) and put a per-job table in the PR body. PR body needs `- Shapes surveyed:`, `- Checks run:`, `- NOT verified:` each with text on the SAME line, and Phone QA naming 390x844.
+Owner confirmed 2026-11-04: Home shows the chosen page only, with its name. No other scope. Last commit ends `[worker-done dt_<new ticket>]`; final push WITHOUT [skip preview].

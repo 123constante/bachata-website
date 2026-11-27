@@ -1,0 +1,4 @@
+# Brief: fix red migration-header on admin PR #1156 (claude/undo-change-v1)
+Red checks: header (PR body lacks "## Shape survey" with counts, and lacks exactly one of "## Undo SQL" fenced block / "## Forward-only"), then ledger-sync and boundary-stamp, rpc-body-snapshots (re-read after header is fixed; may be runner flake, rerun once).
+Do: read docs/migration-header-contract.md. Survey prod READ-ONLY (Supabase connector SELECT only, counts, no personal data) for the tables the migration touches; write the Shape survey; write the Undo SQL (or Forward-only with reason) from the migration itself. Edit the PR BODY only (no new code push unless a check names a file). Run the header check locally with the body, then re-run failed CI jobs once.
+Careful lane. Never apply the migration. Report: body fixed, checks per job, Not verified.

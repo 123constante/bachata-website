@@ -1,0 +1,3 @@
+# Brief: independent review of Website PR #1584 (queue-website, careful review, read-only)
+Review PR #1584 (branch claude/profile-dash-organiser-events-build) at its CURRENT head. Do NOT push code; post ONE PR comment, verdict PASS or FAIL.
+Check: (1) the scripts/check-e2e-spec-coverage.mjs change only adds the new spec by name and weakens no gate; (2) every save/retime/delete path calls the intended RPC with the right args, untouched save sends nothing, conflict/error states are actionable; (3) feature is behind the organiserDash flag and off-by-default paths are unchanged; (4) permissions: only owners/admins/team of the event can act, no direct table writes; (5) PR body has Verified / Not verified. Cite file:line. Reviewer model must differ from the builder.
