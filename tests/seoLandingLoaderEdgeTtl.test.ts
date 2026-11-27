@@ -59,11 +59,6 @@ const ROUTES = [
     load: () => import('../app/routes/learn-bachata-london'),
     windowDays: SEO_LANDING_WINDOWS.learn,
   },
-  {
-    name: '/london-bachata-guide',
-    load: () => import('../app/routes/london-bachata-guide'),
-    windowDays: SEO_LANDING_WINDOWS.guide,
-  },
 ];
 
 const cdnHeaderOf = (mod: { headers: unknown }, result: unknown): string => {

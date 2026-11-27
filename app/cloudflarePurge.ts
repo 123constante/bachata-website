@@ -99,7 +99,6 @@ const SLUG = STAMP_PLACEHOLDER_SLUG;
 // The pages that stamp SEO_LANDING (routes.ts). cloudflarePurge.test.ts
 // re-derives this list from the route modules, so it cannot drift silently.
 export const SEO_LANDING_PATHS = [
-  "/london-bachata-guide",
   "/learn-bachata-london",
   "/bachata-london-monday",
   "/bachata-london-tuesday",
