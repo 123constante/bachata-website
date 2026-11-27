@@ -282,13 +282,13 @@ export const parseFestivalDetail = (value: unknown): FestivalDetail | null => {
       // Defence-in-depth: bad ticket_url values fall through to null so no
       // broken Tickets button is rendered. See useEventPageQuery.ts for the
       // matching guard on the standard-event path.
-      ticketUrl: safeExternalHref(links.ticket_url) ?? null,
+      ticketUrl: safeExternalHref(asString(links.ticket_url)) ?? null,
       whatsappLink: asString(links.whatsapp_link),
       // Canonical group-chat key with a fallback to the legacy whatsapp_link
       // (currently the storage key admins write). safeExternalHref guards against
       // malformed values so no broken "Join the group chat" button renders.
       groupChatUrl:
-        safeExternalHref(links.group_chat_url) ?? safeExternalHref(links.whatsapp_link) ?? null,
+        safeExternalHref(asString(links.group_chat_url)) ?? safeExternalHref(asString(links.whatsapp_link)) ?? null,
       volunteerUrl: asString(links.volunteer_url),
       codeOfConductUrl: asString(links.code_of_conduct_url),
     },

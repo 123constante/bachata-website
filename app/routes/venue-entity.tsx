@@ -72,7 +72,7 @@ export function headers({ loaderHeaders }: Route.HeadersArgs) {
 }
 
 export const meta: Route.MetaFunction = ({ data }) => {
-  if (!data || data.locked) {
+  if (!data || data.locked === true) {
     return [
       { title: "Coming soon — Venue — Bachata Calendar" },
       { name: "robots", content: "noindex,nofollow" },
@@ -96,7 +96,7 @@ export default function VenueEntityRoute({ loaderData, params }: Route.Component
       </InitialVisiblePageTransition>
     </ComingSoonGate>
   );
-  return loaderData?.locked ? (
+  return loaderData?.locked === true ? (
     gate
   ) : (
     <HydrationBoundary state={loaderData.dehydratedState}>{gate}</HydrationBoundary>
