@@ -27,6 +27,7 @@ import { hasRequiredCity, normalizeRequiredCity } from '@/lib/profile-validation
 import { resolveCanonicalCity } from '@/lib/city-canonical';
 import { cn, resolveEventImage } from '@/lib/utils';
 import { optimizedImageUrl } from '@/lib/imageCdn';
+import { toPhotoUrlColumn } from '@/lib/photoUrlColumn';
 import { useCity } from '@/contexts/CityContext';
 import { Checkbox } from '@/components/ui/checkbox';
 
@@ -421,7 +422,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
       const payload = {
         business_name: businessName,
         city_id: canonicalCity.cityId,
-        photo_url: photoUrl.length > 0 ? photoUrl : null,
+        photo_url: toPhotoUrlColumn(photoUrl),
         product_categories: categories.length > 0 ? categories : null,
         products: normalizedProductsJson,
         ships_international: form.ships_international,

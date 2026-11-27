@@ -18,6 +18,7 @@ import GlobalLayout from '@/components/layout/GlobalLayout';
 
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo } from '@/lib/seo';
+import { toPhotoUrlColumn } from '@/lib/photoUrlColumn';
 
 const CreateVideographerProfile = () => {
   useSeo({
@@ -147,10 +148,9 @@ const CreateVideographerProfile = () => {
 
     setIsSubmitting(true);
     try {
-      const photoUrls = form.photo_url.trim() ? [form.photo_url.trim()] : null;
       const payload = {
         business_name: form.business_name.trim(),
-        photo_url: photoUrls,
+        photo_url: toPhotoUrlColumn([form.photo_url]),
         city: canonicalCity.cityName,
         bio: form.bio.trim() || null,
         website: form.website.trim() || null,

@@ -46,6 +46,7 @@ import GlobalLayout from '@/components/layout/GlobalLayout';
 
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo } from '@/lib/seo';
+import { toPhotoUrlColumn } from '@/lib/photoUrlColumn';
 const VENDOR_DASHBOARD_BREADCRUMBS = buildBreadcrumbs('profile.vendorDashboard');
 
 const emptyForm: VendorDashboardFormState = {
@@ -826,7 +827,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
       const payload = {
         business_name: businessName,
         city_id: canonicalCity.cityId,
-        photo_url: photoUrl.length > 0 ? photoUrl : null,
+        photo_url: toPhotoUrlColumn(photoUrl),
         product_categories: categories.length > 0 ? categories : null,
         products: normalizedProductsJson,
         ships_international: form.ships_international,
