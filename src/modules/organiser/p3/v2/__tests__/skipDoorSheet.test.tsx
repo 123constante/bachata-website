@@ -9,6 +9,7 @@ vi.mock('../../../shared/selfServeApi', () => ({
   setNightNoDoor: (id: string, v: boolean) => net.set(id, v),
 }));
 import { SkipDoorSheet } from '../SkipDoorSheet';
+import { getGate, closeGate, subscribeGate } from '../../onboarding/gate';
 
 const dates = [
   { id: 'a', label: 'Saturday 6 December', noDoor: false },
@@ -21,7 +22,7 @@ const show = () => {
   return { onClose, onSaved };
 };
 beforeEach(() => { net.set.mockReset().mockResolvedValue(undefined); });
-afterEach(cleanup);
+afterEach(() => { cleanup(); closeGate(); });
 
 describe('SkipDoorSheet', () => {
   it('renders the title, sub line and every date', () => {
@@ -52,6 +53,19 @@ describe('SkipDoorSheet', () => {
     expect((await screen.findByTestId('skip-door-err')).textContent).toBe('Could not save. Try again.');
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByTestId('skip-door-c').getAttribute('aria-checked')).toBe('true');
+  });
+  it('an onboarding refusal opens the gate, shows no error line, keeps the ticks', async () => {
+    const unsub = subscribeGate(() => {});
+    net.set.mockRejectedValueOnce({ message: 'onboarding_incomplete', details: '{"missing":["photo"],"organiser_id":"o1"}' });
+    const { onClose } = show();
+    fireEvent.click(screen.getByTestId('skip-door-c'));
+    fireEvent.click(screen.getByTestId('skip-door-done'));
+    await waitFor(() => expect(getGate()).not.toBeNull());
+    await waitFor(() => expect((screen.getByTestId('skip-door-done') as HTMLButtonElement).disabled).toBe(false));
+    expect(screen.queryByTestId('skip-door-err')).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByTestId('skip-door-c').getAttribute('aria-checked')).toBe('true');
+    unsub();
   });
   it('busy disables the cards and Done', async () => {
     net.set.mockReturnValue(new Promise(() => {}));

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { dateDetailQueryKey, setNightNoDoor } from '../../shared/selfServeApi';
+import { useGatedCopy } from '../onboarding/gate';
 import { V2 } from './copy';
 import { V2Sheet } from './V2Sheet';
 
@@ -9,6 +10,7 @@ export interface SkipDoorDate { id: string; label: string; noDoor: boolean }
 /** "Skip the door on one night": tick the nights with no "Pay at the door"; Done writes only the nights that changed. */
 export function SkipDoorSheet({ dates, onClose, onSaved }: { dates: SkipDoorDate[]; onClose: () => void; onSaved: (count: number) => void }) {
   const qc = useQueryClient();
+  const gated = useGatedCopy();
   const [ticks, setTicks] = useState<Record<string, boolean>>(() => Object.fromEntries(dates.map((d) => [d.id, d.noDoor])));
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -24,8 +26,11 @@ export function SkipDoorSheet({ dates, onClose, onSaved }: { dates: SkipDoorDate
         count += 1;
         await qc.invalidateQueries({ queryKey: dateDetailQueryKey(d.id) });
       }
-    } catch {
-      setFailed(true); setBusy(false);
+    } catch (e) {
+      // An onboarding refusal opens the shared gate sheet and shows no error line; ticks stay.
+      const noDoorGated = gated(e, () => 'x');
+      if (noDoorGated !== null) setFailed(true);
+      setBusy(false);
       return;
     }
     setBusy(false);
