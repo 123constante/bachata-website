@@ -262,6 +262,12 @@ export async function fetchDateDetail(occurrenceId: string): Promise<DateDetail>
   return parseDateDetail(data);
 }
 
+/** Ways in: hide (or show again) "Pay at the door" for one night. */
+export async function setNightNoDoor(occurrenceId: string, noDoor: boolean): Promise<void> {
+  const { error } = await (supabase as unknown as UntypedRpc).rpc('organiser_set_night_no_door_v1', { p_occurrence_id: occurrenceId, p_no_door: noDoor });
+  if (error) throw error;
+}
+
 export interface CancellationReason {
   key: string;
   label: string;

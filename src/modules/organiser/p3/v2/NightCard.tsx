@@ -1,7 +1,8 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import type { EventWorkspace } from '../../events/eventModel';
-import { dateDetailQueryKey, fetchDateDetail } from '../../shared/selfServeApi';
+import { dateDetailQueryKey, fetchDateDetail, setNightNoDoor } from '../../shared/selfServeApi';
+import { parsePayment } from '@/lib/paymentMethods';
 import { fullDate } from '../../shared/dateWords';
 import { ownerPassesFromStored, upsertCommand } from '../../shared/seriesCommands';
 import type { DateDetail, WorkspaceDate } from '../../shared/seriesModel';
@@ -107,7 +108,24 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
   const link = dt?.ticketUrl ?? s.default_ticket_url;
   const prices = passes.map((p) => p.price).filter((p): p is number => typeof p === 'number' && p > 0);
   const nightOnSale = (nightTypes.data ?? []).filter((t) => t.status === 'on_sale' && (t.occurrenceId == null || t.occurrenceId === date.id));
-  const waysPrice = flags.waysInV2 ? waysInLabel({ onSaleTypes: nightOnSale, paymentMethods: s.payment_methods ?? null, link: link ?? null }) : null;
+  const doorTicked = parsePayment(s.payment_methods).includes('door');
+  const showNoDoor = flags.waysInV2 && !!onSave && s.format !== 'one_off' && doorTicked;
+  const [noDoorOpt, setNoDoorOpt] = useState<boolean | null>(null);
+  const [noDoorPending, setNoDoorPending] = useState(false);
+  const [noDoorErr, setNoDoorErr] = useState(false);
+  const noDoor = noDoorOpt ?? dt?.noDoor === true;
+  const flipNoDoor = async () => {
+    const next = !noDoor;
+    setNoDoorErr(false); setNoDoorOpt(next); setNoDoorPending(true);
+    try {
+      await setNightNoDoor(date.id, next);
+      await qc.invalidateQueries({ queryKey: dateDetailQueryKey(date.id) });
+    } catch {
+      setNoDoorOpt(!next); setNoDoorErr(true);
+    } finally { setNoDoorPending(false); }
+  };
+  const nightMethods = dt?.noDoor ? parsePayment(s.payment_methods).filter((m) => m !== 'door').join(',') : (s.payment_methods ?? null);
+  const waysPrice = flags.waysInV2 ? waysInLabel({ onSaleTypes: nightOnSale, paymentMethods: nightMethods, link: link ?? null }) : null;
   const price = priceLabel({ link, doorPrice: !link && doorPriceOf(dt?.passesOverride ?? s.passes) != null ? String(doorPriceOf(dt?.passesOverride ?? s.passes)) : null, ticketCount: 0, minPrice: prices.length ? Math.min(...prices) : null });
   // No start time on the event: the night's own time, else its materialised time, else the first session.
   const firstSession = allItems(seriesTree(ws)).filter((it) => it.start).sort((a, b) => a.start.localeCompare(b.start))[0];
@@ -182,6 +200,15 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
           <Fact id="where" label={V2.where} main={venue?.name ?? '\u2014'} sub={venue?.neighbourhood ?? venue?.city_name ?? undefined}
             changed={own.where} busy={busy} onBack={back('where', V2.venue)} onOpen={onSave ? () => setSheet('where') : undefined} />
           <Fact id="price" label={V2.price} main={(waysPrice ?? price).m} sub={(waysPrice ?? price).s || undefined} changed={own.price} busy={busy} onBack={back('price', V2.price)} onOpen={waysPrice ? (onSave && nightOnSale.length > 0 ? () => setSheet('price') : onOpenTickets) : onSave ? () => setSheet('price') : onOpenTickets} />
+          {showNoDoor && (
+            <>
+              <button type="button" className="swrow" role="switch" aria-checked={noDoor} disabled={busy || noDoorPending} data-testid="night-no-door" onClick={() => { void flipNoDoor(); }}>
+                <span>{V2.noDoor.label}</span><span className={noDoor ? 'sw on' : 'sw'} />
+              </button>
+              {noDoor && <p className="txt" data-testid="night-no-door-on">{V2.noDoor.on(dateWords)}</p>}
+              {noDoorErr && <p className="txt" role="alert" data-testid="night-no-door-err">{V2.noDoor.failed}</p>}
+            </>
+          )}
           <Fact id="about" label={V2.description} main={aboutShort(about)} changed={own.about} busy={busy} onBack={back('about', V2.nightAbout)} onOpen={onSave ? () => setSheet('about') : undefined} />
           {s.format === 'one_off' && onOpenTickets ? (
             <div className="fwrap" data-testid="row-goTickets">
