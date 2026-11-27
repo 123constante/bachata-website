@@ -55,6 +55,14 @@ export default [
   route("faq", "routes/faq.tsx"),
   // For organisers page (site structure S3c-2).
   route("for-organisers", "routes/for-organisers.tsx"),
+  // People & places list pages, server-rendered head (site structure S4b-3).
+  // Build-time gate: unset = the catchall keeps serving them (rollback = flag off + redeploy).
+  ...(process.env.VITE_ENABLE_PEOPLE_SSR === "true"
+    ? [
+        route("videographers", "routes/list.videographers.tsx"),
+        route("all-profiles", "routes/list.all-profiles.tsx"),
+      ]
+    : []),
   route("london-bachata-guide", "routes/london-bachata-guide.tsx"),
   route("learn-bachata-london", "routes/learn-bachata-london.tsx"),
   route("bachata-london-monday", "routes/bachata-weekday.tsx", { id: "weekday-monday" }),
