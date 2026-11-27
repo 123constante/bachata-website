@@ -20,8 +20,21 @@ type Existing = Pick<TicketType, 'id' | 'name' | 'capacity' | 'occurrenceId' | '
 /** A step starting this soon counts as the current price (a sold price change goes in 60 s ahead). */
 export const SOLD_STEP_WINDOW_MS = 120_000;
 const sameAt = (a: string, b: string) => new Date(a).getTime() === new Date(b).getTime();
-/** The price that counts now: the base, or the latest step that has already started (isLive). */
-export const priceNow = (base: number, steps: readonly Pick<PriceStep, 'effectiveFrom' | 'pricePence' | 'isLive'>[]): number => {
+/** A step that has started, or starts within SOLD_STEP_WINDOW_MS: it is the price that counts now (one rule for the list, the form and the save). */
+export const isCurrentStep = (s: Pick<PriceStep, 'effectiveFrom' | 'isLive'>, now = Date.now()): boolean =>
+  s.isLive || Date.parse(s.effectiveFrom) <= now + SOLD_STEP_WINDOW_MS;
+/** The price that counts now: the base, or the latest current step (started, or about to start: isCurrentStep). */
+export const priceNow = (base: number, steps: readonly Pick<PriceStep, 'effectiveFrom' | 'pricePence' | 'isLive'>[], now = Date.now()): number => {
+  let at = -Infinity;
+  let price = base;
+  for (const s of steps) {
+    const t = new Date(s.effectiveFrom).getTime();
+    if (isCurrentStep(s, now) && t >= at) { at = t; price = s.pricePence; }
+  }
+  return price;
+};
+/** The price that counted before a sold price change still about to start: base or the latest started step. */
+const priceStarted = (base: number, steps: readonly Pick<PriceStep, 'effectiveFrom' | 'pricePence' | 'isLive'>[]): number => {
   let at = -Infinity;
   let price = base;
   for (const s of steps) {
@@ -45,8 +58,11 @@ export async function writeTicket(a: { organiserId: string; seriesId: string; ty
   let wrote = false;
   // a sold type keeps its started steps as history: the form shows the price counting now plus the coming steps only (formOfType)
   const soldType = !!a.type && (a.sold ?? 0) > 0;
-  const nowPence = soldType ? priceNow(a.basePence, a.steps) : a.basePence;
-  const cur = soldType ? a.steps.filter((s) => !s.isLive) : [...a.steps];
+  const now = Date.now();
+  const nowPence = soldType ? priceNow(a.basePence, a.steps, now) : a.basePence;
+  const cur = soldType ? a.steps.filter((s) => !isCurrentStep(s, now)) : [...a.steps];
+  // a sold price change still about to start (not live yet): saving again replaces or removes it, never piles on
+  const pending = soldType ? [...a.steps].reverse().find((s) => !s.isLive && isCurrentStep(s, now)) : undefined;
   const keep = Math.min(cur.length, w.steps.length);
   // a stored step at another time of day is the same step while its London day is unchanged: keep its instant
   const sameDay = (a: string, b: string) => isoToLondonInput(a).slice(0, 10) === isoToLondonInput(b).slice(0, 10);
@@ -81,11 +97,10 @@ export async function writeTicket(a: { organiserId: string; seriesId: string; ty
   if (!id) return { ok: false, error: T.notSaved, wrote };
   const createdId = a.type ? undefined : id;
   if (soldPrice) {
-    // a sold-price step still about to start (within 2 minutes) is replaced, not piled onto
-    const soon = Date.now() + SOLD_STEP_WINDOW_MS;
-    const prior = [...cur].reverse().find((s) => !s.isLive);
-    const replace = prior && Date.parse(prior.effectiveFrom) <= soon ? prior : undefined;
-    const r = await setPriceStep({ p_ticket_type_id: id, p_step_id: replace?.id ?? null, p_effective_from: new Date(Date.now() + 60_000).toISOString(), p_price_pence: w.basePence });
+    // back to the price before the pending change: remove it; else replace it (or add one when none is pending)
+    const r = pending && w.basePence === priceStarted(a.basePence, a.steps)
+      ? await removePriceStep(pending.id)
+      : await setPriceStep({ p_ticket_type_id: id, p_step_id: pending?.id ?? null, p_effective_from: new Date(Date.now() + 60_000).toISOString(), p_price_pence: w.basePence });
     if (!r.ok) return { ok: false, error: refusal(r, true), wrote, createdId };
     wrote = true;
   }
@@ -103,7 +118,7 @@ export async function writeTicket(a: { organiserId: string; seriesId: string; ty
 
 /** A sold type shows the price counting now and only the steps still to come (a started step is history, see writeTicket). */
 export const formOfType = (t: Pick<TicketType, 'name' | 'pricePence' | 'capacity'>, steps: readonly PriceStep[], base = t.pricePence, sold = false): TicketForm => {
-  const s = sold ? steps.filter((x) => !x.isLive) : steps;
+  const s = sold ? steps.filter((x) => !isCurrentStep(x)) : steps;
   const b = sold ? priceNow(base, steps) : base;
   return { name: t.name, free: b === 0 && !s.length, qty: t.capacity, ...formOfStored(b, s) };
 };
