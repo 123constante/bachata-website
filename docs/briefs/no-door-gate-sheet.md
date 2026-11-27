@@ -2,6 +2,7 @@
 Brief-version: 2
 Branch: claude/no-door-gate-sheet
 Lane: normal, Sonnet. Repo 123constante/bachata-website. One PR.
+Size: 4 files, 150 lines. No visual change: reuses the existing gate sheet (no new design).
 
 ## Goal
 Since admin#2540 the server refuses organiser_set_night_no_door_v1 with onboarding_incomplete for an organiser who has not finished onboarding. Both no-door controls must then open the ONE "A few details first" sheet (no error line), like every other P3 write; other failures keep today's error.
