@@ -375,7 +375,7 @@ export const V2 = {
     sub: 'How dancers get in. Pick at least one.',
     onlineTitle: 'Online ticket',
     onlineSub: 'Paid by card. Money in your account in seconds.',
-    stripeWarn: 'Dancers can’t buy yet. Connect Stripe or tick another way in.',
+    stripeWarn: 'Dancers can\u2019t buy yet. Connect Stripe or tick another way in.',
     doorLabel: 'At the door',
     doorSub: 'Dancers see Pay at the door.',
     linkLabel: 'Ticket link',
