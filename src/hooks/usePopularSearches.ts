@@ -15,7 +15,7 @@ export function usePopularSearches(citySlug?: string | null) {
     staleTime: 5 * 60_000,
     queryFn: async () => {
       try {
-        const { data, error } = await supabase.rpc('get_popular_searches_v1' as never, {
+        const { data, error } = await supabase.rpc('get_popular_searches_v1', {
           p_city_slug: citySlug ?? null,
           p_limit: 8,
         });

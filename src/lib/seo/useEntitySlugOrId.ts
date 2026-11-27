@@ -67,16 +67,18 @@ export function useEntitySlugOrId(
       if (table === 'organiser_profiles') {
         return resolvePublicOrganiserRef(param, 'swallow');
       }
+      // Type-only: whereCol is the caller's id column or 'slug'; the generated
+      // types cannot prove a runtime-chosen column exists on every EntityTable.
       const whereCol = arrivedViaUuid ? idColumn : 'slug';
       const selectCols = `${idColumn}, slug`;
       const supabase = await getSupabase();
       const { data: row, error } = await supabase
         .from(table)
         .select(selectCols)
-        .eq(whereCol, param)
+        .eq(whereCol as 'slug', param)
         .maybeSingle();
       if (error || !row) return null;
-      const r = row as Record<string, unknown>;
+      const r = row as unknown as Record<string, unknown>;
       return {
         id: (r[idColumn] as string | null) ?? null,
         slug: (r.slug as string | null) ?? null,

@@ -66,11 +66,13 @@ export async function resolveEntityInLoader(
       if (table === "organiser_profiles") {
         return resolvePublicOrganiserRef(param, "throw");
       }
+      // Type-only: whereCol is the caller's id column or 'slug'; the generated
+      // types cannot prove a runtime-chosen column exists on every EntityTable.
       const whereCol = arrivedViaUuid ? idColumn : "slug";
       const { data: row, error } = await supabase
         .from(table)
         .select(`${idColumn}, slug`)
-        .eq(whereCol, param)
+        .eq(whereCol as "slug", param)
         .maybeSingle();
       // Distinguish a TRANSIENT error from a genuine miss: rethrow so the loader
       // surfaces a retryable 500 rather than 404+noindex-ing a valid entity on a
