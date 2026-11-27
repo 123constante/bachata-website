@@ -3,12 +3,14 @@ import { useSeo } from '@/lib/seo';
 import { TERMS_VERSION } from '@/lib/legalVersions';
 import { LegalShell, Section } from '@/pages/legal/LegalShell';
 
+export const TERMS_SEO = {
+  title: 'Terms of use',
+  description: 'The rules for using Bachata Calendar, the UK bachata community calendar.',
+  noindex: false,
+};
+
 const Terms = () => {
-  useSeo({
-    title: 'Terms of use',
-    description: 'The rules for using Bachata Calendar, the UK bachata community calendar.',
-    noindex: false,
-  });
+  useSeo(TERMS_SEO);
   return (
     <LegalShell routeId="terms" title="Terms of use" updated={TERMS_VERSION}>
       <Section title="What this site is">

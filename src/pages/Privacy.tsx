@@ -5,12 +5,14 @@ import { PRIVACY_VERSION } from '@/lib/legalVersions';
 import { ACCOUNT_SETTINGS_LABEL, ACCOUNT_SETTINGS_PATH, HIDDEN_STATE_WORD } from '@/lib/accountRouting';
 import { LegalShell, Section } from '@/pages/legal/LegalShell';
 
+export const PRIVACY_SEO = {
+  title: 'Privacy',
+  description: 'What Bachata Calendar stores about you, what is public, and how to download or delete your data.',
+  noindex: false,
+};
+
 const Privacy = () => {
-  useSeo({
-    title: 'Privacy',
-    description: 'What Bachata Calendar stores about you, what is public, and how to download or delete your data.',
-    noindex: false,
-  });
+  useSeo(PRIVACY_SEO);
   return (
     <LegalShell routeId="privacy" title="Privacy" updated={PRIVACY_VERSION}>
       <p>
