@@ -157,9 +157,9 @@ export function useSeriesGoing(seriesId: string, enabled: boolean) {
 export function useSeriesTicketLink(seriesId: string) {
   const ws = useEventWorkspace(seriesId);
   if (!ws.data) return null;
-  // A blank series link falls through to a date's own link (review r1).
-  const own = ws.data.series.default_ticket_url?.trim() || ws.data.dates.map((d) => d.ticketUrl?.trim()).find(Boolean) || null;
-  return own ?? null;
+  // The workspace read carries no per-date ticket link (WorkspaceDate has none), so only the
+  // series link counts; the old date fall-through always read undefined.
+  return ws.data.series.default_ticket_url?.trim() || null;
 }
 
 export { useP3Home };

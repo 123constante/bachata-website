@@ -121,9 +121,10 @@ export function rowOf(s: HomeSeriesRow, today: IsoDate): P3Row {
     place: nextVenue || s.default_venue_name || null,
     cover: s.default_cover_image_url,
     upcoming,
+    publicEventRef: publicEventRefOf(s),
   };
   const when = whenLine(r, today);
-  return { ...r, sub: r.place ? `${when} \u00b7 ${r.place}` : when, alsoRunBy: [], publicEventRef: publicEventRefOf(s) };
+  return { ...r, sub: r.place ? `${when} \u00b7 ${r.place}` : when, alsoRunBy: [] };
 }
 
 /** Sort key: next date then its start; nothing coming up goes last. */
