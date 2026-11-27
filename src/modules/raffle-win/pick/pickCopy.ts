@@ -2,7 +2,7 @@
 import { LOCK_LINES } from '../model';
 
 export const PICK_TITLE = 'Pick your night';
-export const PICK_INTRO = 'Only nights you have never been to. Once you lock one, only the organiser can change it.';
+export const PICK_INTRO = 'Once you lock a night, only the organiser can change it.';
 export const SEARCH_LABEL = 'Search event or venue';
 export const SEARCH_EMPTY = 'No event or venue matches.';
 export const SEARCH_CLEAR = 'Clear search';

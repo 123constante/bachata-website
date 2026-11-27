@@ -49,7 +49,7 @@ describe('PickScreen keep-list', () => {
   it('static copy, search aria, disabled lock', () => {
     render(<Harness />);
     expect(screen.getByRole('heading', { name: 'Pick your night' })).toBeTruthy();
-    expect(screen.getByText('Only nights you have never been to. Once you lock one, only the organiser can change it.')).toBeTruthy();
+    expect(screen.getByText('Once you lock a night, only the organiser can change it.')).toBeTruthy();
     const q = screen.getByLabelText('Search event or venue') as HTMLInputElement;
     expect(q.placeholder).toBe('Search event or venue');
     expect(screen.getByTestId('pick-dock-line').textContent).toBe('Tap an event, then choose a date');
@@ -98,6 +98,13 @@ describe('PickScreen keep-list', () => {
     expect(REFUSAL_LINES.already_been_to_event).toBe('Our records say you have been to that event, so it is not open to you. Pick another.');
     expect(REFUSAL_LINES.night_not_open).toBe('That night is no longer open. Pick another.');
     expect(REFUSAL_LINES.honesty_required).toBe('Please tick the box to confirm.');
+  });
+});
+
+describe('no "never been to" on the pick list', () => {
+  it('pick list text never says never been to', () => {
+    render(<Harness />);
+    expect(document.body.textContent).not.toMatch(/never been to/i);
   });
 });
 

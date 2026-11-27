@@ -37,13 +37,20 @@ describe('GateScreen', () => {
   });
 });
 
+describe('WonScreen copy', () => {
+  it('never says never been to (only the tick may)', () => {
+    wrap(<WonScreen onChoose={() => {}} />);
+    expect(document.body.textContent).not.toMatch(/never been to/i);
+  });
+});
+
 describe('WonScreen', () => {
   it('shows every prototype line; Choose my night fires onChoose', () => {
     const onChoose = vi.fn();
     wrap(<WonScreen onChoose={onChoose} />);
     expect(screen.getByRole('heading', { name: 'You won!' })).toBeTruthy();
     expect(screen.getByText('Free entry · one night')).toBeTruthy();
-    expect(screen.getByText('Free entry to a bachata night you have never been to. Pick which one.')).toBeTruthy();
+    expect(screen.getByText('Free entry to a bachata night. Pick which one.')).toBeTruthy();
     expect(screen.getByText('Night')).toBeTruthy();
     expect(screen.getByText('your pick goes here')).toBeTruthy();
     expect(screen.getByText('You are signed in, so no WhatsApp needed.')).toBeTruthy();
