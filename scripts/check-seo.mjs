@@ -149,9 +149,7 @@ const STATIC_PAGES = [
   ['/classes', 1],
   // SSR + ISR since site structure S2c-2: server list, client page after mount.
   ['/tonight', 1],
-  ['/faq', 0],
   // SSR + ISR, real event lists
-  ['/london-bachata-guide', 3],
   ['/learn-bachata-london', 3],
   ['/bachata-london-monday', 1],
   ['/bachata-london-tuesday', 1],

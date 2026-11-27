@@ -1,5 +1,4 @@
-import type { ComponentType } from 'react';
-import { Camera, CalendarDays, Check, GraduationCap, Handshake, Headphones, PartyPopper, Smile, Ticket } from 'lucide-react';
+import { type LucideIcon, Camera, CalendarDays, Check, GraduationCap, Handshake, Headphones, PartyPopper, Smile, Ticket } from 'lucide-react';
 import { PersonAvatar } from '@/components/account/profiles/PersonAvatar';
 import { BUYER_ROLES, type BuyerRole } from '../../api/types';
 import { PARTNER_DETAILS_MAX, PARTNER_KINDS_V3, PARTNER_ROLES_V3, PARTNER_YEARS_V3, YEAR_BANDS_V3, type PartnerDraftV3, type YearBandV3 } from './modelV3';
@@ -26,7 +25,7 @@ const Row = ({
   onClick,
   testId,
 }: {
-  icon: ComponentType<{ size?: number; 'aria-hidden'?: boolean }>;
+  icon: LucideIcon;
   title: string;
   sub?: string;
   selected: boolean;
@@ -53,7 +52,7 @@ const Row = ({
   </button>
 );
 
-const ROLE_ROWS: Record<BuyerRole, { icon: ComponentType<{ size?: number }>; title: string; sub: string }> = {
+const ROLE_ROWS: Record<BuyerRole, { icon: LucideIcon; title: string; sub: string }> = {
   dancer: { icon: PartyPopper, title: 'Dancer', sub: 'Find nights and partners' },
   organiser: { icon: Ticket, title: 'Organiser', sub: 'Run events and classes' },
   teacher: { icon: GraduationCap, title: 'Teacher', sub: 'Share your classes' },

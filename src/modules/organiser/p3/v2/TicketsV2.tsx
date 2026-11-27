@@ -23,6 +23,8 @@ import { payModeOf, doorPriceOf, type PayMode } from './payMode';
 import { TicketSheetV2 } from './TicketSheetV2';
 import { earlyBirdOf, type EarlyBirdView } from '../tickets/earlyBird';
 import { flags } from '@/lib/featureFlags';
+import { WaysInLinkSheet, WaysInView, withMethod } from './WaysIn';
+import { parsePayment, type PaymentMethod } from '../../events/paymentModel';
 import './v2.css';
 
 export interface TicketRow {
@@ -363,6 +365,21 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
     const ok = await change({ part: T.toastLink, label: T.toastLink, payload: { default_ticket_url: url }, before: { default_ticket_url: oldUrl }, pause: mode === 'here' ? onSale : [] });
     if (ok) setSheet(null);
   };
+  /** Ways in (flag waysInV2): one tick row = one payment_methods write; Undo restores the prior list. */
+  const oldMethods = s.payment_methods ?? null;
+  const toggleWay = async (code: PaymentMethod, label: (on: boolean) => string) => {
+    const on = !parsePayment(oldMethods).includes(code);
+    await change({ part: label(on), label: label(on), payload: { payment_methods: withMethod(ws, code, on) }, before: { payment_methods: oldMethods } });
+  };
+  const openWaysLink = () => { setSheetError(null); setSheet('link'); };
+  const saveWaysLink = async (url: string) => {
+    const ok = await change({ part: T.toastLink, label: T.toastLink, payload: { default_ticket_url: url, payment_methods: withMethod(ws, 'ticket_link', true) }, before: { default_ticket_url: oldUrl, payment_methods: oldMethods } });
+    if (ok) setSheet(null);
+  };
+  const removeWaysLink = async () => {
+    const ok = await change({ part: V2.waysIn.toastLinkRemoved, label: V2.waysIn.toastLinkRemoved, payload: { default_ticket_url: null, payment_methods: withMethod(ws, 'ticket_link', false) }, before: { default_ticket_url: oldUrl, payment_methods: oldMethods } });
+    if (ok) setSheet(null);
+  };
   const saveDoor = async (raw: string) => {
     const text = raw.trim();
     const cur = doorPriceOf(s.passes);
@@ -381,15 +398,24 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
 
   return (
     <>
+      {flags.waysInV2 ? (
+        <WaysInView name={s.name ?? ''} oneOff={oneOff} day={day} backTo={P3_PATHS.event(s.id)}
+          stripe={connected} stripeReady={stripe.state !== null} tickets={rows} dates={coming.map((d) => fullDate(d.occurrence_date).replace(/ \d{4}$/, ''))}
+          door={parsePayment(oldMethods).includes('door')} free={parsePayment(oldMethods).includes('free')} link={oldUrl} festival={s.format === 'festival'} busy={busy}
+          stripeWarn={stripeWarn} onCheckAgain={ret.again} stripeBusy={onboard.busy} stripeNote={onboard.note} stripeOff={onboard.switchedOff}
+          on={{ ticket: openTicket, newTicket: () => openTicket(), stripe: () => { void onboard.go(); }, door: () => { void toggleWay('door', (on) => (on ? V2.waysIn.toastDoorOn : V2.waysIn.toastDoorOff)); }, free: () => { void toggleWay('free', (on) => (on ? V2.waysIn.toastFreeOn : V2.waysIn.toastFreeOff)); }, link: openWaysLink }} />
+      ) : (
       <TicketsView name={s.name ?? ''} oneOff={oneOff} day={day} backTo={P3_PATHS.event(s.id)}
         stripe={connected} mode={mode} tickets={rows} dates={coming.map((d) => fullDate(d.occurrence_date).replace(/ \d{4}$/, ''))}
         doorPrice={doorPriceOf(s.passes)} link={s.default_ticket_url ?? null}
         stripeReady={stripe.state !== null}
         stripeWarn={stripeWarn} onCheckAgain={ret.again} stripeBusy={onboard.busy} stripeNote={onboard.note} stripeOff={onboard.switchedOff}
         on={{ ticket: openTicket, newTicket: () => openTicket(), stripe: () => { void onboard.go(); }, sellHere: () => { void sellHere(); }, payDoor: () => { void payDoor(); }, link: openLink, doorUsual: () => { setSheetError(null); setSheet('door'); }, howPay: () => setSheet('how') }} />
-      {sheet === 'door' && <DoorSheet busy={busy} price={doorPriceOf(s.passes)} day={oneOff ? null : day} error={sheetError} onDone={(r) => { void saveDoor(r); }} onClose={() => setSheet(null)} />}
-      {sheet === 'link' && <LinkSheet link={oldUrl ?? ''} busy={busy} error={sheetError} onDone={(u) => { void saveLink(u); }} onClose={() => setSheet(null)} />}
-      {sheet === 'how' && <HowPaySheet busy={busy} door={mode === 'door'} hasLink={!!oldUrl} onDoor={() => { void payDoor(); }} onLink={openLink} onClose={() => setSheet(null)} />}
+      )}
+      {!flags.waysInV2 && sheet === 'door' && <DoorSheet busy={busy} price={doorPriceOf(s.passes)} day={oneOff ? null : day} error={sheetError} onDone={(r) => { void saveDoor(r); }} onClose={() => setSheet(null)} />}
+      {flags.waysInV2 && sheet === 'link' && <WaysInLinkSheet link={oldUrl ?? ''} busy={busy} error={sheetError} onDone={(u) => { void saveWaysLink(u); }} onRemove={() => { void removeWaysLink(); }} onClose={() => setSheet(null)} />}
+      {!flags.waysInV2 && sheet === 'link' && <LinkSheet link={oldUrl ?? ''} busy={busy} error={sheetError} onDone={(u) => { void saveLink(u); }} onClose={() => setSheet(null)} />}
+      {!flags.waysInV2 && sheet === 'how' && <HowPaySheet busy={busy} door={mode === 'door'} hasLink={!!oldUrl} onDoor={() => { void payDoor(); }} onLink={openLink} onClose={() => setSheet(null)} />}
       {ticketOpen && orgId && (ticketOpen === 'new' || (sheetType && sheetManaged)) && (
         <TicketSheetV2 organiserId={orgId} seriesId={s.id} type={ticketOpen === 'new' ? null : sheetType} basePence={sheetManaged?.basePricePence ?? 0} steps={sheetManaged?.steps ?? []} managed={sheetManaged}
           soldKnown={!!summary.data?.ok} oneOff={oneOff} soldMax={sheetType && !sheetType.occurrenceId ? Math.min(sheetSold, sheetType.capacity) : sheetSold} soldAll={sheetSold} pence={sheetSales?.grossPence ?? 0}
@@ -399,7 +425,7 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
             say(text, undo ? () => { void undo().then(() => { refresh(); say(T.undone); }, () => { refresh(); say(UNDO_FAILED_TEXT); }); } : undefined);
           }} />
       )}
-      {switchTo && <SwitchPaySheet busy={busy} sold={switchSold} onSwitch={() => { void doSwitch(); }} onKeep={() => setSwitchTo(null)} />}
+      {!flags.waysInV2 && switchTo && <SwitchPaySheet busy={busy} sold={switchSold} onSwitch={() => { void doSwitch(); }} onKeep={() => setSwitchTo(null)} />}
       <V2Toast toast={plain ?? toast} onDone={(q) => { setPlain(null); onToastDone(q); }} />
     </>
   );

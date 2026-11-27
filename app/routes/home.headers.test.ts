@@ -89,13 +89,13 @@ describe("/city/:slug finalised document headers", () => {
     expect(out["cache-control"]).toBe("no-store");
     expect(out["vercel-cdn-cache-control"]).toBeUndefined();
     expect(out["vercel-cache-tag"]).toBeUndefined();
-    expect(out["set-cookie"]).toBe(skew.enabled ? "__vdpl=dpl_test; HttpOnly" : undefined);
+    expect(out["set-cookie"]).toBe(skew.enabled ? "__vdpl=dpl_test; Path=/; SameSite=Lax; Secure" : undefined);
   });
 
   it.each(skews)("fail-closed bound (%s) is not edge-cacheable, so the skew cookie may ride", (_n, skew) => {
     const out = finalised({ tag: TAG, bound: "abc" }, 200, skew);
     expect(out["vercel-cdn-cache-control"]).toBe(FAIL_CLOSED);
-    expect(out["set-cookie"]).toBe(skew.enabled ? "__vdpl=dpl_test; HttpOnly" : undefined);
+    expect(out["set-cookie"]).toBe(skew.enabled ? "__vdpl=dpl_test; Path=/; SameSite=Lax; Secure" : undefined);
   });
 
   const SIGNED_IN = [

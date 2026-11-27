@@ -275,7 +275,7 @@ export const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null
         // null so no broken Tickets button is rendered. DB CHECK +
         // admin_save_event_v2 wrapper validation prevent new bad values,
         // but this is the floor for anything that slipped through.
-        ticketUrl: safeExternalHref(actions.ticket_url) ?? null,
+        ticketUrl: safeExternalHref(asString(actions.ticket_url)) ?? null,
         websiteUrl: asString(actions.website_url),
         facebookUrl: asString(actions.facebook_url),
         instagramUrl: asString(actions.instagram_url),

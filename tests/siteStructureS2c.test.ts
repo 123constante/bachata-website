@@ -19,17 +19,20 @@ describe('S2c: /parties and /classes server-render an event list', () => {
     expect(src).toContain('serverTodayKey={loaderData.todayKey}');
   });
 
+  // S3b (#2343) also took /faq off prerender (it now 301s), so the list is
+  // asserted by what it must NOT hold, never by an exact pin.
   it('react-router.config.ts no longer prerenders them', () => {
     const src = read('react-router.config.ts');
     const list = src.slice(src.indexOf('return ['), src.indexOf('];', src.indexOf('return [')));
     expect(list).not.toContain('"/parties"');
     expect(list).not.toContain('"/classes"');
-    expect(list).toContain('"/faq"');
+    expect(list).not.toContain('"/faq"');
   });
 
   it('perf-budgets.json drops their prerender-only request pins', () => {
-    const b = JSON.parse(read('perf-budgets.json'));
-    expect(Object.keys(b.firstLoadRequestRatchet)).toEqual(['/faq']);
+    const keys = Object.keys(JSON.parse(read('perf-budgets.json')).firstLoadRequestRatchet);
+    expect(keys).not.toContain('/parties');
+    expect(keys).not.toContain('/classes');
   });
 
   it.each([

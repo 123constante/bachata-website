@@ -90,7 +90,7 @@ export function buildBreadcrumbs(
     visited.add(cursor);
     chain.unshift(cursor);
     const node = SITE_IA[cursor];
-    const parent = node.parent;
+    const parent = (node as { readonly parent?: string }).parent;
     if (!parent) break;
     if (parent === EVENT_PARENT_SENTINEL) {
       const resolved = resolveEventParent(eventType);

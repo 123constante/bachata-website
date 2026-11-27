@@ -5,7 +5,7 @@
 //     Node's global fetch inside the dev-server process (page.route() can never
 //     reach a server loader -- see playwright.config.ts webServer note);
 //   - the browser, through page.route() in helpers.ts.
-// So framework routes (/organisers/:id, /faq, /city/:slug ...) render for real,
+// So framework routes (/organisers/:id, /for-organisers, /city/:slug ...) render for real,
 // with no secret and no request leaving the machine. Table writes and write-shaped
 // RPCs (WRITE_RPC_RE) are refused.
 //

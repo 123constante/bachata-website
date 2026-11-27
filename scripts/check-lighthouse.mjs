@@ -55,7 +55,7 @@ let extraHeadersPath = null;
 // audit the real destination to avoid measuring the redirect hop.
 const FIXED_TARGETS = [
   ['homepage', '/city/london-gb'],
-  ['landing', '/london-bachata-guide'],
+  ['landing', '/learn-bachata-london'],
 ];
 
 // gz-thresholds are in the units Lighthouse reports (ms for timings, unitless

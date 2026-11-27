@@ -14,7 +14,7 @@ import { checkOverflow, fakeSupabase, settled } from './helpers';
  * Deterministic: instead of racing the animation, hold the route wrapper at the
  * enter pose and measure. Red without the clip, green with it, at both sizes.
  */
-for (const path of ['/auth', '/faq']) {
+for (const path of ['/auth', '/for-organisers']) {
   test(`route wrapper mid-slide (x: 30) does not scroll the page sideways: ${path}`, async ({ page }) => {
     await fakeSupabase(page);
     await page.goto(path);
