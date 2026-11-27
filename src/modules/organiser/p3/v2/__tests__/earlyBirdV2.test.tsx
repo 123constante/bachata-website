@@ -24,7 +24,7 @@ const earlyRow = row({ earlyPricePence: 800, earlyCapacity: 20, earlyTaken: 0, e
 const bird = { id: 'st1', effectiveFrom: '2026-12-02T00:00:00Z', pricePence: 1000, isLive: false };
 const sheet = (o: Record<string, unknown> = {}) => {
   const onDone = vi.fn(); const onFail = vi.fn(); const onClose = vi.fn();
-  render(<TicketSheetV2 organiserId="o1" seriesId="s1" type={type} basePence={1500} steps={[]} managed={row()} oneOff={false} soldMax={0} soldAll={0} pence={0} onClose={onClose} onDone={onDone} onFail={onFail} {...o} />);
+  render(<TicketSheetV2 organiserId="o1" seriesId="s1" seriesLive type={type} basePence={1500} steps={[]} managed={row()} oneOff={false} soldMax={0} soldAll={0} pence={0} onClose={onClose} onDone={onDone} onFail={onFail} {...o} />);
   return { onDone, onFail, onClose };
 };
 const set = (id: string, v: string) => fireEvent.change(screen.getByTestId(id), { target: { value: v } });

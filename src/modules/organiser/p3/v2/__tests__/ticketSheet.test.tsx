@@ -41,7 +41,7 @@ import { TicketsV2 } from '../TicketsV2';
 import { formOfStored, instantToUntil, untilToInstant, wantedOf } from '../EarlyBirds';
 
 const mk = (format = 'recurring') => ({
-  series: { id: 's1', version: 7, format, name: 'Thursdays', default_ticket_url: null, passes: null },
+  series: { id: 's1', version: 7, format, lifecycle_status: 'live', name: 'Thursdays', default_ticket_url: null, passes: null },
   organiserIds: ['o1'], dates: [{ id: 'd1', occurrence_date: '2026-11-26', lifecycle_status: 'scheduled', version: 1 }],
 }) as unknown as EventWorkspace;
 const ty = (o: Record<string, unknown> = {}) => ({ id: 't1', name: 'Class and party', status: 'on_sale', pricePence: 1200, capacity: 40, occurrenceId: null, salesOpenAt: null, salesCloseAt: null, ...o });

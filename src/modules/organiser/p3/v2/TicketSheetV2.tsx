@@ -14,7 +14,7 @@ const T = V2.ticketSheet;
 
 export interface TicketForm { name: string; free: boolean; price: string; qty: number; birds: Bird[] }
 
-type Out = { ok: true; id: string | null; changed: boolean } | { ok: false; error: string; wrote?: boolean; createdId?: string };
+type Out = { ok: true; id: string | null; changed: boolean; draft?: true } | { ok: false; error: string; wrote?: boolean; createdId?: string };
 type Existing = Pick<TicketType, 'id' | 'name' | 'capacity' | 'occurrenceId' | 'salesOpenAt' | 'salesCloseAt' | 'pricePence'>;
 
 /** A step starting this soon counts as the current price (a sold price change goes in 60 s ahead). */
@@ -49,9 +49,10 @@ const refusal = (r: WriteResult, steps = false) => (steps ? stepReasonMessage(r.
  * Save one ticket the way the old editor does: ticket_type_upsert_v1 for name / base price / places, then the
  * price steps (ticket_price_step_set_v1 / _remove_v1) so the sheet's early birds become base + steps.
  * Steps that went away are removed first; a step already live is never moved or removed (refused before any write).
- * An untouched ticket sends nothing.
+ * An untouched ticket sends nothing. On a draft series (seriesLive false) a NEW ticket is not put on sale: it stays a
+ * draft row and goes on sale when the event goes live (ticket_type_set_status_v1 refuses series_not_live).
  */
-export async function writeTicket(a: { organiserId: string; seriesId: string; type: Existing | null; basePence: number; steps: readonly PriceStep[]; form: TicketForm; sold?: number; force?: boolean }): Promise<Out> {
+export async function writeTicket(a: { organiserId: string; seriesId: string; seriesLive: boolean; type: Existing | null; basePence: number; steps: readonly PriceStep[]; form: TicketForm; sold?: number; force?: boolean }): Promise<Out> {
   const w = wantedOf(a.form.free, a.form.price, a.form.birds);
   if ('error' in w) return { ok: false, error: w.error };
   const name = a.form.name.trim() || 'Ticket';
@@ -109,6 +110,7 @@ export async function writeTicket(a: { organiserId: string; seriesId: string; ty
     if (!r.ok) return { ok: false, error: refusal(r, true), wrote, createdId };
     wrote = true;
   }
+  if (!a.type && !a.seriesLive) return { ok: true, id, changed: true, draft: true };
   if (!a.type) {
     const st = await setTicketStatus(id, 'on_sale');
     if (!st.ok) return { ok: false, error: refusal(st), wrote, createdId };
@@ -123,11 +125,16 @@ export const formOfType = (t: Pick<TicketType, 'name' | 'pricePence' | 'capacity
   return { name: t.name, free: b === 0 && !s.length, qty: t.capacity, ...formOfStored(b, s) };
 };
 
+/** The success line: a draft ticket says when it goes on sale (behind flag waysInRebuild). */
+export const savedLine = (out: { draft?: true }): string => (out.draft && flags.waysInRebuild ? T.savedDraft : T.saved);
+
 export const EARLY_OFF_FIRST = 'A free ticket cannot have an early bird price. Turn Free off, turn Cheaper first tickets off, then save.';
 
 export interface TicketSheetProps {
   organiserId: string;
   seriesId: string;
+  /** the series is live: false = a draft, whose new ticket stays a draft until the event goes live */
+  seriesLive: boolean;
   /** null = a new ticket */
   type: (Existing & Pick<TicketType, 'pricePence' | 'status'>) | null;
   basePence: number;
@@ -178,7 +185,7 @@ export function TicketSheetV2(p: TicketSheetProps) {
   const restore = async (back: TicketForm, type: Existing) => {
     const fresh = await fetchManagedTypes(p.seriesId);
     const row = fresh.types.find((m) => m.id === type.id);
-    const r = await writeTicket({ organiserId: p.organiserId, seriesId: p.seriesId, type, basePence: row?.basePricePence ?? 0, steps: row?.steps ?? [], form: back, sold, force: true });
+    const r = await writeTicket({ organiserId: p.organiserId, seriesId: p.seriesId, seriesLive: p.seriesLive, type, basePence: row?.basePricePence ?? 0, steps: row?.steps ?? [], form: back, sold, force: true });
     if ('error' in r) throw new Error(r.error);
   };
 
@@ -193,8 +200,8 @@ export function TicketSheetV2(p: TicketSheetProps) {
     // A saved early tier cannot ride on a free ticket (the early price would still be charged): refuse before any write.
     if (flags.ticketEarlyBird && f.free && p.managed?.earlyPricePence != null) { setErr(EARLY_OFF_FIRST); return; }
     const out: Out = savedId.current
-      ? { ok: true, id: savedId.current, changed: false }
-      : await writeTicket({ organiserId: p.organiserId, seriesId: p.seriesId, type: p.type, basePence: p.basePence, steps: p.steps, form: f, sold })
+      ? { ok: true, id: savedId.current, changed: false, ...(p.seriesLive ? {} : { draft: true as const }) }
+      : await writeTicket({ organiserId: p.organiserId, seriesId: p.seriesId, seriesLive: p.seriesLive, type: p.type, basePence: p.basePence, steps: p.steps, form: f, sold })
         .catch((): Out => ({ ok: false, error: T.notSaved, wrote: true }));
     if ('error' in out) {
       // a write may have landed before the failure: put the old ticket back, best effort
@@ -219,7 +226,7 @@ export function TicketSheetV2(p: TicketSheetProps) {
     }
     if (!out.changed && !cmd) { p.onClose(); return; }
     p.onClose();
-    p.onDone(T.saved, cmd && type ? undefined : type && back ? () => restore(back, type) : id ? async () => { const r = await setTicketStatus(id, 'closed'); if (!r.ok) throw new Error('undo'); } : undefined);
+    p.onDone(savedLine(out), cmd && type ? undefined : type && back ? () => restore(back, type) : id ? async () => { const r = await setTicketStatus(id, 'closed'); if (!r.ok) throw new Error('undo'); } : undefined);
   });
 
   const remove = () => run(async () => {

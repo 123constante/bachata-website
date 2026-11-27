@@ -510,6 +510,8 @@ export const V2 = {
     remove: 'Remove this ticket',
     removeSold: 'Tickets are already sold, so this ticket cannot be removed.',
     saved: 'Saved',
+    /** a new ticket on a draft event (flag waysInRebuild) */
+    savedDraft: 'Goes on sale when you put the event live.',
     removed: 'Ticket removed',
     theMainPrice: 'the price',
     qtyBad: 'Enter how many are available.',

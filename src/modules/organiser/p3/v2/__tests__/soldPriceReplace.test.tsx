@@ -11,7 +11,7 @@ import { ticketLine } from '../TicketsV2';
 
 const type = { id: 't1', name: 'Class', capacity: 40, occurrenceId: null, salesOpenAt: null, salesCloseAt: null, pricePence: 1000 };
 const form = { name: 'Class', free: false, price: '12', qty: 40, birds: [] };
-const base = { organiserId: 'o', seriesId: 's', type, basePence: 1000, form, sold: 3 };
+const base = { organiserId: 'o', seriesId: 's', seriesLive: true, type, basePence: 1000, form, sold: 3 };
 const live = { id: 'l1', effectiveFrom: '2026-01-01T00:00:00Z', pricePence: 1000, isLive: true };
 beforeEach(() => { h.remove.mockReset().mockResolvedValue({ ok: true, reason: null }); h.step.mockReset().mockResolvedValue({ ok: true, reason: null }); h.upsert.mockReset().mockResolvedValue({ ok: true, reason: null, id: 't1' }); });
 

@@ -15,10 +15,10 @@ import { TicketSheetV2, writeTicket } from '../TicketSheetV2';
 import { PriceSheet } from '../PriceSheet';
 
 const type = { id: 't1', name: 'Class', capacity: 40, occurrenceId: null, salesOpenAt: null, salesCloseAt: null, pricePence: 1200, status: 'on_sale' as const };
-const base = { organiserId: 'o1', seriesId: 's1', basePence: 1200 };
+const base = { organiserId: 'o1', seriesId: 's1', seriesLive: true, basePence: 1200 };
 const sheet = (o: Record<string, unknown> = {}) => {
   const onDone = vi.fn(); const onFail = vi.fn(); const onClose = vi.fn();
-  render(<TicketSheetV2 organiserId="o1" seriesId="s1" type={type} basePence={1200} steps={[]} oneOff={false} soldMax={0} soldAll={0} pence={0} onClose={onClose} onDone={onDone} onFail={onFail} {...o} />);
+  render(<TicketSheetV2 organiserId="o1" seriesId="s1" seriesLive type={type} basePence={1200} steps={[]} oneOff={false} soldMax={0} soldAll={0} pence={0} onClose={onClose} onDone={onDone} onFail={onFail} {...o} />);
   return { onDone, onFail, onClose };
 };
 const set = (id: string, v: string) => fireEvent.change(screen.getByTestId(id), { target: { value: v } });

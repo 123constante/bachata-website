@@ -1,5 +1,5 @@
 import { instantToUntil } from './EarlyBirds';
-import { writeTicket } from './TicketSheetV2';
+import { savedLine, writeTicket } from './TicketSheetV2';
 import { setTicketStatus } from '../../tickets/ticketsApi';
 import { parsePayment, toSend, type PaymentMethod } from '../../events/paymentModel';
 import type { EventWorkspace } from '../../events/eventModel';
@@ -47,7 +47,7 @@ export function useWaysInGuideSave(d: GuideSaveDeps) {
         name: '', free: false, price: (r.ticket.pence / 100).toFixed(2), qty: r.ticket.qty,
         birds: r.early ? [{ price: (r.early.pence / 100).toFixed(2), until: instantToUntil(r.early.until) }] : [],
       };
-      const out = await writeTicket({ organiserId: d.organiserId, seriesId: d.ws.series.id, type: null, basePence: 0, steps: [], form })
+      const out = await writeTicket({ organiserId: d.organiserId, seriesId: d.ws.series.id, seriesLive: d.ws.series.lifecycle_status === 'live', type: null, basePence: 0, steps: [], form })
         .catch((): { ok: false; error: string; createdId?: string } => ({ ok: false, error: V2.ticketSheet.notSaved }));
       if ('error' in out) {
         // a half-made ticket would sell at the wrong price: close it, as the ticket sheet does
@@ -56,7 +56,7 @@ export function useWaysInGuideSave(d: GuideSaveDeps) {
         return { ok: false, error: out.error };
       }
       d.refresh();
-      d.say(V2.ticketSheet.saved);
+      d.say(savedLine(out));
     }
     return { ok: true };
   };
