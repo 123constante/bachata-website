@@ -104,9 +104,9 @@ async function scrollDown(page: Page, link: string | null) {
 // [from, to, link to click (null: the router navigates, as a <Link> does)]
 const PAIRS: [string, string, string | null][] = [
   ['/organisers', `/organisers/${ORG_SLUG}`, `#main-content a[href="/organisers/${ORG_SLUG}"]`],
-  ['/faq', `/organisers/${ORG_SLUG}`, null],
+  ['/for-organisers', `/organisers/${ORG_SLUG}`, null],
   [`/organisers/${ORG2_SLUG}`, `/organisers/${ORG_SLUG}`, null],
-  ['/learn-bachata-london', '/faq', '#main-content a[href="/faq"]'],
+  ['/learn-bachata-london', '/classes', '#main-content a[href="/classes"]'],
 ];
 
 for (const [from, to, link] of PAIRS) {

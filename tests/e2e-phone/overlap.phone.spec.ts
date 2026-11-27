@@ -37,7 +37,7 @@ test('overlap organiser page as its owner, Save bar up: no sideways scroll, noth
 // A detector that cannot fail here is decoration on every route above.
 test('canary: the overflow detector reports a 600px-wide element', async ({ page }) => {
   await fakeSupabase(page);
-  await page.goto('/faq');
+  await page.goto('/for-organisers');
   await settled(page);
   expect(await checkOverflow(page), 'clean page').toEqual([]);
   await page.evaluate(() => {
@@ -51,7 +51,7 @@ test('canary: the overflow detector reports a 600px-wide element', async ({ page
 
 test('canary: the covered-control detector reports a fixed button under another fixed layer', async ({ page }) => {
   await fakeSupabase(page);
-  await page.goto('/faq');
+  await page.goto('/for-organisers');
   await settled(page);
   await page.evaluate(() => {
     const b = document.createElement('button');

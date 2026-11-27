@@ -207,10 +207,9 @@ export const PUBLIC_ROUTES = [
   '/festivals',
   '/parties',
   '/classes',
-  '/faq',
+  '/for-organisers',
   '/organisers',
   `/organisers/${ORG_SLUG}`,
-  '/london-bachata-guide',
   '/learn-bachata-london',
   '/auth',
 ] as const;
