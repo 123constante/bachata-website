@@ -293,7 +293,7 @@ text "No event appearances yet.""
 
 exports[`/dancers/:id page at '390x844' > unknown / paused (no row) > as 'owner' 1`] = `
 "text "👾"
-heading "__vite_ssr_import_4__.supabase.from(...).select is not a function" level=1
+heading "Dancer not found." level=1
 text "ID: id-none"
 text "The profile you're looking for doesn't exist or has been removed."
 button "Back to Dancers""
@@ -301,7 +301,7 @@ button "Back to Dancers""
 
 exports[`/dancers/:id page at '390x844' > unknown / paused (no row) > as 'signed-in stranger' 1`] = `
 "text "👾"
-heading "__vite_ssr_import_4__.supabase.from(...).select is not a function" level=1
+heading "Dancer not found." level=1
 text "ID: id-none"
 text "The profile you're looking for doesn't exist or has been removed."
 button "Back to Dancers""
@@ -309,7 +309,7 @@ button "Back to Dancers""
 
 exports[`/dancers/:id page at '390x844' > unknown / paused (no row) > as 'visitor' 1`] = `
 "text "👾"
-heading "__vite_ssr_import_4__.supabase.from(...).select is not a function" level=1
+heading "Dancer not found." level=1
 text "ID: id-none"
 text "The profile you're looking for doesn't exist or has been removed."
 button "Back to Dancers""
@@ -608,7 +608,7 @@ text "No event appearances yet.""
 
 exports[`/dancers/:id page at 'desktop' > unknown / paused (no row) > as 'owner' 1`] = `
 "text "👾"
-heading "__vite_ssr_import_4__.supabase.from(...).select is not a function" level=1
+heading "Dancer not found." level=1
 text "ID: id-none"
 text "The profile you're looking for doesn't exist or has been removed."
 button "Back to Dancers""
@@ -616,7 +616,7 @@ button "Back to Dancers""
 
 exports[`/dancers/:id page at 'desktop' > unknown / paused (no row) > as 'signed-in stranger' 1`] = `
 "text "👾"
-heading "__vite_ssr_import_4__.supabase.from(...).select is not a function" level=1
+heading "Dancer not found." level=1
 text "ID: id-none"
 text "The profile you're looking for doesn't exist or has been removed."
 button "Back to Dancers""
@@ -624,7 +624,7 @@ button "Back to Dancers""
 
 exports[`/dancers/:id page at 'desktop' > unknown / paused (no row) > as 'visitor' 1`] = `
 "text "👾"
-heading "__vite_ssr_import_4__.supabase.from(...).select is not a function" level=1
+heading "Dancer not found." level=1
 text "ID: id-none"
 text "The profile you're looking for doesn't exist or has been removed."
 button "Back to Dancers""
