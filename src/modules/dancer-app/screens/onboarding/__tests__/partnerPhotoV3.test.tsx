@@ -23,7 +23,7 @@ afterEach(async () => {
   vi.mocked(boom).mockClear();
 });
 
-const BASE = { first_name: 'Ana', based_city_id: CITY_LONDON.id, dance_role: 'follower', buyer_roles: ['dancer'], favorite_styles: ['Zouk'], dance_started_year: 2019, avatar_url: null } as Partial<MyDancerEdit>;
+const BASE = { first_name: 'Ana', based_city_id: CITY_LONDON.id, dance_role: 'Follower', buyer_roles: ['dancer'], favorite_styles: ['Zouk'], dance_started_year: 2019, avatar_url: null } as Partial<MyDancerEdit>;
 const open = (over: Partial<MyDancerEdit> = {}) => renderInShell({ path: '/app/welcome', backend: { shape: 'emptyStub', profile: makeProfile({ ...BASE, ...over }) } });
 const step = (id: string) => screen.findByTestId(`onboarding-${id}`);
 const btn = (id: string) => screen.getByTestId(id) as HTMLButtonElement;

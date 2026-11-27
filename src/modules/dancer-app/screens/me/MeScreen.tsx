@@ -27,7 +27,7 @@ export type MeSettingsRowId = (typeof ME_SETTINGS_ORDER)[number];
 export type MeSettingsRow = { id: MeSettingsRowId; label: string; href?: string; sublabel?: string };
 
 export const meSettingsRows = (otherRoles: readonly string[]): MeSettingsRow[] => {
-  const opts = optionsRows({ other_roles: otherRoles, is_active: true });
+  const opts = optionsRows({ other_roles: [...otherRoles], is_active: true });
   return ME_SETTINGS_ORDER.map((id) => {
     if (id === 'account') return { id, label: ACCOUNT_SETTINGS_LABEL, href: ACCOUNT_SETTINGS_PATH };
     const r = opts.find((o) => o.id === id)!;

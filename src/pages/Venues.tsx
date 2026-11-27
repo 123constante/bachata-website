@@ -552,7 +552,7 @@ const Venues = () => {
       return;
     }
     const present = new Set(vms.map((x) => x.area ?? 'Elsewhere'));
-    setOpenArea([...AREA_ORDER, 'Elsewhere'].find((k) => present.has(k)) ?? null);
+    setOpenArea([...AREA_ORDER, 'Elsewhere' as const].find((k) => present.has(k)) ?? null);
   }, [vms]);
 
   const clearFilters = () => {

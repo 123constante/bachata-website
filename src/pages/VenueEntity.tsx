@@ -444,7 +444,7 @@ const VenueEntity = () => {
   if (isLoading) {
     return (
       <GlobalLayout
-        breadcrumbs={buildBreadcrumbs('venue.detail', { isLoading: true })}
+        breadcrumbs={buildBreadcrumbs('venue.detail', { entityName: undefined, isLoading: true })}
         backHref={backHref}
         showGradientBg={false}
       >

@@ -132,7 +132,7 @@ const TeacherProfile = () => {
       const { data, error } = await supabase.rpc('get_public_teacher_detail_v1', { p_entity_id: id });
 
       if (error) throw error;
-      const row = (data ?? [])[0] as
+      const row = (data ?? [])[0] as unknown as
         | {
             entity_id: string;
             first_name: string | null;
