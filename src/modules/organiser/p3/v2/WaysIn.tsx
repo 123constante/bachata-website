@@ -106,6 +106,9 @@ export function WaysInView(p: WaysInViewProps) {
         <b>{W.linkLabel}</b>
         <span className="s" style={{ fontSize: 14, color: '#464646', overflowWrap: 'anywhere' }}>{p.link || W.linkAdd}</span>
       </button>
+      {!p.festival && p.door && !p.tickets.length && !p.stripe && p.stripeReady !== false ? (
+        <button type="button" className="lnk" data-testid="wi-stripe-nudge" disabled={p.stripeBusy} style={{ textAlign: 'left', fontSize: 14 }} onClick={() => on.stripe?.()}>{W.stripeNudge}</button>
+      ) : null}
       {p.festival ? null : <Tick id="wi-free" label={W.freeLabel} sub={p.free ? W.freeSub : null} on={p.free} disabled={p.busy} onTap={() => on.free?.()} />}
     </div>
   );
