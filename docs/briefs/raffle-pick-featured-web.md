@@ -1,7 +1,8 @@
 # Brief: raffle pick list Featured + organiser tick, website slice C (Website repo)
 
 Branch: `claude/raffle-pick-featured-web`. UI only, no migration. One PR.
-Size: max 5 files, 400 lines.
+Size: 5 files, 400 lines.
+Design: owner-approved mockup https://claude.ai/artifact/FEoc3S42BBAJYUTZnJfvS6 (admin Priority, message, pick list, tick + QR).
 NEVER run `gh api` (it waits on a permission prompt forever in this repo). Read this brief with
 `git fetch origin brief/raffle-pick-featured-web && git show FETCH_HEAD:docs/briefs/raffle-pick-featured-web.md`.
 
