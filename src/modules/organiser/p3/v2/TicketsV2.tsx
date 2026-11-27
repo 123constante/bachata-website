@@ -460,10 +460,12 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
   const sumTickets: SummaryTicket[] = rows.map((r) => {
     const t = list.find((x) => x.id === r.id);
     const m = managed.data?.types.find((x) => x.id === r.id);
-    const next = [...(m?.steps ?? [])].filter((st) => !st.isLive && Date.parse(st.effectiveFrom) > nowMs).sort((a, b) => Date.parse(a.effectiveFrom) - Date.parse(b.effectiveFrom))[0];
+    const comingSteps = [...(m?.steps ?? [])].filter((st) => !st.isLive && Date.parse(st.effectiveFrom) > nowMs).sort((a, b) => Date.parse(a.effectiveFrom) - Date.parse(b.effectiveFrom));
+    const next = comingSteps[0];
     return {
       ...r, pricePence: priceNow(m?.basePricePence ?? t?.pricePence ?? 0, m?.steps ?? []),
       nextStep: next ? { pricePence: next.pricePence, effectiveFrom: next.effectiveFrom } : null,
+      mainPence: comingSteps.length ? comingSteps[comingSteps.length - 1].pricePence : null,
       earlyPence: m?.earlyPricePence ?? null, earlyFirst: m?.earlyCapacity ?? null,
     };
   });

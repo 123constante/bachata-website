@@ -52,16 +52,47 @@ describe('WaysInSummaryView lines', () => {
     view({ tickets: [tk({ sold: 12 })] });
     expect(screen.getByTestId('ws-sold-ticket-t1').textContent).toBe('12 sold');
   });
-  it('date early bird: near uses the weekday, far adds the date', () => {
-    view({ tickets: [tk({ nextStep: { pricePence: 800, effectiveFrom: '2026-12-02T00:00:00Z' } })] });
-    expect(text('early-t1')).toBe('Early buyers £8 until Wednesday');
+  it('date early bird: near uses the weekday, far adds the date (the last early day)', () => {
+    view({ tickets: [tk({ pricePence: 800, nextStep: { pricePence: 1000, effectiveFrom: '2026-12-02T00:00:00Z' } })] });
+    expect(text('ticket-t1')).toBe('Online £10, 100 a night');
+    expect(text('early-t1')).toBe('Early buyers £8 until Tuesday');
     cleanup();
-    view({ tickets: [tk({ nextStep: { pricePence: 800, effectiveFrom: '2026-12-05T12:00:00Z' } })] });
+    view({ tickets: [tk({ pricePence: 800, nextStep: { pricePence: 1000, effectiveFrom: '2026-12-06T00:00:00Z' } })] });
     expect(text('early-t1')).toBe('Early buyers £8 until Saturday 5 December');
     expect(untilWords('2026-12-04T12:00:00Z', NOW)).toBe('Friday 4 December');
   });
-  it('a past step shows no early line', () => {
-    view({ tickets: [tk({ nextStep: { pricePence: 800, effectiveFrom: '2026-11-01T00:00:00Z' } })] });
+  // P94: walk draft b9a36466 stored price_pence 800 + step 1200 from 1 Dec; the summary showed "Online £8" / "Early buyers £12 until Tuesday"
+  it('P94 date early bird: main is the step price, early is today\'s price, until the day before the step', () => {
+    view({ tickets: [tk({ pricePence: 800, nextStep: { pricePence: 1200, effectiveFrom: '2026-12-01T00:00:00Z' } })] });
+    expect(text('ticket-t1')).toBe('Online £12, 100 a night');
+    expect(text('early-t1')).toBe('Early buyers £8 until Monday');
+  });
+  it('P94 summer step (BST midnight) still names the London day before', () => {
+    view({ now: Date.parse('2027-06-01T10:00:00Z'), tickets: [tk({ pricePence: 800, nextStep: { pricePence: 1200, effectiveFrom: '2027-06-04T23:00:00Z' } })] });
+    expect(text('early-t1')).toBe('Early buyers £8 until Friday');
+  });
+  it('P94 a step not at midnight names the same day the sheet shows', () => {
+    view({ tickets: [tk({ pricePence: 800, nextStep: { pricePence: 1200, effectiveFrom: '2026-12-05T12:00:00Z' } })] });
+    expect(text('early-t1')).toBe('Early buyers £8 until Friday 4 December');
+  });
+  it('P94 count early bird with old date steps: today\'s price stays the main line', () => {
+    view({ tickets: [tk({ pricePence: 1000, early: { pill: 'Early bird 4 left', price: '' }, earlyPence: 800, earlyFirst: 20, nextStep: { pricePence: 1500, effectiveFrom: '2026-12-01T00:00:00Z' } })] });
+    expect(text('ticket-t1')).toBe('Online £10, 100 a night');
+    expect(text('early-t1')).toBe('Early buyers £8, first 20');
+  });
+  it('P94 several coming steps: the main price is the last one', () => {
+    view({ tickets: [tk({ pricePence: 600, nextStep: { pricePence: 900, effectiveFrom: '2026-12-01T00:00:00Z' }, mainPence: 1200 })] });
+    expect(text('ticket-t1')).toBe('Online £12, 100 a night');
+    expect(text('early-t1')).toBe('Early buyers £6 until Monday');
+  });
+  it('a step DOWN is no early bird: today\'s price, no early line', () => {
+    view({ tickets: [tk({ pricePence: 1200, nextStep: { pricePence: 800, effectiveFrom: '2026-12-01T00:00:00Z' } })] });
+    expect(text('ticket-t1')).toBe('Online £12, 100 a night');
+    expect(has('early-t1')).toBe(false);
+  });
+  it('a past step shows no early line and today\'s price', () => {
+    view({ tickets: [tk({ pricePence: 800, nextStep: { pricePence: 1200, effectiveFrom: '2026-11-01T00:00:00Z' } })] });
+    expect(text('ticket-t1')).toBe('Online £8, 100 a night');
     expect(has('early-t1')).toBe(false);
   });
   it('count early bird', () => {
@@ -163,7 +194,7 @@ describe('skip-door line with skipped nights', () => {
 
 describe('callbacks', () => {
   it('every button calls its callback with the right id', () => {
-    const on = view({ tickets: [tk({ nextStep: { pricePence: 800, effectiveFrom: '2026-12-02T00:00:00Z' } })], door: true, link: 'https://x.test', free: true });
+    const on = view({ tickets: [tk({ pricePence: 800, nextStep: { pricePence: 1000, effectiveFrom: '2026-12-02T00:00:00Z' } })], door: true, link: 'https://x.test', free: true });
     const tap = (id: string) => fireEvent.click(screen.getByTestId(`ws-${id}`));
     tap('ticket-t1'); expect(on.ticket).toHaveBeenCalledWith('t1');
     tap('early-t1'); expect(on.early).toHaveBeenCalledWith('t1');
