@@ -181,6 +181,9 @@ const ROWS: Row[] = [
   { file: 'src/modules/admin-organisers/AddOrganiser.tsx', picker: 'CityPicker', id: 'add-city' },
   // W1 (PR #978): About you inline on /invite; <label htmlFor="join-city"> names it.
   { file: 'src/modules/admin-organisers/join/AboutStep.tsx', picker: 'CityPicker', id: 'join-city' },
+  // raffle-win profile steps: each names its combobox with aria-label (CityStep, NationalityStep).
+  { file: 'src/modules/raffle-win/profile/CityStep.tsx', picker: 'CityPicker', ariaLabel: 'Based city' },
+  { file: 'src/modules/raffle-win/profile/NationalityStep.tsx', picker: 'NationalityPicker', ariaLabel: 'Nationality' },
 ];
 
 const ROOT = path.resolve(__dirname, '../../../..');

@@ -69,11 +69,11 @@ async function fetchEventSnapshot(eventId: string, occurrenceId: string | null) 
 async function fetchNightOccurrenceId(eventId: string, spec: NightSpec): Promise<string | null> {
   const day = nightFallbackDateKey(spec);
   if (!day) return null;
-  const { data, error } = await supabase.rpc("get_calendar_events_v2" as never, {
+  const { data, error } = await supabase.rpc("get_calendar_events_v2", {
     range_start: day,
     range_end: nextDateKey(day),
     p_include_past: true,
-  } as never);
+  });
   if (error || !Array.isArray(data)) return null;
   const rows = data as Array<{ event_id?: string; instance_date?: string; occurrence_id?: string | null }>;
   const hit = rows.find((r) => r.event_id === eventId && r.instance_date === day && r.occurrence_id);

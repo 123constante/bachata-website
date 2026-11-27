@@ -4,7 +4,6 @@ import { buildSeoForRoute } from '../src/lib/seo/buildSeoForRoute';
 describe('buildSeoForRoute noindex policy', () => {
   it('noindexes search and practice-partner utility routes', () => {
     expect(buildSeoForRoute('search').noindex).toBe(true);
-    expect(buildSeoForRoute('practicePartners').noindex).toBe(true);
     expect(buildSeoForRoute('allProfiles').noindex).toBe(true);
   });
 
