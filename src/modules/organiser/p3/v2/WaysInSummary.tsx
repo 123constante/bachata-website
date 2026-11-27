@@ -42,10 +42,17 @@ export interface WaysInSummaryViewProps {
   onCheckAgain?: () => void;
   stripeNote?: string | null;
   stripeOff?: boolean;
+  /** day labels of the nights with no door ("Friday 5 December"); empty or missing: the default skip-door line */
+  noDoorNights?: string[];
   note?: string | null;
   /** "now" for the early-bird date wording; tests pin it */
   now?: number;
   on?: Partial<Record<OnKey, (id?: string) => void>>;
+}
+
+/** "A", "A and B", "A, B and C". */
+function joinNights(list: string[]): string {
+  return list.length > 1 ? `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}` : list.join('');
 }
 
 const DAY = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', weekday: 'long' });
@@ -80,6 +87,7 @@ export function WaysInSummaryView(p: WaysInSummaryViewProps) {
   const now = p.now ?? Date.now();
   const ready = p.stripeReady !== false;
   const several = p.tickets.length > 1;
+  const noDoor = p.noDoorNights ?? [];
   return (
     <div className="ev2 ev2-page v2-page wi-page" data-testid="ways-in-summary">
       <Link to={p.backTo} className="back" data-testid="ws-back">&larr; {p.name}</Link>
@@ -129,7 +137,7 @@ export function WaysInSummaryView(p: WaysInSummaryViewProps) {
         <button type="button" className="lnk" data-testid="ws-stripe-nudge" disabled={p.stripeBusy} style={{ textAlign: 'left', fontSize: 15, minHeight: 44, padding: 0, background: 'none', border: 0, color: '#C2410C', fontWeight: 600, textDecoration: 'underline', alignSelf: 'flex-start' }} onClick={() => on.stripe?.()}>{W.stripeNudge}</button>
       ) : null}
 
-      {!p.festival && !p.oneOff && p.door ? <Line id="skip-door" text={S.skipDoor} action={S.choose} label="the night to skip the door" onTap={() => on.skipDoor?.()} /> : null}
+      {!p.festival && !p.oneOff && p.door ? <Line id="skip-door" text={noDoor.length ? S.noDoorOn(joinNights(noDoor)) : S.skipDoor} action={noDoor.length ? S.change : S.choose} label="the night to skip the door" onTap={() => on.skipDoor?.()} /> : null}
       <Line id="rerun" text={S.rerun} action={S.start} label="the questions" onTap={() => on.rerun?.()} />
     </div>
   );

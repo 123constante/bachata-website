@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { V2 } from './copy';
 
@@ -15,11 +15,14 @@ export const TOAST_PLAIN_MS = 2200;
 export function V2Toast({ toast, onDone }: { toast: V2ToastState | null; onDone: (seq: number) => void }) {
   const seq = toast?.seq;
   const hasUndo = !!toast?.onUndo;
+  /** read through a ref so a parent's inline onDone (a new function every render) never restarts the timer */
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
   useEffect(() => {
     if (seq === undefined) return undefined;
-    const t = window.setTimeout(() => onDone(seq), hasUndo ? TOAST_UNDO_MS : TOAST_PLAIN_MS);
+    const t = window.setTimeout(() => onDoneRef.current(seq), hasUndo ? TOAST_UNDO_MS : TOAST_PLAIN_MS);
     return () => window.clearTimeout(t);
-  }, [seq, hasUndo, onDone]);
+  }, [seq, hasUndo]);
   if (!toast || typeof document === 'undefined') return null;
   return createPortal(
     <div
