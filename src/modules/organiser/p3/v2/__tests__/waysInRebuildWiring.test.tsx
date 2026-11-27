@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { EventWorkspace } from '../../../events/eventModel';
 
 const h = vi.hoisted(() => ({
   log: [] as string[], save: vi.fn(), go: vi.fn(), types: [] as unknown[], stripe: 'connected' as string,
-  managed: undefined as unknown, summary: undefined as unknown, upsert: vi.fn(), step: vi.fn(), status: vi.fn(), ws: undefined as unknown,
+  managed: undefined as unknown, summary: undefined as unknown, upsert: vi.fn(), step: vi.fn(), status: vi.fn(), ws: undefined as unknown, fetch: vi.fn(),
 }));
 vi.mock('@/lib/featureFlags', async (orig) => { const m = (await orig()) as { flags: Record<string, boolean> }; return { ...m, flags: { ...m.flags } }; });
 vi.mock('@/lib/londonDate', async (orig) => ({ ...((await orig()) as object), londonTodayKey: () => '2026-11-22' }));
@@ -21,7 +21,7 @@ vi.mock('../../tickets/data', () => ({
 }));
 vi.mock('../../tickets/connectReturn', () => ({ returnKindOf: () => null, useConnectReturn: () => ({ phase: 'idle', again: vi.fn() }) }));
 vi.mock('../saveNow', async (orig) => ({ ...((await orig()) as object), useSaveNow: () => ({ saveNow: h.save, toast: null, onToastDone: vi.fn() }) }));
-vi.mock('../../../shared/selfServeApi', () => ({ dateDetailQueryKey: (id: string) => ['d', id], fetchDateDetail: async () => ({ noDoor: true }), setNightNoDoor: vi.fn() }));
+vi.mock('../../../shared/selfServeApi', () => ({ dateDetailQueryKey: (id: string) => ['d', id], fetchDateDetail: (id: string) => h.fetch(id), setNightNoDoor: vi.fn() }));
 vi.mock('../../../tickets/ticketsApi', async (orig) => ({
   ...((await orig()) as object), ticketKeys: { all: ['t'] },
   upsertTicketType: (a: unknown) => { h.log.push('upsert'); return h.upsert(a); },
@@ -37,7 +37,7 @@ const ticket = { id: 't1', name: 'Ticket', pricePence: 1000, capacity: 50, statu
 const mk = (over: Record<string, unknown> = {}, dates: unknown[] = []) => {
   h.ws = { series: { id: 's1', version: 3, format: 'recurring', name: 'Thursdays', payment_methods: null, default_ticket_url: null, passes: null, ...over }, organiserIds: ['o1'], dates } as unknown;
 };
-const show = () => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><TicketsV2 /></MemoryRouter></QueryClientProvider>);
+const show = () => render(<QueryClientProvider client={(new QueryClient({ defaultOptions: { queries: { retry: false } } }))}><MemoryRouter><TicketsV2 /></MemoryRouter></QueryClientProvider>);
 const click = (id: string) => fireEvent.click(screen.getByTestId(id));
 const type = (id: string, v: string) => fireEvent.change(screen.getByTestId(id), { target: { value: v } });
 const onlineGuide = (early: boolean) => {
@@ -51,6 +51,7 @@ beforeEach(() => {
   h.log.length = 0; h.types = []; h.stripe = 'connected'; h.managed = undefined; h.summary = undefined;
   h.save.mockReset().mockResolvedValue({ ok: true }); h.go.mockReset();
   h.upsert.mockReset().mockResolvedValue({ ok: true, id: 'n1' }); h.step.mockReset().mockResolvedValue({ ok: true }); h.status.mockReset().mockResolvedValue({ ok: true });
+  h.fetch.mockReset().mockResolvedValue({ noDoor: true });
   mk();
 });
 afterEach(cleanup);
@@ -173,6 +174,26 @@ describe('Ways in rebuild wiring (W3)', () => {
     show(); click('ws-skip-door');
     const el = await screen.findByTestId('skip-mock');
     expect(JSON.parse(el.textContent ?? '[]')).toEqual([{ id: 'd1', label: 'Sunday 6 December', noDoor: true }]);
+  });
+  it('skipDoor: a night that failed in the background is refetched on tap, so the sheet opens', async () => {
+    h.fetch.mockRejectedValueOnce(new Error('x')).mockResolvedValue({ noDoor: true });
+    h.types = [ticket]; mk({ payment_methods: 'door' }, [{ id: 'd1', occurrence_date: '2026-12-06', lifecycle_status: 'scheduled' }]);
+    show();
+    await waitFor(() => expect(h.fetch).toHaveBeenCalledTimes(1));
+    await act(async () => { await new Promise((r) => setTimeout(r, 400)); }); // let the background failure land
+    click('ws-skip-door');
+    expect(await screen.findByTestId('skip-mock')).toBeTruthy();
+    expect(h.fetch).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText('Could not load your nights. Try again.')).toBeNull();
+  });
+  it('skipDoor: a load that fails while the sheet is open closes it with the toast', async () => {
+    h.fetch.mockRejectedValue(new Error('x'));
+    h.types = [ticket]; mk({ payment_methods: 'door' }, [{ id: 'd1', occurrence_date: '2026-12-06', lifecycle_status: 'scheduled' }]);
+    show();
+    await waitFor(() => expect(h.fetch).toHaveBeenCalledTimes(1));
+    click('ws-skip-door');
+    expect(await screen.findByText('Could not load your nights. Try again.')).toBeTruthy();
+    expect(screen.queryByTestId('skip-mock')).toBeNull();
   });
   it('festival: guide hides door and free', () => {
     mk({ format: 'festival' });
