@@ -77,4 +77,39 @@ describe('RaffleWin: been-to events after onboarding', () => {
     await waitFor(() => expect(!!screen.queryByTestId('pick-banner')).toBe(banner));
     expect(screen.queryByText(BEEN_TO)).toBeNull();
   });
+  const refuse = async (reason: string, nights: unknown[]) => {
+    setup({ raffle_win_claim_link_v1: claim(nights), my_dancer_edit_v1: { data: FULL, error: null },
+      raffle_win_lock_v2: { data: { ok: false, reason }, error: null } });
+    go(); await pickAndLock();
+    fireEvent.click(await screen.findByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: /confirm/i }));
+  };
+  it('one night, already_been_to_event -> none screen, no banner, no been-to text', async () => {
+    await refuse('already_been_to_event', [N1]);
+    expect(await screen.findByTestId('win-status-none')).toBeTruthy();
+    expect(screen.queryByTestId('pick-banner')).toBeNull();
+    expect(screen.queryByText(BEEN_TO)).toBeNull();
+  });
+  it('one night, spot_taken removes it -> none screen', async () => {
+    await refuse('spot_taken', [N1]);
+    expect(await screen.findByTestId('win-status-none')).toBeTruthy();
+  });
+  it('two events, already_been_to_event on one -> still pick with the other', async () => {
+    await refuse('already_been_to_event', [N1, N2]);
+    expect(await screen.findByRole('button', { name: /Saturday Sensual/ })).toBeTruthy();
+    expect(screen.queryByTestId('win-status-none')).toBeNull();
+  });
+  it('reload after profile, chosen night present but needs_tick false -> fresh honesty, unticked', async () => {
+    setup({ raffle_win_claim_link_v1: sequence(claim([N1]), claim([{ ...N1, needs_tick: false }])), my_dancer_edit_v1: { data: INCOMPLETE, error: null } });
+    go(); await pickAndLock();
+    fireEvent.click(await screen.findByText('steps-done'));
+    await waitFor(() => expect(claimCalls()).toBe(2));
+    await screen.findByRole('button', { name: /confirm/i });
+    expect(screen.queryByRole('checkbox')).toBeNull();
+  });
+  it('reload after profile with a tick given earlier -> tick starts cleared', async () => {
+    setup({ raffle_win_claim_link_v1: claim([N1, N2]), my_dancer_edit_v1: { data: INCOMPLETE, error: null } });
+    go(); await afterProfile();
+    expect((await screen.findByRole('checkbox')).getAttribute('aria-checked')).toBe('false');
+  });
 });

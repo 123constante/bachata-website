@@ -133,7 +133,8 @@ export default function RaffleWin() {
     if (next === 'qr') { navigate('/app/home', { replace: true }); return; }
     if (next !== 'pick') { setAfterLock(false); setStep(next); return; }
     setNights(r.nights); setFirstName(r.firstName);
-    if (night && r.nights.some((n) => n.occurrenceId === night.occurrenceId)) { setStep('honest'); return; }
+    const fresh = night ? r.nights.find((n) => n.occurrenceId === night.occurrenceId) : undefined;
+    if (fresh) { setNight(fresh); setTicked(false); setStep('honest'); return; }
     setNight(null); setSelection(null); setBanner(null); setTicked(false);
     setStep('pick');
   };
@@ -172,11 +173,12 @@ export default function RaffleWin() {
     }
     if (out.kind === 'back-to-pick') {
       const key = refusalKey(out.reason);
+      let left = nights;
       if (key) {
-        const a = applyRefusal(nights, key, night); setNights(a.nights); setSelection(a.selection);
+        const a = applyRefusal(nights, key, night); left = a.nights; setNights(a.nights); setSelection(a.selection);
         setBanner(key === 'already_been_to_event' ? null : key); // that one is silent
       }
-      setStep('pick'); return;
+      setStep(left.length === 0 ? 'none' : 'pick'); return;
     }
     if (out.kind === 'profile') { profileDone.current = false; setMissing(out.missing); setIsNew(false); setStep('profile'); return; }
     if (out.kind === 'screen') { setStep(out.screen); return; }
