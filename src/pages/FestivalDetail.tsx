@@ -2538,16 +2538,11 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
   const organiser = festivalDetail?.organiser ?? null;
 
-  // Headliners filmstrip: if the event lists meta_data.headliner_ids, show only those
-  // (in that order); otherwise fall back to the full teacher lineup. The schedule grid
-  // still credits every teacher per session regardless.
+  // Headliners filmstrip shows the full teacher lineup. A meta_data.headliner_ids
+  // filter used to sit here, but fetchFestivalEventRow (festivalEventQuery.ts)
+  // always returns meta_data: null since the P5 move, so it could never apply.
   const allTeachers = festivalDetail?.lineup.teachers ?? [];
-  const headlinerIds = ((festival?.meta_data as { headliner_ids?: unknown } | null)?.headliner_ids);
-  const teachers = Array.isArray(headlinerIds) && headlinerIds.length > 0
-    ? headlinerIds
-        .map((hid) => allTeachers.find((t) => t.id === hid))
-        .filter((t): t is (typeof allTeachers)[number] => Boolean(t))
-    : allTeachers;
+  const teachers = allTeachers;
 
   const ticketUrl = festivalDetail?.links.ticketUrl ?? festival?.ticket_url ?? null;
 

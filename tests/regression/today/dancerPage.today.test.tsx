@@ -25,7 +25,18 @@ vi.mock('@/hooks/useAuth', async (importOriginal) => ({
 }));
 vi.mock('@/hooks/useMyPersonaId', () => ({ useMyPersonaId: () => h.persona }));
 vi.mock('@/integrations/supabase/client', () => ({
-  supabase: { rpc: async (name: string) => ({ data: name === 'get_my_event_attendance_v2' ? h.attendance : null, error: null }), from: () => ({}) },
+  // from(): a chainable builder that finds no row, so the "unknown / paused" shape takes
+  // DancerProfile's real queryFn path (its inline queryFn wins over setQueryDefaults) and
+  // renders "Dancer not found." -- the old `{}` stub crashed with a bundler-named error.
+  supabase: {
+    rpc: async (name: string) => ({ data: name === 'get_my_event_attendance_v2' ? h.attendance : null, error: null }),
+    from: () => {
+      const q: Record<string, unknown> = {};
+      for (const m of ['select', 'eq', 'not', 'in', 'order', 'limit']) q[m] = () => q;
+      q.maybeSingle = async () => ({ data: null, error: null });
+      return q;
+    },
+  },
 }));
 vi.mock('@/integrations/supabase/getSupabase', () => ({ getSupabase: async () => ({}) }));
 vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { children: ReactNode }) => <div>{children}</div> }));
