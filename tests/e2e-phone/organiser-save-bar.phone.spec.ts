@@ -8,7 +8,7 @@ import { box, coveredFixedBottomControls, fakeSupabase, frames, ORG_SLUG, router
  * halfway down the page: the route's PageTransition wrapper kept `filter`, which
  * turns position:fixed into "fixed to the wrapper" (#719). So every case runs
  * for a direct load AND a router navigation from /organisers (reached from
- * /faq, so the route fade is live).
+ * /for-organisers, so the route fade is live).
  *
  * The port of tests/e2e/organiser-edit-save-bar.real-supabase.spec.ts that runs
  * on every UI PR: same assertions, but the organiser comes from the fake Supabase
@@ -25,9 +25,9 @@ for (const entry of ['direct load', 'in-app navigation'] as const) {
     } else {
       // The route fade only plays once a FRAMEWORK route using
       // InitialVisiblePageTransition has mounted, and /organisers (the catchall)
-      // does not mount one. So a reader arriving from /faq, tapping through to
+      // does not mount one. So a reader arriving from /for-organisers, tapping through to
       // /organisers and then to the organiser: every hop a router navigation.
-      await page.goto('/faq');
+      await page.goto('/for-organisers');
       // The PageTransition chunk is warmed at the first idle moment; navigating
       // before it has loaded renders the plain wrapper and misses the filter.
       await page.waitForFunction(() => performance.getEntriesByType('resource').some((e) => e.name.includes('PageTransition')));
