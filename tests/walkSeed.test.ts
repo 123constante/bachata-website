@@ -39,9 +39,10 @@ describe('walk-seed mirrors the app builders', () => {
 
   it('every command builder', () => {
     const draft = { name: ' WALK x ', format: 'recurring' as const, startDate: '2026-11-03', startTime: '19:00', durationMinutes: 240 };
-    const appPayload = app.createPayload({ ...draft, description: '', venueId: null, ticketUrl: '', coverImageUrl: '' });
-    expect(seed.createPayload(draft)).toEqual(appPayload);
-    expect(seed.createSeriesCommand(seed.createPayload(draft), 'org')).toEqual(appCreateSeriesCommand(appPayload, 'org'));
+    // The app's full createPayload was deleted as dead (#2206: the app creates a draft and upserts the rest);
+    // the seed keeps its own one-shot payload, so only the organiser-key wrapper is mirrored.
+    const seedPayload = seed.createPayload(draft);
+    expect(seed.createSeriesCommand(seedPayload, 'org')).toEqual(appCreateSeriesCommand(seedPayload, 'org'));
     expect(seed.weeklyRuleCommand(2)).toEqual(app.weeklyRuleCommand(2));
     expect(seed.addDateCommand('2026-11-10')).toEqual(app.addDateCommand('2026-11-10'));
     expect(seed.skipDateCommand('o')).toEqual(app.skipDateCommand('o'));

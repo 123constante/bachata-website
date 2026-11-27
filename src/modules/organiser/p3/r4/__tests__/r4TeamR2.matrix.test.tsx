@@ -48,8 +48,8 @@ describe('R4 Team R2 model', () => {
     ['network down', 'Could not save. Try again.'],
   ])('error %s -> line', (m, line) => expect(switchErrorLine({ message: m })).toBe(line));
   it('door_until is London time (BST and GMT)', () => {
-    expect(doorUntilWords('2026-07-02T13:00:00Z')).toBe('Door until Thu 14:00');
-    expect(doorUntilWords('2026-11-26T14:00:00Z')).toBe('Door until Thu 14:00');
+    expect(doorUntilWords('2026-07-02T13:00:00Z')).toBe('Door until Thursday 14:00');
+    expect(doorUntilWords('2026-11-26T14:00:00Z')).toBe('Door until Thursday 14:00');
   });
   const now = new Date('2026-11-25T12:00:00Z');
   it.each([
