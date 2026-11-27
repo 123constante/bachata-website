@@ -12,7 +12,7 @@ vi.mock('../../../tickets/ticketsApi', async (orig) => ({
 import { formOfType, priceNow, writeTicket } from '../TicketSheetV2';
 
 const type = { id: 't1', name: 'Class', capacity: 40, occurrenceId: null, salesOpenAt: null, salesCloseAt: null, pricePence: 1000 };
-const common = { organiserId: 'o1', seriesId: 's1', type, basePence: 1000, sold: 3 };
+const common = { organiserId: 'o1', seriesId: 's1', seriesLive: true, type, basePence: 1000, sold: 3 };
 // the B3 sold-price step: 1000 -> 1200, already started
 const live = { id: 'st1', effectiveFrom: '2020-01-02T12:34:00Z', pricePence: 1200, isLive: true };
 const coming = { id: 'st2', effectiveFrom: '2099-01-02T00:00:00Z', pricePence: 1500, isLive: false };

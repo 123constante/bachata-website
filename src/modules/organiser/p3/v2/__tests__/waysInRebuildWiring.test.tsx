@@ -35,7 +35,7 @@ import { TicketsV2 } from '../TicketsV2';
 
 const ticket = { id: 't1', name: 'Ticket', pricePence: 1000, capacity: 50, status: 'on_sale', occurrenceId: null };
 const mk = (over: Record<string, unknown> = {}, dates: unknown[] = []) => {
-  h.ws = { series: { id: 's1', version: 3, format: 'recurring', name: 'Thursdays', payment_methods: null, default_ticket_url: null, passes: null, ...over }, organiserIds: ['o1'], dates } as unknown;
+  h.ws = { series: { id: 's1', version: 3, format: 'recurring', lifecycle_status: 'live', name: 'Thursdays', payment_methods: null, default_ticket_url: null, passes: null, ...over }, organiserIds: ['o1'], dates } as unknown;
 };
 const show = () => render(<QueryClientProvider client={(new QueryClient({ defaultOptions: { queries: { retry: false } } }))}><MemoryRouter><TicketsV2 /></MemoryRouter></QueryClientProvider>);
 const click = (id: string) => fireEvent.click(screen.getByTestId(id));
