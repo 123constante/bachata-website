@@ -110,12 +110,12 @@ describe('Invite person', () => {
     expect(invitePersonErrorMessage(new Error('Could not find the function public.admin_invite_person_v1'))).toBe('Something went wrong. Please try again.');
   });
 
-  it('a page without a Leader says to search, an empty search says what to do', async () => {
+  it('a chosen page says to search, an empty search says what to do', async () => {
     api.searchPeople.mockResolvedValue([]);
     mount();
     fireEvent.click(screen.getByTestId('invite-person-open'));
     fireEvent.change(screen.getByTestId('invite-person-page'), { target: { value: 'o1' } });
-    await waitFor(() => expect(screen.getByTestId('invite-person-search-note').textContent).toMatch(/no Leader/));
+    await waitFor(() => expect(screen.getByTestId('invite-person-search-note').textContent).toMatch(/Search for the person to invite/));
     fireEvent.change(screen.getByTestId('invite-person-search'), { target: { value: 'Zed' } });
     expect((await screen.findByTestId('invite-person-no-hits')).textContent).toMatch(/No one matches/);
   });
