@@ -132,20 +132,16 @@ export const useUserIds = () => {
           if (!vendor?.id && dancer?.id) {
             const { data: unclaimedVendors } = await supabase
               .from('vendors')
-              .select('id, city_id, cities(name), meta_data, team')
+              .select('id, city_id, cities(name), meta_data')
               .is('user_id', null)
               .limit(200);
 
-            const matchesDancer = (row: { id: string; meta_data: Json | null; team: Json | null }) => {
+            // vendors.team was dropped in Phase 5.5 (team now lives in
+            // vendor_team_members); selecting it made this query fail outright,
+            // so the meta_data leader match below could never run.
+            const matchesDancer = (row: { id: string; meta_data: Json | null }) => {
               const md = row.meta_data as Record<string, unknown> | null;
-              const metadataLeaderId = md?.business_leader_dancer_id;
-              if (metadataLeaderId === dancer.id) return true;
-
-              const team = Array.isArray(row.team) ? row.team : [];
-              return team.some((member) => {
-                const m = member as Record<string, unknown> | null;
-                return m?.dancer_id === dancer.id;
-              });
+              return md?.business_leader_dancer_id === dancer.id;
             };
 
             const candidate = (unclaimedVendors || []).find((row) => matchesDancer(row));

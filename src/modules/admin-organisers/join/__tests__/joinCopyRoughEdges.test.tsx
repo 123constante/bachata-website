@@ -10,7 +10,7 @@ import { DeadScreen, DoneScreen, EmailStep, StopScreen } from '../JoinScreens';
 
 afterEach(cleanup);
 const wrap = (ui: React.ReactElement) => render(<MemoryRouter>{ui}</MemoryRouter>);
-const preview = (organiserName: string) => ({ status: 'open' as const, organiserName, inviterFirstName: 'Sam', emailHint: null });
+const preview = (organiserName: string) => ({ status: 'open' as const, organiserName, inviterFirstName: 'Sam', emailHint: null, person: null, prefill: null });
 
 const NAMES: [string, string][] = [
   ['Alex Boneva Teachings', 'Alex Boneva Teachings’'],
