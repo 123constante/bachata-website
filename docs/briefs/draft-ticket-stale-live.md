@@ -5,7 +5,7 @@ Lane: careful, Opus. Repo 123constante/bachata-website. One PR.
 Size: max 4 files, 200 lines. No new design, no copy change.
 
 ## Read the brief
-Never run `gh api`. Read this file with `git fetch origin brief/claude/draft-ticket-stale-live && git show FETCH_HEAD:docs/briefs/draft-ticket-stale-live.md`.
+Never run `gh api`. Read this file with `git fetch origin brief/draft-ticket-stale-live && git show FETCH_HEAD:docs/briefs/draft-ticket-stale-live.md`.
 
 ## Goal
 `TicketsV2.tsx` passes `seriesLive={s.lifecycle_status === 'live'}` to `TicketSheetV2` from the workspace snapshot. `writeTicket` (src/modules/organiser/p3/v2/TicketSheetV2.tsx, `if (!a.type && !a.seriesLive) return { ... draft: true }`) then skips the on_sale call for a NEW ticket. If the event went live in another tab after the snapshot was read, the new ticket stays `draft` on a live event forever: the admin go-live trigger (trg_go_live_flip_draft_tickets_v1) only flips draft tickets AT the go-live moment, and the toast says "goes on sale when you put the event live" although it already is live.
