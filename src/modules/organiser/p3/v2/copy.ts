@@ -369,6 +369,26 @@ export const V2 = {
     savedOne: 'Saved',
     gone: 'This night has gone.',
   },
+  /** Ways in list on the Tickets screen (flag waysInV2). */
+  waysIn: {
+    title: 'Ways in',
+    sub: 'How dancers get in. Pick at least one.',
+    onlineTitle: 'Online ticket',
+    onlineSub: 'Paid by card. Money in your account in seconds.',
+    stripeWarn: 'Dancers can’t buy yet. Connect Stripe or tick another way in.',
+    doorLabel: 'At the door',
+    doorSub: 'Dancers see Pay at the door.',
+    linkLabel: 'Ticket link',
+    linkAdd: 'Add a link',
+    linkRemove: 'Remove link',
+    freeLabel: 'Free entry',
+    freeSub: 'Dancers see Free.',
+    toastDoorOn: 'Pay at the door on',
+    toastDoorOff: 'Pay at the door off',
+    toastFreeOn: 'Free entry on',
+    toastFreeOff: 'Free entry off',
+    toastLinkRemoved: 'Link removed',
+  },
   /** Tickets screen pay sheets (slice 12c). Named ticketsPay: `tickets` above is the row label. */
   ticketsPay: {
     rowLabel: 'Tickets',
