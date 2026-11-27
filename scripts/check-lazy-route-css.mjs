@@ -24,6 +24,10 @@
 //   npm run check:lazy-route-css
 //   npm run check:lazy-route-css:self-test   # proves the rules, no build
 //
+// WHERE IT RUNS: vercel.json buildCommand runs it right after `npm run build`,
+// so a red result fails the deploy and production stays on the last good one.
+// perf-budget.yml also carries it, but that workflow is disabled (2026-11-24).
+//
 // Exit 0 pass, 1 rule broken, 2 cannot measure: no manifest, unreadable
 // manifest, no roots, or no css at all. None of these may read as "clean".
 
@@ -34,12 +38,23 @@ import { isEntryPoint } from './lib/entry-point.mjs';
 const MANIFEST = path.join('build', 'client', '.vite', 'manifest.json');
 const ROUTE_SUFFIX = '?__react-router-build-client-route';
 
-// name -> why arriving after first paint is acceptable.
+// name -> why arriving after first paint is acceptable (or is a known debt).
+// Baseline measured on a real build of 4f33393c7 (Dell, 2026-11-27).
 export const LAZY_ONLY_ALLOWED = {
-  CityMap: 'map widget inside a page section; renders a sized placeholder until loaded',
-  EventMap: 'map widget inside a page section; renders a sized placeholder until loaded',
-  Raffles: 'raffle panel opened on demand, not on first paint',
-  theme: 'map theme css shipped with the lazy map bundle',
+  Auth: 'src/pages/Auth.tsx, lazy sign-in page; baseline 2026-11-27 (lazy-only before this guard existed; candidate to import statically)',
+  CityMap: 'src/pages/CityMap.tsx, lazy map page; baseline 2026-11-27 (lazy-only before this guard existed; candidate to import statically)',
+  CreateFlow: 'organiser p3 create flow, signed-in, lazy; baseline 2026-11-27 (lazy-only before this guard existed; candidate to import statically)',
+  DoorScreen: 'organiser p3 door screen, signed-in, lazy; baseline 2026-11-27 (lazy-only before this guard existed; candidate to import statically)',
+  ObShell: 'organiser p3 onboarding shell, signed-in, lazy; baseline 2026-11-27 (lazy-only before this guard existed; candidate to import statically)',
+  R4Shell: 'organiser p3 r4 shell, signed-in, lazy; baseline 2026-11-27 (lazy-only before this guard existed; candidate to import statically)',
+  Raffles: 'src/pages/Raffles.css, raffle page, lazy; baseline 2026-11-27 (lazy-only before this guard existed; candidate to import statically)',
+  SettingsSheet: 'organiser p3 settings sheet, opened on demand; baseline 2026-11-27 (lazy-only before this guard existed; candidate to import statically)',
+  'dancer-app': 'dancer app shell, signed-in, lazy; baseline 2026-11-27 (lazy-only before this guard existed; candidate to import statically)',
+  door: 'organiser p3 door.css, signed-in, lazy; baseline 2026-11-27 (lazy-only before this guard existed; candidate to import statically)',
+  neon: 'dancer onboarding neon.css, signed-in, lazy; baseline 2026-11-27 (lazy-only before this guard existed; candidate to import statically)',
+  p3: 'organiser p3 theme p3.css, signed-in, lazy; baseline 2026-11-27 (lazy-only before this guard existed; candidate to import statically)',
+  theme: 'src/modules/organiser/theme.css, signed-in, lazy; baseline 2026-11-27 (lazy-only before this guard existed; candidate to import statically)',
+  v2: 'organiser p3 v2.css, signed-in, lazy; baseline 2026-11-27 (lazy-only before this guard existed; candidate to import statically)',
   'vendor-leaflet': 'leaflet css travels with the lazy leaflet chunk; map containers are sized before it lands',
   'vendor-maplibre': 'maplibre css travels with the lazy maplibre chunk; map containers are sized before it lands',
 };
