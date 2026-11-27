@@ -37,6 +37,7 @@
     "src/modules/raffle-win/profile/LanguagesStep.tsx",
     "src/modules/class-join/ClassJoinPage.tsx",
     "src/modules/person-page/PersonPage.tsx",
+    "src/modules/areas/shared/DancersSeeLine.tsx",
     "src/pages/RaffleDoor.tsx",
     "src/modules/raffle-win/profile/NationalityStep.tsx",
     "src/pages/Auth.tsx",
@@ -269,6 +270,7 @@
     "src/modules/organiser/p3/onboarding/personModel.ts"
   ],
   "seamNotes": {
+    "src/modules/areas/shared/DancersSeeLine.tsx": "DJ profile 'Dancers see' line (website#2512, flag VITE_ENABLE_NAME_FIXES off): reads the signed-in person's own public name via the dancer-app useMyDancerEdit + publicName; the only file outside dancer-app that does, mounted only when the flag is on (orchestrator decision 2026-11-27)",
     "src/modules/class-join/ClassJoinPage.tsx": "teacher class-join landing /join/class/:token (PR #2254, flagged): reuses the dancer-app rpc helper; listed 2026-11-27 to clear the red main rule (c), no code change",
     "src/modules/person-page/PersonPage.tsx": "public person page (PR #2436 types fix): reads the dancer-app public-page model; listed 2026-11-27 to clear the red main rule (c), no code change",
     "src/pages/RaffleDoor.tsx": "raffle door page (PR #2208): reuses raffleWinModel from dancer-app home; listed 2026-11-27 to clear the red main rule (c), no code change",
