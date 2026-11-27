@@ -75,7 +75,7 @@ describe('WaysInSummaryView lines', () => {
     view({ tickets: [tk({ pricePence: 800, nextStep: { pricePence: 1200, effectiveFrom: '2026-12-05T12:00:00Z' } })] });
     expect(text('early-t1')).toBe('Early buyers £8 until Friday 4 December');
   });
-  it('P94 count early bird with old date steps: today's price stays the main line', () => {
+  it('P94 count early bird with old date steps: today\'s price stays the main line', () => {
     view({ tickets: [tk({ pricePence: 1000, early: { pill: 'Early bird 4 left', price: '' }, earlyPence: 800, earlyFirst: 20, nextStep: { pricePence: 1500, effectiveFrom: '2026-12-01T00:00:00Z' } })] });
     expect(text('ticket-t1')).toBe('Online £10, 100 a night');
     expect(text('early-t1')).toBe('Early buyers £8, first 20');
