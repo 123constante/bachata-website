@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { V2 } from './copy';
 import { V2Sheet } from './V2Sheet';
+import { withHttps } from './PaySheets';
 import { formatPence, NOT_SWITCHED_ON } from '../../tickets/ticketModel';
 import { parsePayment, togglePayment, toSend, type PaymentMethod } from '../../events/paymentModel';
 import type { EventWorkspace } from '../../events/eventModel';
@@ -125,7 +126,7 @@ export function WaysInLinkSheet({ link, error, busy, onDone, onRemove, onClose }
         <input id="f-link-in" className="fld" type="url" placeholder="https://" value={raw} onChange={(e) => { setRaw(e.target.value); setEmpty(false); }} />
         {empty ? <p className="err" role="alert" data-testid="link-err">{T.linkEmpty}</p> : null}
         {!empty && error ? <p className="err" role="alert" data-testid="link-save-err">{error}</p> : null}
-        <button type="button" className="btn pri" data-testid="link-done" disabled={busy} aria-busy={busy} onClick={() => { if (!raw.trim()) { setEmpty(true); return; } onDone(raw.trim()); }}>{V2.done}</button>
+        <button type="button" className="btn pri" data-testid="link-done" disabled={busy} aria-busy={busy} onClick={() => { if (!raw.trim()) { setEmpty(true); return; } onDone(withHttps(raw)); }}>{V2.done}</button>
         {link ? <button type="button" className="btn sec" data-testid="wi-link-remove" disabled={busy} onClick={onRemove}>{W.linkRemove}</button> : null}
       </div>
     </V2Sheet>
