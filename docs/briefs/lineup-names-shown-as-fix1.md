@@ -1,7 +1,7 @@
 # Fix round 1: website#2512 line-up names "shown as" + wider name box
 
 Branch: claude/lineup-names-shown-as (existing PR #2512; push to the same branch, do not open a new PR)
-Size: about 5 files, under 300 lines
+Size: 5 files, 300 lines
 Kind: ui (switch VITE_ENABLE_NAME_FIXES stays off by default)
 
 ## What
@@ -15,7 +15,8 @@ F3 (medium) `src/modules/areas/__tests__/nameFixes.off.test.tsx`: the D test che
 
 F4 (low) copy in DancersSeeLine: use "On every line-up where you DJ." (the DJ name shows only in DJ slots), and drop the trailing " · DJ" after the name. Keep "Leave it empty to use your own name." Plain warm words, no jargon.
 
-Intent (owner-approved mockup): under the DJ name box, a small line "Dancers see <b>X</b>. On every line-up where you DJ." where X = the DJ name if typed, else the person's own public name.
+Design: owner-approved mockup https://claude.ai/artifact/KR5T49pSwVAYVbBFNM32nK (picks: D = wider 96px name box, 2 lines; B = "shown as" line as drawn).
+Intent: under the DJ name box, a small line "Dancers see <b>X</b>. On every line-up where you DJ." where X = the DJ name if typed, else the person's own public name.
 
 ## Checks
 `npx vitest run src/modules/areas` and `npx tsc --noEmit` if it fits.
