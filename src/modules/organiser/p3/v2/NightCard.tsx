@@ -12,7 +12,9 @@ import { localAsZTime } from '../../shared/homeModel';
 import { seriesTree } from '../data/sessions';
 import { V2 } from './copy';
 import { nightFieldState, type WriteStep } from './editorModel';
-import { Fact, aboutShort, priceLabel } from './Facts';
+import { Fact, aboutShort, priceLabel, waysInLabel } from './Facts';
+import { flags } from '@/lib/featureFlags';
+import { useSeriesTypes } from '../tickets/data';
 import { doorPriceOf } from './payMode';
 import { WhenSheet, type OnSave } from './WhenSheet';
 import { WhereSheet, savedLabel } from './WhereSheet';
@@ -84,6 +86,7 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
   const detail = useQuery({ queryKey: dateDetailQueryKey(date.id), queryFn: () => fetchDateDetail(date.id) });
   const dt = detail.data;
   const venues = useVenueOptions();
+  const nightTypes = useSeriesTypes(ws.organiserIds?.[0], s.id, false, flags.waysInV2);
   const venueId = dt?.venueId ?? s.default_venue_id;
   const venue = venues.data?.find((v) => v.id === venueId);
   const today = londonTodayKey();
@@ -103,6 +106,8 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
   const passes = ownerPassesFromStored(dt?.passesOverride ?? s.passes) ?? [];
   const link = dt?.ticketUrl ?? s.default_ticket_url;
   const prices = passes.map((p) => p.price).filter((p): p is number => typeof p === 'number' && p > 0);
+  const nightOnSale = (nightTypes.data ?? []).filter((t) => t.status === 'on_sale' && (t.occurrenceId == null || t.occurrenceId === date.id));
+  const waysPrice = flags.waysInV2 ? waysInLabel({ onSaleTypes: nightOnSale, paymentMethods: s.payment_methods ?? null, link: link ?? null }) : null;
   const price = priceLabel({ link, doorPrice: !link && doorPriceOf(dt?.passesOverride ?? s.passes) != null ? String(doorPriceOf(dt?.passesOverride ?? s.passes)) : null, ticketCount: 0, minPrice: prices.length ? Math.min(...prices) : null });
   // No start time on the event: the night's own time, else its materialised time, else the first session.
   const firstSession = allItems(seriesTree(ws)).filter((it) => it.start).sort((a, b) => a.start.localeCompare(b.start))[0];
@@ -176,7 +181,7 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
           <Fact id="when" label={V2.when} main={long} sub={start ? V2.timeRange(start, end || start) : undefined} onOpen={onSave ? () => setWhenOpen(true) : undefined} />
           <Fact id="where" label={V2.where} main={venue?.name ?? '\u2014'} sub={venue?.neighbourhood ?? venue?.city_name ?? undefined}
             changed={own.where} busy={busy} onBack={back('where', V2.venue)} onOpen={onSave ? () => setSheet('where') : undefined} />
-          <Fact id="price" label={V2.price} main={price.m} sub={price.s || undefined} changed={own.price} busy={busy} onBack={back('price', V2.price)} onOpen={onSave ? () => setSheet('price') : onOpenTickets} />
+          <Fact id="price" label={V2.price} main={(waysPrice ?? price).m} sub={(waysPrice ?? price).s || undefined} changed={own.price} busy={busy} onBack={back('price', V2.price)} onOpen={waysPrice ? (onSave && nightOnSale.length > 0 ? () => setSheet('price') : onOpenTickets) : onSave ? () => setSheet('price') : onOpenTickets} />
           <Fact id="about" label={V2.description} main={aboutShort(about)} changed={own.about} busy={busy} onBack={back('about', V2.nightAbout)} onOpen={onSave ? () => setSheet('about') : undefined} />
           {s.format === 'one_off' && onOpenTickets ? (
             <div className="fwrap" data-testid="row-goTickets">

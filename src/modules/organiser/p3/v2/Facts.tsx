@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { parsePayment } from '@/lib/paymentMethods';
 import { V2 } from './copy';
 
 export type PriceMode = 'door' | 'link' | 'notOnSale' | 'none' | 'tickets';
@@ -23,6 +24,24 @@ export function priceLabel(i: PriceInput): { mode: PriceMode; m: string; s: stri
     m: `${n > 1 ? V2.from : ''}${i.minPrice ? `£${i.minPrice}` : V2.free}`,
     s: V2.tickets_n(n),
   };
+}
+
+/**
+ * Ways in (flag waysInV2): the Price fact's two lines. Only an online (Stripe) ticket carries a price; the door is
+ * a tick with no price. Parts in order: online ticket, door, ticket link, free entry. Pure.
+ */
+export function waysInLabel(i: { onSaleTypes: { pricePence: number }[]; paymentMethods: string | null; link: string | null }): { m: string; s: string } {
+  const stored = parsePayment(i.paymentMethods);
+  const parts: string[] = [];
+  if (i.onSaleTypes.length > 0) {
+    const low = Math.min(...i.onSaleTypes.map((t) => t.pricePence));
+    const money = low <= 0 ? 'Free' : `\u00A3${low % 100 === 0 ? low / 100 : (low / 100).toFixed(2)}`;
+    parts.push(`Online ticket ${i.onSaleTypes.length > 1 && low > 0 ? 'from ' : ''}${money}`);
+  }
+  if (stored.includes('door')) parts.push('Pay at the door');
+  if (i.link || stored.includes('ticket_link')) parts.push('Ticket link');
+  if (stored.includes('free')) parts.push('Free entry');
+  return parts.length ? { m: parts[0], s: parts.slice(1).join(', ') } : { m: 'Add a way in', s: '' };
 }
 
 /** The Description fact's first line: 60 characters then an ellipsis. */

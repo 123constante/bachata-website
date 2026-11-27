@@ -11,7 +11,8 @@ import { upsertCommand } from '../../shared/seriesCommands';
 import { V2 } from './copy';
 import { useSeriesTypes, useSummary } from '../tickets/data';
 import type { WriteStep } from './editorModel';
-import { Fact, aboutShort, priceLabel } from './Facts';
+import { Fact, aboutShort, priceLabel, waysInLabel } from './Facts';
+import { flags } from '@/lib/featureFlags';
 import { ProgSheet, type OnSave } from './WhenSheet';
 import { SessionSheetV2 } from './SessionSheetV2';
 import { addSession, allItems, buildDays, programCommand, profileTypeOf, removeSession, updateItem, validateTree, type PItem, type PTree } from '../../events/programmeSeriesModel';
@@ -88,6 +89,7 @@ export function EveryBody({ ws, day, saveNow, busy, onOpenTickets, onOpenDates }
   // Cancelling the event cancels every coming night, so the buyer warning counts every type of the event (same reads as EditorV2).
   const soldTypes = useSeriesTypes(orgIds[0], s.id, true);
   const soldSummary = useSummary(orgIds[0], true);
+  const waysPrice = flags.waysInV2 ? waysInLabel({ onSaleTypes: (soldTypes.data ?? []).filter((t) => t.status === 'on_sale'), paymentMethods: s.payment_methods ?? null, link: s.default_ticket_url ?? null }) : null;
   const soldRefused = soldSummary.isSuccess && !soldSummary.data.ok;
   const soldState: 'loading' | 'error' | 'ready' = !orgIds[0] || soldTypes.isError || soldSummary.isError || soldRefused ? 'error'
     : soldTypes.isSuccess && soldSummary.isSuccess ? 'ready' : 'loading';
@@ -275,7 +277,7 @@ export function EveryBody({ ws, day, saveNow, busy, onOpenTickets, onOpenDates }
             {draft && <DraftNote />}
             <Fact id="when" label={V2.when} main={repeatsWord ?? E.everyDay(day)} sub={start ? (endAt ? E.timeRange(start, endAt) : start) : undefined} onOpen={() => { setProgProblem(null); setSheet('prog'); }} />
             <Fact id="where" label={V2.where} main={venue?.name ?? '\u2014'} sub={venue?.neighbourhood ?? venue?.city_name ?? undefined} busy={busy} onOpen={() => setSheet('where')} />
-            <Fact id="price" label={V2.price} main={price.m} sub={price.s || undefined} onOpen={onOpenTickets} />
+            <Fact id="price" label={V2.price} main={(waysPrice ?? price).m} sub={(waysPrice ?? price).s || undefined} onOpen={onOpenTickets} />
           </div>
         </div>
       </div>

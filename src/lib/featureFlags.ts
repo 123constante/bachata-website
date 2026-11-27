@@ -238,7 +238,7 @@ export const flags = {
   // OFF = today's home, unchanged. Needs the admin RPCs (my_profile_match_candidates_v1, answer_profile_match_v1).
   // Turn on with VITE_ENABLE_PROFILE_MATCH_ASK=true (Vercel env) -- no code change.
   profileMatchAsk:     import.meta.env.VITE_ENABLE_PROFILE_MATCH_ASK === 'true',
-  // Ways in (change 2, slice B1): the Tickets screen body becomes ONE "Ways in" list. OFF = today's Tickets screen, unchanged.
+  // Ways in (change 2, slice B1): the Tickets screen body becomes ONE "Ways in" list. The price facts and Put it live point at it (B2). OFF = unchanged.
   // Turn on with VITE_ENABLE_WAYS_IN_V2=true (Vercel env) -- no code change.
   waysInV2:            import.meta.env.VITE_ENABLE_WAYS_IN_V2 === 'true',
 } as const;

@@ -11,6 +11,9 @@ import { StatusSheet, type Send } from '../screens/StatusSheet';
 import { useToast } from '../screens/Toast';
 import { goLiveFixOn, v2FixFor, type V2FixTarget } from './goLiveFixV2';
 import { HowToPaySheet } from './HowToPaySheet';
+import { flags } from '@/lib/featureFlags';
+import { P3_PATHS } from '../shell/paths';
+export const WAYS_IN_REASON = 'Pick a way in: online ticket, door, link or free.';
 
 export const DRAFT_PILL = 'Draft';
 export const DRAFT_NOTE = 'Not live yet. Dancers can\u2019t see this event.';
@@ -37,6 +40,7 @@ export function DraftNote() {
 function FixLine({ reason, section, target, seriesId, onFix, onPay }: { reason: string; section: string; target: V2FixTarget; seriesId: string; onFix?: (t: V2FixTarget) => boolean | void; onPay: () => void }) {
   const navigate = useNavigate();
   const tap = () => {
+    if (target === 'pay' && flags.waysInV2) { navigate(`${P3_PATHS.event(seriesId)}/tickets`); return; }
     if (target === 'pay') { onPay(); return; }
     if (onFix && onFix(target) !== false) return;
     const to = goLiveFixHref(section, seriesId);
@@ -66,9 +70,10 @@ export function GoLiveBar({ ws, onFix }: { ws: EventWorkspace; onFix?: (target: 
   const send: Send = (commands, version) => toast.run(commands, version);
   const sendOnce: SendOnce = (command, key) => once(command, ws.series.version, key);
   const ready = check.data?.ready === true;
+  const firstCode = check.data && !ready ? eventBlockers(check.data.eventMissing)[0]?.code : undefined;
   const reason = ready ? null
     : check.isError ? 'Could not check what is left. Try again.'
-    : check.data ? (firstGoLiveReason(check.data.eventMissing) ?? 'Finish your profile before it can go live.')
+    : check.data ? (flags.waysInV2 && firstCode === 'no_payment' ? WAYS_IN_REASON : firstGoLiveReason(check.data.eventMissing) ?? 'Finish your profile before it can go live.')
     : 'Checking what is left\u2026';
   const first = check.data && !ready ? eventBlockers(check.data.eventMissing)[0] : undefined;
   const target = first ? v2FixFor(first.code) : null;
