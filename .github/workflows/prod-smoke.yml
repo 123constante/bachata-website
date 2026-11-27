@@ -98,6 +98,10 @@ jobs:
           CI_BYPASS_HEADER: ${{ secrets.CI_BYPASS_HEADER }}
           SMOKE_EXTRA_PATHS: ${{ inputs.extra_paths }}
           SMOKE_FORBID_TEXT: ${{ inputs.forbid_text }}
+          # Homepage asserts the skew cookie + boot watchdog scripts are in the
+          # prod HTML. Flipping the watchdog kill switch (Vercel BOOT_WATCHDOG=off)?
+          # Set repo variable BOOT_WATCHDOG=off too, or the smoke reds.
+          SMOKE_ALLOW_NO_WATCHDOG: ${{ vars.BOOT_WATCHDOG == 'off' && '1' || '' }}
         run: |
           set -o pipefail
           node scripts/launch-critical-smoke.mjs | tee smoke-report.json
