@@ -21,7 +21,8 @@ describe('S4b-2: server-rendered head on organisers, venues, vendors', () => {
 
     it(`app/routes.ts registers ${path} inside the VITE_ENABLE_PEOPLE_SSR gate`, () => {
       const src = read('app/routes.ts');
-      const start = src.indexOf('process.env.VITE_ENABLE_PEOPLE_SSR === "true"');
+      // Three slices each have their own gate block; anchor on this slice's comment.
+      const start = src.indexOf('process.env.VITE_ENABLE_PEOPLE_SSR === "true"', src.indexOf('(site structure S4b-2)'));
       expect(start).toBeGreaterThan(-1);
       const block = src.slice(start, src.indexOf('[]', start));
       expect(block).toContain(`route("${path}", "routes/list.${path}.tsx")`);
