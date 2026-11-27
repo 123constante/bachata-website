@@ -26,7 +26,7 @@ const ALLOWED = [/vercel\.live/i, /^Failed to load resource/i];
 // Optional override so the same spec can drive a deployed preview.
 if (process.env.PLAYWRIGHT_BASE_URL) test.use({ baseURL: process.env.PLAYWRIGHT_BASE_URL });
 
-const ROUTES = ['/auth', '/faq', '/parties', '/classes'];
+const ROUTES = ['/auth', '/for-organisers', '/parties', '/classes'];
 
 for (const route of ROUTES) {
   test(`no uncaught errors or console.error on ${route}`, async ({ page }) => {
