@@ -15,7 +15,7 @@ const T = V2.ticketSheet;
 export interface TicketForm { name: string; free: boolean; price: string; qty: number; birds: Bird[] }
 
 type Out = { ok: true; id: string | null; changed: boolean } | { ok: false; error: string; wrote?: boolean; createdId?: string };
-type Existing = Pick<TicketType, 'id' | 'name' | 'capacity' | 'occurrenceId' | 'salesOpenAt' | 'salesCloseAt'>;
+type Existing = Pick<TicketType, 'id' | 'name' | 'capacity' | 'occurrenceId' | 'salesOpenAt' | 'salesCloseAt' | 'pricePence'>;
 
 const sameAt = (a: string, b: string) => new Date(a).getTime() === new Date(b).getTime();
 const refusal = (r: WriteResult, steps = false) => (steps ? stepReasonMessage(r.reason) : reasonMessage(r.reason));
@@ -26,7 +26,7 @@ const refusal = (r: WriteResult, steps = false) => (steps ? stepReasonMessage(r.
  * Steps that went away are removed first; a step already live is never moved or removed (refused before any write).
  * An untouched ticket sends nothing.
  */
-export async function writeTicket(a: { organiserId: string; seriesId: string; type: Existing | null; basePence: number; steps: readonly PriceStep[]; form: TicketForm; force?: boolean }): Promise<Out> {
+export async function writeTicket(a: { organiserId: string; seriesId: string; type: Existing | null; basePence: number; steps: readonly PriceStep[]; form: TicketForm; sold?: number; force?: boolean }): Promise<Out> {
   const w = wantedOf(a.form.free, a.form.price, a.form.birds);
   if ('error' in w) return { ok: false, error: w.error };
   const name = a.form.name.trim() || 'Ticket';
@@ -43,8 +43,10 @@ export async function writeTicket(a: { organiserId: string; seriesId: string; ty
     .filter((m) => !m.was || !sameAt(m.was.effectiveFrom, m.s.at) || m.was.pricePence !== m.s.pence);
   const gone = cur.slice(keep);
   if (moves.some((m) => m.was?.isLive) || gone.some((g) => g.isLive)) return { ok: false, error: T.birdLive };
-  const baseSame = !a.force && !!a.type && a.basePence === w.basePence && a.type.name === name && a.type.capacity === a.form.qty;
-  if (!a.force && a.type && baseSame && !moves.length && !gone.length) return { ok: true, id: a.type.id, changed: false };
+  // a sold type refuses a base price change in the upsert: its new price goes in as a step that counts from now on
+  const soldPrice = !!a.type && (a.sold ?? 0) > 0 && w.basePence !== a.type.pricePence;
+  const baseSame = !a.force && !!a.type && (soldPrice || a.basePence === w.basePence) && a.type.name === name && a.type.capacity === a.form.qty;
+  if (!a.force && a.type && baseSame && !soldPrice && !moves.length && !gone.length) return { ok: true, id: a.type.id, changed: false };
   for (const g of [...gone].reverse()) {
     const r = await removePriceStep(g.id);
     if (!r.ok) return { ok: false, error: refusal(r, true), wrote };
@@ -53,7 +55,7 @@ export async function writeTicket(a: { organiserId: string; seriesId: string; ty
   let id = a.type?.id ?? null;
   if (!a.type || !baseSame) {
     const r = await upsertTicketType({
-      id, organiserId: a.organiserId, seriesId: a.seriesId, occurrenceId: a.type?.occurrenceId ?? null, name, pricePence: w.basePence, capacity: a.form.qty,
+      id, organiserId: a.organiserId, seriesId: a.seriesId, occurrenceId: a.type?.occurrenceId ?? null, name, pricePence: soldPrice && a.type ? a.type.pricePence : w.basePence, capacity: a.form.qty,
       salesOpenAt: a.type?.salesOpenAt ?? null, salesCloseAt: a.type?.salesCloseAt ?? null,
     });
     if (!r.ok) return { ok: false, error: refusal(r), wrote };
@@ -62,6 +64,11 @@ export async function writeTicket(a: { organiserId: string; seriesId: string; ty
   }
   if (!id) return { ok: false, error: T.notSaved, wrote };
   const createdId = a.type ? undefined : id;
+  if (soldPrice) {
+    const r = await setPriceStep({ p_ticket_type_id: id, p_step_id: null, p_effective_from: new Date(Date.now() + 60_000).toISOString(), p_price_pence: w.basePence });
+    if (!r.ok) return { ok: false, error: refusal(r, true), wrote, createdId };
+    wrote = true;
+  }
   for (const m of moves) {
     const r = await setPriceStep({ p_ticket_type_id: id, p_step_id: m.was?.id ?? null, p_effective_from: m.s.at, p_price_pence: m.s.pence });
     if (!r.ok) return { ok: false, error: refusal(r, true), wrote, createdId };
@@ -132,7 +139,7 @@ export function TicketSheetV2(p: TicketSheetProps) {
   const restore = async (back: TicketForm, type: Existing) => {
     const fresh = await fetchManagedTypes(p.seriesId);
     const row = fresh.types.find((m) => m.id === type.id);
-    const r = await writeTicket({ organiserId: p.organiserId, seriesId: p.seriesId, type, basePence: row?.basePricePence ?? 0, steps: row?.steps ?? [], form: back, force: true });
+    const r = await writeTicket({ organiserId: p.organiserId, seriesId: p.seriesId, type, basePence: row?.basePricePence ?? 0, steps: row?.steps ?? [], form: back, sold, force: true });
     if ('error' in r) throw new Error(r.error);
   };
 
@@ -148,7 +155,7 @@ export function TicketSheetV2(p: TicketSheetProps) {
     if (flags.ticketEarlyBird && f.free && p.managed?.earlyPricePence != null) { setErr(EARLY_OFF_FIRST); return; }
     const out: Out = savedId.current
       ? { ok: true, id: savedId.current, changed: false }
-      : await writeTicket({ organiserId: p.organiserId, seriesId: p.seriesId, type: p.type, basePence: p.basePence, steps: p.steps, form: f })
+      : await writeTicket({ organiserId: p.organiserId, seriesId: p.seriesId, type: p.type, basePence: p.basePence, steps: p.steps, form: f, sold })
         .catch((): Out => ({ ok: false, error: T.notSaved, wrote: true }));
     if ('error' in out) {
       // a write may have landed before the failure: put the old ticket back, best effort
@@ -198,6 +205,7 @@ export function TicketSheetV2(p: TicketSheetProps) {
           <>
             <label className="flab" htmlFor="t-price">{birds.length ? T.priceAfterBird : T.priceLabel}</label>
             <input id="t-price" data-testid="t-price" className="fld" type="number" min="0" step="0.5" inputMode="decimal" placeholder={T.pricePlaceholder} value={price} onChange={(e) => setPrice(e.target.value)} />
+            {flags.waysInV2 && sold > 0 ? <p className="hint" data-testid="t-price-from-now">{T.priceFromNow}</p> : null}
             {earlyShown ? (
               <>
                 <button type="button" className="swrow" data-testid="t-early" role="switch" aria-checked={early.on} disabled={busy} onClick={() => setEarly({ on: !early.on })}>
