@@ -87,7 +87,7 @@ export const VendorDashboard = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [vendor, setVendor] = useState<VendorRowWithCity | null>(null);
-  const [editingSection, setEditingSection] = useState<ModuleSlot["actionSection"] | null>(null);
+  const [editingSection, setEditingSection] = useState<Exclude<VendorDashboardSection, "advanced"> | null>(null);
     const [editingProfileFocus, setEditingProfileFocus] = useState<ProfileEditorFocus | null>(null);
   const [activeTab, setActiveTab] = useState<DashboardTab>("growth");
   const [sectionProgressOverride, setSectionProgressOverride] = useState<VendorDashboardProgressMap>({});
@@ -199,7 +199,7 @@ export const VendorDashboard = () => {
     if (Array.isArray(teamData)) return teamData.length;
     if (teamData && typeof teamData === "object") return Object.keys(teamData as Record<string, unknown>).length;
     return 0;
-  }, [vendor?.team]);
+  }, [vendor]);
 
   const vendorSectionProgress = useMemo<VendorDashboardProgressMap>(() => {
     const hasPromoCode = Boolean(vendor?.promo_code?.trim());
