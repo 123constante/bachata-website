@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+// @vitest-environment jsdom
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { withHttps, LinkSheet } from '../PaySheets';
 import { WaysInLinkSheet } from '../WaysIn';
 
@@ -16,6 +17,7 @@ describe('withHttps', () => {
 });
 
 describe('link sheets send a full link', () => {
+  afterEach(cleanup);
   it('WaysInLinkSheet adds https://', () => {
     const onDone = vi.fn();
     render(<WaysInLinkSheet link="" onDone={onDone} onRemove={() => {}} onClose={() => {}} />);

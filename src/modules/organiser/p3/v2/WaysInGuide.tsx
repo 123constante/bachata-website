@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { V2 } from './copy';
 import { penceOf } from '../../tickets/ticketModel';
 import { untilToInstant } from './EarlyBirds';
@@ -49,13 +49,28 @@ export const defaultUntil = (firstDate: string | null, today: string): string =>
   return d < today ? today : d;
 };
 
+const labelStyle = { display: 'block', fontSize: 15, fontWeight: 600, color: '#030303', margin: '18px 0 6px' } as const;
+const boxStyle = { display: 'flex', alignItems: 'center', gap: 6, minHeight: 56, padding: '0 14px', border: '1.5px solid #CFCFCF', borderRadius: 10, background: '#FFF', boxSizing: 'border-box' } as const;
+const inputStyle = { flex: 1, minWidth: 0, border: 0, outline: 'none', background: 'transparent', fontSize: 20, fontWeight: 700, color: '#030303', padding: '12px 0' } as const;
+const subStyle = { fontSize: 15, color: '#464646', margin: '4px 0 8px' } as const;
+const barBtn = { background: 'none', border: 0, padding: '10px 4px', minHeight: 44, fontSize: 16, fontWeight: 600, color: '#C2410C', cursor: 'pointer' } as const;
+
+function Field({ id, label, pound, children }: { id: string; label: string; pound?: boolean; children: ReactNode }) {
+  return (
+    <div>
+      <label style={labelStyle} htmlFor={id}>{label}</label>
+      <div style={boxStyle}>{pound ? <span aria-hidden="true" style={{ fontSize: 20, fontWeight: 700, color: '#464646' }}>&pound;</span> : null}{children}</div>
+    </div>
+  );
+}
+
 const rowStyle = { width: '100%', minHeight: 56, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', border: '1.5px solid #CFCFCF', borderRadius: 10, background: '#FFF' } as const;
 
 function Card({ id, label, sub, on, role = 'checkbox', onTap }: { id: string; label: string; sub?: string; on: boolean; role?: 'checkbox' | 'radio'; onTap: () => void }) {
   return (
     <button type="button" role={role} aria-checked={on} data-testid={id} style={{ ...rowStyle, borderColor: on ? '#C2410C' : '#CFCFCF' }} onClick={onTap}>
       <span aria-hidden="true" style={{ width: 22, height: 22, flex: 'none', borderRadius: 6, border: '2px solid #464646', background: on ? '#C2410C' : '#FFF', color: '#FFF', textAlign: 'center', lineHeight: '18px', fontSize: 15 }}>{on ? '✓' : ''}</span>
-      <span style={{ display: 'flex', flexDirection: 'column' }}><b>{label}</b>{sub ? <span className="s" style={{ fontSize: 14, color: '#464646' }}>{sub}</span> : null}</span>
+      <span style={{ display: 'flex', flexDirection: 'column', fontSize: 16 }}><b>{label}</b>{sub ? <span className="s" style={{ fontSize: 14, color: '#464646' }}>{sub}</span> : null}</span>
     </button>
   );
 }
@@ -118,65 +133,75 @@ export function WaysInGuideView(p: WaysInGuideProps) {
   const untilErr = a.early === true && (!a.until || (p.firstDate && a.until > p.firstDate)) ? G.untilBad : null;
   const q2Err = priceErr ?? qtyErr;
 
-  const back = (to: GuideStep) => <button type="button" className="lnk" data-testid="wg-back" onClick={() => { setTried(false); setStep(to); }}>&larr; {G.back}</button>;
+  const backTo: GuideStep | null = step === 'q2' ? 'q1' : step === 'q3' ? 'q2' : step === 'connect' ? 'q1' : null;
+  const showNextHint = step === 'q1' && a.online && p.stripe;
 
   return (
     <div className="ev2 ev2-page v2-page" data-testid="ways-in-guide">
-      <div data-testid="wg-dots" style={{ display: 'flex', gap: 6 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: 44 }}>
+        {backTo ? <button type="button" style={barBtn} data-testid="wg-back" onClick={() => { setTried(false); setStep(backTo); }}>&larr; {G.back}</button> : <span />}
+        <button type="button" style={barBtn} data-testid="wg-close" onClick={p.onClose}>{G.close}</button>
+      </div>
+      <div data-testid="wg-dots" style={{ display: 'flex', gap: 6, margin: '4px 0 14px' }}>
         {steps.map((s, i) => <span key={s} data-testid="wg-dot" data-on={i <= at} style={{ flex: 1, height: 6, borderRadius: 3, background: i <= at ? '#C2410C' : '#CFCFCF' }} />)}
       </div>
       {step === 'q1' ? (
         <>
           <h1 className="ttl" data-testid="wg-title">{G.q1Title}</h1>
-          <div className="sub" data-testid="wg-sub">{G.q1Sub}</div>
-          <Card id="wg-online" label={G.online} sub={G.onlineSub} on={a.online} onTap={toggleOnline} />
-          {p.festival ? null : <Card id="wg-door" label={G.door} on={a.methods.includes('door')} onTap={() => toggleMethod('door')} />}
-          <Card id="wg-link" label={G.link} on={a.methods.includes('ticket_link')} onTap={() => toggleMethod('ticket_link')} />
-          {p.festival ? null : <Card id="wg-free" label={G.free} on={free} onTap={() => toggleMethod('free')} />}
-          <button type="button" className="btn pri big" data-testid="wg-next" disabled={!picked} onClick={() => go('q1')}>{G.next}</button>
+          <div className="sub" data-testid="wg-sub" style={subStyle}>{G.q1Sub}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <Card id="wg-online" label={G.online} sub={G.onlineSub} on={a.online} onTap={toggleOnline} />
+            {p.festival ? null : <Card id="wg-door" label={G.door} on={a.methods.includes('door')} onTap={() => toggleMethod('door')} />}
+            <Card id="wg-link" label={G.link} on={a.methods.includes('ticket_link')} onTap={() => toggleMethod('ticket_link')} />
+            {p.festival ? null : <Card id="wg-free" label={G.free} on={free} onTap={() => toggleMethod('free')} />}
+          </div>
+          <button type="button" className="btn pri big" data-testid="wg-next" disabled={!picked} onClick={() => go('q1')} style={{ marginTop: 18 }}>{G.next}</button>
+          {showNextHint ? <p data-testid="wg-next-hint" style={{ ...subStyle, marginTop: 12 }}>{G.q1NextHint}</p> : null}
         </>
       ) : null}
       {step === 'q2' ? (
         <>
-          {back('q1')}
           <h1 className="ttl" data-testid="wg-title">{G.q2Title}</h1>
-          <div className="grp">
-            <label className="flab" htmlFor="wg-price">{G.price}</label>
-            <input id="wg-price" data-testid="wg-price" className="fld" type="text" inputMode="decimal" value={a.price} onChange={(e) => set({ price: e.target.value })} />
-            <label className="flab" htmlFor="wg-qty">{p.oneOff ? G.qtyOne : G.qtyNight}</label>
-            <input id="wg-qty" data-testid="wg-qty" className="fld" type="number" min="1" inputMode="numeric" value={a.qty} onChange={(e) => set({ qty: e.target.value })} />
-          </div>
+          <div className="sub" style={subStyle}>{G.q2Sub}</div>
+          <Field id="wg-price" label={G.price} pound>
+            <input id="wg-price" data-testid="wg-price" style={inputStyle} type="text" inputMode="decimal" placeholder="10" value={a.price} onChange={(e) => set({ price: e.target.value })} />
+          </Field>
+          <Field id="wg-qty" label={p.oneOff ? G.qtyOne : G.qtyNight}>
+            <input id="wg-qty" data-testid="wg-qty" style={inputStyle} type="number" min="1" inputMode="numeric" value={a.qty} onChange={(e) => set({ qty: e.target.value })} />
+          </Field>
           {tried && q2Err ? <p className="err" role="alert" data-testid="wg-err">{q2Err}</p> : null}
-          <button type="button" className="btn pri big" data-testid="wg-next" onClick={() => { if (q2Err) setTried(true); else go('q2'); }}>{G.next}</button>
+          <button type="button" className="btn pri big" data-testid="wg-next" style={{ marginTop: 18 }} onClick={() => { if (q2Err) setTried(true); else go('q2'); }}>{G.next}</button>
         </>
       ) : null}
       {step === 'q3' ? (
         <>
-          {back('q2')}
           <h1 className="ttl" data-testid="wg-title">{G.q3Title}</h1>
-          <Card id="wg-early-yes" role="radio" label={G.yes} on={a.early === true} onTap={() => set({ early: true })} />
-          <Card id="wg-early-no" role="radio" label={G.no} on={a.early === false} onTap={() => set({ early: false })} />
+          <div className="sub" style={subStyle}>{G.q3Sub}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <Card id="wg-early-yes" role="radio" label={G.yes} on={a.early === true} onTap={() => set({ early: true })} />
+            <Card id="wg-early-no" role="radio" label={G.no} on={a.early === false} onTap={() => set({ early: false })} />
+          </div>
           {a.early === true ? (
-            <div className="grp">
-              <label className="flab" htmlFor="wg-early-price">{G.earlyPrice}</label>
-              <input id="wg-early-price" data-testid="wg-early-price" className="fld" type="text" inputMode="decimal" value={a.earlyPrice} onChange={(e) => set({ earlyPrice: e.target.value })} />
-              <label className="flab" htmlFor="wg-until">{G.until}</label>
-              <input id="wg-until" data-testid="wg-until" className="fld" type="date" value={a.until} min={p.today} onChange={(e) => set({ until: e.target.value })} />
-            </div>
+            <>
+              <Field id="wg-early-price" label={G.earlyPrice} pound>
+                <input id="wg-early-price" data-testid="wg-early-price" style={inputStyle} type="text" inputMode="decimal" value={a.earlyPrice} onChange={(e) => set({ earlyPrice: e.target.value })} />
+              </Field>
+              <Field id="wg-until" label={G.until}>
+                <input id="wg-until" data-testid="wg-until" style={inputStyle} type="date" value={a.until} min={p.today} onChange={(e) => set({ until: e.target.value })} />
+              </Field>
+            </>
           ) : null}
           {tried && (earlyErr ?? untilErr) ? <p className="err" role="alert" data-testid="wg-err">{earlyErr ?? untilErr}</p> : null}
-          <button type="button" className="btn pri big" data-testid="wg-finish" disabled={a.early === null} onClick={() => { if (earlyErr || untilErr) setTried(true); else p.onDone(result(true)); }}>{G.done}</button>
+          <button type="button" className="btn pri big" data-testid="wg-finish" style={{ marginTop: 18 }} disabled={a.early === null} onClick={() => { if (earlyErr || untilErr) setTried(true); else p.onDone(result(true)); }}>{G.done}</button>
         </>
       ) : null}
       {step === 'connect' ? (
         <>
-          {back('q1')}
           <h1 className="ttl" data-testid="wg-title">{G.connectTitle}</h1>
-          <button type="button" className="btn pri big" data-testid="wg-connect" onClick={() => p.onConnect(result(false))}>{G.connect}</button>
-          <button type="button" className="btn sec" data-testid="wg-later" onClick={() => p.onDone(result(false))}>{G.later}</button>
+          <button type="button" className="btn pri big" data-testid="wg-connect" style={{ marginTop: 18 }} onClick={() => p.onConnect(result(false))}>{G.connect}</button>
+          <button type="button" className="btn sec" data-testid="wg-later" style={{ marginTop: 10 }} onClick={() => p.onDone(result(false))}>{G.later}</button>
         </>
       ) : null}
-      <button type="button" className="lnk" data-testid="wg-close" aria-label="Close" onClick={p.onClose}>&times;</button>
     </div>
   );
 }

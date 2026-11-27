@@ -59,7 +59,7 @@ describe('WaysInGuide', () => {
     next();
     expect(dotsOn()).toBe(2);
     expect(t('wg-title').textContent).toBe('What does a ticket cost?');
-    expect(screen.getByText('How many a night')).toBeTruthy();
+    expect(screen.getByText('Tickets for sale each night')).toBeTruthy();
     fill('wg-price', '8'); fill('wg-qty', '40');
     next();
     expect(t('wg-title').textContent).toBe('Cheaper tickets for early buyers?');
@@ -73,7 +73,7 @@ describe('WaysInGuide', () => {
   it('No early price: onDone has ticket only', () => {
     const f = mk({ oneOff: true });
     fireEvent.click(t('wg-online')); next();
-    expect(screen.getByText('How many tickets')).toBeTruthy();
+    expect(screen.getByText('Tickets for sale')).toBeTruthy();
     fill('wg-price', '8.50'); next();
     fireEvent.click(t('wg-early-no'));
     fireEvent.click(t('wg-finish'));
@@ -128,6 +128,32 @@ describe('WaysInGuide', () => {
     expect(t('wg-door').getAttribute('aria-checked')).toBe('true');
     fireEvent.click(t('wg-close'));
     expect(f.onClose).toHaveBeenCalled();
+  });
+  it('keep-list: plain labels, top bar, next hint (prototype B)', () => {
+    mk();
+    expect(t('wg-close').textContent).toBe('Close');
+    expect(screen.queryByTestId('wg-back')).toBeNull();
+    expect(screen.queryByTestId('wg-next-hint')).toBeNull();
+    fireEvent.click(t('wg-online'));
+    expect(t('wg-next-hint').textContent).toBe('Next: the ticket price, then an early price if you want one.');
+    next();
+    expect(t('wg-back').textContent).toContain('Back');
+    expect(screen.getByText('You can change both any time.')).toBeTruthy();
+    expect(screen.getByText('Ticket price')).toBeTruthy();
+    expect(screen.getByText('Tickets for sale each night')).toBeTruthy();
+    expect(screen.queryByText('How many a night')).toBeNull();
+    expect(screen.queryByText('\u00d7')).toBeNull();
+    fill('wg-price', '8'); next();
+    expect(screen.getByText('Sell the first tickets for less, until a date you pick.')).toBeTruthy();
+    expect(t('wg-early-yes').textContent).toBe('Yes, an early price');
+    expect(t('wg-early-no').textContent).toBe('No, one price for everyone');
+    fireEvent.click(t('wg-early-yes'));
+    expect(screen.getByText('Early price ends on')).toBeTruthy();
+  });
+  it('no next hint without Stripe (connect screen comes next)', () => {
+    mk({ stripe: false });
+    fireEvent.click(t('wg-online'));
+    expect(screen.queryByTestId('wg-next-hint')).toBeNull();
   });
   it('guideStep and defaultUntil', () => {
     expect(guideStep({ online: true }, false, true)).toBe('q1');
