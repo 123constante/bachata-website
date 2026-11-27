@@ -2,6 +2,7 @@
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import GlobalLayout from "@/components/layout/GlobalLayout";
+import { PeopleChips } from "@/modules/people-directory/PeopleChips";
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { optimizedImageUrl } from '@/lib/imageCdn';
 import { Camera, Play, Film, Youtube, Instagram, Star, Video, ArrowRight } from "lucide-react";
@@ -64,6 +65,7 @@ const Videographers = () => {
         floatingIcons: [Camera, Video, Film, Play, Star, Youtube],
       }}
     >
+      <PeopleChips />
       <div className="max-w-7xl mx-auto px-4 py-8">
         
         {/* Category Tabs */}

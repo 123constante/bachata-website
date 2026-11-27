@@ -8,6 +8,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import GlobalLayout from '@/components/layout/GlobalLayout';
+import { PeopleChips } from '@/modules/people-directory/PeopleChips';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { ScrollReveal, StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
 import { Card } from '@/components/ui/card';
@@ -234,6 +235,7 @@ const Teachers = () => {
         floatingIcons: [GraduationCap, Star, Heart, Music, Sparkles],
       }}
     >
+      <PeopleChips />
       <section className="mx-auto max-w-3xl px-4 pt-3">
         <p className="text-sm sm:text-base leading-relaxed text-muted-foreground">
           {copy?.subtitle ?? 'Bachata teachers - find an instructor, browse their classes, learn their style.'}{' '}
