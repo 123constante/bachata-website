@@ -35,7 +35,7 @@ export const V2 = {
   showMore: 'Show more dates',
   noUpcoming: 'No upcoming dates. Change repeat to add some.',
   guestList: 'Guest list',
-  noDoor: { label: 'No door this night', on: (d: string) => `Dancers won’t see “Pay at the door” on ${d}.`, failed: 'Could not save. Try again.' },
+  noDoor: { label: 'No door this night', on: (d: string) => `Dancers won\u2019t see \u201CPay at the door\u201D on ${d}.`, failed: 'Could not save. Try again.' },
   pauseOrEnd: 'Pause or end event',
   cancelEvent: 'Cancel the event',
   bringBackEvent: 'Event cancelled: bring it back',
