@@ -460,9 +460,9 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
     return (
       <GlobalLayout
         breadcrumbs={buildBreadcrumbs('event.detail', {
-          entityName: state === 'ready' ? pageModel.identity.title : undefined,
-          eventType: state === 'ready' ? pageModel.identity.eventType : undefined,
-          isLoading: state !== 'ready',
+          entityName: undefined,
+          eventType: undefined,
+          isLoading: true,
         })}
         // No emoji and no title text on error states -- the page chrome
         // (breadcrumb + gradient) frames the page; the ErrorScreen below
@@ -859,7 +859,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
                 floorType: pageModel.location.floorType,
                 musicStyles: pageModel.identity.musicStyles,
                 parking: pageModel.location.parking,
-                timeZone: pageModel.dates?.timezone ?? pageModel.location.venueTimezone ?? 'Europe/London',
+                timeZone: pageModel.location.venueTimezone ?? 'Europe/London',
               }}
               onClose={closeTickets}
               programHooks={PROGRAM_HOOKS}
