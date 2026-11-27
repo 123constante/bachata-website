@@ -1,0 +1,59 @@
+name: SEO re-check (25 Dec 2026)
+
+# One-shot: re-measure Google position for "bachata classes london" four weeks
+# after option C shipped (#2484, #2488, 2026-11-27) and open an issue assigned
+# to the owner with the result. Read-only GSC pull, no artifact. The cron fires
+# every 25 Dec; the year guard makes it do nothing after 2026. Delete this file
+# once the issue is handled.
+on:
+  schedule:
+    - cron: '0 8 25 12 *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  recheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Year guard
+        id: guard
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$(date -u +%Y)" != "2026" ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"; echo "Not 2026: nothing to do."
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.guard.outputs.run == 'true'
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        if: steps.guard.outputs.run == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Pull GSC and write report
+        if: steps.guard.outputs.run == 'true'
+        env:
+          GSC_SERVICE_ACCOUNT_KEY: ${{ secrets.GSC_SERVICE_ACCOUNT_KEY }}
+        run: node scripts/seo-recheck.mjs seo-recheck.md
+
+      - name: Open issue for the owner
+        if: steps.guard.outputs.run == 'true'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = fs.readFileSync('seo-recheck.md', 'utf8') + `\n\nRun: ${run}`;
+            await github.rest.issues.create({
+              owner: context.repo.owner, repo: context.repo.repo,
+              title: 'SEO re-check: "bachata classes London" after option C',
+              body, assignees: ['123constante'],
+            });
