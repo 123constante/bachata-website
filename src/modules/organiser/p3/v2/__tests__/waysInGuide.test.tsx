@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { WaysInGuideView, defaultUntil, guideStep, type WaysInGuideProps } from '../WaysInGuide';
+import { WaysInGuideView, defaultUntil, guideStep, guideInitialFrom, type WaysInGuideProps } from '../WaysInGuide';
 
 afterEach(cleanup);
 const mk = (o: Partial<WaysInGuideProps> = {}) => {
@@ -165,5 +165,18 @@ describe('WaysInGuide', () => {
     expect(guideStep({ online: true }, false, false, 'q1')).toBe('connect');
     expect(guideStep({ online: false }, false, true, 'q1')).toBeNull();
     expect(defaultUntil('2026-12-03', '2026-12-01')).toBe('2026-12-01');
+  });
+});
+
+describe('guideInitialFrom', () => {
+  it.each([
+    [['free'], false, true, false, ['free']],
+    [['free'], false, false, false, ['free']],
+    [['free'], true, false, true, []],
+    [['free', 'door'], false, false, false, ['door']],
+    [['door', 'ticket_link'], false, true, true, ['door', 'ticket_link']],
+    [[], false, false, false, []],
+  ] as const)('%j tickets=%s connected=%s', (stored, tickets, conn, online, methods) => {
+    expect(guideInitialFrom([...stored], tickets, conn)).toEqual({ online, methods });
   });
 });
