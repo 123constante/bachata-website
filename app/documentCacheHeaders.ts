@@ -78,6 +78,8 @@ export function finalizeDocumentCacheHeaders(
     }
   }
   if (skew.enabled && skew.deploymentId && !isEdgeCacheable(headers)) {
-    headers.append("Set-Cookie", `__vdpl=${skew.deploymentId}; HttpOnly`);
+    // Same name/Path as app/skewCookie.ts's head script and NOT HttpOnly, so a
+    // later document (edge-cached, no Set-Cookie) can overwrite it from JS.
+    headers.append("Set-Cookie", `__vdpl=${skew.deploymentId}; Path=/; SameSite=Lax; Secure`);
   }
 }

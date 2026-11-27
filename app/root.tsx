@@ -29,6 +29,7 @@ import { shouldReloadOnRouteError, sessionStorageOrNull } from "./lib/routeError
 
 import { NavigationSplash } from "./NavigationSplash";
 import { useNonce } from "./nonce";
+import { useSkewCookieScript } from "./skewCookie";
 import { STYLESHEET_RELOAD_SCRIPT } from "./lib/skewAssetUrl";
 import "@/index.css";
 import "@fontsource-variable/inter";
@@ -72,11 +73,18 @@ export const meta: MetaFunction = () => [
 export function Layout({ children }: { children: React.ReactNode }) {
   // Per-request CSP nonce (server); undefined on the client (see app/nonce.ts).
   const nonce = useNonce();
+  const skewScript = useSkewCookieScript();
   return (
     <html lang="en">
       <head>
         <meta charSet="UTF-8" />
-        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: STYLESHEET_RELOAD_SCRIPT }} />
+        {/* Skew cookie first (see app/skewCookie.ts), then the stylesheet
+            reload listener. Client hydration keeps the SSR text. */}
+        <script
+          nonce={nonce}
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: skewScript + STYLESHEET_RELOAD_SCRIPT }}
+        />
         {/* interactive-widget: on Android the keyboard shrinks the page, so fixed
             bottoms and dvh sit above it; src/lib/keyboard/keyboardSafe.ts covers
             the browsers that overlay it instead (iOS Safari, in-app tabs). */}
