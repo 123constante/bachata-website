@@ -154,6 +154,26 @@ const waitForDeploySwap = async ({ tries = 12, delayMs = 10000 } = {}) => {
   console.error('SMOKE_WAIT: gave up after 2 min, running scenarios anyway');
 };
 
+// Pure: which blank-page guards are missing from a production document?
+// Every prod HTML must carry the skew cookie script (app/skewCookie.ts: pins
+// asset fetches to this deploy) and the boot watchdog (app/bootWatchdog.ts:
+// reloads a page that never booted). A deploy that drops either brings the
+// blank-page class back silently, so the smoke reds on it. allowNoWatchdog:
+// the watchdog's kill switch (Vercel env BOOT_WATCHDOG=off) was flipped on
+// purpose; set repo variable BOOT_WATCHDOG=off too and this check skips it.
+export const missingBootMarkers = (html, { allowNoWatchdog = false } = {}) => {
+  const missing = [];
+  if (!/document\.cookie="__vdpl=dpl_/.test(html)) missing.push('skew cookie script (__vdpl)');
+  if (!allowNoWatchdog && !/window\.__bcBoot=function/.test(html)) missing.push('boot watchdog (__bcBoot)');
+  return missing;
+};
+
+// Pure: is an extra path's document status "not a page"? 404/410 means the
+// caller passed a path that has no route (e.g. /events): refuse it with a
+// warning instead of a red run that says nothing about the merge. Any other
+// 4xx/5xx still goes through the scenario and reds.
+export const isNotAPage = (status) => status === 404 || status === 410;
+
 const selfTest = () => {
   const assetOnly = () => ({
     ok: false, notes: ['Console errors: 1', 'Failing resources: 404 https://x.co.uk/assets/entry.client-a.js'],
@@ -170,6 +190,15 @@ const selfTest = () => {
     ['non-asset 404', shouldRetryAssetOnly([{ ...assetOnly(), failedResources: ['404 https://x.co.uk/api/y'] }]), false],
     ['runtime exception', shouldRetryAssetOnly([{ ...assetOnly(), notes: ['Runtime exception: x'] }]), false],
     ['no failures', shouldRetryAssetOnly([{ ...assetOnly(), ok: true }]), false],
+    ['both markers present', missingBootMarkers('<script>document.cookie="__vdpl=dpl_x; Path=/";(function(){window.__bcBoot=function(){}})()</script>').length, 0],
+    ['skew cookie missing', missingBootMarkers('<script>window.__bcBoot=function(){}</script>').join(), 'skew cookie script (__vdpl)'],
+    ['watchdog missing', missingBootMarkers('<script>document.cookie="__vdpl=dpl_x"</script>').join(), 'boot watchdog (__bcBoot)'],
+    ['watchdog off on purpose', missingBootMarkers('<script>document.cookie="__vdpl=dpl_x"</script>', { allowNoWatchdog: true }).length, 0],
+    ['empty html', missingBootMarkers('').length, 2],
+    ['404 not a page', isNotAPage(404), true],
+    ['410 not a page', isNotAPage(410), true],
+    ['500 is a page (reds)', isNotAPage(500), false],
+    ['200 is a page', isNotAPage(200), false],
   ];
   let bad = 0;
   for (const [name, got, want] of cases) {
@@ -237,7 +266,15 @@ const run = async () => {
   let selectedVenuePath = null;
 
   await runScenario('0) Homepage map paints markers', async () => {
-    await page.goto(`${baseUrl}/`, { waitUntil: 'networkidle' });
+    const homeResponse = await page.goto(`${baseUrl}/`, { waitUntil: 'networkidle' });
+    if (isProductionUrl(baseUrl)) {
+      const html = homeResponse ? await homeResponse.text().catch(() => '') : '';
+      const missing = missingBootMarkers(html, { allowNoWatchdog: process.env.SMOKE_ALLOW_NO_WATCHDOG === '1' });
+      if (missing.length > 0) {
+        current.ok = false;
+        current.notes.push(`Blank-page guard missing from prod HTML: ${missing.join(', ')}`);
+      }
+    }
     // map is lazy-loaded; give the container + RPC-driven pins time to paint
     const mounted = await page.locator('.home-map').first()
       .waitFor({ state: 'attached', timeout: 20000 }).then(() => true).catch(() => false);
@@ -419,7 +456,21 @@ const run = async () => {
     console.error('SMOKE_FAILED: forbid_text needs extra_paths (no page to read the words on)');
     process.exit(1);
   }
+  const refusedPaths = [];
   for (const extra of extraPaths) {
+    let probe = null;
+    try {
+      const probeUrl = new URL(extra, baseUrl);
+      if (probeUrl.hostname === 'localhost' || /(^|\.)bachatacalendar\.co\.uk$/.test(probeUrl.hostname)) {
+        const headers = isProductionUrl(probeUrl.href) ? ciBypassHeaders() : {};
+        probe = (await fetch(probeUrl.href, { redirect: 'follow', headers })).status;
+      }
+    } catch { probe = null; }
+    if (probe !== null && isNotAPage(probe)) {
+      refusedPaths.push(extra);
+      console.error(`::warning::SMOKE_REFUSED: ${extra} is not a page (${probe}); not checked. Pass a real route.`);
+      continue;
+    }
     await runScenario(`Extra page ${extra}`, async () => {
       const url = new URL(extra, baseUrl);
       const local = url.hostname === 'localhost';
@@ -444,6 +495,7 @@ const run = async () => {
   const report = {
     baseUrl,
     generatedAt: new Date().toISOString(),
+    refusedPaths,
     results: results.map((r) => ({
       name: r.name,
       ok: r.ok,
