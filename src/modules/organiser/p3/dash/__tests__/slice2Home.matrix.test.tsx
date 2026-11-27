@@ -150,8 +150,8 @@ describe('slice 2: reads', () => {
   const rn = (date: string, more: Record<string, unknown> = {}) => ({ occurrenceId: `o-${date}`, date, startLocal: null, chip: 'past', raffleOn: false, entries: 0, locked: false, winner: null, canSet: false, refuseReason: null, ...more }) as never;
   it('past nights: before today, most recent first, capped, across series; refused reads skipped', () => {
     const got = pastOf([
-      { seriesId: 's1', name: 'A', read: { kind: 'ok', read: { seriesId: 's1', canEdit: true, viewOnlyReason: null, seriesEnabled: true, adminLocked: false, nights: [rn('2026-11-01'), rn('2026-11-10'), rn('2026-11-17'), rn('2026-11-24')] } } },
-      { seriesId: 's2', name: 'B', read: { kind: 'ok', read: { seriesId: 's2', canEdit: false, viewOnlyReason: 'ask an owner', seriesEnabled: true, adminLocked: false, nights: [rn('2026-11-15')] } } },
+      { seriesId: 's1', name: 'A', read: { kind: 'ok', read: { seriesId: 's1', canEdit: true, viewOnlyReason: null, seriesEnabled: true, adminLocked: false, audience: 'new_only', audienceAdminSet: false, nights: [rn('2026-11-01'), rn('2026-11-10'), rn('2026-11-17'), rn('2026-11-24')] } } },
+      { seriesId: 's2', name: 'B', read: { kind: 'ok', read: { seriesId: 's2', canEdit: false, viewOnlyReason: 'ask an owner', seriesEnabled: true, adminLocked: false, audience: 'new_only', audienceAdminSet: false, nights: [rn('2026-11-15')] } } },
       { seriesId: 's3', name: 'C', read: { kind: 'refused' } },
     ], TODAY, 2);
     expect(got.map((g) => `${g.seriesId}:${g.night.date}`)).toEqual(['s1:2026-11-10', 's2:2026-11-15'].reverse());
