@@ -6,6 +6,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import type { MyDancerEdit } from '../../../api/types';
 import type { HomeGoing, HeroNight } from '../homeParts';
@@ -157,7 +158,11 @@ const ROWS: Row[] = [
   },
 ];
 
-const mount = () => render(<MemoryRouter initialEntries={['/app/home']}><HomeScreen /></MemoryRouter>);
+const mount = () => render(
+  <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <MemoryRouter initialEntries={['/app/home']}><HomeScreen /></MemoryRouter>
+  </QueryClientProvider>,
+);
 
 describe('layout C Home: DOM order per state', () => {
   for (const row of ROWS) {
