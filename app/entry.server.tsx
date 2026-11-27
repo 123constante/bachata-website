@@ -7,6 +7,7 @@ import { renderToPipeableStream, type RenderToPipeableStreamOptions } from "reac
 import { ServerRouter, type EntryContext } from "react-router";
 import { NonceProvider } from "./nonce";
 import { SkewCookieProvider, skewCookieScript } from "./skewCookie";
+import { bootWatchdogScript } from "./bootWatchdog";
 import { contentSecurityPolicy } from "./csp";
 import { finalizeDocumentCacheHeaders } from "./documentCacheHeaders";
 import { isSsrLoaderTimeoutError } from "./lib/ssrLoaderTimeout";
@@ -52,6 +53,8 @@ const headSkewCookieScript = skewCookieScript({
   deploymentId: vercelDeploymentId,
   killSwitch: process.env.HEAD_SKEW_COOKIE,
 });
+// Boot watchdog rides in the same first head script (see app/bootWatchdog.ts).
+const headBootScript = headSkewCookieScript + bootWatchdogScript({ killSwitch: process.env.BOOT_WATCHDOG });
 const RELEASE_ID =
   process.env.VITE_VERCEL_GIT_COMMIT_SHA?.trim() ||
   process.env.VERCEL_GIT_COMMIT_SHA?.trim() ||
@@ -157,7 +160,7 @@ export default async function handleRequest(
         { value: nonce },
         createElement(
           SkewCookieProvider,
-          { value: headSkewCookieScript },
+          { value: headBootScript },
           createElement(ServerRouter, { context: routerContext, url: request.url, nonce }),
         ),
       ),

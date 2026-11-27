@@ -74,6 +74,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
   // Per-request CSP nonce (server); undefined on the client (see app/nonce.ts).
   const nonce = useNonce();
   const skewScript = useSkewCookieScript();
+  // Boot watchdog (app/bootWatchdog.ts, rides in skewScript): hydration
+  // reached, so cancel its reload and clear its once-per-tab key.
+  useEffect(() => {
+    window.__bcBoot?.();
+  }, []);
   return (
     <html lang="en">
       <head>
