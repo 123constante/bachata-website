@@ -3,7 +3,7 @@ import { availability, type PublicTicketType } from './ticketCheckoutModel';
 /** Quiet bottom bar for a night nobody can buy for (mockups-7 section 1). Pure. */
 export interface QuietBar { title: string; sub: string; button: string }
 
-export function quietBar(list: readonly PublicTicketType[], now: Date): QuietBar | null {
+export function quietBar(list: readonly PublicTicketType[], now: Date, opts?: { door?: boolean }): QuietBar | null {
   const kinds = list.map((t) => availability(t, now).kind);
   if (kinds.includes('buyable')) return null;
   if (kinds.length === 0) {
@@ -17,6 +17,8 @@ export function quietBar(list: readonly PublicTicketType[], now: Date): QuietBar
     return { title: 'Tickets not on sale yet', sub: 'Check the ticket rows for the opening time.', button: 'Not yet' };
   }
   if (kinds.every((k) => k === 'sold_out')) {
+    // Pay at the door is ticked: sold out ONLINE only (flag waysInV2 decides at the call site).
+    if (opts?.door) return { title: 'Sold out online', sub: 'Pay at the door.', button: 'Sold out online' };
     return { title: 'Sold out', sub: 'Every ticket for this night has gone.', button: 'Sold out' };
   }
   return { title: 'Sales closed', sub: 'Ticket sales for this night have ended.', button: 'Closed' };

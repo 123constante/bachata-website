@@ -62,6 +62,7 @@ import type { LiveOffer } from '@/modules/tickets/ticketCheckoutApi';
 import { ENDED_DOOR_LABEL } from '@/lib/seo/eventPageSeoPolicy';
 import { serialiseJsonLd } from '@/lib/serialiseJsonLd';
 import { flags } from '@/lib/featureFlags';
+import { parsePayment } from '@/lib/paymentMethods';
 import { FinishedNightCard, CancelledNightBar } from '@/modules/event-page/bento/NightNotes';
 import { nextPublicNight } from '@/modules/event-page/bento/nextPublicNight';
 import { formatKeyDayLabel, londonTodayKey } from '@/lib/londonDate';
@@ -843,6 +844,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
               occurrenceId={occurrenceId ?? snapshot?.occurrenceId ?? null}
               organiserId={snapshot?.organisers[0]?.id ?? null}
               nights={snapshot?.occurrences ?? []}
+              doorToo={parsePayment(pageModel.eventInfo.paymentMethods).includes('door')}
               title={pageModel.identity.title}
               dateLine={ticketsDateLine}
               venueLine={[pageModel.location.venueName, pageModel.location.address].filter(Boolean).join(', ') || null}
@@ -946,6 +948,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
         inSiteTicketing={flags.publicTicketing && !over && !occurrence?.isCancelled && !pageModel.page.isPaused}
         onOpenTickets={() => setTicketsOpen(true)}
         onTicketingLive={onTicketingLive}
+        doorToo={parsePayment(pageModel.eventInfo.paymentMethods).includes('door')}
         shareTitle={pageModel.identity.title}
         shareSubtitle={
           [pageModel.schedule.dateLabel, pageModel.location.venueName]

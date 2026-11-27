@@ -20,6 +20,22 @@ describe('quiet bar x shape', () => {
   it.each(cases)('%s', (_n, list, button) => {
     expect(quietBar(list, NOW)?.button ?? null).toBe(button);
   });
+  it('door ticked + all sold out -> sold out online, pay at the door', () => {
+    const list = [mk({ remaining: 0 }), mk({ id: 'b', status: 'sold_out' })];
+    expect(quietBar(list, NOW, { door: true })).toEqual({ title: 'Sold out online', sub: 'Pay at the door.', button: 'Sold out online' });
+  });
+  it('all sold out, door off or absent -> plain Sold out', () => {
+    const list = [mk({ remaining: 0 })];
+    expect(quietBar(list, NOW, { door: false })?.button).toBe('Sold out');
+    expect(quietBar(list, NOW)?.button).toBe('Sold out');
+  });
+  it('door ticked leaves every other shape unchanged', () => {
+    expect(quietBar([mk()], NOW, { door: true })).toBeNull();
+    expect(quietBar([mk({ remaining: 0 }), mk({ id: 'b' })], NOW, { door: true })).toBeNull();
+    expect(quietBar([], NOW, { door: true })?.button).toBe('Unavailable');
+    expect(quietBar([mk({ salesOpenAt: '2026-11-12T12:00:00Z' })], NOW, { door: true })?.button).toBe('Not yet');
+    expect(quietBar([mk({ salesCloseAt: '2026-11-09T12:00:00Z' })], NOW, { door: true })?.button).toBe('Closed');
+  });
   it('summary', () => {
     expect(barSummary(2, 'Early bird', false)).toBe('2 × Early bird');
     expect(barSummary(1, 'Free entry', true)).toBe('1 ticket');
