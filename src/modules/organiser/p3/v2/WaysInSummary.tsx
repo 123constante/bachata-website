@@ -81,7 +81,7 @@ export function WaysInSummaryView(p: WaysInSummaryViewProps) {
   const ready = p.stripeReady !== false;
   const several = p.tickets.length > 1;
   return (
-    <div className="ev2 ev2-page v2-page" data-testid="ways-in-summary">
+    <div className="ev2 ev2-page v2-page wi-page" data-testid="ways-in-summary">
       <Link to={p.backTo} className="back" data-testid="ws-back">&larr; {p.name}</Link>
       <h1 className="ttl" data-testid="ws-title">Tickets</h1>
       <div className="sub" data-testid="ws-sub">What dancers see.</div>
@@ -126,7 +126,7 @@ export function WaysInSummaryView(p: WaysInSummaryViewProps) {
       {!p.festival && p.free ? <Line id="free" text={S.free} action={S.change} label="free entry" disabled={p.busy} onTap={() => on.free?.()} /> : null}
 
       {!p.festival && p.door && !p.tickets.length && !p.stripe && ready ? (
-        <button type="button" className="lnk" data-testid="ws-stripe-nudge" disabled={p.stripeBusy} style={{ textAlign: 'left', fontSize: 14 }} onClick={() => on.stripe?.()}>{W.stripeNudge}</button>
+        <button type="button" className="lnk" data-testid="ws-stripe-nudge" disabled={p.stripeBusy} style={{ textAlign: 'left', fontSize: 15, minHeight: 44, padding: 0, background: 'none', border: 0, color: '#C2410C', fontWeight: 600, textDecoration: 'underline', alignSelf: 'flex-start' }} onClick={() => on.stripe?.()}>{W.stripeNudge}</button>
       ) : null}
 
       {!p.festival && !p.oneOff && p.door ? <Line id="skip-door" text={S.skipDoor} action={S.choose} label="the night to skip the door" onTap={() => on.skipDoor?.()} /> : null}

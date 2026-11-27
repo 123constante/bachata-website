@@ -15,6 +15,10 @@ const fill = (id: string, v: string) => fireEvent.change(t(id), { target: { valu
 const dotsOn = () => screen.getAllByTestId('wg-dot').filter((d) => d.getAttribute('data-on') === 'true').length;
 
 describe('WaysInGuide', () => {
+  it('root carries wi-page', () => {
+    mk();
+    expect(t('ways-in-guide').className).toContain('wi-page');
+  });
   it('renders Q1 copy, cards and dots', () => {
     mk();
     expect(t('wg-title').textContent).toBe('How do dancers pay?');
