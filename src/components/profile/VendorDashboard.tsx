@@ -18,12 +18,17 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import VendorDashboardPage from "@/pages/VendorDashboardPage";
+import { flags } from "@/lib/featureFlags";
 import { useToast } from "@/hooks/use-toast";
 
 type DashboardTab = "growth" | "catalog" | "presence" | "operations";
 type ProfileEditorFocus = "name" | "location";
 
 type TileStatus = "live" | "attention";
+
+// Phase 5.5 retired the "events" and "team" editor sections. The two tiles that
+// opened them only survive behind the rollback of flags.vendorEventsTeamTilesRemoved.
+type LegacyTileSection = "events" | "team";
 
 type ModuleSlot = {
   tab: DashboardTab;
@@ -33,7 +38,7 @@ type ModuleSlot = {
   rowSpan?: "1" | "2";
   status: TileStatus;
   actionLabel: string;
-  actionSection?: Exclude<VendorDashboardSection, "advanced">;
+  actionSection?: Exclude<VendorDashboardSection, "advanced"> | LegacyTileSection;
   profileFocus?: ProfileEditorFocus;
 };
 
@@ -187,8 +192,10 @@ export const VendorDashboard = () => {
   const vendorCityName = vendor?.cities?.name || null;
   const hasShipping = Boolean(vendor?.ships_international);
   const shippingStatus = vendor?.ships_international ? "International" : "Local only";
+  // vendors.team was dropped in Phase 5.5 (useUserIds no longer selects it), so this
+  // is always 0 in practice; kept only for the flag-off Team tile.
   const teamCount = useMemo(() => {
-    const teamData = vendor?.team;
+    const teamData = (vendor as { team?: unknown } | null | undefined)?.team;
     if (Array.isArray(teamData)) return teamData.length;
     if (teamData && typeof teamData === "object") return Object.keys(teamData as Record<string, unknown>).length;
     return 0;
@@ -267,7 +274,7 @@ export const VendorDashboard = () => {
       { key: "media", done: hasLogo },
       { key: "products", done: productsCount > 0 },
       { key: "promo", done: Boolean(promoDetails) },
-      { key: "events", done: linkedEventsCount > 0 },
+      ...(flags.vendorEventsTeamTilesRemoved ? [] : [{ key: "events", done: linkedEventsCount > 0 }]),
     ],
     [hasBusinessProfile, hasLocation, hasLogo, productsCount, promoDetails, linkedEventsCount]
   );
@@ -310,7 +317,7 @@ export const VendorDashboard = () => {
       };
     }
 
-    if (linkedEventsCount === 0) {
+    if (!flags.vendorEventsTeamTilesRemoved && linkedEventsCount === 0) {
       return {
         section: "events" as Exclude<VendorDashboardSection, "advanced">,
         cta: "Boost visibility",
@@ -331,6 +338,7 @@ export const VendorDashboard = () => {
     const isEventReady = linkedEventsCount > 0;
     const isLocationReady = hasLocation;
     const isTeamReady = teamCount > 0;
+    const showLegacyTiles = !flags.vendorEventsTeamTilesRemoved;
 
     return [
       {
@@ -365,7 +373,7 @@ export const VendorDashboard = () => {
         actionLabel: "Edit offer",
         actionSection: "promo",
       },
-      {
+      ...(showLegacyTiles ? [{
         tab: "growth",
         title: "Linked Events",
         description: isEventReady
@@ -376,7 +384,7 @@ export const VendorDashboard = () => {
         status: isEventReady ? "live" : "attention",
         actionLabel: "Manage events",
         actionSection: "events",
-      },
+      }] as ModuleSlot[] : []),
       {
         tab: "presence",
         title: "Business Location",
@@ -398,7 +406,7 @@ export const VendorDashboard = () => {
         actionLabel: "Edit FAQ",
         actionSection: "faq",
       },
-      {
+      ...(showLegacyTiles ? [{
         tab: "operations",
         title: "Team",
         description: isTeamReady
@@ -409,7 +417,7 @@ export const VendorDashboard = () => {
         status: isTeamReady ? "live" : "attention",
         actionLabel: "Manage team",
         actionSection: "team",
-      },
+      }] as ModuleSlot[] : []),
       {
         tab: "presence",
         title: "Business Name",
@@ -504,7 +512,7 @@ export const VendorDashboard = () => {
     if (modules.length === 0) return null;
 
     return modules.map((module) => {
-      const completion = module.actionSection ? sectionProgress[module.actionSection] : null;
+      const completion = module.actionSection ? sectionProgress[module.actionSection as VendorDashboardSection] : null;
       const isRecentlyUpdated = Boolean(module.actionSection && highlightedSection === module.actionSection);
 
       return (
@@ -526,7 +534,7 @@ export const VendorDashboard = () => {
             size="sm"
             className="h-6 text-[10px] border-festival-teal/35 bg-background/55 hover:bg-festival-teal/15 focus-visible:ring-2 focus-visible:ring-festival-teal/60 transition-colors"
             variant="outline"
-            onClick={() => (module.actionSection ? openEditor(module.actionSection, module.profileFocus) : openEditor())}
+            onClick={() => (module.actionSection ? openEditor(module.actionSection as Exclude<VendorDashboardSection, "advanced">, module.profileFocus) : openEditor())}
           >
             <span className="sm:hidden">Open</span>
             <span className="hidden sm:inline">{module.actionLabel}</span>
@@ -552,7 +560,9 @@ export const VendorDashboard = () => {
   const tabPurpose: Record<DashboardTab, { title: string; description: string }> = {
     growth: {
       title: "Growth",
-      description: "Use promos and events to get more profile views.",
+      description: flags.vendorEventsTeamTilesRemoved
+        ? "Use promos to get more profile views."
+        : "Use promos and events to get more profile views.",
     },
     catalog: {
       title: "Catalog",

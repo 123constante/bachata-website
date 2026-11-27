@@ -245,6 +245,10 @@ export const flags = {
   // counts were never stored (owner click 2026-11-27: remove). DEFAULT ON; roll back
   // with VITE_FESTIVAL_CREW_PILLS_REMOVED=false (Vercel env) -- no code change.
   festivalCrewPillsRemoved: import.meta.env.VITE_FESTIVAL_CREW_PILLS_REMOVED !== 'false',
+  // Vendor dashboard: the Linked Events and Team tiles open editor sections retired in
+  // Phase 5.5 and always read "No linked events" / "No team members" (owner click
+  // 2026-11-27: remove). DEFAULT ON; roll back with VITE_VENDOR_EVENTS_TEAM_TILES_REMOVED=false.
+  vendorEventsTeamTilesRemoved: import.meta.env.VITE_VENDOR_EVENTS_TEAM_TILES_REMOVED !== 'false',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the
