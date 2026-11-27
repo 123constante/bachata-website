@@ -71,6 +71,15 @@ describe('WaysInSummaryView lines', () => {
     view({ now: Date.parse('2027-06-01T10:00:00Z'), tickets: [tk({ pricePence: 800, nextStep: { pricePence: 1200, effectiveFrom: '2027-06-04T23:00:00Z' } })] });
     expect(text('early-t1')).toBe('Early buyers £8 until Friday');
   });
+  it('P94 a step not at midnight names the same day the sheet shows', () => {
+    view({ tickets: [tk({ pricePence: 800, nextStep: { pricePence: 1200, effectiveFrom: '2026-12-05T12:00:00Z' } })] });
+    expect(text('early-t1')).toBe('Early buyers £8 until Friday 4 December');
+  });
+  it('P94 count early bird with old date steps: today's price stays the main line', () => {
+    view({ tickets: [tk({ pricePence: 1000, early: { pill: 'Early bird 4 left', price: '' }, earlyPence: 800, earlyFirst: 20, nextStep: { pricePence: 1500, effectiveFrom: '2026-12-01T00:00:00Z' } })] });
+    expect(text('ticket-t1')).toBe('Online £10, 100 a night');
+    expect(text('early-t1')).toBe('Early buyers £8, first 20');
+  });
   it('P94 several coming steps: the main price is the last one', () => {
     view({ tickets: [tk({ pricePence: 600, nextStep: { pricePence: 900, effectiveFrom: '2026-12-01T00:00:00Z' }, mainPence: 1200 })] });
     expect(text('ticket-t1')).toBe('Online £12, 100 a night');
