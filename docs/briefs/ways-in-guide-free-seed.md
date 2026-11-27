@@ -1,6 +1,6 @@
 # Brief: Ways in guide opens with Free and Online both ticked (P24)
 
-Size: 3 files, <=80 lines
+Size: 3 files, 80 lines
 Repo: 123constante/bachata-website
 Branch: claude/ways-in-guide-free-seed
 Kind: bug fix, pure logic only (no visual or copy change)
