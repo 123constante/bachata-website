@@ -6,7 +6,7 @@
 // first-class steps + beginner cards, FAQ + JSON-LD, by-day links, calendar,
 // More in London, and the empty states.
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi, afterEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
@@ -76,7 +76,18 @@ const mount = (path = '/classes', pattern = '/classes', serverTodayKey: string |
     </MemoryRouter>,
   );
 
-afterEach(cleanup);
+// Fixture dates are fixed and the page reads Date.now, so pin the clock (Date only;
+// React and testing-library timers keep running). Otherwise the Friday class turns
+// "started" once real time passes 19:00 London and the Next class card moves on.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-11-27T12:00:00Z'));
+});
+
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 describe('/classes Two doors keep-list', () => {
   it('hero + intro kept, updated line, switch with This week selected, both panels in the DOM', () => {
