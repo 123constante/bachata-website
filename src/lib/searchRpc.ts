@@ -49,28 +49,6 @@ export interface SearchResult {
   telemetryKind?: PersonRole;
 }
 
-// search_public_v2 -- events / venues / organisers text-match by name.
-export async function searchPublic(query: string, limitPerKind = 6): Promise<SearchResult[]> {
-  const term = query.trim();
-  if (!term) return [];
-  const supabase = await getSupabase();
-  const { data, error } = await supabase.rpc('search_public_v2' as never, {
-    p_query: term,
-    p_limit: limitPerKind,
-  });
-  if (error) throw error;
-  return ((data ?? []) as SearchRow[]).map((r) => ({
-    kind: r.kind,
-    id: r.id,
-    title: r.title,
-    subtitle: r.subtitle,
-    imageUrl: resolveEventImage(r.image_url, null),
-    eventType: r.event_type,
-    startTime: r.start_time,
-    href: hrefFor(r.kind, r.id),
-  }));
-}
-
 // search_public_v4 / v5 -- federated search across all entity types. The overlay
 // (usePublicSearch) consumes the flat SearchResult[]. v5 adds vendors + cities
 // as two extra optional sections; the rest of the envelope is unchanged.

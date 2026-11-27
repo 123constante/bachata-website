@@ -26,7 +26,7 @@ beforeEach(() => {
     configurable: true,
   });
 });
-afterEach(() => vi.useRealTimers());
+afterEach(() => { vi.useRealTimers(); });
 
 describe('nearMe fix store', () => {
   it('keeps a fix under 30 minutes and drops one over it', () => {

@@ -126,7 +126,7 @@ describe('real RPC keys (start_local UTC wall clock, venue_name)', () => {
 });
 
 describe('multi-winner nights', () => {
-  afterEach(() => vi.unstubAllEnvs());
+  afterEach(() => { vi.unstubAllEnvs(); });
   const parse = (i: number) => parseRaffleBoard(MULTI_SHAPES[i].json).nights[0];
   it('parses winners_count, seats_left, winners', () => {
     expect(parse(0)).toMatchObject({ winnersCount: 3, seatsLeft: 2, winnerNames: ['Ana'] });
