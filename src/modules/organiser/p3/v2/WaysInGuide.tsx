@@ -70,7 +70,8 @@ export interface WaysInGuideProps {
   today: string;
   initial?: Partial<GuideAnswers>;
   onDone: (r: GuideResult) => void;
-  onConnect: () => void;
+  /** gets the answers so far, so the door / link / free choice is saved before the Stripe redirect */
+  onConnect: (r: GuideResult) => void;
   onClose: () => void;
 }
 
@@ -171,7 +172,7 @@ export function WaysInGuideView(p: WaysInGuideProps) {
         <>
           {back('q1')}
           <h1 className="ttl" data-testid="wg-title">{G.connectTitle}</h1>
-          <button type="button" className="btn pri big" data-testid="wg-connect" onClick={p.onConnect}>{G.connect}</button>
+          <button type="button" className="btn pri big" data-testid="wg-connect" onClick={() => p.onConnect(result(false))}>{G.connect}</button>
           <button type="button" className="btn sec" data-testid="wg-later" onClick={() => p.onDone(result(false))}>{G.later}</button>
         </>
       ) : null}

@@ -124,9 +124,31 @@ describe('Ways in rebuild wiring (W3)', () => {
     show(); click('ws-early-t1'); expect(screen.getByTestId('sheet-mock').textContent).toBe('t1'); cleanup();
     show(); click('ws-another'); expect(screen.getByTestId('sheet-mock').textContent).toBe('new');
   });
-  it('summary taps: door / link / free / rerun open the guide with the current answers', () => {
+  it('guide picks a ticket site with no address: saves door only, then opens the link sheet', async () => {
+    show();
+    click('wg-door'); click('wg-link'); click('wg-next');
+    await waitFor(() => expect(h.save).toHaveBeenCalledTimes(1));
+    const sent = JSON.stringify(h.save.mock.calls[0][0]);
+    expect(sent).toContain('door');
+    expect(sent).not.toContain('ticket_link');
+    expect(await screen.findByTestId('link-done')).toBeTruthy();
+  });
+  it('guide connect: saves the door choice before the Stripe redirect', async () => {
+    h.stripe = 'none';
+    show();
+    click('wg-online'); click('wg-door'); click('wg-next'); click('wg-connect');
+    await waitFor(() => expect(h.go).toHaveBeenCalledTimes(1));
+    expect(h.save).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(h.save.mock.calls[0][0])).toContain('door');
+  });
+  it('summary tap: link opens the link sheet (its address lives there)', () => {
+    h.types = [ticket]; mk({ payment_methods: 'ticket_link', default_ticket_url: 'https://x.test' });
+    show(); click('ws-link');
+    expect(screen.getByTestId('link-done')).toBeTruthy();
+  });
+  it('summary taps: door / free / rerun open the guide with the current answers', () => {
     h.types = [ticket]; mk({ payment_methods: 'door,free', default_ticket_url: 'https://x.test' });
-    for (const id of ['ws-door', 'ws-link', 'ws-free', 'ws-rerun']) {
+    for (const id of ['ws-door', 'ws-free', 'ws-rerun']) {
       show(); click(id);
       expect(screen.getByTestId('ways-in-guide')).toBeTruthy();
       expect(screen.getByTestId('wg-online').getAttribute('aria-checked')).toBe('true');

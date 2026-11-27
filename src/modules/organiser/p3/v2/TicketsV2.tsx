@@ -430,11 +430,23 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
     });
     setGuideOpen(true);
   };
+  /** A ticket site needs its address: a newly picked one is saved by the link sheet (method + address together), never bare. */
+  const needsLink = (r: GuideResult) => r.methods.includes('ticket_link') && !oldUrl;
+  const saveAnswers = async (r: GuideResult): Promise<boolean> => {
+    const link = needsLink(r);
+    const out = await saveGuide(link ? { ...r, methods: r.methods.filter((m) => m !== 'ticket_link') } : r);
+    if ('error' in out) { setGuideErr(out.error); return false; }
+    if (link) openWaysLink();
+    return true;
+  };
   const finishGuide = async (r: GuideResult) => {
     setGuideOpen(false); setGuideDone(true); setGuideErr(null);
     if (r.ticket) setGuideOnline(true);
-    const out = await saveGuide(r);
-    if ('error' in out) setGuideErr(out.error);
+    await saveAnswers(r);
+  };
+  const connectFromGuide = async (r: GuideResult) => {
+    setGuideOpen(false); setGuideDone(true); setGuideErr(null); setGuideOnline(true);
+    if (await saveAnswers(r) && !needsLink(r)) void onboard.go();
   };
   const nowMs = Date.now();
   const sumTickets: SummaryTicket[] = rows.map((r) => {
@@ -449,14 +461,14 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
   });
   const rebuildView = showGuide ? (
     <WaysInGuideView oneOff={oneOff} festival={s.format === 'festival'} stripe={connected} firstDate={firstDate} today={londonTodayKey()} initial={guideInitial}
-      onDone={(r) => { void finishGuide(r); }} onConnect={() => { setGuideOnline(true); void onboard.go(); }} onClose={() => { setGuideOpen(false); setGuideDone(true); }} />
+      onDone={(r) => { void finishGuide(r); }} onConnect={(r) => { void connectFromGuide(r); }} onClose={() => { setGuideOpen(false); setGuideDone(true); }} />
   ) : (
     <>
       <WaysInSummaryView name={s.name ?? ''} oneOff={oneOff} day={day} backTo={P3_PATHS.event(s.id)}
         stripe={connected} stripeReady={stripe.state !== null} online={guideOnline} tickets={sumTickets}
         door={parsePayment(oldMethods).includes('door')} free={parsePayment(oldMethods).includes('free')} link={oldUrl} festival={s.format === 'festival'} busy={busy}
         stripeWarn={stripeWarn} onCheckAgain={ret.again} stripeBusy={onboard.busy} stripeNote={onboard.note} stripeOff={onboard.switchedOff}
-        on={{ ticket: openTicket, early: openTicket, newTicket: () => openTicket(), stripe: () => { void onboard.go(); }, door: openGuide, free: openGuide, link: openGuide, rerun: openGuide, skipDoor: () => setSkipOpen(true) }} />
+        on={{ ticket: openTicket, early: openTicket, newTicket: () => openTicket(), stripe: () => { void onboard.go(); }, door: openGuide, free: openGuide, link: openWaysLink, rerun: openGuide, skipDoor: () => setSkipOpen(true) }} />
       {guideErr ? <p className="err" role="alert" data-testid="ways-guide-err">{guideErr}</p> : null}
     </>
   );
