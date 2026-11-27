@@ -32,6 +32,8 @@ export interface EventTicketsPageProps {
   /** The series' nights from the page snapshot; the block lists the future ones when a night
    *  has to be chosen (the event page's Dates tile only exists for courses). */
   nights?: readonly NightSource[];
+  /** The event has "Pay at the door" ticked (flag waysInV2 reads it in TicketsBlock). */
+  doorToo?: boolean;
   onClose: () => void;
   /** The programme hooks, injected so this module never imports EventScheduleGrid (chunk ratchet). */
   programHooks: { useOccurrenceProgram: typeof UseOccurrenceProgram; useProgramItems: typeof UseProgramItems };
@@ -103,7 +105,7 @@ export function ProgrammeBlock({ view, onSeeFull }: { view: ProgrammeView | null
   );
 }
 
-function ClassicEventTicketsPage({ seriesId, occurrenceId, organiserId, title, dateLine, venueLine, chipInput, nights, onClose, programHooks }: EventTicketsPageProps) {
+function ClassicEventTicketsPage({ seriesId, occurrenceId, organiserId, title, dateLine, venueLine, chipInput, nights, doorToo, onClose, programHooks }: EventTicketsPageProps) {
   const { useOccurrenceProgram, useProgramItems } = programHooks;
   // Sit below the site header (fixed bar plus the sticky tabs row): measured, 106px on a phone.
   const [topPx, setTopPx] = useState(106);
@@ -180,7 +182,7 @@ function ClassicEventTicketsPage({ seriesId, occurrenceId, organiserId, title, d
         </header>
         <ProgrammeBlock view={programme} onSeeFull={seeFull} />
         <ChipRow chips={chips} />
-        <TicketsBlock seriesId={seriesId} occurrenceId={occurrenceId} organiserId={organiserId} nights={nightList} />
+        <TicketsBlock seriesId={seriesId} occurrenceId={occurrenceId} organiserId={organiserId} nights={nightList} doorToo={doorToo} />
       </div>
     </div>,
     document.body,

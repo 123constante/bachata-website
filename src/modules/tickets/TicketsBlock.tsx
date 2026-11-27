@@ -63,6 +63,8 @@ export interface TicketsBlockProps {
   priceSteps?: boolean;
   /** Early-bird buyer rows (v5 read). Defaults to flags.ticketEarlyBird && priceSteps; tests pass it. */
   earlyBird?: boolean;
+  /** The event has "Pay at the door" ticked: an all-sold-out night then says so (flag waysInV2). */
+  doorToo?: boolean;
 }
 
 const card = {
@@ -81,7 +83,7 @@ export function searchWithNight(search: string, occurrenceId: string): string {
   return `?${q.toString()}`;
 }
 
-export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [], onPickNight, now: nowProp, origin: originProp, priceSteps = flags.ticketPriceSteps, earlyBird = flags.ticketEarlyBird && priceSteps }: TicketsBlockProps) {
+export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [], onPickNight, now: nowProp, origin: originProp, priceSteps = flags.ticketPriceSteps, earlyBird = flags.ticketEarlyBird && priceSteps, doorToo }: TicketsBlockProps) {
   const queryClient = useQueryClient();
   const location = useLocation();
   const navigate = useNavigate();
@@ -117,7 +119,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [],
   const promoSeq = useRef(0);
 
   const list = typesForNight(types ?? [], occurrenceId);
-  const quiet = quietBar(list, now);
+  const quiet = quietBar(list, now, { door: flags.waysInV2 && !!doorToo });
   const buyable = list.filter((t) => maxQuantity(t, now) > 0);
   // A per-night type with no night on screen: not buyable here, the way forward is the dates (S1a).
   const needsNight = list.some((t) => availability(t, now).kind === 'needs_night');

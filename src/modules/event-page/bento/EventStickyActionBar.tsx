@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Navigation, Ticket, CalendarPlus, Share2 } from 'lucide-react';
 import { recordEventLinkClick } from '@/lib/eventLinkClicks';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { flags } from '@/lib/featureFlags';
 import { shareEvent } from '@/modules/event-page/bento/utils/eventActions';
 
 // Lazy so the tickets module stays out of the event page's first load.
@@ -37,6 +38,8 @@ type EventStickyActionBarProps = {
   /** TICKET_FESTIVAL_IN_SITE: true while the probe has not answered for this night (the page
    *  hides the organiser's link in its own CTAs in that window, as this bar does). */
   onTicketingPending?: (pending: boolean, occurrenceId: string | null) => void;
+  /** The event has "Pay at the door" ticked: a plain Sold out then reads as sold out online (flag waysInV2). */
+  doorToo?: boolean;
 };
 
 const SOURCE = 'bento_action_bar';
@@ -115,6 +118,7 @@ export const EventStickyActionBar = ({
   onAddToCalendar,
   accentColor,
   onTicketingPending,
+  doorToo = false,
 }: EventStickyActionBarProps) => {
   // This bar renders via a body portal (client-only) and, unlike the modals, is
   // shown unconditionally — so under SSR it must render nothing until mounted, or
@@ -145,7 +149,8 @@ export const EventStickyActionBar = ({
     return () => clearTimeout(t);
   }, [inSiteTicketing, eventId, nightKey, current]);
   const barState: SiteBarStateLite = current?.state ?? 'none';
-  const quietLabel = current?.label || 'Sold out';
+  const baseLabel = current?.label || 'Sold out';
+  const quietLabel = flags.waysInV2 && doorToo && baseLabel === 'Sold out' ? 'Sold out online. Pay at the door.' : baseLabel;
   const live = inSiteTicketing && !!eventId && barState === 'buy';
   useEffect(() => {
     onTicketingLive?.(live, occurrenceId, live ? (current?.offers ?? NO_OFFERS) : NO_OFFERS);
