@@ -18,6 +18,16 @@ type Out = { ok: true; id: string | null; changed: boolean } | { ok: false; erro
 type Existing = Pick<TicketType, 'id' | 'name' | 'capacity' | 'occurrenceId' | 'salesOpenAt' | 'salesCloseAt' | 'pricePence'>;
 
 const sameAt = (a: string, b: string) => new Date(a).getTime() === new Date(b).getTime();
+/** The price that counts now: the base, or the latest step that has already started (isLive). */
+export const priceNow = (base: number, steps: readonly Pick<PriceStep, 'effectiveFrom' | 'pricePence' | 'isLive'>[]): number => {
+  let at = -Infinity;
+  let price = base;
+  for (const s of steps) {
+    const t = new Date(s.effectiveFrom).getTime();
+    if (s.isLive && t >= at) { at = t; price = s.pricePence; }
+  }
+  return price;
+};
 const refusal = (r: WriteResult, steps = false) => (steps ? stepReasonMessage(r.reason) : reasonMessage(r.reason));
 
 /**
@@ -31,7 +41,10 @@ export async function writeTicket(a: { organiserId: string; seriesId: string; ty
   if ('error' in w) return { ok: false, error: w.error };
   const name = a.form.name.trim() || 'Ticket';
   let wrote = false;
-  const cur = [...a.steps];
+  // a sold type keeps its started steps as history: the form shows the price counting now plus the coming steps only (formOfType)
+  const soldType = !!a.type && (a.sold ?? 0) > 0;
+  const nowPence = soldType ? priceNow(a.basePence, a.steps) : a.basePence;
+  const cur = soldType ? a.steps.filter((s) => !s.isLive) : [...a.steps];
   const keep = Math.min(cur.length, w.steps.length);
   // a stored step at another time of day is the same step while its London day is unchanged: keep its instant
   const sameDay = (a: string, b: string) => isoToLondonInput(a).slice(0, 10) === isoToLondonInput(b).slice(0, 10);
@@ -44,8 +57,9 @@ export async function writeTicket(a: { organiserId: string; seriesId: string; ty
   const gone = cur.slice(keep);
   if (moves.some((m) => m.was?.isLive) || gone.some((g) => g.isLive)) return { ok: false, error: T.birdLive };
   // a sold type refuses a base price change in the upsert: its new price goes in as a step that counts from now on
-  const soldPrice = !!a.type && (a.sold ?? 0) > 0 && w.basePence !== a.type.pricePence;
-  const baseSame = !a.force && !!a.type && (soldPrice || a.basePence === w.basePence) && a.type.name === name && a.type.capacity === a.form.qty;
+  // compare with the price that counts NOW (base, or the latest step already started), not the stored base
+  const soldPrice = soldType && w.basePence !== nowPence;
+  const baseSame = !a.force && !!a.type && (soldPrice || nowPence === w.basePence) && a.type.name === name && a.type.capacity === a.form.qty;
   if (!a.force && a.type && baseSame && !soldPrice && !moves.length && !gone.length) return { ok: true, id: a.type.id, changed: false };
   for (const g of [...gone].reverse()) {
     const r = await removePriceStep(g.id);
@@ -55,7 +69,7 @@ export async function writeTicket(a: { organiserId: string; seriesId: string; ty
   let id = a.type?.id ?? null;
   if (!a.type || !baseSame) {
     const r = await upsertTicketType({
-      id, organiserId: a.organiserId, seriesId: a.seriesId, occurrenceId: a.type?.occurrenceId ?? null, name, pricePence: soldPrice && a.type ? a.type.pricePence : w.basePence, capacity: a.form.qty,
+      id, organiserId: a.organiserId, seriesId: a.seriesId, occurrenceId: a.type?.occurrenceId ?? null, name, pricePence: soldType && a.type ? a.type.pricePence : w.basePence, capacity: a.form.qty,
       salesOpenAt: a.type?.salesOpenAt ?? null, salesCloseAt: a.type?.salesCloseAt ?? null,
     });
     if (!r.ok) return { ok: false, error: refusal(r), wrote };
@@ -81,8 +95,12 @@ export async function writeTicket(a: { organiserId: string; seriesId: string; ty
   return { ok: true, id, changed: true };
 }
 
-export const formOfType = (t: Pick<TicketType, 'name' | 'pricePence' | 'capacity'>, steps: readonly PriceStep[], base = t.pricePence): TicketForm =>
-  ({ name: t.name, free: base === 0 && !steps.length, qty: t.capacity, ...formOfStored(base, steps) });
+/** A sold type shows the price counting now and only the steps still to come (a started step is history, see writeTicket). */
+export const formOfType = (t: Pick<TicketType, 'name' | 'pricePence' | 'capacity'>, steps: readonly PriceStep[], base = t.pricePence, sold = false): TicketForm => {
+  const s = sold ? steps.filter((x) => !x.isLive) : steps;
+  const b = sold ? priceNow(base, steps) : base;
+  return { name: t.name, free: b === 0 && !s.length, qty: t.capacity, ...formOfStored(b, s) };
+};
 
 export const EARLY_OFF_FIRST = 'A free ticket cannot have an early bird price. Turn Free off, turn Cheaper first tickets off, then save.';
 
@@ -111,7 +129,7 @@ export interface TicketSheetProps {
 /** SH-TICKET: add or change one ticket. Done saves, Remove closes the ticket; both toast with Undo. */
 export function TicketSheetV2(p: TicketSheetProps) {
   const isNew = !p.type;
-  const first = p.type ? formOfType(p.type, p.steps, p.basePence) : { name: '', free: false, price: '', qty: 50, birds: [] as Bird[] };
+  const first = p.type ? formOfType(p.type, p.steps, p.basePence, p.soldAll > 0) : { name: '', free: false, price: '', qty: 50, birds: [] as Bird[] };
   const [name, setName] = useState(first.name);
   const [free, setFree] = useState(first.free);
   const [price, setPrice] = useState(first.price);
@@ -148,7 +166,7 @@ export function TicketSheetV2(p: TicketSheetProps) {
     if (!isNew && p.soldKnown === false) { setErr(T.notSaved); return; }
     if (!Number.isFinite(f.qty) || f.qty < 0) { setErr(T.qtyBad); return; }
     if (f.qty < p.soldMax) { setErr(T.qtyLow(p.soldMax)); return; }
-    const back = p.type ? formOfType(p.type, p.steps, p.basePence) : null;
+    const back = p.type ? formOfType(p.type, p.steps, p.basePence, sold > 0) : null;
     const earlyBad = earlyShown ? earlyInvalid(early) : null;
     if (earlyBad) { setErr(earlyReasonMessage(earlyBad)); return; }
     // A saved early tier cannot ride on a free ticket (the early price would still be charged): refuse before any write.

@@ -417,7 +417,7 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
       {!flags.waysInV2 && sheet === 'link' && <LinkSheet link={oldUrl ?? ''} busy={busy} error={sheetError} onDone={(u) => { void saveLink(u); }} onClose={() => setSheet(null)} />}
       {!flags.waysInV2 && sheet === 'how' && <HowPaySheet busy={busy} door={mode === 'door'} hasLink={!!oldUrl} onDoor={() => { void payDoor(); }} onLink={openLink} onClose={() => setSheet(null)} />}
       {ticketOpen && orgId && (ticketOpen === 'new' || (sheetType && sheetManaged)) && (
-        <TicketSheetV2 organiserId={orgId} seriesId={s.id} type={ticketOpen === 'new' ? null : sheetType} basePence={sheetManaged?.basePricePence ?? 0} steps={sheetManaged?.steps ?? []} managed={sheetManaged}
+        <TicketSheetV2 key={`${ticketOpen}:${summary.data?.ok ? String(sheetSold > 0) : 'loading'}`} organiserId={orgId} seriesId={s.id} type={ticketOpen === 'new' ? null : sheetType} basePence={sheetManaged?.basePricePence ?? 0} steps={sheetManaged?.steps ?? []} managed={sheetManaged}
           soldKnown={!!summary.data?.ok} oneOff={oneOff} soldMax={sheetType && !sheetType.occurrenceId ? Math.min(sheetSold, sheetType.capacity) : sheetSold} soldAll={sheetSold} pence={sheetSales?.grossPence ?? 0}
           onClose={() => setTicketOpen(null)} onFail={() => refresh()}
           onDone={(text, undo) => {
