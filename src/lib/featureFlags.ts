@@ -241,6 +241,9 @@ export const flags = {
   // Ways in (change 2, slice B1): the Tickets screen body becomes ONE "Ways in" list. The price facts and Put it live point at it (B2). OFF = unchanged.
   // Turn on with VITE_ENABLE_WAYS_IN_V2=true (Vercel env) -- no code change.
   waysInV2:            import.meta.env.VITE_ENABLE_WAYS_IN_V2 === 'true',
+  // Ways in rebuild (W1): first setup becomes a short three-question guide. Needs waysInV2. OFF = exactly as before.
+  // Turn on with VITE_ENABLE_WAYS_IN_REBUILD=true (Vercel env) -- no code change.
+  waysInRebuild:       import.meta.env.VITE_ENABLE_WAYS_IN_REBUILD === 'true',
   // /festivals cards: the three crew pills (home, car, heart) never had numbers -- the
   // counts were never stored (owner click 2026-11-27: remove). DEFAULT ON; roll back
   // with VITE_FESTIVAL_CREW_PILLS_REMOVED=false (Vercel env) -- no code change.
