@@ -26,6 +26,7 @@ import { P3Link, RetryButton, StateCard } from '../screens/parts';
 import { hasLiveEvent, payingOrganiser, useP3Home, useStartOnboarding, useStripe, useSummary } from './data';
 import { HUB_COPY, TONE_CLASS, getPaidRowTag, hubSteps, stripeNudgeV2On } from './model';
 import { P3_TICKET_PATHS } from './paths';
+import { GO_BACK_LABEL, backToEventLabel, readReturnTo, returnToSeriesId, withReturnTo } from '../../flows/doneState';
 import { CONNECT_RETURN_EVERY_MS, CONNECT_RETURN_FOR_MS, nextTicketTarget, returnKindOf, useConnectReturn } from './connectReturn';
 
 const BACK_NOTE = {
@@ -78,6 +79,8 @@ function GetPaidContent() {
   const stripeParam = params.get('stripe');
   // Read once on arrival, then dropped from the URL so a reload does not repeat the note.
   const [back] = useState(() => returnKindOf(stripeParam));
+  // The screen the organiser came from (Go live's payouts row): kept across Stripe and offered as the way back.
+  const returnTo = readReturnTo(params.toString());
   useEffect(() => {
     if (!stripeParam) return;
     const next = new URLSearchParams(params);
@@ -110,7 +113,7 @@ function GetPaidContent() {
       </div>
     );
   }
-  return <div className="p3-stack" data-testid="tix-getpaid"><GetPaidBody org={org} back={back} /></div>;
+  return <div className="p3-stack" data-testid="tix-getpaid"><GetPaidBody org={org} back={back} returnTo={returnTo} /></div>;
 }
 
 /** You > Get paid (route you/get-paid): in P3's pushed frame, the same one the You screens use. */
@@ -122,11 +125,11 @@ export function GetPaidScreen() {
   );
 }
 
-function GetPaidBody({ org, back }: { org: HomeOrganiser; back: 'return' | 'refresh' | null }) {
+function GetPaidBody({ org, back, returnTo }: { org: HomeOrganiser; back: 'return' | 'refresh' | null; returnTo: string | null }) {
   const { query, state } = useStripe(org.id);
   // Review 1520-r1 F3: only the owner's summary keeps pence once parsed.
   const summary = useSummary(org.id, isOwner(org.role));
-  const { go, busy, note, switchedOff } = useStartOnboarding(org.id);
+  const { go, busy, note, switchedOff } = useStartOnboarding(org.id, undefined, returnTo ? withReturnTo(P3_TICKET_PATHS.getPaid(org.id), returnTo) : undefined);
   const manager = canManage(org.role);
   const { phase, again } = useConnectReturn(back === 'return' && canSetUpPayouts(org.role), state === 'connected', () => query.refetch());
   if (query.isPending && query.fetchStatus !== 'idle') return <StateCard title="Loading your payment set-up&hellip;" testId="tix-getpaid-stripe-loading">This takes a second.</StateCard>;
@@ -146,8 +149,19 @@ function GetPaidBody({ org, back }: { org: HomeOrganiser; back: 'return' | 'refr
   const owner = isOwner(org.role);
   const canGo = owner && state !== 'connected' && !switchedOff;
   const hub = stripeNudgeV2On() && (state === 'connected' || (owner && !switchedOff && (state === 'none' || state === 'started')));
+  const backLabel = returnTo ? (returnToSeriesId(returnTo) ? backToEventLabel(null) : GO_BACK_LABEL) : null;
   return (
     <>
+      {returnTo && (
+        <Link
+          className={state === 'connected' ? 'p3-btn' : 'p3-link'}
+          style={state === 'connected' ? BIG : { minHeight: 44, display: 'inline-flex', alignItems: 'center' }}
+          to={returnTo}
+          data-testid="tix-getpaid-back-to"
+        >
+          {backLabel}
+        </Link>
+      )}
       {back && state !== 'connected' && phase === 'timeout' && (
         <div className="p3-stack-s" data-testid="tix-getpaid-still">
           <p className="p3-warn" role="status" data-testid="tix-getpaid-back">Still checking.</p>
