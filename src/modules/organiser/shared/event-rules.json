@@ -72,7 +72,8 @@
       "organiser": { "section": "organisers", "label": "An active organiser" },
       "no_payment": { "section": "payment", "label": "Say how dancers pay" },
       "description": { "section": "about", "label": "A description", "serverOnly": true },
-      "ticket_link": { "section": "tickets", "label": "A ticket link", "recommended": true }
+      "ticket_link": { "section": "tickets", "label": "A ticket link", "recommended": true },
+      "ticket_payouts": { "section": "tickets", "label": "Payouts for paid tickets", "serverOnly": true }
     },
     "sections": {
       "venue": { "adminAnchor": "logistics" },

@@ -332,13 +332,27 @@ describe('D82: the Go live card, every state', () => {
     const { GO_LIVE_LABEL, goLiveLabel, UNKNOWN_ITEM_LABEL } = await import('@/modules/organiser/shared/goLiveCheck');
     // W2 walk fix 5: every prod code (incl. the ones the server added later) has words.
     const LATER = ['no_session_first_date', 'first_date_past', 'bad_session_times', 'no_payment', 'no_flyer'];
-    const codes = [...SIX.map(([c]) => c), ...NINE.map(([c]) => c), 'ticket_link', ...LATER];
+    const codes = [...SIX.map(([c]) => c), ...NINE.map(([c]) => c), 'ticket_link', 'ticket_payouts', ...LATER];
     for (const code of codes) {
       expect(GO_LIVE_LABEL[code], code).toBeTruthy();
       expect(goLiveLabel(code), code).not.toBe(UNKNOWN_ITEM_LABEL);
-      expect(goLiveLabel(code), code).toMatch(/^(Add|Upload|Write|Pick|Link|Give|Move|Fix|Say|A flyer is required) /);
+      expect(goLiveLabel(code), code).toMatch(/^(Add|Upload|Write|Pick|Link|Give|Move|Fix|Say|Set|A flyer is required) /);
     }
     expect(Object.keys(GO_LIVE_LABEL).sort()).toEqual([...new Set(codes)].sort());
+  });
+
+  it('ticket_payouts opens Get paid and comes back to the event; ticket_link still opens the ticket-link editor', async () => {
+    const { goLiveFixHref } = await import('@/modules/organiser/shared/goLiveCheck');
+    const { goLiveList } = await import('../lifecycleModel');
+    const { P3_TICKET_PATHS } = await import('@/modules/organiser/p3/tickets/paths');
+    const payouts = goLiveFixHref('tickets', 'S1', 'ticket_payouts');
+    expect(payouts).toContain(P3_TICKET_PATHS.getPaid());
+    expect(payouts).toContain(encodeURIComponent(ORG_PATHS.event('S1')));
+    const link = goLiveFixHref('tickets', 'S1', 'ticket_link');
+    expect(link).toBe(goLiveFixHref('tickets', 'S1'));
+    expect(link).not.toContain('get-paid');
+    const list = goLiveList({ ...READY, ready: false, eventMissing: [{ code: 'ticket_payouts', section: 'tickets' }], recommended: [], profileRuleApplies: false, profileMissing: [] } as never, 'S1');
+    expect(list.missing[0].href).toBe(payouts);
   });
 });
 

@@ -64,7 +64,7 @@ export interface GoLiveList {
  */
 export function goLiveList(check: GoLiveCheck, seriesId: string, linked = true): GoLiveList {
   const line = (recommended: boolean) => ({ code, section }: { code: string; section: string }): GoLiveLine =>
-    ({ code, label: goLiveLabel(code), href: linked ? goLiveFixHref(section, seriesId) : null, recommended });
+    ({ code, label: goLiveLabel(code), href: linked ? goLiveFixHref(section, seriesId, code) : null, recommended });
   return {
     // One row per fact (the one mapping): no_flyer is cover's twin and shows once.
     missing: eventBlockers(check.eventMissing).map(line(false)),

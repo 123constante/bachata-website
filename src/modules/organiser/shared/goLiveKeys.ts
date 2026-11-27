@@ -39,6 +39,8 @@ export const GO_LIVE_BLOCKERS: Readonly<Record<string, BlockerDef>> = {
   no_payment: { label: 'Say how dancers pay', section: 'payment' },
   no_flyer: { label: 'A flyer is required to continue', section: 'cover', sameAs: 'cover' },
   ticket_link: { label: 'Add a ticket link', section: 'tickets' },
+  // Server section stays 'tickets'; goLiveFixHref reads the CODE and opens Get paid (the ticket-link editor cannot fix it).
+  ticket_payouts: { label: 'Set up payouts to sell paid tickets', section: 'tickets' },
 };
 
 /** Every section the server names; each one has a screen that fixes it (goLiveFixHref). */

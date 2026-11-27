@@ -11,6 +11,7 @@ import { detailEditPath } from '@/modules/organiser/flows/event/eventSteps';
 import { requiredLeftText } from './profileProgress';
 import { GO_LIVE_BLOCKERS } from './goLiveKeys';
 import { withReturnTo } from '@/modules/organiser/flows/doneState';
+import { P3_TICKET_PATHS } from '@/modules/organiser/p3/tickets/paths';
 
 // series_go_live_check_v1 is not in the generated Database type yet: string-named boundary (check:rpc-typing).
 type UntypedRpc = {
@@ -52,7 +53,9 @@ export const profileRowLabel = (left: number) => `Finish your profile (${require
  * The organiser-area screen that fixes a section, or null when no screen does
  * (no link then, never a dead one). Every link comes back to this event (D37).
  */
-export function goLiveFixHref(section: string, seriesId: string): string | null {
+export function goLiveFixHref(section: string, seriesId: string, code?: string): string | null {
+  // ticket_payouts shares section 'tickets' with ticket_link, but only Get paid fixes it.
+  if (code === 'ticket_payouts') return withReturnTo(P3_TICKET_PATHS.getPaid(), ORG_PATHS.event(seriesId));
   const to = ({
     venue: ORG_PATHS.eventDetails(seriesId),
     basics: ORG_PATHS.eventDetails(seriesId),

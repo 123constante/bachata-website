@@ -37,13 +37,13 @@ export function DraftNote() {
 }
 
 /** The reason line as a button: opens the fix for the first blocker. Inside a Router only (it may navigate). */
-function FixLine({ reason, section, target, seriesId, onFix, onPay }: { reason: string; section: string; target: V2FixTarget; seriesId: string; onFix?: (t: V2FixTarget) => boolean | void; onPay: () => void }) {
+function FixLine({ reason, section, code, target, seriesId, onFix, onPay }: { reason: string; section: string; code: string; target: V2FixTarget; seriesId: string; onFix?: (t: V2FixTarget) => boolean | void; onPay: () => void }) {
   const navigate = useNavigate();
   const tap = () => {
     if (target === 'pay' && flags.waysInV2) { navigate(`${P3_PATHS.event(seriesId)}/tickets`); return; }
     if (target === 'pay') { onPay(); return; }
     if (onFix && onFix(target) !== false) return;
-    const to = goLiveFixHref(section, seriesId);
+    const to = goLiveFixHref(section, seriesId, code);
     if (to) navigate(to);
   };
   return (
@@ -83,7 +83,7 @@ export function GoLiveBar({ ws, onFix }: { ws: EventWorkspace; onFix?: (target: 
       <div data-testid="golive-bar" style={{ position: 'sticky', bottom: 'calc(var(--tabbar-h, 64px) + env(safe-area-inset-bottom, 0px))', zIndex: 5, background: '#FFFFFF', borderTop: '1px solid #E9E9E9', padding: '8px 12px' }}>
         <button type="button" className="v2-btn" data-testid="golive-btn" disabled={!ready} onClick={() => setOpen(true)} style={ready ? undefined : { background: '#E5E5E5', color: '#696969' }}>{PUT_LIVE}</button>
         {reason && (fixable
-          ? <FixLine reason={reason} section={first!.section} target={target!} seriesId={id} onFix={onFix} onPay={() => setPaying(true)} />
+          ? <FixLine reason={reason} section={first!.section} code={first!.code} target={target!} seriesId={id} onFix={onFix} onPay={() => setPaying(true)} />
           : <p data-testid="golive-reason" style={{ margin: '6px 0 0', fontSize: 13, color: '#464646' }}>{reason}</p>)}
       </div>
       {toast.node}

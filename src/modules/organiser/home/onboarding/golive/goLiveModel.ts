@@ -108,7 +108,7 @@ const humanise = (f: string) => f.replace(/_/g, ' ');
  * names what to do; a link only where a screen fixes it. Never a bare refusal.
  */
 export function goLiveGaps(check: GoLiveCheck, seriesId: string, organiserId: string | null): GoLiveGap[] {
-  const gaps: GoLiveGap[] = eventBlockers(check.eventMissing).map((m) => ({ key: `event:${m.code}`, text: goLiveLabel(m.code), href: goLiveFixHref(m.section, seriesId) }));
+  const gaps: GoLiveGap[] = eventBlockers(check.eventMissing).map((m) => ({ key: `event:${m.code}`, text: goLiveLabel(m.code), href: goLiveFixHref(m.section, seriesId, m.code) }));
   if (!check.profileRuleApplies) return gaps;
   const back = goLivePath(seriesId, organiserId);
   for (const p of check.profileMissing) {
