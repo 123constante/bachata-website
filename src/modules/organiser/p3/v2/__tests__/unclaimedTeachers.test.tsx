@@ -68,6 +68,6 @@ describe('unclaimed teachers line', () => {
     unclaimed = new Error('x'); show();
     await waitFor(() => expect(calls('organiser_unclaimed_teachers_v1').length).toBeGreaterThan(0));
     expect(screen.queryByText(/hasn.t claimed/)).toBeNull();
-    expect(screen.getByText('Salsa basics', { selector: 'input' }) ?? true).toBeTruthy();
+    expect(screen.getByDisplayValue('Salsa basics')).toBeTruthy();
   });
 });
