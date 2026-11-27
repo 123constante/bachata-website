@@ -23,7 +23,7 @@ afterEach(async () => {
   vi.mocked(boom).mockClear();
 });
 
-const DONE = { first_name: 'Ana', based_city_id: CITY_LONDON.id, dance_role: 'follower', avatar_url: 'https://x.test/a.jpg', buyer_roles: ['dancer'], favorite_styles: ['Sensual'], dance_started_year: 2020, looking_for_partner: false } as Partial<MyDancerEdit>;
+const DONE = { first_name: 'Ana', based_city_id: CITY_LONDON.id, dance_role: 'Follower', avatar_url: 'https://x.test/a.jpg', buyer_roles: ['dancer'], favorite_styles: ['Sensual'], dance_started_year: 2020, looking_for_partner: false } as Partial<MyDancerEdit>;
 const fromHome = (over: Partial<MyDancerEdit> = {}) => renderInShell({ path: '/app/welcome?step=bio&returnTo=/app/home', backend: { shape: 'emptyStub', profile: makeProfile({ ...DONE, ...over }) } });
 const saves = (b: FakeDancerBackend) => b.calls.filter((c) => c.fn === 'saveMyDancerProfile').map((c) => c.args);
 const bioBox = () => screen.getByTestId('onboarding-bio-input') as HTMLTextAreaElement;
