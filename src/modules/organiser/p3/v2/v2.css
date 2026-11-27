@@ -26,7 +26,8 @@ h2.v2-card-h { display: block; color: #1a1a1a; visibility: visible; }
 /* Event page drawn as the approved prototype (docs/design/editor-v2-proto/event-editor-v2.html.md, .top/.card/.row/.sess). */
 /* The page brings its own top bar: the shell's exit line and page header step aside while it is on screen. */
 .r4-look:has(.v2-page) .r4-exit, .r4-look:has(.v2-page) .r4-header { display: none; }
-.r4-look:has(.v2-page) .r4-main { padding: 0; }
+/* Ways in change 1 (2026-11-27): the fixed 64px tab bar sits over the scroller's end, so the page keeps that much room under its last card (the flyer was hidden under the Put it live bar). */
+.r4-look:has(.v2-page) .r4-main { padding: 0 0 calc(var(--tabbar-h, 64px) + env(safe-area-inset-bottom, 0px)); }
 /* The leave sheet is Save / Throw away / Keep editing only (no extra Close). */
 .p3-sheet:has([data-testid="v2-unsaved"]) .p3-sheet-head .p3-link { display: none; }
 .v2-page { background: #FDFDFD; color: #030303; font-size: 15px; line-height: 1.45; min-height: 100%; }
