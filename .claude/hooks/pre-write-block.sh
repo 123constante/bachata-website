@@ -84,6 +84,27 @@ if [ "$EXISTING_SIZE" -lt "$THRESHOLD" ] && [ "${CONTENT_LEN:-0}" -lt "$THRESHOL
     exit 0
 fi
 
+# Only guard files inside a checkout that ships the safe-write tooling.
+# A file outside one (~/.claude hooks, the scratchpad, C:/tmp) has no
+# scripts/safe-write.py to route through, so the block below would hand the
+# agent a recipe it cannot run. Walk to the nearest .git -- a DIR in the main
+# checkout, a FILE in a linked worktree, hence -e -- and stop at the drive-root
+# fixed point (see the dirname note further down).
+OWNER_DIR="$(dirname "$FILE_PATH")"
+GUARDED=0
+while [ -n "$OWNER_DIR" ]; do
+    if [ -e "$OWNER_DIR/.git" ]; then
+        [ -f "$OWNER_DIR/scripts/safe-write.py" ] && GUARDED=1
+        break
+    fi
+    PARENT="$(dirname "$OWNER_DIR")"
+    [ "$PARENT" = "$OWNER_DIR" ] && break
+    OWNER_DIR="$PARENT"
+done
+if [ "$GUARDED" != 1 ]; then
+    exit 0
+fi
+
 # Above the threshold and editing a source file → block, with a clear
 # remediation message the agent can act on directly.
 REL_PATH="$FILE_PATH"
