@@ -142,8 +142,8 @@ describe("Cloudflare URL mapping conformance", () => {
     expect([...(rule.kind === "static" ? rule.paths : [])].sort()).toEqual(stampers);
   });
 
-  it("keeps SEO_LANDING_PATHS at the 8 event-bearing landing pages", () => {
-    expect(SEO_LANDING_PATHS).toHaveLength(8);
+  it("keeps SEO_LANDING_PATHS at the 11 landing pages that stamp seo-landing", () => {
+    expect(SEO_LANDING_PATHS).toHaveLength(11);
   });
 });
 
@@ -343,12 +343,12 @@ describe("runCloudflarePurge", () => {
 
   it(`chunks more than ${CF_MAX_URLS_PER_CALL} URLs`, async () => {
     const h = harness(ok);
-    // festival in London (4 entity pages + /festivals + city + 8 SEO) plus two
-    // explicit extra cities = 16 pages = 32 URLs
+    // festival in London (4 entity pages + /festivals + city + 11 SEO) plus two
+    // explicit extra cities = 19 pages = 38 URLs
     const r = await runCloudflarePurge([...purgeTagsFor("festival", FEST, "london-gb"), "city-berlin-de", "city-paris-fr"], h.deps);
-    expect(r.plan?.urls.length).toBe(32);
+    expect(r.plan?.urls.length).toBe(38);
     const files = apiCalls(h.calls).filter((c) => c.body?.files).map((c) => (c.body!.files as string[]).length);
-    expect(files).toEqual([30, 2, 30, 2]);
+    expect(files).toEqual([30, 8, 30, 8]);
     expect(files.every((n) => n <= CF_MAX_URLS_PER_CALL)).toBe(true);
   });
 

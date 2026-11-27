@@ -20,6 +20,8 @@ export const CATCHALL_CLIENT_PATHS: readonly string[] = [
   '/raffle/win/:token',
   '/join/class/:token', // flags.organiserClassInvites; route only registered while on (flag off = client NotFound)
   '/claim/teacher/:token', // flags.organiserClassInvites
+  '/claim/:token',
+  '/start-organiser',
   '/videographers',
   '/dancers',
   '/teachers',

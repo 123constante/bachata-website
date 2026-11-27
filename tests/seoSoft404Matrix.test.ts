@@ -93,7 +93,7 @@ async function simulate(url: string): Promise<Result> {
       const data = (await home.loader({ params: city.params, request } as never)) as { data?: unknown; init?: { headers?: HeadersInit } };
       const payload = (data && typeof data === 'object' && 'data' in data ? data.data : data) as { cityDisplay?: string };
       const loaderHeaders = new Headers(data?.init?.headers);
-      const meta = home.meta({ data: payload } as never) as Array<Record<string, string>>;
+      const meta = home.meta({ data: payload, params: city.params } as never) as Array<Record<string, string>>;
       const canonical = meta.find((m) => m.tagName === 'link' && m.rel === 'canonical')?.href ?? null;
       return finalise(200, home.headers({ loaderHeaders } as never) as Record<string, string>, canonical);
     } catch (thrown) {
@@ -128,7 +128,7 @@ async function simulate(url: string): Promise<Result> {
 
 const NOINDEX_404 = { status: 404, location: null, robots: 'noindex', cacheControl: 'no-store', canonical: null };
 const SHELL_200 = { status: 200, location: null, robots: null, cacheControl: 'public, max-age=0, must-revalidate', canonical: null };
-const CITY_200 = { ...SHELL_200, canonical: `${ORIGIN}/` };
+const CITY_200 = { ...SHELL_200, canonical: `${ORIGIN}/city/london-gb` };
 
 type Row = { name: string; url: string; mode?: 'ok' | 'error' | 'hang'; expect: Partial<Result> };
 
