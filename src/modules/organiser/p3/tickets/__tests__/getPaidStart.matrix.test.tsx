@@ -17,7 +17,7 @@ vi.mock('../data', (orig) => dataMock(orig as never));
 
 import { GetPaidStart, POLL_FOR_MS, askOwner, startView } from '../GetPaid';
 
-beforeEach(() => vi.useFakeTimers());
+beforeEach(() => { vi.useFakeTimers(); });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 const shape = (over: Partial<Shape>): Shape => ({ ...SHAPES.bare, ...over });

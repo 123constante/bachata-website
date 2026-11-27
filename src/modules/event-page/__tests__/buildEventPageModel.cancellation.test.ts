@@ -48,6 +48,7 @@ const buildSnapshot = (
     lifecycleStatus: null,
     endedOn: null,
     ranFrom: null,
+    featured: null,
     musicStyles: [],
     paymentMethods: null,
     level: null,

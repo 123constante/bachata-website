@@ -15,7 +15,7 @@ vi.mock('../data', (orig) => dataMock(orig as never));
 
 import { GetPaidScreen, GetPaidStart } from '../GetPaid';
 
-beforeEach(() => vi.useFakeTimers());
+beforeEach(() => { vi.useFakeTimers(); });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 const STATES = ['none', 'started', 'waiting', 'connected'] as const;

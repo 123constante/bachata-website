@@ -204,8 +204,8 @@ describe('with ?o=<order id>', () => {
   });
 
   describe('still pending (polling)', () => {
-    beforeEach(() => vi.useFakeTimers());
-    afterEach(() => vi.useRealTimers());
+    beforeEach(() => { vi.useFakeTimers(); });
+    afterEach(() => { vi.useRealTimers(); });
 
     it('pending: "Confirming your payment", then it polls again and shows the QR when paid', async () => {
       readOrderStatus.mockResolvedValueOnce(reading('pending')).mockResolvedValue(reading('paid'));
