@@ -114,7 +114,7 @@ export default function TeacherRoute({ loaderData, params }: Route.ComponentProp
     </ComingSoonGate>
   );
   // When locked there's no dehydrated state; render the gate directly.
-  return loaderData?.locked ? (
+  return loaderData?.locked === true || !loaderData ? (
     gate
   ) : (
     <HydrationBoundary state={loaderData.dehydratedState}>{gate}</HydrationBoundary>

@@ -5,7 +5,7 @@ const opts = (fetchImpl: typeof fetch, serviceKey: string | undefined = 'svc-key
 const res = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
 type Call = [string, RequestInit];
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => { vi.restoreAllMocks(); });
 
 describe('og bake uploadJpeg (server caller)', () => {
   it('signs with the service key as bearer and apikey', async () => {
