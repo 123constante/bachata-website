@@ -107,6 +107,10 @@ export const SEO_LANDING_PATHS = [
   "/bachata-london-friday",
   "/bachata-london-saturday",
   "/bachata-london-sunday",
+  // Site structure S2c: SSR list pages that also stamp seo-landing.
+  "/classes",
+  "/parties",
+  "/tonight",
 ] as const;
 
 const COLLECTION_REASON =
