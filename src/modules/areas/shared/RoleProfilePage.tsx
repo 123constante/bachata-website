@@ -12,6 +12,7 @@ import { BlockedState, blockedCode, type BlockedPaths } from './BlockedState';
 import { ROLE_ERROR_COPY, roleErrorCode, roleErrorMessage, type RoleErrorCode } from './errorCopy';
 import { REQUIRED_HINT, ROLE_FIELDS, ROLE_NAME, ROLE_NOUN, ROLE_REQUIRED_LEAD, isGoLiveField, type Role } from './fieldRegistry';
 import { FieldInput } from './inputs';
+import { DancersSeeLine } from './DancersSeeLine';
 import { useLeaveGuard } from './leaveGuard';
 import { SavedToast } from './SavedToast';
 import { diffPatch, toDraft, validatePatch, withPendingDraft, type Details, type Draft } from './roleModel';
@@ -98,6 +99,7 @@ export function RoleProfileForm({ role, details, saving, onSave, serverError }: 
                       if (errors[f.key]) setErrors(({ [f.key]: _gone, ...rest }) => rest);
                     }}
                   />
+                  {role === 'dj' && f.key === 'dj_name' && <DancersSeeLine details={details} typedDjName={draft.dj_name} />}
                 </Field>
               );
             })}

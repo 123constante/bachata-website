@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import type { Person } from '@/modules/event-page/sections/EventScheduleGrid';
 import { emitProfileView } from '@/lib/profileViewEmit';
 import { hrefFor } from '@/lib/searchEntities';
+import { flags } from '@/lib/featureFlags';
 import { optimizedImageUrl, srcWidthFor } from '@/lib/imageCdn';
 // Lazy: /event/:id has a first-load budget (perf-budgets.json); the flag's code and
 // artwork load only when a person on the programme has a nationality.
@@ -31,6 +32,9 @@ const NationalityFlag = lazy(() => import('@/components/people/NationalityFlag')
 // Picked at the callsite. The avatar visual size shrinks down to 24 px for
 // dense surfaces; the outer hit area NEVER drops below 44 px (transparent
 // padding does the work - invisible but tappable).
+
+/** Name box width when VITE_ENABLE_NAME_FIXES is on (owner, 2026-11-27). */
+export const NAME_BOX_WIDE_PX = 96;
 
 export type PersonChipSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
@@ -266,8 +270,11 @@ export const PersonChip = ({
             opacity: isDimmed ? 0.7 : 1,
             marginTop: 5,
             // Settled 2026-08-23 (Ricky): a stacked chip prints the WHOLE name
-            // and clips with a VISIBLE ellipsis when it will not fit. This box
-            // is deliberately narrow and is NOT to be widened. At `md` a name
+            // and clips with a VISIBLE ellipsis when it will not fit. Owner
+            // re-decided 2026-11-27 (design mockup "Option 1: wider, 2 lines"):
+            // behind VITE_ENABLE_NAME_FIXES the box is 96 px wide, still clamp
+            // 2 + ellipsis, still no shortening rule; flag off keeps the narrow
+            // avatarPx + 24 box. At `md` (flag off) a name
             // past roughly 16 characters clamps -- "Cristian & Gabriella" ->
             // "Cristian & Ga..." -- and that is the intended outcome, not a
             // defect. An ellipsis is acceptable; a silently dropped word is
@@ -275,7 +282,7 @@ export const PersonChip = ({
             // least of all an allowlist sparing couples or stage names: that
             // exclusion-shaped predicate is what caused the original bug.
             // Rationale: plans/queued-person-name-authority-round2-revert.md.
-            maxWidth: t.avatarPx + 24,
+            maxWidth: flags.nameFixes ? NAME_BOX_WIDE_PX : t.avatarPx + 24,
             overflow: 'hidden',
             display: '-webkit-box',
             WebkitLineClamp: 2,
