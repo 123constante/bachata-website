@@ -206,8 +206,7 @@ const LearnBachataLondon = ({ serverTodayKey }: { serverTodayKey?: string }) => 
             <section className="space-y-3">
               <h2 className="text-2xl font-bold">Sensual or Dominican &mdash; which should a beginner pick?</h2>
               <p className="leading-relaxed">
-                Bachata splits into two broad styles. <em>Dominican</em> is the original style &mdash; faster footwork, free improvisation, less torso movement. <em>Sensual</em> is the modern European style &mdash; slower, with body waves, dips and choreographed turn patterns. As a beginner you don&rsquo;t have to choose: most London rooms play both, and a general beginners&rsquo; course will expose you to each so you can specialise later. Start with whatever class is nearest and friendliest; you&rsquo;ll quickly work out which one you enjoy. The{' '}
-                <Link to="/london-bachata-guide" className="text-primary underline">London bachata guide</Link>{' '}explains the styles and the venues in more depth.
+                Bachata splits into two broad styles. <em>Dominican</em> is the original style &mdash; faster footwork, free improvisation, less torso movement. <em>Sensual</em> is the modern European style &mdash; slower, with body waves, dips and choreographed turn patterns. As a beginner you don&rsquo;t have to choose: most London rooms play both, and a general beginners&rsquo; course will expose you to each so you can specialise later. Start with whatever class is nearest and friendliest; you&rsquo;ll quickly work out which one you enjoy.
               </p>
             </section>
 
@@ -227,10 +226,8 @@ const LearnBachataLondon = ({ serverTodayKey }: { serverTodayKey?: string }) => 
               <h2 className="text-2xl font-bold">Where to go next</h2>
               <p className="leading-relaxed">
                 Ready to pick a night? Browse beginner-friendly options on the{' '}
-                <Link to="/classes" className="text-primary underline">Classes page</Link>, see what&rsquo;s on this evening on the{' '}
-                <Link to="/tonight" className="text-primary underline">Tonight page</Link>, read the full{' '}
-                <Link to="/london-bachata-guide" className="text-primary underline">London bachata guide</Link>{' '}for the styles, venues and weekly rhythm, or check the{' '}
-                <Link to="/faq" className="text-primary underline">FAQ</Link>{' '}for everything else first-timers ask.
+                <Link to="/classes" className="text-primary underline">Classes page</Link>{' '}or see what&rsquo;s on this evening on the{' '}
+                <Link to="/tonight" className="text-primary underline">Tonight page</Link>.
               </p>
             </section>
           </>
