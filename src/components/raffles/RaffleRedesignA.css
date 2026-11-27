@@ -56,6 +56,10 @@
 .rd-medal b{font:italic 900 22px/1.1 var(--rd-disp);background:linear-gradient(100deg,#FFA600 25%,#FFF1D0 42%,#FFA600 58%);background-size:230% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:rd-sheen 3s linear infinite;animation-delay:calc(var(--n)*-.7s);padding:0 .1em .06em;overflow-wrap:anywhere}
 .rd-medal span:not(.rd-medal__disc){font-size:13.5px;color:var(--rd-muted);line-height:1.3;overflow-wrap:anywhere}
 .rd-medal em{margin-top:8px;font-style:normal;font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--rd-acc)}
+.rd-medal__link{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;color:inherit;text-decoration:none;-webkit-tap-highlight-color:transparent}
+.rd-medal__disc--photo img{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover}
+.rd-medal__coin{position:absolute;right:-4px;bottom:-4px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 30%,#FFE9BD,#FFA600 58%,#B86A00);color:#2B1600;box-shadow:0 0 0 2px var(--rd-bg),0 0 12px rgba(255,166,0,.55)}
+.rd-medal__coin svg{width:17px;height:17px}
 @media (min-width:700px){.rd-medals{grid-template-columns:repeat(4,minmax(0,1fr))}}
 /* Footer one-liner, sticky-bar glow ring and entered state (Spotlight C) */
 .rd-foot__info{max-width:34ch;margin:6px auto 0;color:var(--rd-ink)}

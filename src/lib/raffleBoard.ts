@@ -42,7 +42,7 @@ export type RaffleNight = {
 };
 
 /** Top-level `winners[]` of the board JSON (claimed + visible only, max 12, last 7 days). */
-export type RaffleWinner = { firstName: string; nightTitle: string; wonAt: string | null; profileSlug?: string; lastInitial?: string };
+export type RaffleWinner = { firstName: string; nightTitle: string; wonAt: string | null; profileSlug?: string; lastInitial?: string; avatarUrl?: string };
 
 export type RaffleBoard = {
   poolCount: number;
@@ -156,12 +156,15 @@ export function parseRaffleBoard(json: unknown): RaffleBoard {
       if (!firstName) return null;
       const profileSlug = str(w.profile_slug);
       const lastInitial = str(w.last_initial)?.charAt(0).toUpperCase();
+      // This winner's own public-profile photo (never matched by first name).
+      const avatarUrl = str(w.avatar_url);
       return {
         firstName,
         nightTitle: str(w.night_title) ?? '',
         wonAt: str(w.won_at),
         ...(profileSlug ? { profileSlug } : {}),
         ...(lastInitial ? { lastInitial } : {}),
+        ...(avatarUrl ? { avatarUrl } : {}),
       };
     })
     .filter((w): w is RaffleWinner => w !== null)
