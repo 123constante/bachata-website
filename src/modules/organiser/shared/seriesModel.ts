@@ -162,6 +162,8 @@ export interface DateDetail {
   ticketUrl: string | null;
   coverImageUrl: string | null;
   sessionCount: number;
+  /** Ways in: this night hides "Pay at the door" (event_occurrence_p5.no_door). */
+  noDoor: boolean;
 }
 
 const hhmm = (t: unknown) => (typeof t === 'string' && /^\d{2}:\d{2}/.test(t) ? t.slice(0, 5) : null);
@@ -191,6 +193,7 @@ export function parseDateDetail(raw: unknown): DateDetail {
     venueId: str(e.venue_id),
     ticketUrl: str(e.ticket_url),
     coverImageUrl: str(e.cover_image_url),
+    noDoor: o.no_door === true,
     sessionCount: program.filter((p) => (p as { start_time?: unknown })?.start_time && (p as { cancelled?: unknown }).cancelled !== true).length + added.length,
   };
 }
