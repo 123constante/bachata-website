@@ -238,6 +238,8 @@ export const flags = {
   // OFF = today's home, unchanged. Needs the admin RPCs (my_profile_match_candidates_v1, answer_profile_match_v1).
   // Turn on with VITE_ENABLE_PROFILE_MATCH_ASK=true (Vercel env) -- no code change.
   profileMatchAsk:     import.meta.env.VITE_ENABLE_PROFILE_MATCH_ASK === 'true',
+  // Ways in (change 2): one Ways in list on the Tickets screen; the price facts and Put it live point at it. OFF = unchanged.
+  waysInV2:            import.meta.env.VITE_ENABLE_WAYS_IN_V2 === 'true',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the
