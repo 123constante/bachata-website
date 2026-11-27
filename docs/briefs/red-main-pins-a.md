@@ -1,5 +1,7 @@
 # Brief: red main unit pins, part A (open problem P45)
 
+
+Size: 5 files, 60 lines
 Main 89b8a1c0 unit tests are red in all 4 shards; every PR inherits the red. Part A covers three tests whose pins drifted after merged PRs. Part B (another worker, branch claude/red-main-pins-b) covers automationRegister, cloudflarePurge and seoSoft404Matrix: do not touch those.
 
 Rule for every item: first find the commit that changed the behaviour (`git log -S`). If that change was intended (a merged PR on purpose), update the pin/list and name the PR in the commit message. If the test caught a real bug, fix the code instead and say so in the PR body. Never delete or weaken a test.
