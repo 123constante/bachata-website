@@ -52,7 +52,7 @@ const TALL = { minHeight: 44 } as const;
  * several dates. It reads the counts first; a failed read offers "Try again" and nothing that
  * writes. One future date (the read says so) saves as today, without asking. Cancel sends nothing.
  */
-export function ScopeSheet({ seriesId, fields, changes, unscopedChanged, seriesVersion, dateVersion, run, onPlain, onDone, onClose }: {
+export function ScopeSheet({ seriesId, fields, changes, unscopedChanged, seriesVersion, dateVersion, run, onPlain, onDone, onGated, onClose }: {
   seriesId: string;
   fields: ScopeField[];
   changes: Record<string, unknown>;
