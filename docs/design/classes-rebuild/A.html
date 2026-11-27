@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<!--
+DIRECTION A: "Departure board" - one text-only weekly timetable, time first, sticky day strip + filters.
+Why: the dancer question is "what is on and when"; a time-led board answers it in one thumb scroll, and every
+row is plain server-rendered text + link, which is the cheapest thing for Google to read and for a phone to load.
+-->
+<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=390,initial-scale=1"><title>A - Departure board | Bachata classes in London</title><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><style>
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:#1b1b1b;font-family:Inter,system-ui,sans-serif;color:#fff;font-size:14px;line-height:1.4;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+.phone{width:390px;margin:0 auto;background:#000;min-height:844px;position:relative}
+.top{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid #1f1f1f}
+.logo{font-weight:800;font-size:15px;letter-spacing:-.01em}.logo b{color:#FFA600}
+.burger{width:44px;height:44px;display:grid;place-items:center;color:#ababab;font-size:20px;margin-right:-12px}
+.crumb{font-size:12px;color:#8c8c8c;padding:10px 16px 0}.crumb a{color:#ababab}
+h2{font-size:19px;font-weight:800;letter-spacing:-.01em;line-height:1.2}
+.sec{padding:20px 16px 0}
+.lede{font-size:13px;color:#ababab;margin-top:4px}
+.bydays{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+.bydays a{min-height:44px;display:grid;place-items:center;background:#121212;border:1px solid #2b2b2b;border-radius:10px;font-size:13px;font-weight:600}
+.faq details{border-bottom:1px solid #222}
+.faq summary{min-height:48px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;list-style:none;cursor:pointer}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary:after{content:"+";color:#FFA600;font-size:20px;font-weight:400}
+.faq details[open] summary:after{content:"\2212"}
+.faq p{font-size:13px;color:#c9c9c9;padding:0 0 12px}
+.cal{margin-top:10px;border:1px dashed #3a3a3a;border-radius:12px;padding:14px;color:#8c8c8c;font-size:12px;text-align:center}
+.more{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.more a{min-height:44px;display:grid;place-items:center;border:1px solid #2b2b2b;border-radius:10px;font-size:13px;font-weight:600;color:#FFA600}
+.foot{margin-top:24px;padding:16px;border-top:1px solid #1f1f1f;color:#666;font-size:11px;text-align:center}
+.note{background:#2a2000;border:1px solid #5c4500;color:#ffd470;font-size:11px;padding:6px 10px;border-radius:8px;margin:8px 16px 0}
+
+.hd{padding:10px 16px 0}
+h1{font-size:28px;font-weight:900;letter-spacing:-.025em;line-height:1.05}
+h1 em{font-style:normal;color:#FFA600}
+.stand{font-size:14px;color:#d6d6d6;margin-top:8px}
+.upd{font-size:12px;color:#8c8c8c;margin-top:6px}.upd b{color:#3ddc84;font-weight:600}
+.doors{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 16px 0}
+.door{min-height:60px;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;justify-content:center}
+.door b{font-size:15px;font-weight:800;display:block}.door span{font-size:12px}
+.door.new{background:#FFA600;color:#000}.door.new span{color:#3d2800}
+.door.dan{background:#121212;border:1px solid #333}.door.dan span{color:#ababab}
+.bar{position:sticky;top:0;z-index:5;background:#000;border-bottom:1px solid #262626;margin-top:14px}
+.strip{display:flex;gap:6px;overflow-x:auto;padding:8px 16px 6px;scrollbar-width:none}
+.strip a{flex:none;min-height:44px;padding:4px 12px;border-radius:10px;background:#121212;border:1px solid #2b2b2b;display:flex;flex-direction:column;justify-content:center;font-size:13px;font-weight:700;white-space:nowrap}
+.strip a small{font-size:11px;font-weight:500;color:#8c8c8c}
+.strip a.on{background:#FFA600;border-color:#FFA600;color:#000}.strip a.on small{color:#3d2800}
+.flt{display:flex;gap:6px;overflow-x:auto;padding:0 16px 8px;scrollbar-width:none}
+.flt input{position:absolute;opacity:0;pointer-events:none}
+.flt label{flex:none;min-height:44px;display:flex;align-items:center;cursor:pointer}
+.flt label span{padding:6px 11px;border-radius:999px;border:1px solid #333;font-size:12px;font-weight:600;color:#c9c9c9;white-space:nowrap}
+.flt input:checked+label span{background:#fff;border-color:#fff;color:#000}
+.board{padding:14px 16px 0}
+.day{scroll-margin-top:112px;margin-top:14px}
+.day h3{display:flex;align-items:baseline;gap:8px;font-size:15px;font-weight:800;padding-bottom:6px;border-bottom:2px solid #FFA600}
+.day h3 i{font-style:normal;font-size:11px;font-weight:700;color:#000;background:#FFA600;border-radius:4px;padding:1px 5px;text-transform:uppercase;letter-spacing:.04em}
+.day h3 small{margin-left:auto;font-size:12px;font-weight:500;color:#8c8c8c}
+.row{display:grid;grid-template-columns:52px 1fr 14px;gap:10px;align-items:start;padding:9px 0;border-bottom:1px solid #1f1f1f;min-height:56px}
+.tm{font-variant-numeric:tabular-nums;font-size:17px;font-weight:800;line-height:1.1;letter-spacing:-.02em}
+.tm small{display:block;font-size:11px;font-weight:500;color:#8c8c8c;margin-top:3px;letter-spacing:0}
+.nm{font-size:15px;font-weight:700;line-height:1.2}
+.vn{font-size:12px;color:#ababab;margin-top:2px}
+.tg{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.tg span{font-size:11px;font-weight:600;padding:1px 6px;border-radius:4px;background:#1c1c1c;color:#c9c9c9;border:1px solid #2b2b2b}
+.tg .b{background:#FFA600;color:#000;border-color:#FFA600}
+.tg .s{color:#FFCC33;border-color:#4d3d00;background:#1f1800}
+.ch{color:#555;font-size:16px;align-self:center}
+.row.beg{box-shadow:inset 3px 0 0 #FFA600;padding-left:9px;margin-left:-12px;padding-right:0}
+.phone:has(#f-b:checked) .row:not(.beg),.phone:has(#f-c:checked) .row.soc,.phone:has(#f-s:checked) .row:not(.soc){display:none}
+.none{display:none;font-size:12px;color:#666;padding:10px 0}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.steps div{background:#121212;border:1px solid #2b2b2b;border-radius:12px;padding:10px}
+.steps b{display:block;font-size:22px;font-weight:900;color:#FFA600;line-height:1}
+.steps strong{display:block;font-size:13px;margin-top:6px}
+.steps p{font-size:12px;color:#ababab;margin-top:2px;line-height:1.3}
+.cta{margin-top:10px;min-height:48px;border-radius:12px;background:#FFA600;color:#000;font-weight:800;font-size:15px;display:grid;place-items:center}
+#first-class{scroll-margin-top:8px}
+</style></head><body><div class="phone">
+<div class="top"><a class="logo" href="/">Bachata<b>Calendar</b></a><span class="burger" aria-label="Menu">&#9776;</span></div>
+<nav class="crumb"><a href="/">Home</a> &rsaquo; Classes</nav>
+
+<header class="hd"><h1>Bachata classes <em>in London</em></h1><p class="stand">27 classes this week, in time order. Most rotate partners, so you can come on your own.</p><p class="upd"><b>&#9679; Updated Friday 27 November</b> &middot; 3 with a beginners slot</p></header>
+<div class="doors"><a class="door new" href="#first-class"><b>New to bachata?</b><span>Your first class &darr;</span></a><a class="door dan" href="#d-2026-11-27"><b>I already dance</b><span>Tonight&rsquo;s classes &darr;</span></a></div>
+<div class="bar"><nav class="strip" aria-label="Jump to day">
+<a class="on" href="#d-2026-11-27">Today<small>2 classes</small></a>
+<a href="#d-2026-11-28">Tomorrow<small>3 classes</small></a>
+<a href="#d-2026-11-29">Sunday<small>2 classes</small></a>
+<a href="#d-2026-11-30">Monday<small>4 classes</small></a>
+<a href="#d-2026-12-01">Tuesday<small>6 classes</small></a>
+<a href="#d-2026-12-02">Wednesday<small>3 classes</small></a>
+<a href="#d-2026-12-03">Thursday<small>7 classes</small></a>
+</nav><div class="flt"><input type="radio" name="f" id="f-a" checked><label for="f-a"><span>All 27</span></label><input type="radio" name="f" id="f-b"><label for="f-b"><span>Beginners slot 3</span></label><input type="radio" name="f" id="f-c"><label for="f-c"><span>Class only 5</span></label><input type="radio" name="f" id="f-s"><label for="f-s"><span>Class + social 22</span></label></div></div>
+<section class="board" id="this-week"><h2>This week&rsquo;s bachata classes</h2>
+<div class="day" id="d-2026-11-27"><h3>Friday 27 November <i>Today</i><small>2 classes</small></h3><ul style="list-style:none">
+<li><a class="row soc" href="https://unidosflow.bachatacalendar.co.uk/"><div class="tm">19:00<small>to 21:00</small></div><div><div class="nm">Unidos Flow</div><div class="vn">G Happy Feet Studios &middot; Unidos Flow</div><div class="tg"><span class="s">+ social 21:00</span><span>Dominican</span></div></div><span class="ch">&rsaquo;</span></a></li>
+<li><a class="row soc" href="https://purawildnights.bachatacalendar.co.uk/"><div class="tm">20:00<small>to 21:30</small></div><div><div class="nm">Pura Wild Nights</div><div class="vn">Dance Station &middot; Pura</div><div class="tg"><span class="s">+ social 21:30</span></div></div><span class="ch">&rsaquo;</span></a></li>
+</ul></div>
+<div class="day" id="d-2026-11-28"><h3>Saturday 28 November <i>Tomorrow</i><small>3 classes</small></h3><ul style="list-style:none">
+<li><a class="row soc" href="https://daytimebachatasocial.bachatacalendar.co.uk/"><div class="tm">14:30<small>to 16:00</small></div><div><div class="nm">Daytime Bachata Social</div><div class="vn">Southbank Club &middot; Cumbaye</div><div class="tg"><span class="s">+ social 16:00</span><span>Sensual</span></div></div><span class="ch">&rsaquo;</span></a></li>
+<li><a class="row soc" href="https://bachatainfluenceonelastdance.bachatacalendar.co.uk/"><div class="tm">18:00<small>to 19:05</small></div><div><div class="nm">Bachata Influence - One Last Dance?</div><div class="vn">Hackney Showroom &middot; Bachata Influence (Simon)</div><div class="tg"><span class="s">+ social 19:05</span><span>One-off</span></div></div><span class="ch">&rsaquo;</span></a></li>
+<li><a class="row soc" href="https://bachataonsaturday.bachatacalendar.co.uk/"><div class="tm">18:30<small>to 21:30</small></div><div><div class="nm">Bachata on Saturday</div><div class="vn">The Vault &middot; BOS</div><div class="tg"><span class="s">+ social 21:30</span><span>Sensual</span></div></div><span class="ch">&rsaquo;</span></a></li>
+</ul></div>
+<div class="day" id="d-2026-11-29"><h3>Sunday 29 November<small>2 classes</small></h3><ul style="list-style:none">
+<li><a class="row" href="https://klauladiesteam.bachatacalendar.co.uk/"><div class="tm">17:00<small>to 19:00</small></div><div><div class="nm">Klau Ladies Team</div><div class="vn">BPM Dance Studios &middot; Aurora Teachings</div><div class="tg"><span>Class only</span><span>Course</span><span>Sensual</span></div></div><span class="ch">&rsaquo;</span></a></li>
+<li><a class="row soc" href="https://musketeers.bachatacalendar.co.uk/"><div class="tm">18:30<small>to 20:30</small></div><div><div class="nm">Musketeers</div><div class="vn">Dance Station &middot; Musketeers</div><div class="tg"><span class="s">+ social 20:30</span><span>Bachata + salsa</span></div></div><span class="ch">&rsaquo;</span></a></li>
+</ul></div>
+<div class="day" id="d-2026-11-30"><h3>Monday 30 November<small>4 classes</small></h3><ul style="list-style:none">
+<li><a class="row soc" href="https://bachataflow.bachatacalendar.co.uk/"><div class="tm">19:00<small>to 20:00</small></div><div><div class="nm">Bachata Flow</div><div class="vn">Be At One &middot; London Loves Bachata</div><div class="tg"><span class="s">+ social 20:00</span><span>Sensual</span></div></div><span class="ch">&rsaquo;</span></a></li>
+<li><a class="row beg soc" href="https://lafabricamondays.bachatacalendar.co.uk/"><div class="tm">19:00<small>to 20:30</small></div><div><div class="nm">La Fabrica Mondays</div><div class="vn">Ritmo Latino Studio &middot; La Fabrica</div><div class="tg"><span class="b">Beginners slot</span><span class="s">+ social 20:30</span><span>Sensual</span></div></div><span class="ch">&rsaquo;</span></a></li>
+<li><a class="row soc" href="https://wimbledonsalsabachataclub.bachatacalendar.co.uk/"><div class="tm">19:30<small>to 21:45</small></div><div><div class="nm">Wimbledon Salsa &amp; Bachata Club</div><div class="vn">Drake House &middot; Incognito Dance</div><div class="tg"><span class="s">+ social 21:45</span><span>Bachata + salsa</span></div></div><span class="ch">&rsaquo;</span></a></li>
+<li><a class="row soc" href="https://puranights.bachatacalendar.co.uk/"><div class="tm">19:30<small>to 21:00</small></div><div><div class="nm">Pura Nights</div><div class="vn">The George IV &middot; Pura</div><div class="tg"><span class="s">+ social 21:00</span><span>Bachata + salsa</span></div></div><span class="ch">&rsaquo;</span></a></li>
+</ul></div>
+<div class="day" id="d-2026-12-01"><h3>Tuesday 1 December<small>6 classes</small></h3><ul style="list-style:none">
+<li><a class="row beg soc" href="https://bachataplayground.bachatacalendar.co.uk/"><div class="tm">18:30<small>to 21:30</small></div><div><div class="nm">Bachata Playground</div><div class="vn">Dance Station &middot; Bachata Playground</div><div class="tg"><span class="b">Beginners slot</span><span class="s">+ social 21:30</span><span>Sensual</span></div></div><span class="ch">&rsaquo;</span></a></li>
+<li><a class="row soc" href="https://todolatino.bachatacalendar.co.uk/"><div class="tm">19:00<small>to 21:30</small></div><div><div class="nm">Todo Latino</div><div class="vn">Sway Bar &middot; The Latin Colletive</div><div class="tg"><span class="s">+ social 21:30</span><span>Sensual</span></div></div><span class="ch">&rsaquo;</span></a></li>
+<li><a class="row soc" href="https://bachatatuesday.bachatacalendar.co.uk/"><div class="tm">19:00<small>to 21:45</small></div><div><div class="nm">Bachata Tuesday</div><div class="vn">Ritmo Latino Studio &middot; Ritmo Latino</div><div class="tg"><span class="s">+ social 21:45</span><span>Sensual</span></div></div><span class="ch">&rsaquo;</span></a></li>
+<li><a class="row beg" href="https://free2hbachatasensualbeginnersclass.bachatacalendar.co.uk/"><div class="tm">19:00<small>to 21:00</small></div><div><div class="nm">FREE 2H BACHATA SENSUAL BEGINNERS CLASS</div><div class="vn">Ruislip Gardens Primary School &middot; a2b Dance Academy</div><div class="tg"><span class="b">Beginners slot</span><span>Class only</span><span>Course</span></div></div><span class="ch">&rsaquo;</span></a></li>
+<li><a class="row soc" href="https://fulhamsalsabachataclub.bachatacalendar.co.uk/"><div class="tm">19:20<small>to 21:30</small></div><div><div class="nm">Fulham Salsa &amp; Bachata Club</div><div class="vn">St. Dionis Church Hall &middot; Incognito Dance</div><div class="tg"><span class="s">+ social 21:30</span></div></div><span class="ch">&rsaquo;</span></a></li>
+<li><a class="row soc" href="https://puranightsealing.bachatacalendar.co.uk/"><div class="tm">19:30<small>to 21:00</small></div><div><div class="nm">Pura Nights, Ealing</div><div class="vn">The Drayton Court Hotel &middot; Pura</div><div class="tg"><span class="s">+ social 21:00</span><span>Bachata + salsa</span></div></div><span class="ch">&rsaquo;</span></a></li>
+</ul></div>
+<div class="day" id="d-2026-12-02"><h3>Wednesday 2 December<small>3 classes</small></h3><ul style="list-style:none">
+<li><a class="row soc" href="https://swaywednesday.bachatacalendar.co.uk/"><div class="tm">19:00<small>to 20:30</small></div><div><div class="nm">Sway Wednesday</div><div class="vn">Sway Bar &middot; Cumbaye</div><div class="tg"><span class="s">+ social 20:30</span><span>Sensual</span></div></div><span class="ch">&rsaquo;</span></a></li>
+<li><a class="row soc" href="https://cocoloco.bachatacalendar.co.uk/"><div class="tm">19:15<small>to 21:15</small></div><div><div class="nm">Coco Loco</div><div class="vn">Ritmo Latino Studio &middot; Ritmo Latino</div><div class="tg"><span class="s">+ social 21:15</span><span>Bachata + salsa</span></div></div><span class="ch">&rsaquo;</span></a></li>
+<li><a class="row soc" href="https://hammersmithsalsabachataclub.bachatacalendar.co.uk/"><div class="tm">19:30<small>to 21:30</small></div><div><div class="nm">Hammersmith Salsa &amp; Bachata Club</div><div class="vn">Hammersmith Salsa &amp; Bachata Club &middot; Incognito Dance</div><div class="tg"><span class="s">+ social 21:30</span><span>Bachata + salsa</span></div></div><span class="ch">&rsaquo;</span></a></li>
+</ul></div>
+<div class="day" id="d-2026-12-03"><h3>Thursday 3 December<small>7 classes</small></h3><ul style="list-style:none">
+<li><a class="row" href="https://bachatapartnerworklondongb.bachatacalendar.co.uk/"><div class="tm">18:30<small>to 22:30</small></div><div><div class="nm">Bachata Partnerwork</div><div class="vn">Platform Studios East &middot; La Fabrica</div><div class="tg"><span>Class only</span><span>Sensual</span></div></div><span class="ch">&rsaquo;</span></a></li>
+<li><a class="row soc" href="https://bachataluxlounge.bachatacalendar.co.uk/"><div class="tm">19:00<small>to 20:30</small></div><div><div class="nm">Bachata Lux Lounge</div><div class="vn">Zebrano &middot; Cumbaye</div><div class="tg"><span class="s">+ social 20:30</span></div></div><span class="ch">&rsaquo;</span></a></li>
+<li><a class="row" href="https://bachatapartnerworkclasseswithalexboneva.bachatacalendar.co.uk/"><div class="tm">19:00<small>to 22:00</small></div><div><div class="nm">Bachata Partnerwork Classes with Alex Boneva</div><div class="vn">Dance Attic Studios &middot; Alex Boneva Teachings</div><div class="tg"><span>Class only</span></div></div><span class="ch">&rsaquo;</span></a></li>
+<li><a class="row soc" href="https://bachatatimebyspike.bachatacalendar.co.uk/"><div class="tm">19:15<small>to 21:00</small></div><div><div class="nm">Bachata Time by Spike</div><div class="vn">Marmalade Club &middot; Spike Bachata Fusion</div><div class="tg"><span class="s">+ social 21:00</span><span>Sensual</span></div></div><span class="ch">&rsaquo;</span></a></li>
+<li><a class="row soc" href="https://wildbachata.bachatacalendar.co.uk/"><div class="tm">19:30<small>to 21:30</small></div><div><div class="nm">Wild Bachata</div><div class="vn">Dance Station &middot; Sensual UK</div><div class="tg"><span class="s">+ social 21:30</span><span>Sensual</span></div></div><span class="ch">&rsaquo;</span></a></li>
+<li><a class="row soc" href="https://earlscourtsalsabachata.bachatacalendar.co.uk/"><div class="tm">19:45<small>to 21:40</small></div><div><div class="nm">Earl&rsquo;s Court Salsa &amp; Bachata</div><div class="vn">St Philip&rsquo;s Church &middot; Incognito Dance</div><div class="tg"><span class="s">+ social 21:40</span><span>Bachata + salsa</span></div></div><span class="ch">&rsaquo;</span></a></li>
+<li><a class="row" href="https://bachazoukladiesstyling.bachatacalendar.co.uk/"><div class="tm">20:00<small>to 22:00</small></div><div><div class="nm">BachaZouk Ladies Styling</div><div class="vn">BPM Dance Studios &middot; Anna Galenda</div><div class="tg"><span>Class only</span><span>Course</span><span>Sensual</span></div></div><span class="ch">&rsaquo;</span></a></li>
+</ul></div>
+</section>
+<section class="sec" id="first-class"><h2>Your first bachata class</h2><p class="lede">No partner, no experience, no special shoes. Here is how it goes.</p><div class="steps"><div><b>1</b><strong>Pick a beginners slot</strong><p>3 this week, marked in orange.</p></div><div><b>2</b><strong>Turn up alone</strong><p>The class rotates partners.</p></div><div><b>3</b><strong>Stay for the social</strong><p>Practise what you just learnt.</p></div></div>
+<h2 style="margin-top:18px;font-size:16px">Beginner bachata classes this week</h2><ul style="list-style:none">
+<li><a class="row beg" href="https://lafabricamondays.bachatacalendar.co.uk/"><div class="tm">19:00<small>Mon</small></div><div><div class="nm">La Fabrica Mondays</div><div class="vn">Monday 30 November &middot; Ritmo Latino Studio</div></div><span class="ch">&rsaquo;</span></a></li>
+<li><a class="row beg" href="https://bachataplayground.bachatacalendar.co.uk/"><div class="tm">18:30<small>Tue</small></div><div><div class="nm">Bachata Playground</div><div class="vn">Tuesday 1 December &middot; Dance Station</div></div><span class="ch">&rsaquo;</span></a></li>
+<li><a class="row beg" href="https://free2hbachatasensualbeginnersclass.bachatacalendar.co.uk/"><div class="tm">19:00<small>Tue</small></div><div><div class="nm">FREE 2H BACHATA SENSUAL BEGINNERS CLASS</div><div class="vn">Tuesday 1 December &middot; Ruislip Gardens Primary School</div></div><span class="ch">&rsaquo;</span></a></li>
+</ul><a class="cta" href="/learn-bachata-london">Read the beginner&rsquo;s guide</a></section>
+<section class="sec faq" id="questions"><h2>Bachata class questions</h2>
+<details><summary>Do I need a partner?</summary><p>No. Most classes rotate partners every few minutes, so most people come on their own.</p></details>
+<details><summary>Which class should a complete beginner pick?</summary><p>Pick one marked &ldquo;Beginners slot&rdquo;. Those nights list a beginners class in their programme, so you start from the basic step.</p></details>
+<details><summary>What is a class + social night?</summary><p>The class comes first, then the floor opens for social dancing. You can stay and practise what you just learnt, or leave after the class.</p></details>
+<details><summary>What should I wear?</summary><p>Comfortable clothes and shoes that turn easily on the floor. You do not need dance shoes for a first class.</p></details>
+</section>
+<section class="sec" id="by-day"><h2>Bachata classes by day</h2><div class="bydays">
+<a href="/bachata-london-monday">Monday</a>
+<a href="/bachata-london-tuesday">Tuesday</a>
+<a href="/bachata-london-wednesday">Wednesday</a>
+<a href="/bachata-london-thursday">Thursday</a>
+<a href="/bachata-london-friday">Friday</a>
+<a href="/bachata-london-saturday">Saturday</a>
+<a href="/bachata-london-sunday">Sunday</a>
+</div></section>
+<section class="sec" id="calendar"><h2>Full class calendar</h2><p class="lede">Every date beyond this week.</p><div class="cal">[ Existing EventCalendar, defaultCategory=&quot;classes&quot; &mdash; unchanged, not redesigned ]</div></section>
+<section class="sec"><h2>More in London</h2><div class="more"><a href="/tonight">Tonight</a><a href="/parties">Parties</a><a href="/teachers">Teachers</a></div></section>
+<div class="foot">[ Existing site footer &mdash; unchanged ]</div>
+</div></body></html>

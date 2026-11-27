@@ -7,6 +7,8 @@ import { EventCalendar } from '@/components/EventCalendar';
 import ListingIntro from '@/components/listing/ListingIntro';
 import { resolvePageCity } from '@/lib/pageCity';
 import LiveEventsSection from '@/components/seo/LiveEventsSection';
+import ClassesTwoDoors from '@/components/seo/classes/ClassesTwoDoors';
+import { flags } from '@/lib/featureFlags';
 
 /**
  * `serverTodayKey` comes only from the framework route for bare /classes, whose
@@ -59,7 +61,11 @@ const Classes = ({ serverTodayKey }: { serverTodayKey?: string }) => {
         </ListingIntro>
       )}
 
-      {serverTodayKey !== undefined && city.isLondon ? (
+      {serverTodayKey !== undefined && city.isLondon && flags.classesTwoDoors ? (
+        // Two doors (owner pick C 2026-11-27): owns the list, FAQ, by-day links,
+        // the calendar section and "More in London". Flag off = the block below.
+        <ClassesTwoDoors serverTodayKey={serverTodayKey} calendar={<EventCalendar defaultCategory="classes" />} />
+      ) : serverTodayKey !== undefined && city.isLondon ? (
         <div className="px-4 mb-6">
           <LiveEventsSection
             id="this-week"
@@ -75,10 +81,12 @@ const Classes = ({ serverTodayKey }: { serverTodayKey?: string }) => {
       ) : null}
 
       {/* Class Schedule */}
-      <section id="calendar" className="px-4 mb-8">
-        {city.isLondon ? <h2 className="text-2xl font-bold mb-3">Full class calendar</h2> : null}
-        <EventCalendar defaultCategory="classes" />
-      </section>
+      {serverTodayKey !== undefined && city.isLondon && flags.classesTwoDoors ? null : (
+        <section id="calendar" className="px-4 mb-8">
+          {city.isLondon ? <h2 className="text-2xl font-bold mb-3">Full class calendar</h2> : null}
+          <EventCalendar defaultCategory="classes" />
+        </section>
+      )}
     </GlobalLayout>
   );
 };
