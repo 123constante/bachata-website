@@ -24,6 +24,13 @@ export interface GuideResult { methods: PaymentMethod[]; ticket?: { pence: numbe
 
 const EMPTY: GuideAnswers = { online: false, methods: [], price: '', qty: '50', early: null, earlyPrice: '', until: '' };
 
+/** Opening answers from what is stored. Free is exclusive: a bare Free beats a Stripe connection, and Free never sits beside another way. */
+export function guideInitialFrom(stored: PaymentMethod[], hasTickets: boolean, connected: boolean): Pick<GuideAnswers, 'online' | 'methods'> {
+  const methods0 = stored.filter((m) => m === 'door' || m === 'ticket_link' || m === 'free');
+  if (methods0.includes('free') && !hasTickets && methods0.every((m) => m === 'free')) return { online: false, methods: ['free'] };
+  return { online: hasTickets || connected, methods: methods0.filter((m) => m !== 'free') };
+}
+
 /** The questions that will be asked, in order, for these answers. */
 export function guideSteps(a: Pick<GuideAnswers, 'online'>, stripe: boolean): GuideStep[] {
   if (!a.online) return ['q1'];

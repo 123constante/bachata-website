@@ -24,10 +24,10 @@ import { priceNow, SOLD_STEP_WINDOW_MS, TicketSheetV2 } from './TicketSheetV2';
 import { earlyBirdOf, type EarlyBirdView } from '../tickets/earlyBird';
 import { flags } from '@/lib/featureFlags';
 import { WaysInLinkSheet, WaysInView, withMethod } from './WaysIn';
-import { WaysInGuideView, type GuideAnswers, type GuideResult } from './WaysInGuide';
+import { WaysInGuideView, guideInitialFrom, type GuideAnswers, type GuideResult } from './WaysInGuide';
 import { WaysInSummaryView, type SummaryTicket } from './WaysInSummary';
 import { SkipDoorSheet } from './SkipDoorSheet';
-import { GUIDE_CODES, useWaysInGuideSave } from './useWaysInGuideSave';
+import { useWaysInGuideSave } from './useWaysInGuideSave';
 import { dateDetailQueryKey, fetchDateDetail } from '../../shared/selfServeApi';
 import { parsePayment, type PaymentMethod } from '../../events/paymentModel';
 import './v2.css';
@@ -430,8 +430,7 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
     const first = rows[0] ? list.find((t) => t.id === rows[0].id) : undefined;
     setGuideErr(null);
     setGuideInitial({
-      online: rows.length > 0 || connected,
-      methods: parsePayment(oldMethods).filter((m) => GUIDE_CODES.includes(m)),
+      ...guideInitialFrom(parsePayment(oldMethods), rows.length > 0, connected),
       ...(first ? { price: (first.pricePence / 100).toFixed(2), qty: String(first.capacity) } : {}),
     });
     setGuideOpen(true);
