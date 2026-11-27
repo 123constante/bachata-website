@@ -18,7 +18,7 @@ const h = vi.hoisted(() => ({
   auth: { user: null as null | { id: string; email: string }, authStatus: 'ready' as 'ready' | 'resolving', signOut: async () => 'signed-out' },
   completion: { status: 'signed_out', missing: [], profileId: null } as ProfileCompletion,
   rpc: vi.fn(),
-  otp: vi.fn(async () => ({ data: {}, error: null })),
+  otp: vi.fn(async (..._a: unknown[]) => ({ data: {}, error: null })),
   organisers: [] as { id: string; name: string }[],
 }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => h.auth }));

@@ -353,7 +353,7 @@ function isSchemaCacheError(error: unknown): boolean {
 }
 
 async function readRpcWithSchemaCacheRetry<T>(
-  read: () => Promise<{ data: T | null; error: unknown }>,
+  read: () => PromiseLike<{ data: T | null; error: unknown }>,
 ): Promise<T> {
   for (let attempt = 0; ; attempt += 1) {
     const { data, error } = await read();
