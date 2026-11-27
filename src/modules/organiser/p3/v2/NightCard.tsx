@@ -11,6 +11,7 @@ import { londonTodayKey } from '@/lib/londonDate';
 import { allItems } from '../../events/programmeSeriesModel';
 import { localAsZTime } from '../../shared/homeModel';
 import { seriesTree } from '../data/sessions';
+import { useGatedCopy } from '../onboarding/gate';
 import { V2 } from './copy';
 import { nightFieldState, type WriteStep } from './editorModel';
 import { Fact, aboutShort, priceLabel, waysInLabel } from './Facts';
@@ -80,6 +81,7 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
   onBack: (step: WriteStep, before: Record<string, unknown> | null, label: string) => unknown;
 }) {
   const qc = useQueryClient();
+  const gated = useGatedCopy();
   const [whenOpen, setWhenOpen] = useState(false);
   useEffect(() => { if (openWhen && onSave) setWhenOpen(true); }, []); // eslint-disable-line react-hooks/exhaustive-deps -- once, on mount
   const [sheet, setSheet] = useState<'where' | 'about' | 'flyer' | 'price' | null>(null);
@@ -120,8 +122,10 @@ export function NightCard({ ws, date, onBack, onSave, busy, onCancelNight, onBri
     try {
       await setNightNoDoor(date.id, next);
       await qc.invalidateQueries({ queryKey: dateDetailQueryKey(date.id) });
-    } catch {
-      setNoDoorOpt(!next); setNoDoorErr(true);
+    } catch (e) {
+      // An onboarding refusal opens the shared gate sheet and shows no error line.
+      const noDoorGated = gated(e, () => 'x');
+      setNoDoorOpt(!next); if (noDoorGated !== null) setNoDoorErr(true);
     } finally { setNoDoorPending(false); }
   };
   const nightMethods = dt?.noDoor ? parsePayment(s.payment_methods).filter((m) => m !== 'door').join(',') : (s.payment_methods ?? null);
