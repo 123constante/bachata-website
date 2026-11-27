@@ -309,11 +309,18 @@ async function fetchSitemapLocs() {
   } catch { return null; } finally { clearTimeout(t); }
 }
 
+// Event pages live on their own subdomain since 2026-11-25
+// (<slug>.bachatacalendar.co.uk; www/event/<slug> 301s there), so the
+// '/event/' sample alone no longer covers them.
+const SUBDOMAIN_SAMPLE = 3;
+const EVENT_SUBDOMAIN_RE = /^https:\/\/(?!www\.)[a-z0-9-]+\.bachatacalendar\.co\.uk\/?$/;
+
 function sampleEntities(locs) {
   const out = [];
   for (const [prefix, n] of Object.entries(ENTITY_SAMPLE)) {
     out.push(...locs.filter((u) => u.includes(prefix)).slice(0, n));
   }
+  out.push(...locs.filter((u) => EVENT_SUBDOMAIN_RE.test(u)).slice(0, SUBDOMAIN_SAMPLE));
   return out;
 }
 
@@ -339,11 +346,20 @@ async function inspectUrls(token, locs) {
     const expectedRedirect = INTENTIONAL_REDIRECTS.has(pathStr);
     inspected.push({ url, verdict, coverage, robots, indexingState });
 
+    const fetchState = idx.pageFetchState || '';
     const robotsBlocked = robots === 'DISALLOWED';
     const metaBlocked = indexingState === 'BLOCKED_BY_META_TAG' || indexingState === 'BLOCKED_BY_HTTP_HEADER';
     const redirectish = /redirect/i.test(coverage);
 
-    if (robotsBlocked && !expectedRedirect) {
+    if (fetchState === 'ACCESS_FORBIDDEN' && /403/.test(coverage)) {
+      // 2026-11: a Cloudflare bot rule 403'd Googlebot for weeks while the
+      // site looked fine to people. A 403 on a crawl from the last 3 days is a
+      // live block (hard fail); an older one is a stale crawl awaiting recrawl.
+      const crawlAgeDays = idx.lastCrawlTime ? (Date.now() - Date.parse(idx.lastCrawlTime)) / 864e5 : Infinity;
+      const detail = [coverage, `last crawl ${idx.lastCrawlTime || '?'}`];
+      if (crawlAgeDays <= 3) fail(`Googlebot got 403 on: ${pathStr}`, detail);
+      else warn(`stale 403 crawl, awaiting recrawl: ${pathStr}`, detail);
+    } else if (robotsBlocked && !expectedRedirect) {
       fail(`blocked from indexing by robots.txt: ${pathStr}`, [`robots=${robots}`]);
     } else if (metaBlocked && !expectedRedirect) {
       warn(`noindex meta/header on: ${pathStr}`, [`indexing=${indexingState}`]);
