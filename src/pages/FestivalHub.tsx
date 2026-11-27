@@ -16,6 +16,7 @@ import { festivalCountLabel } from "@/pages/festivalCountLabel";
 import { GOING_COPY } from "@/modules/going/goingCopy";
 import { fetchFestivalNight, festivalNightQueryKey } from "@/pages/festivalHubNights";
 import { FestivalGoing } from "@/pages/FestivalHubGoing";
+import { flags } from "@/lib/featureFlags";
 
 // Confetti particle component
 const ConfettiParticle = ({ delay, startX }: { delay: number; startX: number }) => (
@@ -223,21 +224,24 @@ const FestivalHubInner = () => {
                         onSignIn={() => setShowAuthModal(true)}
                       />
                     )}
-                    {/* Crew Finder Stats */}
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="flex items-center gap-1 bg-muted/50 px-2 py-1 rounded-full">
-                        <Home className="w-3 h-3 text-blue-400" />
-                        <span className="text-[10px]">{festival.roommatesLooking}</span>
+                    {/* Crew Finder Stats: the counts were never stored, so the pills showed no
+                        numbers. Removed behind flags.festivalCrewPillsRemoved (default on). */}
+                    {!flags.festivalCrewPillsRemoved && (
+                      <div className="flex items-center gap-2 mb-3" data-testid="festival-crew-pills">
+                        <div className="flex items-center gap-1 bg-muted/50 px-2 py-1 rounded-full">
+                          <Home className="w-3 h-3 text-blue-400" />
+                          <span className="text-[10px]" />
+                        </div>
+                        <div className="flex items-center gap-1 bg-muted/50 px-2 py-1 rounded-full">
+                          <Car className="w-3 h-3 text-yellow-400" />
+                          <span className="text-[10px]" />
+                        </div>
+                        <div className="flex items-center gap-1 bg-muted/50 px-2 py-1 rounded-full">
+                          <Heart className="w-3 h-3 text-pink-400" />
+                          <span className="text-[10px]" />
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1 bg-muted/50 px-2 py-1 rounded-full">
-                        <Car className="w-3 h-3 text-yellow-400" />
-                        <span className="text-[10px]">{festival.taxiBuddiesLooking}</span>
-                      </div>
-                      <div className="flex items-center gap-1 bg-muted/50 px-2 py-1 rounded-full">
-                        <Heart className="w-3 h-3 text-pink-400" />
-                        <span className="text-[10px]">{festival.dancePartnersLooking}</span>
-                      </div>
-                    </div>
+                    )}
 
                     {/* View Details Arrow */}
                     <div className="flex items-center justify-center mt-3 text-primary">
