@@ -135,6 +135,11 @@ jobs:
         if: steps.changes.outputs.docs_only != 'true'
         run: npm run check:chunk-cycles:self-test
 
+      # Same placement, same reason as the canaries above.
+      - name: Lazy-only route CSS canary
+        if: steps.changes.outputs.docs_only != 'true'
+        run: npm run check:lazy-route-css:self-test
+
       - name: Build client + server
         if: steps.changes.outputs.docs_only != 'true'
         env:
@@ -169,6 +174,13 @@ jobs:
       - name: Chunk import cycles
         if: ${{ (!cancelled()) && steps.changes.outputs.docs_only != 'true' }}
         run: npm run check:chunk-cycles
+
+      # CSS that arrives only through a lazy import paints the route unstyled
+      # first (#2373 homepage map flash). Ratchet: a NEW lazy-only stylesheet
+      # fails; see the allow-list in scripts/check-lazy-route-css.mjs.
+      - name: Lazy-only route CSS
+        if: ${{ (!cancelled()) && steps.changes.outputs.docs_only != 'true' }}
+        run: npm run check:lazy-route-css
 
   lighthouse:
     # Previews only exist for PRs; skip on push (nothing to point Lighthouse at).
