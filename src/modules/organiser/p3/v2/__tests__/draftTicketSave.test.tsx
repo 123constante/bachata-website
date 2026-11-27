@@ -4,7 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
-const h = vi.hoisted(() => ({ upsert: vi.fn(), status: vi.fn(), setStep: vi.fn(), delStep: vi.fn(), manage: vi.fn() }));
+const h = vi.hoisted(() => ({ upsert: vi.fn(), status: vi.fn(), setStep: vi.fn(), delStep: vi.fn(), manage: vi.fn(), ws: vi.fn() }));
 vi.mock('../../../tickets/ticketsApi', async (orig) => ({
   ...((await orig()) as object),
   setTicketStatus: (id: string, s: string) => h.status(id, s),
@@ -12,6 +12,10 @@ vi.mock('../../../tickets/ticketsApi', async (orig) => ({
   setPriceStep: (c: unknown) => h.setStep(c),
   removePriceStep: (id: string) => h.delStep(id),
   fetchManagedTypes: () => h.manage(),
+}));
+vi.mock('@/modules/organiser/shared/runCommands', async (orig) => ({
+  ...((await orig()) as object),
+  fetchEventWorkspace: (id: string) => h.ws(id),
 }));
 vi.mock('@/lib/featureFlags', async (orig) => { const m = (await orig()) as { flags: Record<string, boolean> }; return { ...m, flags: { ...m.flags } }; });
 import { flags } from '@/lib/featureFlags';
@@ -31,6 +35,7 @@ beforeEach(() => {
   h.setStep.mockReset().mockResolvedValue({ ok: true, reason: null });
   h.delStep.mockReset().mockResolvedValue({ ok: true, reason: null });
   h.manage.mockReset().mockResolvedValue({ ok: true, types: [] });
+  h.ws.mockReset().mockResolvedValue({ series: { id: 's1', lifecycle_status: 'draft' } });
   Object.assign(flags, { waysInRebuild: true });
 });
 afterEach(cleanup);
@@ -106,5 +111,70 @@ describe('the Ways in guide on a draft series', () => {
     expect(out).toEqual({ ok: true });
     expect(h.status).toHaveBeenCalledWith('new1', 'on_sale');
     expect(say).toHaveBeenCalledWith(V2.ticketSheet.saved);
+  });
+});
+
+// P70: the snapshot said draft, but the event went live in another tab. The go-live trigger only flips draft tickets
+// AT go-live, so writeTicket re-reads the real lifecycle before leaving a new ticket a draft.
+const server = (v: string | Error) => (v instanceof Error ? h.ws.mockRejectedValue(v) : h.ws.mockResolvedValue({ series: { id: 's1', lifecycle_status: v } }));
+
+describe('writeTicket re-reads the series before leaving a new ticket a draft', () => {
+  it.each([
+    { name: 'prop draft, server live', prop: false, srv: 'live', reads: 1, onSale: true, out: { ok: true, id: 'new1', changed: true } },
+    { name: 'prop draft, server draft', prop: false, srv: 'draft', reads: 1, onSale: false, out: { ok: true, id: 'new1', changed: true, draft: true } },
+    { name: 'prop draft, server pending_review', prop: false, srv: 'pending_review', reads: 1, onSale: false, out: { ok: true, id: 'new1', changed: true, draft: true } },
+    { name: 'prop draft, server rejected', prop: false, srv: 'rejected', reads: 1, onSale: false, out: { ok: true, id: 'new1', changed: true, draft: true } },
+    { name: 'prop draft, read fails', prop: false, srv: new Error('network'), reads: 1, onSale: false, out: { ok: true, id: 'new1', changed: true, draft: true } },
+    { name: 'prop live (unchanged, no extra read)', prop: true, srv: 'draft', reads: 0, onSale: true, out: { ok: true, id: 'new1', changed: true } },
+  ])('$name', async ({ prop, srv, reads, onSale, out }) => {
+    server(srv);
+    const r = await writeTicket({ ...base, type: null, seriesLive: prop });
+    expect(h.ws).toHaveBeenCalledTimes(reads);
+    if (reads) expect(h.ws).toHaveBeenCalledWith('s1');
+    if (onSale) expect(h.status).toHaveBeenCalledWith('new1', 'on_sale'); else expect(h.status).not.toHaveBeenCalled();
+    expect(r).toEqual(out);
+  });
+  it('prop draft, server live, on_sale refused: not ok, with the created id (the sheet closes that row)', async () => {
+    server('live');
+    h.status.mockResolvedValue({ ok: false, reason: 'series_not_live' });
+    const r = await writeTicket({ ...base, type: null, seriesLive: false });
+    expect(r).toMatchObject({ ok: false, createdId: 'new1' });
+    expect('error' in r && r.error.length > 0).toBe(true);
+  });
+  it('an existing ticket: no read and no status call', async () => {
+    server('live');
+    const r = await writeTicket({ ...base, basePence: 1200, type, form: { ...form, qty: 60 }, seriesLive: false });
+    expect(h.ws).not.toHaveBeenCalled();
+    expect(h.status).not.toHaveBeenCalled();
+    expect(r).toEqual({ ok: true, id: 't1', changed: true });
+  });
+});
+
+describe('the ticket sheet when the event went live meanwhile', () => {
+  const price = () => (screen.getByTestId('t-price') as HTMLInputElement).value;
+  it('server live: on sale and the normal saved line', async () => {
+    server('live');
+    const { onDone, onFail } = sheet(false);
+    await waitFor(() => expect(onDone).toHaveBeenCalled());
+    expect(onDone.mock.calls[0][0]).toBe(V2.ticketSheet.saved);
+    expect(h.status).toHaveBeenCalledWith('new1', 'on_sale');
+    expect(onFail).not.toHaveBeenCalled();
+  });
+  it.each([
+    { name: 'on_sale refused', arrange: () => { server('live'); h.status.mockImplementation((_id: string, s: string) => Promise.resolve(s === 'on_sale' ? { ok: false, reason: 'series_not_live' } : { ok: true, reason: null })); } },
+    { name: 'upsert refused', arrange: () => { server('live'); h.upsert.mockResolvedValue({ ok: false, reason: null, id: null }); } },
+  ])('$name: the error shows and the typed price stays in the sheet', async ({ arrange }) => {
+    arrange();
+    const { onDone, onFail } = sheet(false);
+    await waitFor(() => expect(onFail).toHaveBeenCalled());
+    expect(onDone).not.toHaveBeenCalled();
+    expect(price()).toBe('12');
+  });
+  it('read fails: still saved as a draft, no throw', async () => {
+    server(new Error('network'));
+    const { onDone, onFail } = sheet(false);
+    await waitFor(() => expect(onDone).toHaveBeenCalled());
+    expect(onDone.mock.calls[0][0]).toBe(V2.ticketSheet.savedDraft);
+    expect(onFail).not.toHaveBeenCalled();
   });
 });
