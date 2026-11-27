@@ -192,7 +192,7 @@ describe('screen x shape: the exact checkout body', () => {
   it('flag ON reads v3', async () => {
     mount([T()]);
     await screen.findByTestId('ticket-bar');
-    expect(api.fetchPublicTicketTypes).toHaveBeenCalledWith('e1', null, true);
+    expect(api.fetchPublicTicketTypes).toHaveBeenCalledWith('e1', null, true, false);
   });
 });
 

@@ -163,11 +163,11 @@ describe.each(CITIES)('Parties and Classes on /city/$city', ({ city, name, londo
   it.each([
     { seg: 'parties', Page: Parties, title: `Bachata Socials & Parties in ${name}` },
     { seg: 'classes', Page: Classes, title: `Bachata Classes in ${name}` },
-  ])('$seg: title and intro name the city; London guide links only for London', ({ seg, Page, title }) => {
+  ])('$seg: title and intro name the city; London beginner guide link only for London', ({ seg, Page, title }) => {
     mount(<Page />, at(seg), pattern(seg));
     expect(lastTitle()).toBe(title);
     expect(document.body.textContent).toContain(` in ${name}`);
-    expect(!!document.querySelector('a[href="/london-bachata-guide"]')).toBe(london);
+    expect(!!document.querySelector('a[href="/learn-bachata-london"]')).toBe(london);
     if (!london) expect(document.body.textContent).not.toContain('London');
   });
 
@@ -175,7 +175,7 @@ describe.each(CITIES)('Parties and Classes on /city/$city', ({ city, name, londo
     h.city = 'bristol-gb';
     mount(<Parties />, '/parties', '/parties');
     expect(lastTitle()).toBe('Bachata Socials & Parties in London');
-    expect(document.querySelector('a[href="/london-bachata-guide"]')).toBeTruthy();
+    expect(document.querySelector('a[href="/learn-bachata-london"]')).toBeTruthy();
   });
 });
 

@@ -58,7 +58,8 @@ describe('RaffleWin orchestrator', () => {
     h.auth = { user: null, isLoading: false };
     go();
     expect(await screen.findByRole('link', { name: 'Sign in to claim' })).toBeTruthy();
-    expect(h.rpc).not.toHaveBeenCalled();
+    // The page pings raffle_win_link_opened_v1 on mount (fire and forget, not a claim); only the claim is forbidden.
+    expect(h.rpc.mock.calls.map((c) => c[0])).not.toContain('raffle_win_claim_link_v1');
   });
   it('signed in shows won; from sign-in goes to pick', async () => {
     setup({ raffle_win_claim_link_v1: claim() });
