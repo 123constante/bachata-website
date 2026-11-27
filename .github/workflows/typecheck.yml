@@ -55,7 +55,7 @@ jobs:
       - name: Cache node_modules
         id: nm
         if: steps.changes.outputs.docs_only != 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: node_modules
           key: node-modules-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
