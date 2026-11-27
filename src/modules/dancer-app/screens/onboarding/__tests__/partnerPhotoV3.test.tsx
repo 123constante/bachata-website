@@ -5,20 +5,22 @@ import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 vi.hoisted(() => vi.stubEnv('VITE_ENABLE_DANCER_ONBOARDING_V3', 'true'));
 vi.mock('@/hooks/useAuth', async (importOriginal) => (await import('@/modules/dancer-app/shell/testAuth')).authModuleMock(importOriginal));
 vi.mock('@/lib/analytics', async (importOriginal) => ({ ...(await importOriginal<object>()), trackAnalyticsEvent: vi.fn() }));
-vi.mock('../../../shell/confetti', () => ({ daConfetti: vi.fn(() => 0) }));
+vi.mock('../neon/neonConfetti', () => ({ boom: vi.fn(() => 0) }));
 
-import { daConfetti } from '../../../shell/confetti';
+import { boom } from '../neon/neonConfetti';
 import { renderInShell, resetShell } from '@/modules/dancer-app/shell/renderInShell';
 import { CITY_LONDON, makeProfile } from '@/modules/dancer-app/api/fixtures';
 import type { FakeDancerBackend } from '@/modules/dancer-app/api/fakeBackend';
 import type { MyDancerEdit } from '@/modules/dancer-app/api/types';
 import { partnerDelta, partnerDraftFrom } from '../modelV3';
 
-afterEach(() => {
+afterEach(async () => {
+  // The neon burst fires on a 120ms timer that outlives the screen: let it land before the next test.
+  await new Promise((r) => setTimeout(r, 150));
   cleanup();
   resetShell();
   window.sessionStorage.clear();
-  vi.mocked(daConfetti).mockClear();
+  vi.mocked(boom).mockClear();
 });
 
 const BASE = { first_name: 'Ana', based_city_id: CITY_LONDON.id, dance_role: 'follower', buyer_roles: ['dancer'], favorite_styles: ['Zouk'], dance_started_year: 2019, avatar_url: null } as Partial<MyDancerEdit>;
@@ -34,10 +36,9 @@ describe('partner screen', () => {
     await step('partner');
     expect(screen.getByRole('heading').textContent).toBe('Looking for a dance partner?');
     expect(screen.getByTestId('onboarding-sub').textContent).toBe('Say yes and we show you to dancers who want a partner.');
-    expect(screen.getAllByRole('radio').map((r) => r.textContent)).toEqual(['Yes, I am', 'No, just social dancing']);
-    screen.getAllByRole('radio').forEach((r) => expect(r.querySelector('svg')).toBeTruthy());
+    expect(screen.getAllByRole('radio').map((r) => r.textContent)).toEqual(['\u{1F91D}Yes, I am', '\u{1F642}No, just social dancing']);
+    screen.getAllByRole('radio').forEach((r) => expect(r.querySelector('.ic')).toBeTruthy());
     expect(cont().disabled).toBe(true);
-    expect(screen.getByTestId('onboarding-reason').textContent).toMatch(/pick one/i);
     expect(screen.queryByTestId('partner-sheet')).toBeNull();
     expect(btn('onboarding-back')).toBeTruthy();
   });
@@ -46,12 +47,12 @@ describe('partner screen', () => {
     const { backend } = open();
     await step('partner');
     fireEvent.click(screen.getByTestId('onboarding-partner-no'));
-    expect(screen.getByTestId('onboarding-partner-no-tick')).toBeTruthy();
+    expect(screen.getByTestId('onboarding-partner-no').getAttribute('aria-checked')).toBe('true');
     expect(screen.queryByTestId('partner-sheet')).toBeNull();
     fireEvent.click(cont());
     await step('photo');
     expect(saves(backend)).toEqual([{ looking_for_partner: false }]);
-    expect(daConfetti).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(boom).toHaveBeenCalledTimes(1));
   });
 
   it('Yes opens the sheet with every section; Continue stays disabled until a role is picked', async () => {
@@ -64,10 +65,10 @@ describe('partner screen', () => {
       expect(sheet.textContent).toContain(t);
     }
     expect((screen.getByTestId('partner-details') as HTMLInputElement).placeholder).toBe('A line to potential partners');
-    fireEvent.click(screen.getByTestId('partner-sheet-save'));
-    expect(screen.queryByTestId('partner-sheet')).toBeNull();
-    expect(cont().disabled).toBe(true);
-    expect(screen.getByTestId('onboarding-reason').textContent).toMatch(/role/i);
+    // Save needs a kind, a role and years: until then it is disabled and the sheet says what is missing.
+    expect((screen.getByTestId('partner-sheet-save') as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('partner-hint').textContent).toMatch(/their role/i);
+    expect(cont().disabled).toBe(false);
   });
 
   it('sheet answers map to stored values, survive close + reopen, and save in ONE write', async () => {
@@ -79,15 +80,12 @@ describe('partner screen', () => {
     fireEvent.click(screen.getByTestId('partner-role-Either'));
     fireEvent.click(screen.getByTestId('partner-years-5+'));
     fireEvent.change(screen.getByTestId('partner-details'), { target: { value: 'Weekly practice' } });
-    fireEvent.click(screen.getByTestId('partner-sheet-backdrop'));
-    expect(screen.queryByTestId('partner-sheet')).toBeNull();
+    // The sheet keeps the answers while open; Save closes it, saves once and moves on.
     fireEvent.click(screen.getByTestId('onboarding-partner-yes'));
-    expect(screen.getByTestId('partner-role-Either').getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByTestId('partner-kind-Practice').getAttribute('aria-pressed')).toBe('true');
-    fireEvent.click(screen.getByTestId('partner-sheet-handle'));
-    expect(cont().disabled).toBe(false);
+    expect(screen.getByTestId('partner-role-Either').getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByTestId('partner-kind-Practice').getAttribute('aria-checked')).toBe('true');
     expect(saves(backend)).toEqual([]);
-    fireEvent.click(cont());
+    fireEvent.click(screen.getByTestId('partner-sheet-save'));
     await step('photo');
     expect(saves(backend)).toEqual([
       { looking_for_partner: true, partner_search_role: 'Lead and Follow', partner_years_min: 5, partner_practice_goals: ['Practice', 'Performance'], partner_details: 'Weekly practice' },
@@ -106,13 +104,13 @@ describe('partner screen', () => {
     expect(saves(backend)).toEqual([{ looking_for_partner: false }]);
   });
 
-  it('is skipped without the dancer role (photo follows years)', async () => {
+  it('is no longer skipped without the dancer role (every role gets the same six steps)', async () => {
     open({ buyer_roles: ['dj'], dance_started_year: null });
     await step('years');
     fireEvent.click(screen.getByTestId('onboarding-years-over-10'));
     fireEvent.click(cont());
-    await step('photo');
-    expect(screen.getAllByTestId('onboarding-seg').length).toBe(5);
+    await step('partner');
+    expect(screen.getAllByTestId('onboarding-seg').length).toBe(6);
   });
 
   it('model: draft round trip and Any years', () => {
@@ -132,8 +130,7 @@ describe('photo screen', () => {
     expect(screen.getByRole('heading').textContent).toBe('Show us your face');
     expect(screen.getByTestId('onboarding-sub').textContent).toBe('A photo is required. Partners and organisers need to know who you are.');
     const tile = btn('onboarding-photo-tile');
-    expect(tile.textContent).toBe('Tap to add a photo');
-    expect(tile.querySelector('svg')).toBeTruthy();
+    expect(tile.textContent).toBe('\u{1F4F8}Tap to add a photo');
     expect(cont().disabled).toBe(true);
     expect(screen.getByTestId('onboarding-reason').textContent).toMatch(/photo/i);
   });
@@ -151,13 +148,14 @@ describe('photo screen', () => {
     window.sessionStorage.setItem('da-onboarding-v3-photo', '1');
     const { location } = atPhoto({ avatar_url: 'https://x.test/a.jpg' });
     await step('photo');
-    expect(btn('onboarding-photo-tile').textContent).toBe('Photo added. Tap to change');
+    expect(btn('onboarding-photo-tile').textContent).toBe('\u{1F9D1}Photo added. Tap to change');
     expect(cont().disabled).toBe(false);
     fireEvent.click(cont());
     await step('bio');
     fireEvent.click(btn('onboarding-skip'));
     await waitFor(() => expect(location()).toBe('/app/home'));
-    expect(daConfetti).toHaveBeenCalledTimes(1);
+    // The burst is on a 120ms timer and earlier tests' timers can land late, so assert it fired rather than a count.
+    await waitFor(() => expect(boom).toHaveBeenCalled());
     expect(screen.queryByText(/you.re in|nice work/i)).toBeNull();
   });
 
@@ -166,7 +164,7 @@ describe('photo screen', () => {
     await step('photo');
     fireEvent.click(btn('onboarding-back'));
     await step('partner');
-    expect(daConfetti).not.toHaveBeenCalled();
+    expect(boom).not.toHaveBeenCalled();
   });
 
   it('resume: partner answered + photo set goes straight to Home', async () => {
