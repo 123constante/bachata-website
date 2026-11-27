@@ -274,6 +274,8 @@ h2.v2-card-h { display: block; color: #1a1a1a; visibility: visible; }
 /* Ways in guide + summary (flag waysInRebuild): cards and buttons sit straight on the page, so the page carries the 16px side margin, not each title */
 .ev2.wi-page { padding-left: 16px; padding-right: 16px; }
 .ev2.wi-page .back, .ev2.wi-page .ttl, .ev2.wi-page .sub { padding-left: 0; padding-right: 0; }
+/* guide errors ("Enter a price, like 8 or 8.50.") sit on the page, not in a sheet, so they need the sheet's red here too */
+.ev2.wi-page .err { font-size: 14px; color: #B42318; margin: 8px 0 0; }
 .ev2 .btn.big { min-height: 56px; font-size: 17px; }
 .ev2 .warn { font-size: 14px; color: #8A4B00; background: #FFF6E0; border-radius: 8px; padding: 10px 12px; margin: 0; }
 .ev2 .sent { font-size: 15px; color: #464646; margin: 0; padding: 0 16px; text-align: center; }
