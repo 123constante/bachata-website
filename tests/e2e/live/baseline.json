@@ -67,12 +67,6 @@
       "button.[&_svg]:pointer-events-none.[&_svg]:shrink-0.[&_svg]:size-4.bg-primary.disabled:opacity-50.disabled:pointer-events-none.focus-visible:outline-none.focus-visible:ring-2"
     ]
   },
-  "/faq": {
-    "tap-target": [
-      "a.focus-visible:outline.focus-visible:outline-2.focus-visible:outline-offset-2.focus-visible:outline-primary-foreground.hover:text-primary-foreground.hover:underline.rounded-sm.text-primary-foreground/85",
-      "button.bg-primary/[0.04].border.border-primary/30.flex.flex-1.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-primary"
-    ]
-  },
   "/festivals": {
     "tap-target": [
       "a.focus-visible:outline.focus-visible:outline-2.focus-visible:outline-offset-2.focus-visible:outline-primary-foreground.hover:text-primary-foreground.hover:underline.rounded-sm.text-primary-foreground/85",
@@ -80,12 +74,15 @@
       "button.bg-primary/[0.04].border.border-primary/30.flex.flex-1.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-primary"
     ]
   },
-  "/london-bachata-guide": {
+  "/for-organisers": {
     "tap-target": [
-      "a.block",
-      "a.block.border.border-border/60.font-semibold.hover:bg-primary/10.px-3.py-2.rounded",
       "a.focus-visible:outline.focus-visible:outline-2.focus-visible:outline-offset-2.focus-visible:outline-primary-foreground.hover:text-primary-foreground.hover:underline.rounded-sm.text-primary-foreground/85",
-      "a.hover:underline.text-primary",
+      "button.bg-primary/[0.04].border.border-primary/30.flex.flex-1.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-primary"
+    ]
+  },
+  "/learn-bachata-london": {
+    "tap-target": [
+      "a.focus-visible:outline.focus-visible:outline-2.focus-visible:outline-offset-2.focus-visible:outline-primary-foreground.hover:text-primary-foreground.hover:underline.rounded-sm.text-primary-foreground/85",
       "button.bg-primary/[0.04].border.border-primary/30.flex.flex-1.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-primary"
     ]
   },

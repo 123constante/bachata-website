@@ -144,13 +144,13 @@ for (const width of [390, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await page.route('**/auth/v1/**', (route) => json(route, {}));
     await page.route('**/rest/v1/**', (route) => json(route, []));
-    await page.goto('/faq?q=1');
+    await page.goto('/for-organisers?q=1');
     const link = page.getByTestId('header-sign-in-link');
     await expect(link).toBeVisible();
     const box = (await link.boundingBox())!;
     expect(box.height).toBeGreaterThanOrEqual(44);
     expect(box.width).toBeGreaterThanOrEqual(44);
     await link.click();
-    await expect(page).toHaveURL(/\/auth\?mode=signin&returnTo=%2Ffaq%3Fq%3D1$/);
+    await expect(page).toHaveURL(/\/auth\?mode=signin&returnTo=%2Ffor-organisers%3Fq%3D1$/);
   });
 }
