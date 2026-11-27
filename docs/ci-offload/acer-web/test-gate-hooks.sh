@@ -455,7 +455,8 @@ kill $W2; wait $W2 2>/dev/null
 check 'holder: lock released when the runner dies' "$(sleep 1.5; waitfree)" free
 # 9b. runner process already gone -> refused at once, exit 1, lock free
 reset; payload
-true & W3=$!; wait $W3
+# PIDs run 1..pid_max-1, so /proc/<pid_max> never exists; a just-reaped PID can be recycled under load (flake on #2503).
+W3=$(cat /proc/sys/kernel/pid_max)
 check 'runner already gone: exit 1' "$(run WEB_RUNNER_WATCH_PID=$W3)" 1
 check 'runner already gone: lock free' "$(waitfree)" free
 # 10. holder cap
