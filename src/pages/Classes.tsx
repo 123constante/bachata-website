@@ -11,9 +11,14 @@ import LiveEventsSection from '@/components/seo/LiveEventsSection';
 /**
  * `serverTodayKey` comes only from the framework route for bare /classes, whose
  * loader dehydrates the London "this week" list (site structure S2c). Its
- * presence is what renders the server list below the calendar: the catchall
- * also renders this page for /city/:slug/classes with NO loader, so there the
- * section is left out rather than fetched client-side.
+ * presence is what renders the server list: the catchall also renders this
+ * page for /city/:slug/classes with NO loader, so there the section is left
+ * out rather than fetched client-side.
+ *
+ * London reads like a news article (owner picks, SEO arc 2026-11-27): heading
+ * "Bachata classes in London", a two-line standfirst, the week's classes by
+ * day with an "Updated" line, then the full calendar. City pages change the
+ * heading only.
  */
 const Classes = ({ serverTodayKey }: { serverTodayKey?: string }) => {
   // Only a /city/:slug URL names the city: bare /classes stays London (its
@@ -26,23 +31,23 @@ const Classes = ({ serverTodayKey }: { serverTodayKey?: string }) => {
       breadcrumbs={buildBreadcrumbs('classes')}
       hero={{
         emoji: '🎓',
-        titleWhite: 'Learn',
-        titleOrange: 'Bachata',
+        titleWhite: 'Bachata classes',
+        titleOrange: `in ${city.name}`,
         floatingIcons: [Star, Sparkles],
       }}
     >
       {city.isLondon ? (
         <ListingIntro>
-          Bachata classes for every level in London - beginners' courses,
-          intermediate drops, sensual and Dominican specialisations, intensives and
-          workshops. Most rooms rotate partners so you can come on your own.
-          Never danced before? Read our{' '}
+          Every bachata class in London this week, for beginners to advanced
+          dancers. Most classes rotate partners, so you can come on your own.
+          <br />
+          New to bachata?{' '}
           <Link to="/learn-bachata-london" className="text-primary underline">
-            beginner&rsquo;s guide to learning bachata in London
+            Start here
           </Link>
-          . Or browse{' '}
+          . Or{' '}
           <Link to="/teachers" className="text-primary underline">
-            teachers by style
+            find a teacher by style
           </Link>
           .
         </ListingIntro>
@@ -54,22 +59,26 @@ const Classes = ({ serverTodayKey }: { serverTodayKey?: string }) => {
         </ListingIntro>
       )}
 
-      {/* Class Schedule */}
-      <section id="calendar" className="px-4 mb-8">
-        <EventCalendar defaultCategory="classes" />
-      </section>
-
       {serverTodayKey !== undefined && city.isLondon ? (
-        <div className="px-4 mb-8">
+        <div className="px-4 mb-6">
           <LiveEventsSection
             id="this-week"
-            heading="Bachata classes in London this week"
+            heading="This week"
             classesOnly
+            groupByDay
+            limit={Infinity}
+            updatedLine={(n) => `${n} ${n === 1 ? 'class' : 'classes'} this week`}
             serverTodayKey={serverTodayKey}
-            emptyText="Nothing listed in the next seven days yet &mdash; the calendar above shows every date."
+            emptyText="Nothing listed in the next seven days yet &mdash; the calendar below shows every date."
           />
         </div>
       ) : null}
+
+      {/* Class Schedule */}
+      <section id="calendar" className="px-4 mb-8">
+        {city.isLondon ? <h2 className="text-2xl font-bold mb-3">Full class calendar</h2> : null}
+        <EventCalendar defaultCategory="classes" />
+      </section>
     </GlobalLayout>
   );
 };

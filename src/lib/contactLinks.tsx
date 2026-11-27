@@ -92,7 +92,7 @@ const SECTIONS: FooterSection[] = [
     heading: 'Find events',
     links: [
       { label: 'Parties', to: '/parties' },
-      { label: 'Classes', to: '/classes' },
+      { label: 'Bachata classes in London', to: '/classes' },
       { label: 'Festivals', to: '/festivals' },
       { label: 'Tonight', to: '/tonight' },
       { label: 'Venues', to: '/venues' },
