@@ -259,7 +259,7 @@ export const GuestListSection = ({ eventId }: GuestListSectionProps) => {
       if (result.ok) {
         setName('');
         if (collidingName) startClosingCollisionCard();
-      } else if (result.reason === 'duplicate_name') {
+      } else if (result.ok === false && result.reason === 'duplicate_name') {
         // Server caught a collision our client missed (stale cache / race).
         // The optimistic row has already been rolled back in the hook.
         openCollisionCard(trimmed);

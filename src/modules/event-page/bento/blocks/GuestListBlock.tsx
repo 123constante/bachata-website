@@ -258,7 +258,7 @@ export const GuestListBlock = ({
             POST_SUBMIT_REMINDER_MS,
           );
         }
-      } else if (result.reason === 'duplicate_name') {
+      } else if (result.ok === false && result.reason === 'duplicate_name') {
         openCollisionCard(trimmed);
       }
     } catch {
