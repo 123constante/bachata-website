@@ -52,7 +52,6 @@ export default [
   // (canonical/meta/JSON-LD/h1) instead of the catchall's generic shell.
   // The style/weekday modules are shared across paths, so each registration
   // needs an explicit unique id.
-  route("faq", "routes/faq.tsx"),
   // For organisers page (site structure S3c-2).
   route("for-organisers", "routes/for-organisers.tsx"),
   // People & places list pages, server-rendered head (site structure S4b-3).
@@ -70,7 +69,6 @@ export default [
         route("terms", "routes/legal.tsx", { id: "legal-terms" }),
       ]
     : []),
-  route("london-bachata-guide", "routes/london-bachata-guide.tsx"),
   route("learn-bachata-london", "routes/learn-bachata-london.tsx"),
   route("bachata-london-monday", "routes/bachata-weekday.tsx", { id: "weekday-monday" }),
   route("bachata-london-tuesday", "routes/bachata-weekday.tsx", { id: "weekday-tuesday" }),
