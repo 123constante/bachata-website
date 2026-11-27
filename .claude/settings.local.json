@@ -1,6 +1,7 @@
 {
   "permissions": {
     "allow": [
+      "Artifact",
       "Bash(npx tsc:*)",
       "Read(//c/dev/Website/src/hooks/**)",
       "Read(//c/dev/Website/supabase/migrations/**)",
@@ -23,7 +24,47 @@
       "Bash(node scripts/pre-ship.mjs --dry-run)",
       "Bash(PYTHONUTF8=1 python3 *)",
       "Bash(node scripts/check-search-public-v5.mjs)",
-      "Bash(git diff *)"
+      "Bash(git diff *)",
+      "Bash(git -C C:/dev/bachata-admin-replay-preflight status --porcelain)",
+      "Bash(vercel project *)",
+      "Bash(vercel ls *)",
+      "Bash(vercel deploy *)",
+      "Bash(vercel curl *)",
+      "Bash(vercel logs *)",
+      "Bash(grep -av \"^$\")",
+      "Bash(gh issue *)",
+      "Bash(docker info *)",
+      "Bash(gh repo *)",
+      "Bash(cp /c/dev/Website/.env /c/dev/wt-*/.env)",
+      "Bash(cp /c/dev/Website/.env.development /c/dev/wt-*/.env.development)",
+      "Bash(cat)",
+      "PowerShell(gh *)",
+      "PowerShell(gh pr *)",
+      "PowerShell($o = gh workflow run prod-smoke.yml 2>&1; $o; Start-Sleep 20; $id = \\(gh run list --workflow \"Prod Smoke\" --limit 1 --json databaseId | ConvertFrom-Json\\).databaseId; gh run watch $id --exit-status 2>&1 | Select-Object -Last 2; gh run view $id --json conclusion --jq .conclusion; gh run view $id --log-failed 2>&1 | Select-String 'SMOKE_FAILED' | Select-Object -First 2 | ForEach-Object { $_.Line.Substring\\([Math]::Min\\(40,$_.Line.Length\\)\\) })",
+      "PowerShell(gh api *)",
+      "PowerShell(gh run *)",
+      "Bash(python3 -)",
+      "Bash(sed '/^## Verified on real data/,$d')",
+      "Bash(unset GH_TOKEN)",
+      "mcp__claude_ai_Supabase__execute_sql",
+      "Bash(node scripts/check-pr-real-data-verified.mjs --help)",
+      "Bash(sed -e 's/20261126180000/20261129060000/g' -e 's/20261126190000/20261129070000/g')",
+      "Bash(cmd //c mklink //J 'C:\\\\dev\\\\fast-prepush-admin\\\\node_modules' 'C:\\\\dev\\\\bachata-admin-11april\\\\node_modules')",
+      "Bash(gh pr *)",
+      "Bash(node -e ' *)",
+      "Bash(gh label *)",
+      "Bash(mv ~/.claude/review-packs/bachata-admin-1085.json ~/.claude/review-packs/123constante-bachata-admin-1085.json)",
+      "Bash(node -)",
+      "Bash(sed 's/^## Verified on real data \\(required\\)/## Verified on real data/')",
+      "Bash(FULL=$\\(gh pr view 1114 --repo 123constante/bachata-admin --json headRefOid --jq .headRefOid\\); echo \"{\\\\\"repo\\\\\":\\\\\"123constante/bachata-admin\\\\\",\\\\\"pr\\\\\":1114,\\\\\"head_sha\\\\\":\\\\\"$FULL\\\\\",\\\\\"artifact_url\\\\\":\\\\\"https://claude.ai/artifact/BR2dMKeQyRLPkVwLyBxh4u\\\\\",\\\\\"updated_at\\\\\":\\\\\"2026-10-28T22:55:00Z\\\\\"}\" > ~/.claude/review-packs/bachata-admin-1114.json; cp ~/.claude/review-packs/bachata-admin-1114.json ~/.claude/review-packs/123constante-bachata-admin-1114.json; node ~/.claude/bin/pr-status.mjs 123constante/bachata-admin 1114 | tail -3; gh pr merge 1114 --repo 123constante/bachata-admin --squash 2>&1|tail -2; gh pr view 1114 --repo 123constante/bachata-admin --json state --jq .state)",
+      "Bash(cd *)",
+      "Bash(node ~/.claude/bin/pr-status.mjs 123constante/bachata-website 1118)",
+      "Bash(node ~/.claude/bin/pr-status.mjs 123constante/bachata-website 1134)",
+      "Bash(node *)",
+      "Bash(echo *)",
+      "PowerShell(Get-Content *)",
+      "Bash(git reset *)",
+      "Bash(git -C C:/dev/fast-allowlist status -sb)"
     ],
     "additionalDirectories": [
       "c:\\dev\\bachata-admin-11april\\supabase\\migrations",
@@ -34,5 +75,8 @@
       "C:\\dev\\bachata-admin-11april\\lib",
       "c:\\dev\\bachata-admin-11april\\docs"
     ]
+  },
+  "enabledPlugins": {
+    "claude-md-management@anthropic-plugin-directory": false
   }
 }

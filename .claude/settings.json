@@ -106,32 +106,7 @@
       "Monitor",
       "SendMessage"
     ],
-    "ask": [
-      "Bash(gh repo delete *)",
-      "Bash(gh secret set *)",
-      "Bash(gh secret delete *)",
-      "Bash(gh cache delete *)",
-      "Bash(gh auth logout *)",
-      "Bash(gh pr review *)",
-      "Bash(gh run cancel *)",
-      "Bash(gh run delete *)",
-      "Bash(gh workflow disable *)",
-      "Bash(gh workflow enable *)",
-
-      "Bash(gh release *)",
-      "PowerShell(gh repo delete *)",
-      "PowerShell(gh secret set *)",
-      "PowerShell(gh secret delete *)",
-      "PowerShell(gh cache delete *)",
-      "PowerShell(gh auth logout *)",
-      "PowerShell(gh pr review *)",
-      "PowerShell(gh run cancel *)",
-      "PowerShell(gh run delete *)",
-      "PowerShell(gh workflow disable *)",
-      "PowerShell(gh workflow enable *)",
-
-      "PowerShell(gh release *)"
-    ],
+    "ask": [],
     "additionalDirectories": [
       "\\tmp",
       "c:\\tmp"
