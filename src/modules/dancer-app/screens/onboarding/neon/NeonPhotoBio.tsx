@@ -31,7 +31,7 @@ export const PhotoNeon = ({ photoUrl, onPickPhoto, busy, error, onContinue }: Fo
         </p>
       )}
       <button type="button" className="cta" data-testid="onboarding-continue" disabled={!has || busy} onClick={onContinue}>
-        {busy ? 'Saving…' : 'Continue'}
+        {busy ? 'Saving\u2026' : 'Continue'}
       </button>
     </>
   );
@@ -60,7 +60,7 @@ export const BioNeon = ({
       <input className="fld" type="text" inputMode="url" autoCapitalize="none" autoCorrect="off" aria-label={linkPh} placeholder={linkPh} value={link} onChange={(e) => onLink(e.target.value)} data-testid="onboarding-link-input" />
       <Err error={error} />
       <button type="button" className="cta" data-testid="onboarding-finish" disabled={busy} onClick={onContinue}>
-        {busy ? 'Saving…' : bioOnly ? 'Save' : 'Finish'}
+        {busy ? 'Saving\u2026' : bioOnly ? 'Save' : 'Finish'}
       </button>
       <button type="button" className="lnk" data-testid="onboarding-skip" disabled={busy} onClick={onSkip}>
         {bioOnly ? 'Not now' : 'Skip for now'}

@@ -62,7 +62,7 @@ describe('HomeCView golden look', () => {
       expect(el.style.margin).toBe('26px 2px 8px');
     }
   });
-  it('flag off: today’s view, no golden wrapper', () => {
+  it('flag off: today\u2019s view, no golden wrapper', () => {
     h.look = false;
     const { container } = show();
     expect(container.querySelector('.hgl')).toBeNull();
