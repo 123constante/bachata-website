@@ -415,7 +415,7 @@ export const notSavedLine = (keys: StepKey[], today: string): string => {
 export const RESULT_COPY = {
   savedDraft: 'Saved as a draft. Nobody else can see it yet. Go live from here when it is ready.',
   live: 'It is live. Dancers can find it now.',
-  raffleFailed: 'Event created. Raffle could not be switched on. Turn it on from the event’s Raffle page.',
+  raffleFailed: 'Event created. Raffle could not be switched on. Turn it on from the event\u2019s Raffle page.',
   // review r1 F2: not "Nothing was saved" (F-15 since: the photo uploads only after the create, so none is left behind)
   nothingSaved: 'The event was not saved',
   partTitle: 'Your draft is saved, but not all of it',

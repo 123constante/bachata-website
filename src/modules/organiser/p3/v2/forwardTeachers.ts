@@ -15,7 +15,7 @@ export const FWD = {
   laterCount: (n: number) => `${n} later ${n === 1 ? 'date' : 'dates'}`,
   saving: 'Saving...',
   saved: (k: number) => `Teachers saved on ${k} ${k === 1 ? 'date' : 'dates'}.`,
-  skipped: (m: number) => `${m} later ${m === 1 ? 'date doesn’t' : 'dates don’t'} have this class, so ${m === 1 ? 'it' : 'they'} stayed as ${m === 1 ? 'it was' : 'they were'}.`,
+  skipped: (m: number) => `${m} later ${m === 1 ? 'date doesn\u2019t' : 'dates don\u2019t'} have this class, so ${m === 1 ? 'it' : 'they'} stayed as ${m === 1 ? 'it was' : 'they were'}.`,
 };
 
 const live = (row: DraftSession) => (row.people ?? []).filter((p) => !p.removed && p.role === 'teaching');

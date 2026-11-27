@@ -53,7 +53,7 @@ export function HowToPaySheet({ ws, send, onClose }: {
         </div>
         {weekly ? <p className="hint">{HOWPAY_EVERY_NIGHT}</p> : null}
         {err ? <p className="err" role="alert" data-testid="howpay-err">{err}</p> : null}
-        <button type="button" className="btn pri" data-testid="howpay-save" disabled={busy} aria-busy={busy} onClick={() => void save()}>{busy ? 'Saving…' : 'Save'}</button>
+        <button type="button" className="btn pri" data-testid="howpay-save" disabled={busy} aria-busy={busy} onClick={() => void save()}>{busy ? 'Saving\u2026' : 'Save'}</button>
       </div>
     </V2Sheet>
   );

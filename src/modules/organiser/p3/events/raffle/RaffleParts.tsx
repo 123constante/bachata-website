@@ -137,7 +137,7 @@ export function SeriesSwitchCard({ seriesId }: { seriesId: string }) {
               );
             })}
           </div>
-          <p className="p3-note" data-testid="raffle-audience-note">{audience === 'anyone' ? 'Anyone can win, including regulars.' : 'People who have been to your events before can’t win.'}</p>
+          <p className="p3-note" data-testid="raffle-audience-note">{audience === 'anyone' ? 'Anyone can win, including regulars.' : 'People who have been to your events before can\u2019t win.'}</p>
           {audError && <p className="p3-error" role="alert" data-testid="raffle-audience-error">Could not change who can win. Try again.</p>}
         </div>
       )}

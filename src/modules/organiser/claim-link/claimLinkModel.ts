@@ -43,6 +43,6 @@ export const REFUSAL_SCREENS: Record<ClaimRefusal, RefusalScreen> = {
   revoked: { heading: 'This link has been used or has run out', body: 'This link has been used or has run out. Ask for a new one.', action: 'none' },
   expired: { heading: 'This link has been used or has run out', body: 'This link has been used or has run out. Ask for a new one.', action: 'none' },
   rate_limited: { heading: 'Too many tries', body: 'Too many tries. Wait a little and try again.', action: 'none' },
-  invalid: { heading: 'This link isn’t right', body: 'This link isn’t right. Check you copied all of it.', action: 'none' },
+  invalid: { heading: 'This link isn\u2019t right', body: 'This link isn\u2019t right. Check you copied all of it.', action: 'none' },
   feature_off: { heading: '', body: '', action: 'not_found' },
 };

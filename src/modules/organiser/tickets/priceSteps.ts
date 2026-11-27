@@ -116,8 +116,8 @@ export const EARLY_STEPS_NOTE = 'Turn off the early bird price to add price chan
 
 /** "When these 20 sell, the price goes to £15 by itself." N and P are live from the inputs. */
 export const earlyNote = (count: string, regularPence: number | null): string => {
-  const n = count.trim() === '' ? '…' : count.trim();
-  const p = regularPence === null ? '…' : formatPence(regularPence);
+  const n = count.trim() === '' ? '\u2026' : count.trim();
+  const p = regularPence === null ? '\u2026' : formatPence(regularPence);
   return `When these ${n} sell, the price goes to ${p} by itself.`;
 };
 
