@@ -2,6 +2,7 @@
 Brief-version: 2
 Branch: claude/gate-hooks-dead-pid
 Lane: normal, Sonnet. Repo 123constante/bachata-website. One PR.
+Size: 1 files, 5 lines
 
 ## Goal
 Stop the flaky unit-shard failure "runner already gone: exit 1: expected 1, got 0" (tests/routeRunner.test.ts runs test-gate-hooks.sh; failed on #2503 run 46004648763 attempt 1). Cause: case 9b reaps `true & W3=$!; wait $W3` and reuses that PID; on a busy CI box the kernel can hand the PID to a new process before the hook checks /proc/$W3, so the hook sees a live runner.
