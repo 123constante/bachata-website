@@ -1,6 +1,6 @@
 import { Link, useSearchParams } from 'react-router-dom';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueries, useQueryClient } from '@tanstack/react-query';
 import { ownerPassesFromStored, PRICE_RE, upsertCommand } from '../../shared/seriesCommands';
 import { setTicketStatus, ticketKeys } from '../../tickets/ticketsApi';
 import { V2 } from './copy';
@@ -20,10 +20,15 @@ import { WorkspaceGate } from '../screens/EventPage';
 import { P3_PATHS } from '../shell/paths';
 import { upcomingOf } from './editorModel';
 import { payModeOf, doorPriceOf, type PayMode } from './payMode';
-import { SOLD_STEP_WINDOW_MS, TicketSheetV2 } from './TicketSheetV2';
+import { priceNow, SOLD_STEP_WINDOW_MS, TicketSheetV2 } from './TicketSheetV2';
 import { earlyBirdOf, type EarlyBirdView } from '../tickets/earlyBird';
 import { flags } from '@/lib/featureFlags';
 import { WaysInLinkSheet, WaysInView, withMethod } from './WaysIn';
+import { WaysInGuideView, type GuideAnswers, type GuideResult } from './WaysInGuide';
+import { WaysInSummaryView, type SummaryTicket } from './WaysInSummary';
+import { SkipDoorSheet } from './SkipDoorSheet';
+import { GUIDE_CODES, useWaysInGuideSave } from './useWaysInGuideSave';
+import { dateDetailQueryKey, fetchDateDetail } from '../../shared/selfServeApi';
 import { parsePayment, type PaymentMethod } from '../../events/paymentModel';
 import './v2.css';
 
@@ -400,9 +405,82 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
     if (ok) setSheet(null);
   };
 
+  /** Ways in rebuild (flag waysInRebuild + waysInV2): the guide when nothing is set up, else the summary. */
+  const rebuild = flags.waysInRebuild && flags.waysInV2;
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [guideDone, setGuideDone] = useState(false);
+  const [guideOnline, setGuideOnline] = useState(false);
+  const [guideInitial, setGuideInitial] = useState<Partial<GuideAnswers> | undefined>(undefined);
+  const [guideErr, setGuideErr] = useState<string | null>(null);
+  const [skipOpen, setSkipOpen] = useState(false);
+  const saveGuide = useWaysInGuideSave({ ws, organiserId: orgId, ticketCount: rows.length, change, say, refresh });
+  const nights = useQueries({ queries: coming.map((d) => ({ queryKey: dateDetailQueryKey(d.id), queryFn: () => fetchDateDetail(d.id), enabled: rebuild && skipOpen, staleTime: 30_000 })) });
+  const nightsFailed = rebuild && skipOpen && nights.some((q) => q.isError);
+  useEffect(() => { if (nightsFailed) { setSkipOpen(false); say(V2.waysInSummary.nightsLoadFail); } }, [nightsFailed]); // eslint-disable-line react-hooks/exhaustive-deps
+  const nothingSet = types.data !== undefined && rows.length === 0 && parsePayment(oldMethods).length === 0 && !oldUrl;
+  const showGuide = rebuild && (guideOpen || (nothingSet && !guideDone));
+  const firstDate = upcomingOf(ws.dates ?? [], londonTodayKey())[0]?.occurrence_date ?? null;
+  const dayWords = (iso: string) => fullDate(iso).replace(/ \d{4}$/, '');
+  /** the guide opened from the summary starts from the current answers */
+  const openGuide = () => {
+    const first = rows[0] ? list.find((t) => t.id === rows[0].id) : undefined;
+    setGuideErr(null);
+    setGuideInitial({
+      online: rows.length > 0 || connected,
+      methods: parsePayment(oldMethods).filter((m) => GUIDE_CODES.includes(m)),
+      ...(first ? { price: (first.pricePence / 100).toFixed(2), qty: String(first.capacity) } : {}),
+    });
+    setGuideOpen(true);
+  };
+  /** A ticket site needs its address: a newly picked one is saved by the link sheet (method + address together), never bare. */
+  const needsLink = (r: GuideResult) => r.methods.includes('ticket_link') && !oldUrl;
+  const saveAnswers = async (r: GuideResult): Promise<boolean> => {
+    const link = needsLink(r);
+    const out = await saveGuide(link ? { ...r, methods: r.methods.filter((m) => m !== 'ticket_link') } : r);
+    if ('error' in out) { setGuideErr(out.error); return false; }
+    if (link) openWaysLink();
+    return true;
+  };
+  const finishGuide = async (r: GuideResult) => {
+    setGuideOpen(false); setGuideDone(true); setGuideErr(null);
+    if (r.ticket) setGuideOnline(true);
+    if (!(await saveAnswers(r))) return;
+    // the guide only makes the FIRST ticket; a changed price or count on an existing one goes to its own sheet (price steps live there)
+    const first = rows[0] ? list.find((t) => t.id === rows[0].id) : undefined;
+    if (r.ticket && first && (r.ticket.pence !== first.pricePence || r.ticket.qty !== first.capacity)) openTicket(first.id);
+  };
+  const connectFromGuide = async (r: GuideResult) => {
+    setGuideOpen(false); setGuideDone(true); setGuideErr(null); setGuideOnline(true);
+    if (await saveAnswers(r) && !needsLink(r)) void onboard.go();
+  };
+  const nowMs = Date.now();
+  const sumTickets: SummaryTicket[] = rows.map((r) => {
+    const t = list.find((x) => x.id === r.id);
+    const m = managed.data?.types.find((x) => x.id === r.id);
+    const next = [...(m?.steps ?? [])].filter((st) => !st.isLive && Date.parse(st.effectiveFrom) > nowMs).sort((a, b) => Date.parse(a.effectiveFrom) - Date.parse(b.effectiveFrom))[0];
+    return {
+      ...r, pricePence: priceNow(m?.basePricePence ?? t?.pricePence ?? 0, m?.steps ?? []),
+      nextStep: next ? { pricePence: next.pricePence, effectiveFrom: next.effectiveFrom } : null,
+      earlyPence: m?.earlyPricePence ?? null, earlyFirst: m?.earlyCapacity ?? null,
+    };
+  });
+  const rebuildView = showGuide ? (
+    <WaysInGuideView oneOff={oneOff} festival={s.format === 'festival'} stripe={connected} firstDate={firstDate} today={londonTodayKey()} initial={guideInitial}
+      onDone={(r) => { void finishGuide(r); }} onConnect={(r) => { void connectFromGuide(r); }} onClose={() => { setGuideOpen(false); setGuideDone(true); }} />
+  ) : (
+    <>
+      <WaysInSummaryView name={s.name ?? ''} oneOff={oneOff} day={day} backTo={P3_PATHS.event(s.id)}
+        stripe={connected} stripeReady={stripe.state !== null} online={guideOnline || rows.length > 0} tickets={sumTickets}
+        door={parsePayment(oldMethods).includes('door')} free={parsePayment(oldMethods).includes('free')} link={oldUrl} festival={s.format === 'festival'} busy={busy}
+        stripeWarn={stripeWarn} onCheckAgain={ret.again} stripeBusy={onboard.busy} stripeNote={onboard.note} stripeOff={onboard.switchedOff}
+        on={{ ticket: openTicket, early: openTicket, newTicket: () => openTicket(), stripe: () => { void onboard.go(); }, door: openGuide, free: openGuide, link: openWaysLink, rerun: openGuide, skipDoor: () => setSkipOpen(true) }} />
+      {guideErr ? <p className="err" role="alert" data-testid="ways-guide-err">{guideErr}</p> : null}
+    </>
+  );
+
   return (
     <>
-      {flags.waysInV2 ? (
+      {rebuild ? rebuildView : flags.waysInV2 ? (
         <WaysInView name={s.name ?? ''} oneOff={oneOff} day={day} backTo={P3_PATHS.event(s.id)}
           stripe={connected} stripeReady={stripe.state !== null} tickets={rows} dates={coming.map((d) => fullDate(d.occurrence_date).replace(/ \d{4}$/, ''))}
           door={parsePayment(oldMethods).includes('door')} free={parsePayment(oldMethods).includes('free')} link={oldUrl} festival={s.format === 'festival'} busy={busy}
@@ -430,6 +508,10 @@ function TicketsLoaded({ ws }: { ws: EventWorkspace }) {
           }} />
       )}
       {!flags.waysInV2 && switchTo && <SwitchPaySheet busy={busy} sold={switchSold} onSwitch={() => { void doSwitch(); }} onKeep={() => setSwitchTo(null)} />}
+      {rebuild && skipOpen && nights.every((q) => q.isSuccess) && (
+        <SkipDoorSheet dates={coming.map((d, i) => ({ id: d.id, label: dayWords(d.occurrence_date), noDoor: nights[i].data?.noDoor === true }))}
+          onClose={() => setSkipOpen(false)} onSaved={() => say(T.savedOne)} />
+      )}
       <V2Toast toast={plain ?? toast} onDone={(q) => { setPlain(null); onToastDone(q); }} />
     </>
   );
