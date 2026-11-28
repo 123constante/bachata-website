@@ -143,6 +143,115 @@ export type Database = {
         }
         Relationships: []
       }
+      account_link_mail_outbox_v1: {
+        Row: {
+          attempts: number
+          code: string | null
+          created_at: string
+          id: string
+          recipient_user_id: string
+          request_id: string
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          code?: string | null
+          created_at?: string
+          id?: string
+          recipient_user_id: string
+          request_id: string
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          code?: string | null
+          created_at?: string
+          id?: string
+          recipient_user_id?: string
+          request_id?: string
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_link_mail_outbox_v1_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "account_link_requests_v1"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      account_link_requests_v1: {
+        Row: {
+          attempts: number
+          code_hash: string
+          created_at: string
+          expires_at: string
+          id: string
+          other_email_hash: string
+          other_user_id: string | null
+          requester_user_id: string
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          other_email_hash: string
+          other_user_id?: string | null
+          requester_user_id: string
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          other_email_hash?: string
+          other_user_id?: string | null
+          requester_user_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      account_links_v1: {
+        Row: {
+          created_at: string
+          created_by: string
+          request_id: string | null
+          user_a: string
+          user_b: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          request_id?: string | null
+          user_a: string
+          user_b: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          request_id?: string | null
+          user_a?: string
+          user_b?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_links_v1_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "account_link_requests_v1"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       account_role_intent: {
         Row: {
           declined: string[]
@@ -710,6 +819,53 @@ export type Database = {
             foreignKeyName: "buyer_onboarding_reminders_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: true
+            referencedRelation: "ticket_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      buyer_status_emails: {
+        Row: {
+          amount_pence: number | null
+          created_at: string
+          dedupe_key: string
+          error: string | null
+          id: string
+          kind: string
+          order_id: string
+          refunded_pence_after: number | null
+          send_status: string
+          updated_at: string
+        }
+        Insert: {
+          amount_pence?: number | null
+          created_at?: string
+          dedupe_key: string
+          error?: string | null
+          id?: string
+          kind: string
+          order_id: string
+          refunded_pence_after?: number | null
+          send_status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount_pence?: number | null
+          created_at?: string
+          dedupe_key?: string
+          error?: string | null
+          id?: string
+          kind?: string
+          order_id?: string
+          refunded_pence_after?: number | null
+          send_status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "buyer_status_emails_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
             referencedRelation: "ticket_orders"
             referencedColumns: ["id"]
           },
@@ -2260,6 +2416,7 @@ export type Database = {
           occurrence_id: string
           occurrence_p5_id: string | null
           status: string
+          ticket_order_id: string | null
           updated_at: string
           user_id: string
         }
@@ -2269,6 +2426,7 @@ export type Database = {
           occurrence_id: string
           occurrence_p5_id?: string | null
           status?: string
+          ticket_order_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -2278,6 +2436,7 @@ export type Database = {
           occurrence_id?: string
           occurrence_p5_id?: string | null
           status?: string
+          ticket_order_id?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -2434,6 +2593,7 @@ export type Database = {
           id: string
           is_permanent: boolean
           occurrence_p5_id: string | null
+          plus_ones: number
           qr_token: string | null
           status: string
           user_id: string | null
@@ -2450,6 +2610,7 @@ export type Database = {
           id?: string
           is_permanent?: boolean
           occurrence_p5_id?: string | null
+          plus_ones?: number
           qr_token?: string | null
           status?: string
           user_id?: string | null
@@ -2466,6 +2627,7 @@ export type Database = {
           id?: string
           is_permanent?: boolean
           occurrence_p5_id?: string | null
+          plus_ones?: number
           qr_token?: string | null
           status?: string
           user_id?: string | null
@@ -2602,7 +2764,7 @@ export type Database = {
           level_keys: string[] | null
           occurrence_id: string
           room: string | null
-          section_kind: string | null
+          section_kind: string
           sort_order: number
           start_time: string | null
           style: string | null
@@ -2621,7 +2783,7 @@ export type Database = {
           level_keys?: string[] | null
           occurrence_id: string
           room?: string | null
-          section_kind?: string | null
+          section_kind: string
           sort_order?: number
           start_time?: string | null
           style?: string | null
@@ -2640,7 +2802,7 @@ export type Database = {
           level_keys?: string[] | null
           occurrence_id?: string
           room?: string | null
-          section_kind?: string | null
+          section_kind?: string
           sort_order?: number
           start_time?: string | null
           style?: string | null
@@ -2722,6 +2884,7 @@ export type Database = {
           gallery: string[] | null
           level: string | null
           music_styles: string[] | null
+          note: string | null
           occurrence_id: string
           organiser_ids: string[] | null
           overridden_keys: string[]
@@ -2731,6 +2894,7 @@ export type Database = {
           title: string | null
           updated_at: string
           venue_id: string | null
+          video_urls: string[] | null
         }
         Insert: {
           cancellation_reason_label?: string | null
@@ -2744,6 +2908,7 @@ export type Database = {
           gallery?: string[] | null
           level?: string | null
           music_styles?: string[] | null
+          note?: string | null
           occurrence_id: string
           organiser_ids?: string[] | null
           overridden_keys: string[]
@@ -2753,6 +2918,7 @@ export type Database = {
           title?: string | null
           updated_at?: string
           venue_id?: string | null
+          video_urls?: string[] | null
         }
         Update: {
           cancellation_reason_label?: string | null
@@ -2766,6 +2932,7 @@ export type Database = {
           gallery?: string[] | null
           level?: string | null
           music_styles?: string[] | null
+          note?: string | null
           occurrence_id?: string
           organiser_ids?: string[] | null
           overridden_keys?: string[]
@@ -2775,6 +2942,7 @@ export type Database = {
           title?: string | null
           updated_at?: string
           venue_id?: string | null
+          video_urls?: string[] | null
         }
         Relationships: [
           {
@@ -3642,6 +3810,7 @@ export type Database = {
           raffle_preset_id: string | null
           recurrence_rule: Json | null
           removed_dates: string[]
+          signup_rule: string | null
           slug: string | null
           ticket_url: string | null
           tickets: string | null
@@ -3700,6 +3869,7 @@ export type Database = {
           raffle_preset_id?: string | null
           recurrence_rule?: Json | null
           removed_dates?: string[]
+          signup_rule?: string | null
           slug?: string | null
           ticket_url?: string | null
           tickets?: string | null
@@ -3758,6 +3928,7 @@ export type Database = {
           raffle_preset_id?: string | null
           recurrence_rule?: Json | null
           removed_dates?: string[]
+          signup_rule?: string | null
           slug?: string | null
           ticket_url?: string | null
           tickets?: string | null
@@ -3777,6 +3948,32 @@ export type Database = {
             columns: ["raffle_preset_id"]
             isOneToOne: false
             referencedRelation: "raffle_presets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_series_p5_slug_history: {
+        Row: {
+          retired_at: string
+          series_id: string
+          slug: string
+        }
+        Insert: {
+          retired_at?: string
+          series_id: string
+          slug: string
+        }
+        Update: {
+          retired_at?: string
+          series_id?: string
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_series_p5_slug_history_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
             referencedColumns: ["id"]
           },
         ]
@@ -5327,6 +5524,70 @@ export type Database = {
           },
         ]
       }
+      night_reminder_sent_log: {
+        Row: {
+          buyer_hash: string
+          claimed_at: string
+          id: string
+          occurrence_p5_id: string
+          order_id: string | null
+          sent_at: string | null
+        }
+        Insert: {
+          buyer_hash: string
+          claimed_at?: string
+          id?: string
+          occurrence_p5_id: string
+          order_id?: string | null
+          sent_at?: string | null
+        }
+        Update: {
+          buyer_hash?: string
+          claimed_at?: string
+          id?: string
+          occurrence_p5_id?: string
+          order_id?: string | null
+          sent_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "night_reminder_sent_log_occurrence_p5_id_fkey"
+            columns: ["occurrence_p5_id"]
+            isOneToOne: false
+            referencedRelation: "event_occurrence_p5"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      night_reminder_settings_p5: {
+        Row: {
+          occurrence_p5_id: string
+          reminder_enabled: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          occurrence_p5_id: string
+          reminder_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          occurrence_p5_id?: string
+          reminder_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "night_reminder_settings_p5_occurrence_p5_id_fkey"
+            columns: ["occurrence_p5_id"]
+            isOneToOne: true
+            referencedRelation: "event_occurrence_p5"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       occurrence_action_audit: {
         Row: {
           action: string
@@ -6656,6 +6917,44 @@ export type Database = {
         }
         Relationships: []
       }
+      organiser_refund_reminders: {
+        Row: {
+          created_at: string
+          error: string | null
+          id: string
+          kind: string
+          occurrence_id: string
+          send_status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          kind: string
+          occurrence_id: string
+          send_status: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          kind?: string
+          occurrence_id?: string
+          send_status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organiser_refund_reminders_occurrence_id_fkey"
+            columns: ["occurrence_id"]
+            isOneToOne: false
+            referencedRelation: "event_occurrence_p5"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organiser_self_start_v1_meta: {
         Row: {
           organiser_id: string
@@ -7060,6 +7359,293 @@ export type Database = {
           stripped_keys?: string[]
         }
         Relationships: []
+      }
+      party_chat: {
+        Row: {
+          city_id: string
+          closes_at: string
+          id: string
+          opened_at: string
+          party_date: string
+        }
+        Insert: {
+          city_id: string
+          closes_at: string
+          id?: string
+          opened_at?: string
+          party_date: string
+        }
+        Update: {
+          city_id?: string
+          closes_at?: string
+          id?: string
+          opened_at?: string
+          party_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "party_chat_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      party_chat_ban: {
+        Row: {
+          banned_at: string
+          banned_by: string | null
+          profile_id: string
+          reason: string | null
+        }
+        Insert: {
+          banned_at?: string
+          banned_by?: string | null
+          profile_id: string
+          reason?: string | null
+        }
+        Update: {
+          banned_at?: string
+          banned_by?: string | null
+          profile_id?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "party_chat_ban_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "dancer_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      party_chat_interest: {
+        Row: {
+          city_id: string
+          created_at: string
+          party_date: string
+          profile_id: string
+        }
+        Insert: {
+          city_id: string
+          created_at?: string
+          party_date: string
+          profile_id: string
+        }
+        Update: {
+          city_id?: string
+          created_at?: string
+          party_date?: string
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "party_chat_interest_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "party_chat_interest_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "dancer_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      party_chat_member_state: {
+        Row: {
+          chat_id: string
+          last_read_at: string | null
+          left_at: string | null
+          muted: boolean
+          profile_id: string
+          removed_by: string | null
+        }
+        Insert: {
+          chat_id: string
+          last_read_at?: string | null
+          left_at?: string | null
+          muted?: boolean
+          profile_id: string
+          removed_by?: string | null
+        }
+        Update: {
+          chat_id?: string
+          last_read_at?: string | null
+          left_at?: string | null
+          muted?: boolean
+          profile_id?: string
+          removed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "party_chat_member_state_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "party_chat"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "party_chat_member_state_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "dancer_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      party_chat_message: {
+        Row: {
+          body: string
+          chat_id: string
+          created_at: string
+          id: string
+          kind: string
+          profile_id: string | null
+          removed_at: string | null
+          removed_by: string | null
+        }
+        Insert: {
+          body: string
+          chat_id: string
+          created_at?: string
+          id?: string
+          kind?: string
+          profile_id?: string | null
+          removed_at?: string | null
+          removed_by?: string | null
+        }
+        Update: {
+          body?: string
+          chat_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          profile_id?: string | null
+          removed_at?: string | null
+          removed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "party_chat_message_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "party_chat"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "party_chat_message_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "dancer_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      party_chat_open_notices: {
+        Row: {
+          attempts: number
+          chat_id: string
+          created_at: string
+          id: string
+          profile_id: string
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          chat_id: string
+          created_at?: string
+          id?: string
+          profile_id: string
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          chat_id?: string
+          created_at?: string
+          id?: string
+          profile_id?: string
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "party_chat_open_notices_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "party_chat"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "party_chat_open_notices_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "dancer_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      party_chat_report: {
+        Row: {
+          chat_id: string
+          created_at: string
+          handled_at: string | null
+          handled_by: string | null
+          id: string
+          message_id: string
+          reason: string | null
+          reporter_profile_id: string
+        }
+        Insert: {
+          chat_id: string
+          created_at?: string
+          handled_at?: string | null
+          handled_by?: string | null
+          id?: string
+          message_id: string
+          reason?: string | null
+          reporter_profile_id: string
+        }
+        Update: {
+          chat_id?: string
+          created_at?: string
+          handled_at?: string | null
+          handled_by?: string | null
+          id?: string
+          message_id?: string
+          reason?: string | null
+          reporter_profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "party_chat_report_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "party_chat"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "party_chat_report_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "party_chat_message"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "party_chat_report_reporter_profile_id_fkey"
+            columns: ["reporter_profile_id"]
+            isOneToOne: false
+            referencedRelation: "dancer_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pending_canonical_keys: {
         Row: {
@@ -8197,6 +8783,48 @@ export type Database = {
           },
         ]
       }
+      raffle_been_to: {
+        Row: {
+          id: string
+          pool_id: string
+          recorded_at: string
+          recorded_by: string | null
+          series_id: string
+          source: string
+        }
+        Insert: {
+          id?: string
+          pool_id: string
+          recorded_at?: string
+          recorded_by?: string | null
+          series_id: string
+          source?: string
+        }
+        Update: {
+          id?: string
+          pool_id?: string
+          recorded_at?: string
+          recorded_by?: string | null
+          series_id?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "raffle_been_to_pool_id_fkey"
+            columns: ["pool_id"]
+            isOneToOne: false
+            referencedRelation: "raffle_pool"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "raffle_been_to_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       raffle_contacts: {
         Row: {
           consent_text_version: string
@@ -8534,10 +9162,12 @@ export type Database = {
           contacted_at: string
           drawn_by: string | null
           entries_at_draw: number | null
+          honesty_at: string | null
           id: string
-          link_expires_at: string
+          link_expires_at: string | null
           link_token: string
           locked_at: string | null
+          messaged_at: string | null
           note: string | null
           occurrence_id: string | null
           pool_id: string
@@ -8555,10 +9185,12 @@ export type Database = {
           contacted_at?: string
           drawn_by?: string | null
           entries_at_draw?: number | null
+          honesty_at?: string | null
           id?: string
-          link_expires_at: string
+          link_expires_at?: string | null
           link_token?: string
           locked_at?: string | null
+          messaged_at?: string | null
           note?: string | null
           occurrence_id?: string | null
           pool_id: string
@@ -8576,10 +9208,12 @@ export type Database = {
           contacted_at?: string
           drawn_by?: string | null
           entries_at_draw?: number | null
+          honesty_at?: string | null
           id?: string
-          link_expires_at?: string
+          link_expires_at?: string | null
           link_token?: string
           locked_at?: string | null
+          messaged_at?: string | null
           note?: string | null
           occurrence_id?: string | null
           pool_id?: string
@@ -9050,6 +9684,51 @@ export type Database = {
         }
         Relationships: []
       }
+      stripe_funnel_events: {
+        Row: {
+          created_at: string
+          event: string
+          id: string
+          london_day: string
+          organiser_id: string
+          surface: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event: string
+          id?: string
+          london_day?: string
+          organiser_id: string
+          surface: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event?: string
+          id?: string
+          london_day?: string
+          organiser_id?: string
+          surface?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stripe_funnel_events_organiser_id_fkey"
+            columns: ["organiser_id"]
+            isOneToOne: false
+            referencedRelation: "organiser_admin_dashboard_v2"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stripe_funnel_events_organiser_id_fkey"
+            columns: ["organiser_id"]
+            isOneToOne: false
+            referencedRelation: "organiser_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teacher_role_details: {
         Row: {
           availability: Json | null
@@ -9117,6 +9796,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ticket_check_in_undos: {
+        Row: {
+          day: string | null
+          id: string
+          occurrence_id: string
+          prev_checked_in_at: string | null
+          prev_checked_in_by: string | null
+          scope: string
+          ticket_id: string
+          undone_at: string
+          undone_by: string
+        }
+        Insert: {
+          day?: string | null
+          id?: string
+          occurrence_id: string
+          prev_checked_in_at?: string | null
+          prev_checked_in_by?: string | null
+          scope: string
+          ticket_id: string
+          undone_at?: string
+          undone_by: string
+        }
+        Update: {
+          day?: string | null
+          id?: string
+          occurrence_id?: string
+          prev_checked_in_at?: string | null
+          prev_checked_in_by?: string | null
+          scope?: string
+          ticket_id?: string
+          undone_at?: string
+          undone_by?: string
+        }
+        Relationships: []
       }
       ticket_checkout_attempts: {
         Row: {
@@ -9619,6 +10334,71 @@ export type Database = {
         }
         Relationships: []
       }
+      ticket_refund_requests: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          id: string
+          occurrence_id: string
+          order_id: string
+          organiser_id: string
+          requester_user_id: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          occurrence_id: string
+          order_id: string
+          organiser_id: string
+          requester_user_id?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          occurrence_id?: string
+          order_id?: string
+          organiser_id?: string
+          requester_user_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_refund_requests_occurrence_id_fkey"
+            columns: ["occurrence_id"]
+            isOneToOne: false
+            referencedRelation: "event_occurrence_p5"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_refund_requests_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_refund_requests_organiser_id_fkey"
+            columns: ["organiser_id"]
+            isOneToOne: false
+            referencedRelation: "organiser_admin_dashboard_v2"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_refund_requests_organiser_id_fkey"
+            columns: ["organiser_id"]
+            isOneToOne: false
+            referencedRelation: "organiser_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ticket_status_reads: {
         Row: {
           created_at: string
@@ -9636,6 +10416,48 @@ export type Database = {
           ip_hash?: string
         }
         Relationships: []
+      }
+      ticket_type_night_prices: {
+        Row: {
+          created_at: string
+          occurrence_id: string
+          price_pence: number
+          ticket_type_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          occurrence_id: string
+          price_pence: number
+          ticket_type_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          occurrence_id?: string
+          price_pence?: number
+          ticket_type_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_type_night_prices_occurrence_id_fkey"
+            columns: ["occurrence_id"]
+            isOneToOne: false
+            referencedRelation: "event_occurrence_p5"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_type_night_prices_ticket_type_id_fkey"
+            columns: ["ticket_type_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_types"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ticket_types: {
         Row: {
@@ -10947,6 +11769,11 @@ export type Database = {
         Args: { p_user: string }
         Returns: boolean
       }
+      _account_link_email_hash_v1: {
+        Args: { p_email: string }
+        Returns: string
+      }
+      _account_link_on_v1: { Args: never; Returns: boolean }
       _account_link_refusal_v1: {
         Args: { p_profile_id: string; p_user_id: string }
         Returns: string
@@ -11060,6 +11887,7 @@ export type Database = {
       _claim_entry_slot_v1: {
         Args: {
           p_event_id: string
+          p_heads?: number
           p_is_permanent?: boolean
           p_kind: string
           p_occurrence_id?: string
@@ -11068,11 +11896,19 @@ export type Database = {
       }
       _client_error_reports_purge_v1: { Args: never; Returns: number }
       _client_error_scrub_v1: { Args: { p_text: string }; Returns: string }
+      _cmd_occurrence_bulk_uncancel_p5: {
+        Args: { p_actor: string; p_payload: Json; p_series_id: string }
+        Returns: Json
+      }
       _cmd_occurrence_cancel_p5: {
         Args: { p_actor: string; p_occurrence_id: string; p_payload: Json }
         Returns: Json
       }
       _cmd_occurrence_move_date_p5: {
+        Args: { p_actor: string; p_occurrence_id: string; p_payload: Json }
+        Returns: Json
+      }
+      _cmd_occurrence_save_date_p5: {
         Args: { p_actor: string; p_occurrence_id: string; p_payload: Json }
         Returns: Json
       }
@@ -11109,6 +11945,10 @@ export type Database = {
         Returns: Json
       }
       _cmd_series_restore_ended_p5: {
+        Args: { p_actor: string; p_payload: Json; p_series_id: string }
+        Returns: Json
+      }
+      _cmd_series_resume_run_p5: {
         Args: { p_actor: string; p_payload: Json; p_series_id: string }
         Returns: Json
       }
@@ -11393,6 +12233,12 @@ export type Database = {
         Args: { p_page_id: string }
         Returns: boolean
       }
+      _event_address_base_v1: { Args: { p_name: string }; Returns: string }
+      _event_address_reserved_v1: { Args: { p_slug: string }; Returns: boolean }
+      _event_address_taken_v1: {
+        Args: { p_id: string; p_slug: string }
+        Returns: boolean
+      }
       _event_creator_or_admin_v1: {
         Args: { p_event_id: string }
         Returns: boolean
@@ -11408,6 +12254,10 @@ export type Database = {
       }
       _event_publish_blocking_reason_v1: {
         Args: { p_series_id: string }
+        Returns: string
+      }
+      _event_series_p5_address_slug_v1: {
+        Args: { p_city_id: string; p_id: string; p_name: string }
         Returns: string
       }
       _event_series_p5_slugify_v1: {
@@ -11640,7 +12490,24 @@ export type Database = {
         Returns: Json
       }
       _my_dancer_profile_id_v1: { Args: never; Returns: string }
+      _my_ticket_buyer_ids_v1: { Args: { p_uid: string }; Returns: string[] }
       _nationality_alpha2_v1: { Args: { p_value: string }; Returns: string }
+      _night_reminder_payload_v1: {
+        Args: { p_occurrence_id: string; p_role: string }
+        Returns: Json
+      }
+      _night_reminder_recipients_v1: {
+        Args: { p_cutoff: string; p_occurrence_id: string }
+        Returns: {
+          buyer_email: string
+          buyer_hash: string
+          order_id: string
+        }[]
+      }
+      _night_reminder_send_at_v1: {
+        Args: { p_night_date: string }
+        Returns: string
+      }
       _norm_achievements_dated_v1: { Args: { p: Json }; Returns: Json }
       _norm_workshop_cities_v1: { Args: { p: Json }; Returns: string[] }
       _normalize_level_to_legacy_v1: {
@@ -11652,6 +12519,16 @@ export type Database = {
         Returns: string
       }
       _occurred_stamp_job_health_v1: { Args: { p_now: string }; Returns: Json }
+      _occurrence_added_session_section_v1: {
+        Args: { p_added_session_id: string }
+        Returns: {
+          day_id: string
+          section_id: string
+          section_kind: string
+          section_label: string
+          section_sort: number
+        }[]
+      }
       _occurrence_date_has_bookings_v1: {
         Args: { p_occurrence_id: string }
         Returns: boolean
@@ -11696,12 +12573,14 @@ export type Database = {
           p_gallery: string[]
           p_level: string
           p_music_styles: string[]
+          p_note?: string
           p_organiser_ids: string[]
           p_passes: Json
           p_promo_codes: Json
           p_ticket_url: string
           p_title: string
           p_venue_id: string
+          p_video_urls?: string[]
         }
         Returns: string[]
       }
@@ -11724,12 +12603,14 @@ export type Database = {
           p_gallery: string[]
           p_level: string
           p_music_styles: string[]
+          p_note?: string
           p_organiser_ids: string[]
           p_passes: Json
           p_promo_codes: Json
           p_ticket_url: string
           p_title: string
           p_venue_id: string
+          p_video_urls?: string[]
         }
         Returns: boolean
       }
@@ -11744,6 +12625,18 @@ export type Database = {
       _occurrence_override_unknown_key_p5: {
         Args: { p_key: string; p_like: unknown }
         Returns: unknown
+      }
+      _occurrence_override_video_urls_ok_v1: {
+        Args: { p: string[] }
+        Returns: boolean
+      }
+      _occurrence_scoped_section_id_v1: {
+        Args: { p_kind: string; p_occurrence_id: string }
+        Returns: string
+      }
+      _occurrence_section_item_problem_v1: {
+        Args: { p_item: Json; p_stored_kind: string }
+        Returns: string
       }
       _og_bake_reconcile: { Args: never; Returns: undefined }
       _og_cover_token: { Args: { p_url: string }; Returns: string }
@@ -12183,6 +13076,31 @@ export type Database = {
         Args: { p_legacy_event_id: string; p_lifecycle_status: string }
         Returns: boolean
       }
+      _party_card_state_v1: { Args: { p_profile_id: string }; Returns: Json }
+      _party_chat_closes_at_v1: {
+        Args: { p_party_date: string }
+        Returns: string
+      }
+      _party_chat_for_member_v1: {
+        Args: { p_chat_id: string; p_profile_id: string }
+        Returns: {
+          city_id: string
+          closes_at: string
+          id: string
+          opened_at: string
+          party_date: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "party_chat"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      _party_chat_message_json_v1: {
+        Args: { p_message_id: string; p_viewer_profile_id: string }
+        Returns: Json
+      }
       _payment_methods_problem_v1: { Args: { p_value: Json }; Returns: string }
       _people_read_internal_counts_v1: { Args: never; Returns: Json }
       _person_credited_event_ids_v1: {
@@ -12473,6 +13391,20 @@ export type Database = {
         Args: { p_first_name: string; p_link: string }
         Returns: string
       }
+      _raffle_v3_door_view: { Args: { p_qr_token: string }; Returns: Json }
+      _raffle_v3_draw_capacity: { Args: never; Returns: Json }
+      _raffle_v3_person_done_series: {
+        Args: { p_pool_id: string; p_series_id: string }
+        Returns: boolean
+      }
+      _raffle_v3_person_pool_ids: {
+        Args: { p_pool_id: string }
+        Returns: string[]
+      }
+      _raffle_v3_phone_from_admin_input: {
+        Args: { p_raw: string }
+        Returns: string
+      }
       _recompute_occurrence_headline_time_from_sessions_v1: {
         Args: { p_occurrence_id: string }
         Returns: undefined
@@ -12535,6 +13467,10 @@ export type Database = {
         Returns: Json
       }
       _secdef_probe: { Args: never; Returns: string }
+      _section_kind_for_session_type_v1: {
+        Args: { p_type: string }
+        Returns: string
+      }
       _self_serve_is_admin: { Args: never; Returns: boolean }
       _self_serve_rpc_refusal_probes_p5: { Args: never; Returns: Json }
       _self_serve_text_problem_p5: {
@@ -12589,6 +13525,34 @@ export type Database = {
       }
       _series_rule_set_by_non_admin_p5: {
         Args: { p_series_id: string }
+        Returns: boolean
+      }
+      _session_override_apply_patch_v1: {
+        Args: {
+          p_occurrence_id: string
+          p_patch: Json
+          p_program_item_id: string
+        }
+        Returns: string
+      }
+      _session_override_owns_nothing_v1: {
+        Args: {
+          p_cancellation_reason_label: string
+          p_cancelled: boolean
+          p_end_time: string
+          p_level_keys: string[]
+          p_people_added: Json
+          p_people_modified: Json
+          p_people_removed: string[]
+          p_room: string
+          p_start_time: string
+          p_style: string
+          p_theme: string
+          p_title: string
+          p_track_id: string
+          p_type: string
+          p_venue_room_id: string
+        }
         Returns: boolean
       }
       _snapshot_occurrence_p5: {
@@ -12790,6 +13754,7 @@ export type Database = {
         }
         Returns: number
       }
+      _ticket_london_day_start_v1: { Args: { p_at: string }; Returns: string }
       _ticket_next_price_step_v1: {
         Args: { p_type: Database["public"]["Tables"]["ticket_types"]["Row"] }
         Returns: {
@@ -12955,6 +13920,20 @@ export type Database = {
         Returns: Json
       }
       account_exists_by_email: { Args: { p_email: string }; Returns: boolean }
+      account_link_mail_claim_v1: {
+        Args: { p_limit: number }
+        Returns: {
+          code: string
+          email: string
+          expires_at: string
+          id: string
+          request_id: string
+        }[]
+      }
+      account_link_mail_mark_v1: {
+        Args: { p_id: string; p_ok: boolean }
+        Returns: undefined
+      }
       add_favourite_venue_v1: {
         Args: { p_venue_id: string }
         Returns: undefined
@@ -13023,6 +14002,10 @@ export type Database = {
         }[]
       }
       admin_auth_funnel_v1: { Args: { p_days?: number }; Returns: Json }
+      admin_ban_party_chat_v1: {
+        Args: { p_profile_id: string; p_reason?: string }
+        Returns: Json
+      }
       admin_bulk_assign_raffle_preset_v1: {
         Args: { p_event_ids: string[]; p_preset_id?: string }
         Returns: Json
@@ -13269,6 +14252,10 @@ export type Database = {
       }
       admin_dismiss_invitee_duplicate_v1: {
         Args: { p_dismiss?: boolean; p_profile_a: string; p_profile_b: string }
+        Returns: Json
+      }
+      admin_dismiss_party_chat_report_v1: {
+        Args: { p_report_id: string }
         Returns: Json
       }
       admin_draw_raffle_winner_v1: {
@@ -13534,6 +14521,10 @@ export type Database = {
           id: string
           name: string
         }[]
+      }
+      admin_get_party_chat_v1: {
+        Args: { p_before?: string; p_chat_id: string; p_limit?: number }
+        Returns: Json
       }
       admin_get_person_roles_v1: {
         Args: { p_person_entity_id: string }
@@ -13956,6 +14947,11 @@ export type Database = {
         }[]
       }
       admin_list_organisers_front_door_v1: { Args: never; Returns: Json }
+      admin_list_party_chat_reports_v1: {
+        Args: { p_only_open?: boolean }
+        Returns: Json
+      }
+      admin_list_party_chats_v1: { Args: { p_date?: string }; Returns: Json }
       admin_list_pending_canonical_keys_v1: {
         Args: { p_kind?: string; p_status?: string }
         Returns: {
@@ -14352,6 +15348,10 @@ export type Database = {
         Args: { p_entry_id: string; p_event_id: string; p_reason?: string }
         Returns: Json
       }
+      admin_post_party_chat_announcement_v1: {
+        Args: { p_body: string; p_chat_id: string }
+        Returns: Json
+      }
       admin_profile_exists: {
         Args: { p_profile_id: string; p_profile_type: string }
         Returns: boolean
@@ -14447,11 +15447,25 @@ export type Database = {
         Returns: Json
       }
       admin_raffle_draw_v1: { Args: never; Returns: Json }
+      admin_raffle_draw_v2: { Args: { p_count: number }; Returns: Json }
+      admin_raffle_mark_been_to_v1: {
+        Args: { p_pool_id: string; p_series_id: string }
+        Returns: Json
+      }
       admin_raffle_night_set_v1: {
         Args: { p_enabled: boolean; p_occurrence_id: string }
         Returns: Json
       }
       admin_raffle_page_v1: { Args: { p_days_ahead?: number }; Returns: Json }
+      admin_raffle_page_v2: { Args: { p_days_ahead?: number }; Returns: Json }
+      admin_raffle_person_erase_v1: {
+        Args: { p_confirm: string; p_pool_id: string }
+        Returns: Json
+      }
+      admin_raffle_person_search_v1: {
+        Args: { p_phone: string }
+        Returns: Json
+      }
       admin_raffle_pool_remove_v1: {
         Args: { p_pool_id: string; p_reason: string }
         Returns: Json
@@ -14461,11 +15475,25 @@ export type Database = {
         Args: { p_enabled: boolean; p_series_id: string }
         Returns: Json
       }
+      admin_raffle_unmark_been_to_v1: {
+        Args: { p_pool_id: string; p_series_id: string }
+        Returns: Json
+      }
       admin_raffle_win_cancel_v1: {
         Args: { p_note?: string; p_win_id: string }
         Returns: Json
       }
+      admin_raffle_win_mark_messaged_v1: {
+        Args: { p_win_id: string }
+        Returns: Json
+      }
+      admin_raffle_win_no_show_v1: { Args: { p_win_id: string }; Returns: Json }
       admin_raffle_win_relink_v1: { Args: { p_win_id: string }; Returns: Json }
+      admin_raffle_win_reopen_v1: { Args: { p_win_id: string }; Returns: Json }
+      admin_raffle_win_unmark_attended_v1: {
+        Args: { p_win_id: string }
+        Returns: Json
+      }
       admin_recent_program_people_v1: {
         Args: { p_limit?: number; p_profile_type: string }
         Returns: Json
@@ -14523,6 +15551,14 @@ export type Database = {
       }
       admin_remove_entity_member_v1: {
         Args: { p_member_id: string }
+        Returns: Json
+      }
+      admin_remove_party_chat_member_v1: {
+        Args: { p_chat_id: string; p_profile_id: string }
+        Returns: Json
+      }
+      admin_remove_party_chat_message_v1: {
+        Args: { p_message_id: string }
         Returns: Json
       }
       admin_remove_vendor_team_member_v1: {
@@ -15095,6 +16131,15 @@ export type Database = {
         Returns: Json
       }
       admin_start_onboarding_v1: { Args: { p_id: string }; Returns: Json }
+      admin_stripe_funnel_v1: {
+        Args: { p_days: number }
+        Returns: {
+          event: string
+          events: number
+          organisers: number
+          surface: string
+        }[]
+      }
       admin_success: { Args: { p_data?: Json }; Returns: Json }
       admin_sync_event_links_to_event_row: {
         Args: { p_event_id: string }
@@ -15102,6 +16147,10 @@ export type Database = {
       }
       admin_unarchive_person_v1: {
         Args: { p_person_id: string }
+        Returns: Json
+      }
+      admin_unban_party_chat_v1: {
+        Args: { p_profile_id: string }
         Returns: Json
       }
       admin_unlink_account_from_dancer_profile_v1: {
@@ -15238,6 +16287,31 @@ export type Database = {
         Args: { p_order_id: string; p_skip_reason?: string; p_status: string }
         Returns: boolean
       }
+      buyer_status_email_cancelled_candidates_v1: {
+        Args: { p_limit?: number }
+        Returns: Json
+      }
+      buyer_status_email_claim_v1: {
+        Args: {
+          p_amount_pence?: number
+          p_kind: string
+          p_order_id: string
+          p_refunded_pence_after?: number
+        }
+        Returns: string
+      }
+      buyer_status_email_free_ended_candidates_v1: {
+        Args: {
+          p_event_series_id: string
+          p_occurrence_id: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      buyer_status_email_set_v1: {
+        Args: { p_error?: string; p_id: string; p_status: string }
+        Returns: boolean
+      }
       calendar_events_dto: {
         Args: {
           p_city_id?: string
@@ -15313,6 +16387,7 @@ export type Database = {
       }
       check_occurrence_p5_unmaterialised_v1: { Args: never; Returns: Json }
       check_occurrence_program_format_v1: { Args: never; Returns: Json }
+      check_occurrence_section_contract_v1: { Args: never; Returns: Json }
       check_occurrence_time_stamping_convention_v1: {
         Args: never
         Returns: Json
@@ -15376,6 +16451,10 @@ export type Database = {
       check_series_level_derivation_v1: { Args: never; Returns: Json }
       check_series_materialisation_contract_v1: { Args: never; Returns: Json }
       check_series_organiser_junction_parity_v1: { Args: never; Returns: Json }
+      check_session_override_write_owner_v1: {
+        Args: { p_exempt_writers?: string[]; p_judged_unmeasured?: string[] }
+        Returns: Json
+      }
       check_signup_allowlist_contract_v1: { Args: never; Returns: Json }
       check_signup_hook_v2_contract_v1: { Args: never; Returns: Json }
       check_slug_resolver_p5_parity_v1: { Args: never; Returns: Json }
@@ -15417,6 +16496,7 @@ export type Database = {
         Args: { p_anchor_date: string; p_event: Json }
         Returns: Json
       }
+      confirm_account_link_v1: { Args: { p_code: string }; Returns: Json }
       confirm_organiser_contact_v1: {
         Args: { p_organiser_id: string; p_phone?: string }
         Returns: Json
@@ -15460,6 +16540,10 @@ export type Database = {
           to_date: string
           user_id: string
         }[]
+      }
+      decline_ticket_refund_request_v1: {
+        Args: { p_request_id: string }
+        Returns: Json
       }
       delete_venue_admin: {
         Args: { actor_user_id: string; p_entity_id: string }
@@ -15916,6 +17000,13 @@ export type Database = {
         Returns: Json[]
       }
       get_organiser_venue_options_v1: { Args: never; Returns: Json[] }
+      get_party_card_v1: { Args: never; Returns: Json }
+      get_party_chat_members_v1: { Args: { p_chat_id: string }; Returns: Json }
+      get_party_chat_unread_v1: { Args: { p_chat_id: string }; Returns: Json }
+      get_party_chat_v1: {
+        Args: { p_before?: string; p_chat_id: string; p_limit?: number }
+        Returns: Json
+      }
       get_popular_searches_v1: {
         Args: { p_city_slug?: string; p_limit?: number }
         Returns: {
@@ -16391,6 +17482,7 @@ export type Database = {
       is_super_admin: { Args: { p_user_id?: string }; Returns: boolean }
       is_valid_city_slug: { Args: { p_slug: string }; Returns: boolean }
       is_venue_favourited_v1: { Args: { p_venue_id: string }; Returns: boolean }
+      leave_party_chat_v1: { Args: { p_chat_id: string }; Returns: Json }
       lineup_health_check_v1: {
         Args: never
         Returns: {
@@ -16444,6 +17536,10 @@ export type Database = {
         Args: { p_organiser_id?: string; p_scope?: string }
         Returns: Json
       }
+      list_organiser_invites_sent_v1: {
+        Args: { p_organiser_id: string }
+        Returns: Json
+      }
       list_public_djs_v1: {
         Args: { p_city_id?: string; p_limit?: number }
         Returns: Json
@@ -16483,6 +17579,7 @@ export type Database = {
         Args: { p_version: string }
         Returns: undefined
       }
+      mark_party_chat_read_v1: { Args: { p_chat_id: string }; Returns: Json }
       my_account_delete_v1: { Args: never; Returns: Json }
       my_account_deletion_status_v1: { Args: never; Returns: Json }
       my_account_erase_cancel_v1: { Args: { p_token?: string }; Returns: Json }
@@ -16495,6 +17592,7 @@ export type Database = {
       my_account_erase_v1: { Args: { p_confirm: string }; Returns: Json }
       my_account_export_extras_v1: { Args: never; Returns: Json }
       my_account_export_v1: { Args: never; Returns: Json }
+      my_account_links_v1: { Args: never; Returns: Json }
       my_account_restore_v1: { Args: never; Returns: Json }
       my_dancer_contact_v1: {
         Args: never
@@ -16532,6 +17630,20 @@ export type Database = {
       }
       my_ticket_order_qr_v1: { Args: { p_order_id: string }; Returns: Json }
       my_tickets_v1: { Args: never; Returns: Json }
+      night_reminder_claim_v1: {
+        Args: {
+          p_buyer_hash: string
+          p_now?: string
+          p_occurrence_id: string
+          p_order_id: string
+        }
+        Returns: boolean
+      }
+      night_reminder_due_v1: { Args: { p_now: string }; Returns: Json }
+      night_reminder_finish_v1: {
+        Args: { p_buyer_hash: string; p_occurrence_id: string; p_sent: boolean }
+        Returns: boolean
+      }
       normalize_dance_role: { Args: { p_value: string }; Returns: string }
       normalize_event_instances: {
         Args: { p_event_row?: Json; p_instances: Json }
@@ -16649,6 +17761,18 @@ export type Database = {
         Args: { p_city: string; p_name: string }
         Returns: Json
       }
+      organiser_night_refund_summary_v1: {
+        Args: { p_event_series_id: string; p_occurrence_id: string }
+        Returns: Json
+      }
+      organiser_night_reminder_get_v1: {
+        Args: { p_occurrence_id: string }
+        Returns: Json
+      }
+      organiser_night_reminder_set_v1: {
+        Args: { p_enabled: boolean; p_occurrence_id: string }
+        Returns: Json
+      }
       organiser_onboarding_status_v1: {
         Args: { p_organiser_id?: string }
         Returns: Json
@@ -16681,6 +17805,19 @@ export type Database = {
       }
       organiser_raffle_nights_v1: {
         Args: { p_series_id: string }
+        Returns: Json
+      }
+      organiser_refund_reminder_claim_v1: {
+        Args: { p_kind: string; p_occurrence_id: string }
+        Returns: string
+      }
+      organiser_refund_reminder_due_v1: { Args: never; Returns: Json }
+      organiser_refund_reminder_set_v1: {
+        Args: { p_error?: string; p_id: string; p_status: string }
+        Returns: boolean
+      }
+      organiser_refund_requests_v1: {
+        Args: { p_occurrence_id: string }
         Returns: Json
       }
       organiser_room_drop_preview_v1: {
@@ -16864,6 +18001,22 @@ export type Database = {
         Args: { p_name: string; p_postcode: string }
         Returns: Json
       }
+      party_chat_notice_set_status_v1: {
+        Args: { p_id: string; p_status: string }
+        Returns: string
+      }
+      party_chat_notices_claim_v1: {
+        Args: { p_limit: number }
+        Returns: {
+          attempts: number
+          chat_id: string
+          city_name: string
+          email: string
+          first_name: string
+          id: string
+        }[]
+      }
+      party_chat_on_open: { Args: { p_chat_id: string }; Returns: undefined }
       peek_dancer_invite_v1: { Args: { p_token: string }; Returns: Json }
       person_merge_candidates_v1: {
         Args: never
@@ -17060,6 +18213,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      post_party_chat_message_v1: {
+        Args: { p_body: string; p_chat_id: string }
+        Returns: Json
+      }
       profile_complete_v1: { Args: { p_person: string }; Returns: boolean }
       profile_requirements_v1: {
         Args: { p_area: string; p_organiser_id?: string }
@@ -17099,10 +18256,12 @@ export type Database = {
         }[]
       }
       purge_old_guest_entries_v1: { Args: never; Returns: Json }
+      raffle_door_admit_v1: { Args: { p_qr_token: string }; Returns: Json }
       raffle_door_caller_allowed: {
         Args: { p_occurrence_id: string }
         Returns: boolean
       }
+      raffle_door_check_v1: { Args: { p_qr_token: string }; Returns: Json }
       raffle_effective_occurrence_v1: {
         Args: { p_event_id: string }
         Returns: {
@@ -17198,6 +18357,14 @@ export type Database = {
       }
       raffle_win_lock_v1: {
         Args: { p_occurrence_id: string; p_win_id: string }
+        Returns: Json
+      }
+      raffle_win_lock_v2: {
+        Args: {
+          p_never_been: boolean
+          p_occurrence_id: string
+          p_win_id: string
+        }
         Returns: Json
       }
       raffle_win_open_nights_v1: { Args: { p_win_id: string }; Returns: Json }
@@ -17362,6 +18529,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      record_stripe_funnel_event_v1: {
+        Args: { p_event: string; p_organiser_id: string; p_surface: string }
+        Returns: Json
+      }
       record_vendor_link_click_v1: {
         Args: {
           p_link_type: string
@@ -17377,6 +18548,10 @@ export type Database = {
       redeem_organiser_invite_v1: { Args: { p_token: string }; Returns: Json }
       register_feature_interest_v1: {
         Args: { p_feature: string }
+        Returns: Json
+      }
+      register_party_interest_v1: {
+        Args: { p_city_id: string; p_party_date?: string }
         Returns: Json
       }
       reject_city_request: {
@@ -17409,6 +18584,14 @@ export type Database = {
         Args: never
         Returns: Json
       }
+      report_party_chat_message_v1: {
+        Args: { p_message_id: string; p_reason?: string }
+        Returns: Json
+      }
+      request_account_link_v1: {
+        Args: { p_other_email: string }
+        Returns: Json
+      }
       request_new_invite_v1: { Args: { p_token: string }; Returns: Json }
       request_organiser_access_v1: {
         Args: { p_message?: string; p_organiser_id: string }
@@ -17416,6 +18599,10 @@ export type Database = {
       }
       request_signup_access_v1: {
         Args: { p_email: string; p_note: string }
+        Returns: Json
+      }
+      request_ticket_refund_v1: {
+        Args: { p_occurrence_id: string; p_order_id: string }
         Returns: Json
       }
       resolve_city_id: {
@@ -17607,6 +18794,7 @@ export type Database = {
           occurrence_id: string
           occurrence_p5_id: string | null
           status: string
+          ticket_order_id: string | null
           updated_at: string
           user_id: string
         }
@@ -17663,6 +18851,14 @@ export type Database = {
         }
         Returns: Json
       }
+      set_party_chat_muted_v1: {
+        Args: { p_chat_id: string; p_muted: boolean }
+        Returns: Json
+      }
+      set_series_signup_rule_v1: {
+        Args: { p_rule: string; p_series_id: string }
+        Returns: Json
+      }
       skip_organiser_about_v1: {
         Args: { p_organiser_id: string }
         Returns: Json
@@ -17695,7 +18891,11 @@ export type Database = {
       }
       submit_listing_request_v1: { Args: { p_payload: Json }; Returns: Json }
       submit_my_guest_list_entry_v1: {
-        Args: { p_first_name: string; p_occurrence_id: string }
+        Args: {
+          p_first_name: string
+          p_occurrence_id: string
+          p_plus_ones?: number
+        }
         Returns: Json
       }
       submit_organiser_profile_v1: {
@@ -17781,6 +18981,16 @@ export type Database = {
       ticket_checkout_rate_check_v1: {
         Args: {
           p_email_hash: string
+          p_ip_hash: string
+          p_quantity: number
+          p_ticket_type_id: string
+        }
+        Returns: Json
+      }
+      ticket_checkout_rate_check_v2: {
+        Args: {
+          p_email_hash: string
+          p_expected_total_pence: number
           p_ip_hash: string
           p_quantity: number
           p_ticket_type_id: string
@@ -17893,6 +19103,34 @@ export type Database = {
       ticket_email_retry_take_v1: {
         Args: { p_limit: number }
         Returns: string[]
+      }
+      ticket_night_end_free_v1: {
+        Args: {
+          p_event_series_id: string
+          p_occurrence_id: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      ticket_night_price_set_v1: {
+        Args: {
+          p_occurrence_id: string
+          p_price_pence: number
+          p_ticket_type_id: string
+        }
+        Returns: Json
+      }
+      ticket_night_prices_v1: {
+        Args: { p_occurrence_id: string }
+        Returns: Json
+      }
+      ticket_night_refund_plan_v1: {
+        Args: {
+          p_event_series_id: string
+          p_occurrence_id: string
+          p_user_id: string
+        }
+        Returns: Json
       }
       ticket_ops_health_v1: { Args: never; Returns: Json }
       ticket_order_charge_refunded_v1: {
@@ -18027,6 +19265,10 @@ export type Database = {
         Args: { p_order_id: string; p_user_id: string }
         Returns: Json
       }
+      ticket_sales_by_night_v1: {
+        Args: { p_event_series_id: string; p_occurrence_id?: string }
+        Returns: Json
+      }
       ticket_sales_summary_v1: {
         Args: { p_organiser_id: string }
         Returns: Json
@@ -18131,6 +19373,14 @@ export type Database = {
           valid_to: string
         }[]
       }
+      ticket_undo_check_in_v1: {
+        Args: {
+          p_event_series_id?: string
+          p_occurrence_id?: string
+          p_ticket_id: string
+        }
+        Returns: Json
+      }
       ticket_webhook_begin_v1: {
         Args: { p_event_id: string; p_type: string }
         Returns: string
@@ -18140,6 +19390,7 @@ export type Database = {
         Returns: undefined
       }
       topup_series_materialisation_horizon_v1: { Args: never; Returns: Json }
+      unlink_account_v1: { Args: { p_other_user_id: string }; Returns: Json }
       upsert_venue_atomic: { Args: { payload: Json }; Returns: Json }
       uuid_to_bigint: { Args: { p_uuid: string }; Returns: number }
       validate_override_payload_v1: { Args: { p_payload: Json }; Returns: Json }
