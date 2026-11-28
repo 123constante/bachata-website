@@ -20,9 +20,13 @@ export type VenueAddressInput = {
   address?: string | null;
   postcode?: string | null;
   cityName?: string | null;
+  country?: string | null;
 };
 
-export const formatVenueAddress = ({ address, postcode, cityName }: VenueAddressInput): string | null => {
+const COUNTRIES = ['spain', 'espa\u00f1a', 'uk', 'united kingdom', 'england', 'gb', 't\u00fcrkiye', 'turkey'];
+const escRe = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+export const formatVenueAddress = ({ address, postcode, cityName, country }: VenueAddressInput): string | null => {
   const city = clean(cityName);
   const fieldPostcode = normalisePostcode(postcode);
   // City only counts as a duplicate after a comma, or when it is the whole string
@@ -31,9 +35,12 @@ export const formatVenueAddress = ({ address, postcode, cityName }: VenueAddress
     ? new RegExp(`(?:^|,)\\s*${city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i')
     : null;
   let street = clean(address);
+  const names = [...COUNTRIES, clean(country).toLowerCase()].filter(Boolean).map(escRe).join('|');
+  const countryTail = new RegExp(`,\\s*(?:${names})\\s*$`, 'i');
   let found = '';
   for (let prev = ''; prev !== street; ) {
     prev = street;
+    street = street.replace(countryTail, '');
     const pc = UK_POSTCODE_TAIL.exec(street);
     if (pc) {
       if (!found) found = normalisePostcode(pc[0].replace(/^[,\s]+/, ''));
@@ -43,7 +50,8 @@ export const formatVenueAddress = ({ address, postcode, cityName }: VenueAddress
     street = street.replace(/[,\s]+$/, '').trim();
   }
   // The field wins; a postcode typed only into the address is lifted, not lost.
-  const tail = [city, fieldPostcode || found].filter(Boolean).join(' ');
+  const hasCity = !!city && street.split(',').some((seg) => seg.trim().toLowerCase() === city.toLowerCase());
+  const tail = [hasCity ? '' : city, fieldPostcode || found].filter(Boolean).join(' ');
   const line = [street, tail].filter(Boolean).join(', ');
   return line || null;
 };

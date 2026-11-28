@@ -18,6 +18,12 @@ const cases: Array<[string, Parameters<typeof formatVenueAddress>[0], string | n
   ['repeat strip postcode then city', { address: 'x, SW11 1HG, London', postcode: 'SW11 1EE', cityName: 'London' }, 'x, London SW11 1EE'],
   ['trailing commas and spaces', { address: '  Purbrook St ,, ', postcode: 'SE1 3DQ', cityName: 'London' }, 'Purbrook St, London SE1 3DQ'],
   ['lowercase postcode inside address', { address: 'Purbrook St, se1 3dq', postcode: null, cityName: null }, 'Purbrook St, SE1 3DQ'],
+  ['Barcelona trailing country', { address: 'Carrer del Pla de la Torre, 14, 08398 Santa Susanna, Barcelona, Spain', postcode: null, cityName: 'Barcelona', country: 'Spain' }, 'Carrer del Pla de la Torre, 14, 08398 Santa Susanna, Barcelona'],
+  ['Istanbul trailing Turkiye', { address: 'Yenibosna Merkez, Bah\u00e7elievler/\u0130stanbul, T\u00fcrkiye', postcode: '34295', cityName: 'Istanbul', country: 'TR' }, 'Yenibosna Merkez, Bah\u00e7elievler/\u0130stanbul, Istanbul 34295'],
+  ['Mallorca trailing country, city mid-address', { address: 'Playa de Muro, Illes Balears, Palma De Mallorca, Spain', postcode: '07458', cityName: 'Palma de Mallorca', country: 'ES' }, 'Playa de Muro, Illes Balears, Palma de Mallorca 07458'],
+  ['Budapest no country in address', { address: 'The Aquincum Hotel Budapest', postcode: '1036', cityName: 'Budapest', country: 'HU' }, 'The Aquincum Hotel Budapest, Budapest 1036'],
+  ['Tunis own country value', { address: 'Les Cotes de Carthage, BP 720, Tunisia', postcode: '2070', cityName: 'Tunis', country: 'Tunisia' }, 'Les Cotes de Carthage, BP 720, Tunis 2070'],
+  ['city mid-address not appended', { address: 'Calle 1, Madrid, Centro', postcode: null, cityName: 'Madrid' }, 'Calle 1, Madrid, Centro'],
   ['all empty', { address: ' ', postcode: '', cityName: undefined }, null],
 ];
 

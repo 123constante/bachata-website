@@ -1,10 +1,27 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const MAX = 2000;
+const draftKey = (id: string) => `venue-feedback:${id}`;
+const readDraft = (id: string): string => {
+  try {
+    return sessionStorage.getItem(draftKey(id)) ?? '';
+  } catch {
+    return '';
+  }
+};
+const writeDraft = (id: string, v: string) => {
+  try {
+    if (v) sessionStorage.setItem(draftKey(id), v);
+    else sessionStorage.removeItem(draftKey(id));
+  } catch {
+    /* storage unavailable: typed text stays in state */
+  }
+};
+
 const LINK_CLASS = 'inline-flex min-h-[44px] items-center text-left text-[12px] underline';
 
 /**
@@ -18,11 +35,18 @@ export const VenueFeedbackSheet = ({ venueId }: { venueId: string }) => {
   const loc = useLocation();
   const [open, setOpen] = useState(false);
   const [prompt, setPrompt] = useState(false);
-  const [text, setText] = useState('');
+  const [text, setText] = useState(() => readDraft(venueId));
+  const signInRef = useRef<HTMLButtonElement>(null);
   const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'error' | 'signin'>('idle');
 
-  const goSignIn = () =>
+  useEffect(() => {
+    if (prompt) signInRef.current?.focus();
+  }, [prompt]);
+
+  const goSignIn = () => {
+    writeDraft(venueId, text);
     navigate(`/auth?mode=signin&returnTo=${encodeURIComponent(`${loc.pathname}${loc.search}`)}`);
+  };
 
   const send = async () => {
     const body = text.trim();
@@ -36,6 +60,7 @@ export const VenueFeedbackSheet = ({ venueId }: { venueId: string }) => {
       });
       if (error) throw error;
       setText('');
+      writeDraft(venueId, '');
       setState('sent');
     } catch (e) {
       const msg = e instanceof Error ? e.message : String((e as { message?: unknown } | null)?.message ?? '');
@@ -49,9 +74,9 @@ export const VenueFeedbackSheet = ({ venueId }: { venueId: string }) => {
     return (
       <div className="px-2.5">
         {prompt ? (
-          <p className="flex flex-wrap items-center gap-x-2 text-[12px]" style={muted}>
+          <p role="status" className="flex flex-wrap items-center gap-x-2 text-[12px]" style={muted}>
             <span>Sign in to tell us what is wrong</span>
-            <button type="button" className={LINK_CLASS} onClick={goSignIn}>
+            <button type="button" ref={signInRef} className={LINK_CLASS} onClick={goSignIn}>
               Sign in
             </button>
           </p>
@@ -81,6 +106,7 @@ export const VenueFeedbackSheet = ({ venueId }: { venueId: string }) => {
         <DialogContent className="max-w-sm p-3">
           <DialogHeader>
             <DialogTitle className="text-sm">Something wrong with this venue?</DialogTitle>
+            <DialogDescription className="sr-only">Tell us what is wrong with this venue&rsquo;s details.</DialogDescription>
           </DialogHeader>
           {state === 'sent' ? (
             <p className="text-sm">Thanks &mdash; we will take a look.</p>
@@ -94,9 +120,9 @@ export const VenueFeedbackSheet = ({ venueId }: { venueId: string }) => {
                 placeholder="Wrong address, floor, parking&hellip; tell us what to fix"
                 aria-label="What is wrong?"
               />
-              {state === 'error' && <p className="text-sm text-red-400">Could not send. Try again later.</p>}
+              {state === 'error' && <p role="alert" className="text-sm text-red-400">Could not send. Try again later.</p>}
               {state === 'signin' && (
-                <p className="text-sm text-red-400">
+                <p role="alert" className="text-sm text-red-400">
                   Sign in to tell us what is wrong.{' '}
                   <button type="button" className="min-h-[44px] underline" onClick={goSignIn}>
                     Sign in
