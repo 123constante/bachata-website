@@ -2,6 +2,7 @@ import { MessageCircle } from 'lucide-react';
 import { detectChatPlatform, type ChatPlatform } from '@/lib/groupChat';
 import { recordEventLinkClick } from '@/lib/eventLinkClicks';
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
+import { flags } from '@/lib/featureFlags';
 
 /**
  * "Join the group chat" row for the regular (bento) event page.
@@ -50,13 +51,59 @@ type GroupChatBlockProps = {
   url: string | null;
   /** Source event id — for record_event_link_click_v1. Null is a no-op. */
   eventId: string | null;
+  /** Long weekday of the night on screen ("Friday"), from the stored wall clock. Null = unknown. */
+  weekday?: string | null;
 };
 
-export const GroupChatBlock = ({ url, eventId }: GroupChatBlockProps) => {
+export const GroupChatBlock = ({ url, eventId, weekday = null }: GroupChatBlockProps) => {
   if (!url) return null;
 
   const meta = detectChatPlatform(url);
   const platformName = meta.platform === 'generic' ? 'Community chat' : `${meta.label} group`;
+
+  if (flags.groupChatCard && meta.platform === 'whatsapp') {
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={() =>
+          recordEventLinkClick({
+            eventId,
+            linkType: 'whatsapp',
+            targetUrl: url,
+            source: 'bento_group_chat',
+          })
+        }
+        aria-label={`Join the group chat${meta.ariaPlatform} (opens in a new tab)`}
+        className="mt-3 block rounded-[18px] p-3 transition hover:brightness-110"
+        style={{ background: '#0b141a' }}
+      >
+        <span aria-hidden="true" className="flex flex-col gap-1.5">
+          <span
+            className="max-w-[85%] self-start rounded-[4px_12px_12px_12px] px-2.5 py-1.5 text-[13px] leading-snug"
+            style={{ background: '#202c33', color: '#e9edef' }}
+          >
+            Who&rsquo;s coming{weekday ? ` on ${weekday}` : ''}?
+          </span>
+          <span
+            className="max-w-[85%] self-end rounded-[12px_4px_12px_12px] px-2.5 py-1.5 text-[13px] leading-snug"
+            style={{ background: '#005c4b', color: '#e9edef' }}
+          >
+            Me! First time &#128075;{' '}
+            <span className="text-[11px]" style={{ color: '#53bdeb' }}>&#10003;&#10003;</span>
+          </span>
+        </span>
+        <span
+          className="mt-2.5 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full text-[15px] font-extrabold"
+          style={{ background: '#25D366', color: '#06281a' }}
+        >
+          <WhatsAppIcon className="h-[18px] w-[18px]" />
+          Say hi in the group
+        </span>
+      </a>
+    );
+  }
 
   return (
     <a

@@ -259,6 +259,9 @@ export const flags = {
   // Phase 5.5 and always read "No linked events" / "No team members" (owner click
   // 2026-11-27: remove). DEFAULT ON; roll back with VITE_VENDOR_EVENTS_TEAM_TILES_REMOVED=false.
   vendorEventsTeamTilesRemoved: import.meta.env.VITE_VENDOR_EVENTS_TEAM_TILES_REMOVED !== 'false',
+  // Event page group-chat row: WhatsApp links render a small dark chat card with a green "Say hi in the group" button. Other platforms keep today's row.
+  // OFF = every screen exactly as before. Turn on with VITE_ENABLE_GROUP_CHAT_CARD=true (Vercel env) -- no code change.
+  groupChatCard:       import.meta.env.VITE_ENABLE_GROUP_CHAT_CARD === 'true',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the
