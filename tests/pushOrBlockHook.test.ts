@@ -73,6 +73,22 @@ const CASES: Case[] = [
     code: 0, err: null,
   },
   {
+    name: 'unpushed commit whose files are already identical on origin/main (squash-merged copy): allow',
+    setup: (w) => {
+      git(w, 'checkout', '-q', '-b', 'claude/w'); commit(w, 'a'); git(w, 'push', '-q', 'origin', 'claude/w'); commit(w, 'b');
+      git(w, 'checkout', '-q', 'main'); commit(w, 'b'); git(w, 'push', '-q', 'origin', 'main'); git(w, 'checkout', '-q', 'claude/w');
+    },
+    code: 0, err: null,
+  },
+  {
+    name: 'unpushed commit touching a file that differs on origin/main: still BLOCK',
+    setup: (w) => {
+      git(w, 'checkout', '-q', '-b', 'claude/w'); commit(w, 'a'); git(w, 'push', '-q', 'origin', 'claude/w'); commit(w, 'b');
+      git(w, 'checkout', '-q', 'main'); fs.writeFileSync(path.join(w, 'b.txt'), 'other'); git(w, 'add', '.'); git(w, 'commit', '-q', '-m', 'other'); git(w, 'push', '-q', 'origin', 'main'); git(w, 'checkout', '-q', 'claude/w');
+    },
+    code: 2, err: BLOCK_LINE,
+  },
+  {
     name: 'claude/* with an unpushed commit, first stop: BLOCK with the one line',
     setup: (w) => { git(w, 'checkout', '-q', '-b', 'claude/w'); commit(w, 'a'); git(w, 'push', '-q', 'origin', 'claude/w'); commit(w, 'b'); },
     code: 2, err: BLOCK_LINE,
