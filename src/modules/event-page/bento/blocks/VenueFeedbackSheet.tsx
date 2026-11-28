@@ -1,21 +1,35 @@
 import { useState } from 'react';
-import { rpcLoose } from '@/integrations/supabase/rpcLoose';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const MAX = 2000;
+const LINK_CLASS = 'inline-flex min-h-[44px] items-center text-left text-[12px] underline';
 
-/** "Something wrong?" link + small sheet. Typed text is never cleared on failure. */
+/**
+ * "Something wrong?" control, rendered OUTSIDE the tile link. Signed out: a short
+ * sign-in prompt (no text box, so nothing typed can be lost). Signed in: the sheet.
+ * Typed text is never cleared on failure.
+ */
 export const VenueFeedbackSheet = ({ venueId }: { venueId: string }) => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const loc = useLocation();
   const [open, setOpen] = useState(false);
+  const [prompt, setPrompt] = useState(false);
   const [text, setText] = useState('');
-  const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'error' | 'signin'>('idle');
+
+  const goSignIn = () =>
+    navigate(`/auth?mode=signin&returnTo=${encodeURIComponent(`${loc.pathname}${loc.search}`)}`);
 
   const send = async () => {
     const body = text.trim();
     if (!body || state === 'sending') return;
     setState('sending');
     try {
-      const { error } = await rpcLoose('submit_feedback_v1', {
+      const { error } = await supabase.rpc('submit_feedback_v1', {
         p_body: body,
         p_kind: 'venue',
         p_page: `venue:${venueId}`,
@@ -23,19 +37,40 @@ export const VenueFeedbackSheet = ({ venueId }: { venueId: string }) => {
       if (error) throw error;
       setText('');
       setState('sent');
-    } catch {
-      setState('error');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String((e as { message?: unknown } | null)?.message ?? '');
+      setState(msg.includes('not_signed_in') ? 'signin' : 'error');
     }
   };
 
+  const muted = { color: 'hsl(var(--bento-fg-muted))' } as const;
+
+  if (!user) {
+    return (
+      <div className="px-2.5">
+        {prompt ? (
+          <p className="flex flex-wrap items-center gap-x-2 text-[12px]" style={muted}>
+            <span>Sign in to tell us what is wrong</span>
+            <button type="button" className={LINK_CLASS} onClick={goSignIn}>
+              Sign in
+            </button>
+          </p>
+        ) : (
+          <button type="button" className={LINK_CLASS} style={muted} onClick={() => setPrompt(true)}>
+            Something wrong?
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <span onClick={(e) => e.stopPropagation()}>
+    <div className="px-2.5">
       <button
         type="button"
-        className="mt-1 min-h-[44px] self-start text-left text-[11px] underline"
-        style={{ color: 'hsl(var(--bento-fg-muted))' }}
-        onClick={(e) => {
-          e.preventDefault();
+        className={LINK_CLASS}
+        style={muted}
+        onClick={() => {
           setState('idle');
           setOpen(true);
         }}
@@ -60,18 +95,26 @@ export const VenueFeedbackSheet = ({ venueId }: { venueId: string }) => {
                 aria-label="What is wrong?"
               />
               {state === 'error' && <p className="text-sm text-red-400">Could not send. Try again later.</p>}
+              {state === 'signin' && (
+                <p className="text-sm text-red-400">
+                  Sign in to tell us what is wrong.{' '}
+                  <button type="button" className="min-h-[44px] underline" onClick={goSignIn}>
+                    Sign in
+                  </button>
+                </p>
+              )}
               <button
                 type="button"
                 className="min-h-[44px] rounded-md bg-white/10 px-3 text-sm font-semibold disabled:opacity-50"
                 disabled={!text.trim() || state === 'sending'}
                 onClick={send}
               >
-                {state === 'sending' ? 'Sending…' : 'Send'}
+                {state === 'sending' ? 'Sending\u2026' : 'Send'}
               </button>
             </>
           )}
         </DialogContent>
       </Dialog>
-    </span>
+    </div>
   );
 };

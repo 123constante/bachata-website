@@ -11,6 +11,13 @@ const cases: Array<[string, Parameters<typeof formatVenueAddress>[0], string | n
   ['lowercase postcode', { address: 'Purbrook St', postcode: 'se13dq', cityName: 'London' }, 'Purbrook St, London SE1 3DQ'],
   ['Spain, no postcode', { address: 'Calle Mayor 5', postcode: null, cityName: 'Madrid' }, 'Calle Mayor 5, Madrid'],
   ['no city', { address: 'Purbrook St', postcode: 'SE1 3DQ', cityName: null }, 'Purbrook St, SE1 3DQ'],
+  ['postcode only in address is lifted', { address: '35-37 Battersea Rise, London SW11 1HG', postcode: null, cityName: 'London' }, '35-37 Battersea Rise, London SW11 1HG'],
+  ['address is only a postcode', { address: 'sw11 1hg', postcode: null, cityName: 'London' }, 'London SW11 1HG'],
+  ['city inside a street name stays', { address: 'Calle de Madrid', postcode: null, cityName: 'Madrid' }, 'Calle de Madrid, Madrid'],
+  ['address equal to city', { address: 'Madrid', postcode: null, cityName: 'Madrid' }, 'Madrid'],
+  ['repeat strip postcode then city', { address: 'x, SW11 1HG, London', postcode: 'SW11 1EE', cityName: 'London' }, 'x, London SW11 1EE'],
+  ['trailing commas and spaces', { address: '  Purbrook St ,, ', postcode: 'SE1 3DQ', cityName: 'London' }, 'Purbrook St, London SE1 3DQ'],
+  ['lowercase postcode inside address', { address: 'Purbrook St, se1 3dq', postcode: null, cityName: null }, 'Purbrook St, SE1 3DQ'],
   ['all empty', { address: ' ', postcode: '', cityName: undefined }, null],
 ];
 

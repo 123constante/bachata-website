@@ -24,15 +24,26 @@ export type VenueAddressInput = {
 
 export const formatVenueAddress = ({ address, postcode, cityName }: VenueAddressInput): string | null => {
   const city = clean(cityName);
+  const fieldPostcode = normalisePostcode(postcode);
+  // City only counts as a duplicate after a comma, or when it is the whole string
+  // ("Calle de Madrid" keeps its Madrid).
+  const cityTail = city
+    ? new RegExp(`(?:^|,)\\s*${city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i')
+    : null;
   let street = clean(address);
-  // A postcode already typed into the address is dropped; the field wins.
-  street = street.replace(UK_POSTCODE_TAIL, '').trim();
-  if (city) {
-    const cityTail = new RegExp(`[,\\s]*\\b${city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i');
-    street = street.replace(cityTail, '').trim();
+  let found = '';
+  for (let prev = ''; prev !== street; ) {
+    prev = street;
+    const pc = UK_POSTCODE_TAIL.exec(street);
+    if (pc) {
+      if (!found) found = normalisePostcode(pc[0].replace(/^[,\s]+/, ''));
+      street = street.replace(UK_POSTCODE_TAIL, '');
+    }
+    if (cityTail) street = street.replace(cityTail, '');
+    street = street.replace(/[,\s]+$/, '').trim();
   }
-  street = street.replace(/[,\s]+$/, '');
-  const tail = [city, normalisePostcode(postcode)].filter(Boolean).join(' ');
+  // The field wins; a postcode typed only into the address is lifted, not lost.
+  const tail = [city, fieldPostcode || found].filter(Boolean).join(' ');
   const line = [street, tail].filter(Boolean).join(', ');
   return line || null;
 };

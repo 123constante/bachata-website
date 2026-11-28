@@ -54,7 +54,7 @@ export const VenueBlock = ({ location, showCityLine = false, eventId = null, occ
       : `/venue-entity/${location.venueId}`
     : undefined;
 
-  return (
+  const tile = (
     <BentoTile title={BLOCK_TITLES.venue} color={BLOCK_COLORS.venue} href={href}>
       <div className="flex min-h-0 flex-1 flex-col gap-[4px]">
         {location.venueName && (
@@ -71,7 +71,6 @@ export const VenueBlock = ({ location, showCityLine = false, eventId = null, occ
             {addressLine}
           </div>
         )}
-        {venueAdd && location.venueId && <VenueFeedbackSheet venueId={location.venueId} />}
         {showCity && (
           <div
             className="truncate text-[10px] leading-[1.3]"
@@ -109,5 +108,15 @@ export const VenueBlock = ({ location, showCityLine = false, eventId = null, occ
         )}
       </div>
     </BentoTile>
+  );
+
+  // Flag off: the tile alone, DOM identical to before. Flag on: the feedback
+  // control sits BESIDE the tile link, never inside it.
+  if (!venueAdd || !location.venueId) return tile;
+  return (
+    <div className="flex h-full w-full flex-col">
+      <div className="min-h-0 flex-1">{tile}</div>
+      <VenueFeedbackSheet venueId={location.venueId} />
+    </div>
   );
 };
