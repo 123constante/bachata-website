@@ -876,7 +876,11 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
         {/* Group-chat CTA — hidden on past/cancelled occurrences, matching the
             ticket pill in the sticky bar (a dead date must not advertise a chat). */}
         {!over && !occurrence?.isCancelled && (
-          <GroupChatBlock url={pageModel.actions.whatsappLink} eventId={eventId} />
+          <GroupChatBlock
+            url={pageModel.actions.whatsappLink}
+            eventId={eventId}
+            weekday={formatWallClockLocalIntl(occurrence?.startsAt, { weekday: 'long' }) ?? null}
+          />
         )}
 
         {/* "Who's going" for the night on screen (Going P2, design A) -- via

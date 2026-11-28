@@ -189,7 +189,7 @@ jobs:
             # runs. This list carries some of the *EdgeTtl specs but not all of
             # them -- sitemapEdgeTtl is not in it, so this leg is NOT a
             # substitute for the London leg's second pass.
-            npx vitest run --no-file-parallelism tests/londonDate.test.ts tests/festivalGridDays.test.ts tests/pinnedDayKeyEdgeTtl.test.ts tests/festivalLoaderEdgeTtl.test.ts tests/seoLandingLoaderEdgeTtl.test.ts tests/homeLoaderEdgeTtl.test.ts src/modules/home-map/__tests__/mapListDerivations.test.ts src/modules/home-map/__tests__/todayLiveStatus.test.ts src/modules/home-map/__tests__/soonestLiveStatusChange.test.ts
+            npx vitest run --no-file-parallelism tests/londonDate.test.ts tests/festivalGridDays.test.ts tests/pinnedDayKeyEdgeTtl.test.ts tests/festivalLoaderEdgeTtl.test.ts tests/seoLandingLoaderEdgeTtl.test.ts tests/homeLoaderEdgeTtl.test.ts src/modules/home-map/__tests__/mapListDerivations.test.ts src/modules/home-map/__tests__/todayLiveStatus.test.ts src/modules/home-map/__tests__/soonestLiveStatusChange.test.ts src/modules/event-page/bento/blocks/__tests__/GroupChatBlock.test.tsx
           fi
 
 
