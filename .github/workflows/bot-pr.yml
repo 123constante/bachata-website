@@ -72,4 +72,12 @@ jobs:
           code="$(api -o resp.json -w '%{http_code}' -X POST "https://api.github.com/repos/$REPO/pulls" --data @pr.json)"
           if [ "$code" = "201" ]; then node -e 'const p=require("./resp.json");console.log("Opened #"+p.number+" as "+p.user.login)'
           elif [ "$code" = "422" ] && grep -q "No commits between" resp.json; then echo "No commits ahead of $BASE yet; the next push retries."
+          elif [ "$code" = "422" ] && grep -q "A pull request already exists" resp.json; then
+            # P155: a worker opened its own PR between the adopt check and this POST. A race, not a
+            # failure: decide again (skips a bot PR, replaces an owner one; a failed replace still exits 1).
+            echo "A PR for $BRANCH was opened meanwhile (race); re-checking it."
+            ADOPT_OUT=adopt-race.out node scripts/lib/bot-pr-adopt.mjs
+            if [ "$(cat adopt-race.out)" = "open" ]; then
+              echo "::warning::GitHub reports a PR for $BRANCH but the list does not show it yet; the next push re-checks."
+            fi
           else echo "::error::PR creation failed (HTTP $code)"; cat resp.json; exit 1; fi
