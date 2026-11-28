@@ -1,3 +1,4 @@
+import { VENUE_ADD_ENABLED, formatVenueAddress } from '@/lib/formatVenueAddress';
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useLocation } from 'react-router-dom';
@@ -488,9 +489,9 @@ const VenueEntity = () => {
   }
 
   // Single display address: street + city + postcode joined with commas.
-  const addressDisplay = [venue.address, venue.city_name, venue.postcode]
-    .filter(Boolean)
-    .join(', ');
+  const addressDisplay = VENUE_ADD_ENABLED()
+    ? (formatVenueAddress({ address: venue.address, postcode: venue.postcode, cityName: venue.city_name }) ?? '')
+    : [venue.address, venue.city_name, venue.postcode].filter(Boolean).join(', ');
 
   const addressLine = [venue.address, venue.postcode].filter(Boolean).join(', ');
   const fullAddress = [venue.address, venue.postcode, venue.country]
