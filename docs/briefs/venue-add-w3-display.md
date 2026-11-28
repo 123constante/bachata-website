@@ -1,5 +1,7 @@
 # Brief W3 (Website repo, UI): one venue address line + dancer facts + "Something wrong?"
 
+
+Size: 5 files, 390 lines
 Owner approved ("build this", 2026-11-28). Plan: DESIGN-REGISTRY row "VENUE ADD PRO". Mockup screen 6: https://claude.ai/artifact/JUNjaPaSYWgPq5rCEjsxmJ
 
 ## Goal
