@@ -3,6 +3,8 @@ import { BentoTile } from '@/modules/event-page/bento/BentoTile';
 import { BLOCK_COLORS, BLOCK_TITLES } from '@/modules/event-page/bento/BentoGrid';
 import type { EventPageModel } from '@/modules/event-page/types';
 import { optimizedImageUrl } from '@/lib/imageCdn';
+import { VENUE_ADD_ENABLED, formatVenueAddress } from '@/lib/formatVenueAddress';
+import { VenueFeedbackSheet } from './VenueFeedbackSheet';
 
 type VenueBlockProps = {
   location: EventPageModel['location'];
@@ -33,14 +35,18 @@ export const VenueBlock = ({ location, showCityLine = false, eventId = null, occ
     Boolean(nearest?.station) && typeof walkMinutes === 'number' && Number.isFinite(walkMinutes);
   const transportMeta = resolveTransportMode(nearest?.mode, nearest?.line_names);
 
-  const showCity = showCityLine && Boolean(location.cityName);
+  const venueAdd = VENUE_ADD_ENABLED();
+  // The one-line address already carries the city when the flag is on.
+  const showCity = showCityLine && Boolean(location.cityName) && !venueAdd;
 
   // Address line: street + postcode, comma-separated. The comma is dropped
   // when there is no postcode so the line never reads "10 Beak Street," with
   // a trailing comma.
-  const addressLine = [location.address, location.postcode]
-    .filter((s): s is string => Boolean(s && s.trim()))
-    .join(', ');
+  const addressLine = venueAdd
+    ? (formatVenueAddress({ address: location.address, postcode: location.postcode, cityName: location.cityName }) ?? '')
+    : [location.address, location.postcode]
+        .filter((s): s is string => Boolean(s && s.trim()))
+        .join(', ');
 
   const href = location.venueId
     ? eventId
@@ -48,7 +54,7 @@ export const VenueBlock = ({ location, showCityLine = false, eventId = null, occ
       : `/venue-entity/${location.venueId}`
     : undefined;
 
-  return (
+  const tile = (
     <BentoTile title={BLOCK_TITLES.venue} color={BLOCK_COLORS.venue} href={href}>
       <div className="flex min-h-0 flex-1 flex-col gap-[4px]">
         {location.venueName && (
@@ -102,5 +108,15 @@ export const VenueBlock = ({ location, showCityLine = false, eventId = null, occ
         )}
       </div>
     </BentoTile>
+  );
+
+  // Flag off: the tile alone, DOM identical to before. Flag on: the feedback
+  // control sits BESIDE the tile link, never inside it.
+  if (!venueAdd || !location.venueId) return tile;
+  return (
+    <div className="flex h-full w-full flex-col">
+      <div className="min-h-0 flex-1">{tile}</div>
+      <VenueFeedbackSheet venueId={location.venueId} />
+    </div>
   );
 };
